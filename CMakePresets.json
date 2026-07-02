@@ -1,0 +1,43 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "gcc16-debug",
+      "displayName": "GCC 16 (Debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "/opt/homebrew/bin/gcc-16",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-16",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "gcc16-release",
+      "displayName": "GCC 16 (Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "/opt/homebrew/bin/gcc-16",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-16",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "gcc16-debug", "configurePreset": "gcc16-debug" },
+    { "name": "gcc16-release", "configurePreset": "gcc16-release" }
+  ],
+  "testPresets": [
+    {
+      "name": "gcc16-debug",
+      "configurePreset": "gcc16-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "gcc16-release",
+      "configurePreset": "gcc16-release",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}
