@@ -14,6 +14,6 @@ TEST(PowerCycleScript, PassesOnFreshDevice) {
 TEST(PowerCycleScript, FailsIfDeviceStartsPoweredOn) {
     hal::Bus bus;
     dut::Device device(bus);
-    device.power_on();  // violates the script's first expectation
+    device.powerOn();  // violates the script's first expectation
     EXPECT_FALSE(scripts::power_cycle_script(device));
 }

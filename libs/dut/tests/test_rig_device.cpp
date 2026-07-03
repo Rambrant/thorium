@@ -88,6 +88,6 @@ TEST(DutRigDevice, UnknownPointReturnsNullopt) {
 TEST(DutRigDevice, HasPointReflectsMap) {
     FakeRig rig;
     dut::RigDevice device{rig, RigDevTestAdapter};
-    EXPECT_TRUE(device.has_point("Port5Vdc"));
-    EXPECT_FALSE(device.has_point("nope"));
+    EXPECT_TRUE(device.hasPoint("Port5Vdc"));
+    EXPECT_FALSE(device.hasPoint("nope"));
 }

@@ -20,7 +20,7 @@ bool fuse_register_script(dut::Device& device)
 {
     bool all_passed = true;
 
-    const auto fuse_value = device.read_fuse_register();
+    const auto fuse_value = device.readFuseRegister();
     all_passed &= dsl::Verify(FS_Fuse_6::FS_Fuse_01, fuse_value);
     all_passed &= dsl::Verify(FS_Fuse_6::FS_Fuse_02, fuse_value);
 
@@ -29,7 +29,7 @@ bool fuse_register_script(dut::Device& device)
     // a core::Voltage directly -- EqPredicate's tolerance logic operates on
     // primitive floating-point types, so quantities get unwrapped at the
     // point they're checked.
-    const auto voltage = device.measure_output_voltage();
+    const auto voltage = device.measureOutputVoltage();
     all_passed &= dsl::Verify("Voltage", "Vout", "Supply voltage",
                                dsl::EQ(12.0).within(0.05), voltage.value());
 

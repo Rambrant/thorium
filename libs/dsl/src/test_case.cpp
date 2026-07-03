@@ -9,37 +9,37 @@ namespace dsl
 
     TestCase & TestCase::powerOn()
     {
-        mDevice.power_on();
-        record("power_on", true);
+        mDevice.powerOn();
+        record("powerOn", true);
 
         return *this;
     }
 
     TestCase & TestCase::powerOff()
     {
-        mDevice.power_off();
-        record("power_off", true);
+        mDevice.powerOff();
+        record("powerOff", true);
 
         return *this;
     }
 
     TestCase & TestCase::expectPoweredOn()
     {
-        record("expectPoweredOn", mDevice.is_powered_on());
+        record("expectPoweredOn", mDevice.isPoweredOn());
 
         return *this;
     }
 
     TestCase & TestCase::expectPoweredOff()
     {
-        record("expectPoweredOff", ! mDevice.is_powered_on());
+        record("expectPoweredOff", ! mDevice.isPoweredOn());
 
         return *this;
     }
 
     TestCase & TestCase::setValue( std::uint32_t value)
     {
-        mDevice.set_value(value);
+        mDevice.setValue(value);
         record("setValue", true);
 
         return *this;
@@ -47,7 +47,7 @@ namespace dsl
 
     TestCase & TestCase::expectValue( std::uint32_t expected)
     {
-        record("expectValue", mDevice.get_value() == expected);
+        record("expectValue", mDevice.getValue() == expected);
 
         return *this;
     }

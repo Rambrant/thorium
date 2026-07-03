@@ -5,37 +5,48 @@
 #include "core/quantity.hpp"
 #include "hal/bus.hpp"
 
-namespace dut {
+namespace dut
+{
+    //
+    // Models the device under test in terms of the hal::Bus primitives.
+    // This is where register maps / memory layout for the actual chip
+    // or board would be defined.
+    //
+    class Device
+    {
+        public:
+            //
+            // Public so test code can poke these registers directly via the bus
+            // to simulate fused/measured values (there's no domain-level "write"
+            // operation for a fuse or a measurement -- those come from hardware).
+            //
+            static constexpr std::uint32_t kFuseRegister    = 0x0008;
+            static constexpr std::uint32_t kVoltageRegister = 0x000C; // millivolts, as an integer
 
-// Models the device under test in terms of the hal::Bus primitives.
-// This is where register maps / memory layout for the actual chip
-// or board would be defined.
-class Device {
-public:
-    // Public so test code can poke these registers directly via the bus
-    // to simulate fused/measured values (there's no domain-level "write"
-    // operation for a fuse or a measurement -- those come from hardware).
-    static constexpr std::uint32_t kFuseRegister = 0x0008;
-    static constexpr std::uint32_t kVoltageRegister = 0x000C;  // millivolts, as an integer
+            explicit Device( hal::Bus & bus );
 
-    explicit Device(hal::Bus& bus);
+            void powerOn();
 
-    void power_on();
-    void power_off();
-    [[nodiscard]] bool is_powered_on() const;
+            void powerOff();
 
-    void set_value(std::uint32_t value);
-    [[nodiscard]] std::uint32_t get_value() const;
+            [[nodiscard]]
+            auto isPoweredOn() const -> bool;
 
-    [[nodiscard]] std::uint32_t read_fuse_register() const;
-    [[nodiscard]] core::Voltage measure_output_voltage() const;
+            auto setValue( std::uint32_t value ) -> void;
 
-private:
-    static constexpr std::uint32_t kPowerRegister = 0x0000;
-    static constexpr std::uint32_t kValueRegister = 0x0004;
+            [[nodiscard]]
+            auto getValue() const -> std::uint32_t;
 
-    hal::Bus& bus_;
-};
+            [[nodiscard]]
+            auto readFuseRegister() const -> std::uint32_t;
 
-}  // namespace dut
+            [[nodiscard]]
+            auto measureOutputVoltage() const -> core::Voltage;
 
+        private:
+            static constexpr std::uint32_t kPowerRegister = 0x0000;
+            static constexpr std::uint32_t kValueRegister = 0x0004;
+
+            hal::Bus & mBus;
+    };
+} // namespace dut

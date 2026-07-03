@@ -15,5 +15,5 @@ TEST(ValueScript, LeavesDeviceValueAtZero) {
     hal::Bus bus;
     dut::Device device(bus);
     ASSERT_TRUE(scripts::value_script(device));
-    EXPECT_EQ(device.get_value(), 0u);
+    EXPECT_EQ(device.getValue(), 0u);
 }

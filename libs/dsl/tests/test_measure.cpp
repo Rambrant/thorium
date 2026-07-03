@@ -20,7 +20,7 @@ namespace
             std::optional<core::Voltage> reading;
             std::string_view             last_point;
 
-            [[nodiscard]] bool has_point( std::string_view name ) const override
+            [[nodiscard]] bool hasPoint( std::string_view name ) const override
             {
                 return name == "5Vdc_port";
             }
