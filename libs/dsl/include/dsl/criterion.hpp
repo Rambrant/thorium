@@ -2,27 +2,27 @@
 
 #include <string_view>
 
-namespace dsl {
-
-template<typename Predicate>
-struct Criterion
+namespace dsl
 {
-    std::string_view group;
-    std::string_view id;
-    std::string_view description;
+    template< typename Predicate>
+    struct Criterion
+    {
+        std::string_view group;
+        std::string_view id;
+        std::string_view description;
 
-    Predicate predicate;
-};
+        Predicate predicate;
+    };
 
-template<typename Predicate>
-Criterion(std::string_view,
-          std::string_view,
-          std::string_view,
-          Predicate)
-    -> Criterion<Predicate>;
+    template< typename Predicate>
+    Criterion( std::string_view,
+               std::string_view,
+               std::string_view,
+               Predicate)
+        -> Criterion<Predicate>;
+} // namespace dsl
 
-}  // namespace dsl
-
+//
 // GROUP/END_GROUP/CRIT: declarative macros for defining named, traceable
 // criteria tables. Each CRIT expands to a `dsl::Criterion` constant that
 // can be passed straight to dsl::Verify. Kept at global scope (rather than
@@ -33,7 +33,8 @@ Criterion(std::string_view,
 //   END_GROUP
 //
 //   dsl::Verify(FS_Fuse_6::FS_Fuse_01, register_value);
-#define GROUP(name, desc)                                       \
+//
+#define GROUP( name, desc)                                       \
     namespace name                                              \
     {                                                            \
         inline constexpr std::string_view GroupName = #name;    \
@@ -41,9 +42,9 @@ Criterion(std::string_view,
 
 #define END_GROUP }
 
-#define CRIT(id, pred, desc)                  \
-    inline constexpr ::dsl::Criterion id       \
-    {                                          \
+#define CRIT( id, pred, desc)                  \
+    inline constexpr ::dsl::Criterion id      \
+    {                                         \
         GroupName,                            \
         #id,                                  \
         desc,                                 \

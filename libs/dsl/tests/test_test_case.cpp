@@ -16,24 +16,24 @@ struct DslFixture : public ::testing::Test {
 
 TEST_F(DslFixture, AllPassingStepsMakeRunReturnTrue) {
     dsl::TestCase test_case("power on works", device);
-    test_case.power_on().expect_powered_on();
+    test_case.powerOn().expectPoweredOn();
     EXPECT_TRUE(test_case.run());
 }
 
 TEST_F(DslFixture, AFailingStepMakesRunReturnFalse) {
     dsl::TestCase test_case("bad expectation", device);
     // Device starts powered off, so this expectation should fail.
-    test_case.expect_powered_on();
+    test_case.expectPoweredOn();
     EXPECT_FALSE(test_case.run());
 }
 
 TEST_F(DslFixture, StepsAreRecordedInOrder) {
     dsl::TestCase test_case("value round trip", device);
-    test_case.set_value(7).expect_value(7);
+    test_case.setValue(7).expectValue(7);
 
     const auto& steps = test_case.steps();
     ASSERT_EQ(steps.size(), 2u);
-    EXPECT_EQ(steps[0].description, "set_value");
-    EXPECT_EQ(steps[1].description, "expect_value");
+    EXPECT_EQ(steps[0].description, "setValue");
+    EXPECT_EQ(steps[1].description, "expectValue");
     EXPECT_TRUE(steps[1].passed);
 }

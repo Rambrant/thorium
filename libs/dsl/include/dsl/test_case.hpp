@@ -4,54 +4,61 @@
 #include <string>
 #include <vector>
 
-#include "core/logger.hpp"
+#include <core/logger.hpp>
 #include "dut/device.hpp"
 
-namespace dsl {
+namespace dsl
+{
+    // Result of a single step within a TestCase.
+    struct StepResult
+    {
+        std::string description;
+        bool        passed;
+    };
 
-// Result of a single step within a TestCase.
-struct StepResult {
-    std::string description;
-    bool passed;
-};
+    //
+    // A small fluent DSL for writing test scripts against a dut::Device.
+    // Each method appends a StepResult and returns *this so calls can be chained:
+    //
+    //   dsl::TestCase("power cycles correctly", device)
+    //       .powerOn()
+    //       .expectPoweredOn()
+    //       .powerOff()
+    //       .expectPoweredOff()
+    //       .run();
+    //
+    // This is the layer test *scripts* (in scripts/) are written against —
+    // scripts should not need to touch hal:: or dut:: directly.
+    //
+    class TestCase
+    {
+        public:
+            TestCase( std::string name, dut::Device & device);
 
-// A small fluent DSL for writing test scripts against a dut::Device.
-// Each method appends a StepResult and returns *this so calls can be chained:
-//
-//   dsl::TestCase("power cycles correctly", device)
-//       .power_on()
-//       .expect_powered_on()
-//       .power_off()
-//       .expect_powered_off()
-//       .run();
-//
-// This is the layer test *scripts* (in scripts/) are written against —
-// scripts should not need to touch hal:: or dut:: directly.
-class TestCase {
-public:
-    TestCase(std::string name, dut::Device& device);
+            TestCase & powerOn();
 
-    TestCase& power_on();
-    TestCase& power_off();
-    TestCase& expect_powered_on();
-    TestCase& expect_powered_off();
+            TestCase & powerOff();
 
-    TestCase& set_value(std::uint32_t value);
-    TestCase& expect_value(std::uint32_t expected);
+            TestCase & expectPoweredOn();
 
-    // Finalizes the test case: logs a summary and returns true only if
-    // every step passed.
-    bool run();
+            TestCase & expectPoweredOff();
 
-    [[nodiscard]] const std::vector<StepResult>& steps() const { return steps_; }
+            TestCase & setValue( std::uint32_t value);
 
-private:
-    void record(std::string description, bool passed);
+            TestCase & expectValue( std::uint32_t expected);
 
-    std::string name_;
-    dut::Device& device_;
-    core::Logger logger_;
-    std::vector<StepResult> steps_;
-};
+            // Finalizes the test case: logs a summary and returns true only if
+            // every step passed.
+            bool run();
 
-}  // namespace dsl
+            [[nodiscard]] const std::vector< StepResult> & steps() const { return mSteps; }
+
+        private:
+            void record( std::string description, bool passed );
+
+            std::string             mName;
+            dut::Device &           mDevice;
+            core::Logger            mLogger;
+            std::vector<StepResult> mSteps;
+    };
+} // namespace dsl
