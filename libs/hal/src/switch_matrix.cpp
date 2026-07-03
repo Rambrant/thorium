@@ -5,14 +5,13 @@
 
 namespace hal
 {
-
-void SwitchMatrix::validate(core::Crosspoint p) const
+    auto SwitchMatrix::validate( const core::Crosspoint point) const -> void
     {
-    if (p.mRow >= mRows || p.mCol >= mCols) {
-        throw std::out_of_range(
-            "crosspoint (" + std::to_string(p.mRow) + "," + std::to_string(p.mCol) +
-            ") outside matrix bounds " + std::to_string(mRows) + "x" + std::to_string(mCols));
+        if( point.mRow >= mRows || point.mCol >= mCols)
+        {
+            throw std::out_of_range(
+                "crosspoint (" + std::to_string( point.mRow) + "," + std::to_string( point.mCol) +
+                ") outside matrix bounds " + std::to_string( mRows) + "x" + std::to_string( mCols));
+        }
     }
-}
-
-}  // namespace hal
+} // namespace hal

@@ -14,8 +14,8 @@ int main() {
 
     // Simulate fuse + voltage register values that would normally come
     // from real hardware.
-    bus.write_register(dut::Device::kFuseRegister, 0xF5);
-    bus.write_register(dut::Device::kVoltageRegister, 12030);  // 12.030 V
+    bus.writeRegister(dut::Device::kFuseRegister, 0xF5);
+    bus.writeRegister(dut::Device::kVoltageRegister, 12030);  // 12.030 V
 
     bool all_passed = true;
 
@@ -31,8 +31,8 @@ int main() {
     // Program simulated instrument readings per matrix crosspoint (would come
     // from real hardware). Crosspoints match DeviceX_StdAdapter:
     // Port5Vdc -> (3,7), Port3V3 -> (3,6).
-    rig.sim_voltmeter().set_reading_at({3, 7}, core::Voltage{5.02});
-    rig.sim_voltmeter().set_reading_at({3, 6}, core::Voltage{3.29});
+    rig.simVoltmeter().setReadingAt({3, 7}, core::Voltage{5.02});
+    rig.simVoltmeter().setReadingAt({3, 6}, core::Voltage{3.29});
     dut::RigDevice rig_device{rig, DeviceX_StdAdapter};
 
     all_passed &= scripts::supply_rail_script(rig_device);

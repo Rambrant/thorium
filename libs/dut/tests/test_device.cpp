@@ -46,7 +46,7 @@ TEST( DutDevice, ReadsFuseRegisterWrittenDirectlyToBus)
 {
     hal::Bus          bus;
     const dut::Device device( bus);
-    bus.write_register( dut::Device::kFuseRegister, 0xF5);
+    bus.writeRegister( dut::Device::kFuseRegister, 0xF5);
 
     EXPECT_EQ( device.readFuseRegister(), 0xF5u);
 }
@@ -55,7 +55,7 @@ TEST( DutDevice, MeasuresVoltageFromMillivoltRegister)
 {
     hal::Bus          bus;
     const dut::Device device( bus);
-    bus.write_register( dut::Device::kVoltageRegister, 12030); // 12.030 V
+    bus.writeRegister( dut::Device::kVoltageRegister, 12030); // 12.030 V
 
     EXPECT_DOUBLE_EQ( device.measureOutputVoltage().value(), 12.03);
 }

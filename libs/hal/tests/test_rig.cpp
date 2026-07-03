@@ -4,51 +4,66 @@
 
 #include "core/rig.hpp"
 
-TEST(HalRig, ExposesInstrumentsThroughCoreInterface) {
-    hal::SimRig rig;
-    core::IRig& as_interface = rig;
-    EXPECT_NE(as_interface.oscilloscope(), nullptr);
-    EXPECT_NE(as_interface.voltmeter(), nullptr);
-    EXPECT_NE(as_interface.powerSupply(), nullptr);
+TEST( HalRig, ExposesInstrumentsThroughCoreInterface)
+{
+    hal::SimRig  rig;
+
+    core::IRig & interface = rig;
+
+    EXPECT_NE( interface.oscilloscope(), nullptr);
+    EXPECT_NE( interface.voltmeter(), nullptr);
+    EXPECT_NE( interface.powerSupply(), nullptr);
 }
 
-TEST(HalRig, ProgrammedScopeReadingIsVisibleThroughInterface) {
+TEST( HalRig, ProgrammedScopeReadingIsVisibleThroughInterface)
+{
     hal::SimRig rig;
-    rig.sim_scope().set_level(core::Voltage{5.0});
 
-    core::IRig& as_interface = rig;
-    EXPECT_DOUBLE_EQ(as_interface.oscilloscope()->measureLevel().value(), 5.0);
+    rig.simScope().setLevel(core::Voltage{ 5.0 });
+
+    core::IRig & interface = rig;
+
+    EXPECT_DOUBLE_EQ( interface.oscilloscope()->measureLevel().value(), 5.0);
 }
 
-TEST(HalRig, PowerSupplyRoundTripsThroughInterface) {
-    hal::SimRig rig;
-    core::IRig& as_interface = rig;
-    auto* supply = as_interface.powerSupply();
-    supply->setOutput(core::Voltage{3.3});
+TEST( HalRig, PowerSupplyRoundTripsThroughInterface)
+{
+    hal::SimRig  rig;
+    core::IRig & interface = rig;
+    auto *       supply    = interface.powerSupply();
+
+    supply->setOutput( core::Voltage{ 3.3 });
     supply->enable();
 
-    EXPECT_DOUBLE_EQ(rig.sim_supply().output().value(), 3.3);
-    EXPECT_TRUE(rig.sim_supply().enabled());
+    EXPECT_DOUBLE_EQ( rig.simSupply().output().value(), 3.3);
+    EXPECT_TRUE( rig.simSupply().enabled());
 }
 
-TEST(HalRig, MatrixAccessibleThroughInterface) {
-    hal::SimRig rig;
-    core::IRig& as_interface = rig;
-    as_interface.matrix().close({2, 3});
-    EXPECT_TRUE(as_interface.matrix().isClosed({2, 3}));
+TEST( HalRig, MatrixAccessibleThroughInterface)
+{
+    hal::SimRig  rig;
+    core::IRig & interface = rig;
+
+    interface.matrix().close({ 2, 3 });
+
+    EXPECT_TRUE( interface.matrix().isClosed({2, 3}));
 }
 
-TEST(HalRig, PerCrosspointVoltmeterReadingFollowsMatrixRouting) {
+TEST( HalRig, PerCrosspointVoltmeterReadingFollowsMatrixRouting)
+{
     hal::SimRig rig;
-    rig.sim_voltmeter().set_reading_at({3, 7}, core::Voltage{5.0});
-    rig.sim_voltmeter().set_reading_at({3, 6}, core::Voltage{3.3});
 
-    core::IRig& as_interface = rig;
+    rig.simVoltmeter().setReadingAt({ 3, 7 }, core::Voltage{ 5.0 });
+    rig.simVoltmeter().setReadingAt({ 3, 6 }, core::Voltage{ 3.3 });
 
-    as_interface.matrix().close({3, 7});
-    EXPECT_DOUBLE_EQ(as_interface.voltmeter()->measureVoltage().value(), 5.0);
+    core::IRig & interface = rig;
 
-    as_interface.matrix().openAll();
-    as_interface.matrix().close({3, 6});
-    EXPECT_DOUBLE_EQ(as_interface.voltmeter()->measureVoltage().value(), 3.3);
+    interface.matrix().close({ 3, 7 });
+
+    EXPECT_DOUBLE_EQ( interface.voltmeter()->measureVoltage().value(), 5.0);
+
+    interface.matrix().openAll();
+    interface.matrix().close({ 3, 6 });
+
+    EXPECT_DOUBLE_EQ( interface.voltmeter()->measureVoltage().value(), 3.3);
 }

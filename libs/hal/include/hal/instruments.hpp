@@ -5,70 +5,121 @@
 #include "core/instrument.hpp"
 #include "core/switch_matrix.hpp"
 
-namespace hal {
+namespace hal
+{
+    //
+    // Concrete, simulated instruments. On a real rig these would drive actual
+    // hardware (VISA/SCPI, vendor SDKs, etc.); here they return programmable
+    // canned values so the whole stack is testable without a bench. Each
+    // implements a core:: interface, so nothing above hal names these types.
 
-// Concrete, simulated instruments. On a real rig these would drive actual
-// hardware (VISA/SCPI, vendor SDKs, etc.); here they return programmable
-// canned values so the whole stack is testable without a bench. Each
-// implements a core:: interface, so nothing above hal names these types.
+    // A voltmeter whose reading depends on which matrix crosspoint is currently
+    // routed to it -- mimicking real hardware, where the value you read reflects
+    // whatever the matrix has connected. Falls back to a default reading for any
+    // crosspoint not explicitly programmed.
+    //
+    class SimVoltmeter : public core::IVoltmeter
+    {
+        public:
+            explicit SimVoltmeter( core::Voltage defaultReading) :
+                mDefault( defaultReading)
+            {}
 
-// A voltmeter whose reading depends on which matrix crosspoint is currently
-// routed to it -- mimicking real hardware, where the value you read reflects
-// whatever the matrix has connected. Falls back to a default reading for any
-// crosspoint not explicitly programmed.
-class SimVoltmeter : public core::IVoltmeter {
-public:
-    explicit SimVoltmeter(core::Voltage default_reading) : default_(default_reading) {}
+            auto setReading( core::Voltage v ) -> void
+            {
+                mDefault = v;
+            }
 
-    void set_reading(core::Voltage v) { default_ = v; }
+            //
+            // Program the reading seen when a specific crosspoint is the live route.
+            //
+            auto setReadingAt( core::Crosspoint point, core::Voltage voltage) -> void
+            {
+                mByPoint[key(point)] = voltage;
+            }
 
-    // Program the reading seen when a specific crosspoint is the live route.
-    void set_reading_at(core::Crosspoint point, core::Voltage v) {
-        by_point_[key(point)] = v;
-    }
+            //
+            // Called by the rig to tell the instrument which crosspoint is live.
+            //
+            auto setActiveCrosspoint( core::Crosspoint point) -> void
+            {
+                mActive = point;
+            }
 
-    // Called by the rig to tell the instrument which crosspoint is live.
-    void set_active_crosspoint(core::Crosspoint point) { active_ = point; }
+            [[nodiscard]]
+            auto measureVoltage() -> core::Voltage override
+            {
+                auto it = mByPoint.find(key( mActive));
 
-    [[nodiscard]] core::Voltage measureVoltage() override {
-        auto it = by_point_.find(key(active_));
-        return it != by_point_.end() ? it->second : default_;
-    }
+                return it != mByPoint.end() ? it->second : mDefault;
+            }
 
-private:
-    [[nodiscard]] static std::uint32_t key(core::Crosspoint p) {
-        return (static_cast<std::uint32_t>(p.mRow) << 16) | p.mCol;
-    }
+        private:
+            [[nodiscard]]
+            static auto key( const core::Crosspoint point) -> std::uint32_t
+            {
+                return (static_cast< std::uint32_t>(point.mRow) << 16) | point.mCol;
+            }
 
-    core::Voltage default_;
-    core::Crosspoint active_{0xFFFF, 0xFFFF};
-    std::map<std::uint32_t, core::Voltage> by_point_;
-};
+            core::Voltage                          mDefault;
+            core::Crosspoint                       mActive{ 0xFFFF, 0xFFFF };
+            std::map<std::uint32_t, core::Voltage> mByPoint;
+    };
 
-class SimOscilloscope : public core::IOscilloscope {
-public:
-    explicit SimOscilloscope(core::Voltage level) : level_(level) {}
+    class SimOscilloscope : public core::IOscilloscope
+    {
+        public:
+            explicit SimOscilloscope( core::Voltage level) :
+                mLevel(level)
+            {}
 
-    void set_level(core::Voltage v) { level_ = v; }
+            auto setLevel( core::Voltage voltage) -> void
+            {
+                mLevel = voltage;
+            }
 
-    [[nodiscard]] core::Voltage measureLevel() override { return level_; }
+            [[nodiscard]]
+            auto measureLevel() -> core::Voltage override
+            {
+                return mLevel;
+            }
 
-private:
-    core::Voltage level_;
-};
+        private:
+            core::Voltage mLevel;
+    };
 
-class SimPowerSupply : public core::IPowerSupply {
-public:
-    void setOutput(core::Voltage v) override { output_ = v; }
-    void enable() override { enabled_ = true; }
-    void disable() override { enabled_ = false; }
+    class SimPowerSupply : public core::IPowerSupply
+    {
+        public:
+            auto setOutput( core::Voltage voltage ) -> void override
+            {
+                mOutput = voltage;
+            }
 
-    [[nodiscard]] core::Voltage output() const { return output_; }
-    [[nodiscard]] bool enabled() const { return enabled_; }
+            auto enable() -> void override
+            {
+                mEnabled = true;
+            }
 
-private:
-    core::Voltage output_{0.0};
-    bool enabled_{false};
-};
+            auto disable() -> void override
+            {
+                mEnabled = false;
+            }
 
-}  // namespace hal
+            [[nodiscard]]
+            auto output() const -> core::Voltage
+            {
+                return mOutput;
+            }
+
+            [[nodiscard]]
+            auto enabled() const -> bool
+            {
+                return mEnabled;
+            }
+
+        private:
+            core::Voltage mOutput{ 0.0 };
+            bool          mEnabled{ false };
+    };
+} // namespace hal

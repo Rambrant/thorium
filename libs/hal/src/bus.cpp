@@ -1,17 +1,22 @@
 #include "hal/bus.hpp"
 
-namespace hal {
+namespace hal
+{
+    Bus::Bus() :
+        mLogger( "hal::Bus")
+    {}
 
-Bus::Bus() : logger_("hal::Bus") {}
+    auto Bus::writeRegister( const std::uint32_t address, const std::uint32_t value ) -> void
+    {
+        mRegisters[address] = value;
 
-void Bus::write_register(std::uint32_t address, std::uint32_t value) {
-    registers_[address] = value;
-    logger_.log(core::LogLevel::Debug, "wrote register");
-}
+        mLogger.log(core::LogLevel::Debug, "wrote register");
+    }
 
-std::uint32_t Bus::read_register(std::uint32_t address) const {
-    auto it = registers_.find(address);
-    return it != registers_.end() ? it->second : 0;
-}
+    auto Bus::readRegister( const std::uint32_t address) const -> std::uint32_t
+    {
+        auto it = mRegisters.find(address);
 
-}  // namespace hal
+        return it != mRegisters.end() ? it->second : 0;
+    }
+} // namespace hal
