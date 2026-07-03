@@ -8,12 +8,12 @@
 TEST(PowerCycleScript, PassesOnFreshDevice) {
     hal::Bus bus;
     dut::Device device(bus);
-    EXPECT_TRUE(scripts::power_cycle_script(device));
+    EXPECT_TRUE(scripts::powerCycleScript(device));
 }
 
 TEST(PowerCycleScript, FailsIfDeviceStartsPoweredOn) {
     hal::Bus bus;
     dut::Device device(bus);
     device.powerOn();  // violates the script's first expectation
-    EXPECT_FALSE(scripts::power_cycle_script(device));
+    EXPECT_FALSE(scripts::powerCycleScript(device));
 }

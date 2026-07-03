@@ -2,16 +2,18 @@
 
 #include "dsl/test_case.hpp"
 
-namespace scripts {
+namespace scripts
+{
+    auto powerCycleScript( dut::Device & device) -> bool
+    {
+        dsl::TestCase test_case( "powerCycleScript", device);
 
-bool power_cycle_script(dut::Device& device) {
-    dsl::TestCase test_case("power_cycle_script", device);
-    test_case.expectPoweredOff()
-        .powerOn()
-        .expectPoweredOn()
-        .powerOff()
-        .expectPoweredOff();
-    return test_case.run();
-}
+        test_case.expectPoweredOff()
+                 .powerOn()
+                 .expectPoweredOn()
+                 .powerOff()
+                 .expectPoweredOff();
 
-}  // namespace scripts
+        return test_case.run();
+    }
+} // namespace scripts

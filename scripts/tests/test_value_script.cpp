@@ -8,12 +8,12 @@
 TEST(ValueScript, PassesOnFreshDevice) {
     hal::Bus bus;
     dut::Device device(bus);
-    EXPECT_TRUE(scripts::value_script(device));
+    EXPECT_TRUE(scripts::valueScript(device));
 }
 
 TEST(ValueScript, LeavesDeviceValueAtZero) {
     hal::Bus bus;
     dut::Device device(bus);
-    ASSERT_TRUE(scripts::value_script(device));
+    ASSERT_TRUE(scripts::valueScript(device));
     EXPECT_EQ(device.getValue(), 0u);
 }

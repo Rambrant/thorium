@@ -37,7 +37,7 @@ TEST(SupplyRailScript, PassesWhenBothRailsInTolerance)
     FakeDevice device;
     device.readings["Port5Vdc"] = core::Voltage{ 5.02 };
     device.readings["Port3V3"]  = core::Voltage{ 3.29 };
-    EXPECT_TRUE(scripts::supply_rail_script(device));
+    EXPECT_TRUE(scripts::supplyRailScript(device));
 }
 
 TEST(SupplyRailScript, FailsWhenARailIsOutOfTolerance)
@@ -45,7 +45,7 @@ TEST(SupplyRailScript, FailsWhenARailIsOutOfTolerance)
     FakeDevice device;
     device.readings["Port5Vdc"] = core::Voltage{ 5.02 };
     device.readings["Port3V3"]  = core::Voltage{ 3.10 }; // outside +/-50mV
-    EXPECT_FALSE(scripts::supply_rail_script(device));
+    EXPECT_FALSE(scripts::supplyRailScript(device));
 }
 
 TEST(SupplyRailScript, FailsWhenAPointIsMissing)
@@ -53,5 +53,5 @@ TEST(SupplyRailScript, FailsWhenAPointIsMissing)
     FakeDevice device;
     device.readings["Port5Vdc"] = core::Voltage{ 5.02 };
     // Port3V3 not provided at all
-    EXPECT_FALSE(scripts::supply_rail_script(device));
+    EXPECT_FALSE(scripts::supplyRailScript(device));
 }

@@ -2,12 +2,14 @@
 
 #include "dsl/test_case.hpp"
 
-namespace scripts {
+namespace scripts
+{
+    auto valueScript( dut::Device & device) -> bool
+    {
+        dsl::TestCase testCase( "valueScript", device);
 
-bool value_script(dut::Device& device) {
-    dsl::TestCase test_case("value_script", device);
-    test_case.setValue(123).expectValue(123).setValue(0).expectValue(0);
-    return test_case.run();
-}
+        testCase.setValue( 123).expectValue( 123).setValue( 0).expectValue( 0);
 
-}  // namespace scripts
+        return testCase.run();
+    }
+} // namespace scripts

@@ -7,38 +7,48 @@
 #include "scripts/device_x_profile.hpp"
 #include "scripts/scripts.hpp"
 
-int main() {
+int main()
+{
+    //
     // --- Register-bus based scripts (existing) ---
-    hal::Bus bus;
-    dut::Device device(bus);
+    //
+    hal::Bus    bus;
+    dut::Device device( bus);
 
+    //
     // Simulate fuse + voltage register values that would normally come
     // from real hardware.
-    bus.writeRegister(dut::Device::kFuseRegister, 0xF5);
-    bus.writeRegister(dut::Device::kVoltageRegister, 12030);  // 12.030 V
+    //
+    bus.writeRegister( dut::Device::kFuseRegister, 0xF5);
+    bus.writeRegister( dut::Device::kVoltageRegister, 12030); // 12.030 V
 
-    bool all_passed = true;
+    bool allPassed = true;
 
-    all_passed &= scripts::power_cycle_script(device);
-    all_passed &= scripts::value_script(device);
-    all_passed &= scripts::fuse_register_script(device);
+    allPassed &= scripts::powerCycleScript( device);
+    allPassed &= scripts::valueScript( device);
+    allPassed &= scripts::fuseRegisterScript( device);
 
+    //
     // --- Composition root for the instrument/matrix path ---
     // This is the one place that chooses the concrete rig and binds the DUT
     // profile (routing table) to it. The RigDevice is handed to scripts as a
     // dut::DeviceView, so nothing above sees the concrete rig or instruments.
+    //
     hal::SimRig rig;
+
+    //
     // Program simulated instrument readings per matrix crosspoint (would come
     // from real hardware). Crosspoints match DeviceX_StdAdapter:
     // Port5Vdc -> (3,7), Port3V3 -> (3,6).
-    rig.simVoltmeter().setReadingAt({3, 7}, core::Voltage{5.02});
-    rig.simVoltmeter().setReadingAt({3, 6}, core::Voltage{3.29});
-    dut::RigDevice rig_device{rig, DeviceX_StdAdapter};
+    //
+    rig.simVoltmeter().setReadingAt({ 3, 7 }, core::Voltage{ 5.02 });
+    rig.simVoltmeter().setReadingAt({ 3, 6 }, core::Voltage{ 3.29 });
 
-    all_passed &= scripts::supply_rail_script(rig_device);
+    dut::RigDevice rigDevice{ rig, DeviceX_StdAdapter };
 
-    std::cout << "\n=== " << (all_passed ? "ALL SCRIPTS PASSED" : "SOME SCRIPTS FAILED")
-              << " ===\n";
+    allPassed &= scripts::supplyRailScript( rigDevice);
 
-    return all_passed ? 0 : 1;
+    std::cout << "\n=== " << (allPassed ? "ALL SCRIPTS PASSED" : "SOME SCRIPTS FAILED") << " ===\n";
+
+    return allPassed ? 0 : 1;
 }

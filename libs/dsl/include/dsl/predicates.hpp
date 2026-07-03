@@ -17,7 +17,7 @@ namespace dsl
         // *uses* epsilon in the floating_point branch. Constraining here turns
         // a silent no-op (the original bug) into a compile error instead.
         //
-        constexpr auto within( T eps ) const
+        constexpr auto within( T eps) const
             requires std::floating_point<T>
         {
             auto copy    = *this;
@@ -26,7 +26,7 @@ namespace dsl
             return copy;
         }
 
-        constexpr auto operator()( const T & actual ) const -> bool
+        constexpr auto operator()( const T & actual) const -> bool
         {
             if constexpr( std::floating_point<T>)
             {
