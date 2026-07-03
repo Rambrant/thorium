@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.30)  # 3.30+ needed: CXX_STANDARD 26 support
 
 # --- Force GCC 16 (Homebrew) instead of Apple Clang ---
 # Must be set BEFORE the project() call.
@@ -11,7 +11,7 @@ endif()
 
 project(TestFramework LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -23,7 +23,13 @@ endif()
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER} (${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION})")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-add_compile_options(-Wall -Wextra -Wpedantic)
+# -freflection and -fcontracts are experimental C++26 features (GCC 16+ only)
+# and require -std=c++26 (set above). -fcontracts must ALSO be passed at
+# link time -- CMake compiles/links as separate steps, unlike invoking g++
+# directly -- or you'll get missing-symbol errors for the default contract
+# violation handler.
+add_compile_options(-Wall -Wextra -Wpedantic -Werror -fcontracts -freflection)
+add_link_options(-fcontracts)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 

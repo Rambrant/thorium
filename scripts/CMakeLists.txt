@@ -3,6 +3,9 @@
 add_library(scripts STATIC
     src/power_cycle_script.cpp
     src/value_script.cpp
+    src/fuse_register_script.cpp
+    src/supply_rail_script.cpp
+    include/scripts/device_x_profile.hpp   # header-only
 )
 
 target_include_directories(scripts PUBLIC
@@ -20,5 +23,7 @@ if(BUILD_TESTING_LAYERS)
     add_layer_tests(scripts scripts
         tests/test_power_cycle_script.cpp
         tests/test_value_script.cpp
+        tests/test_fuse_register_script.cpp
+        tests/test_supply_rail_script.cpp
     )
 endif()
