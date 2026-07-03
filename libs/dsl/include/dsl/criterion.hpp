@@ -34,15 +34,15 @@ namespace dsl
 //
 //   dsl::Verify(FS_Fuse_6::FS_Fuse_01, register_value);
 //
-#define GROUP( name, desc)                                       \
+#define GROUP( name, desc)                                      \
     namespace name                                              \
-    {                                                            \
+    {                                                           \
         inline constexpr std::string_view GroupName = #name;    \
         inline constexpr std::string_view GroupDescription = desc;
 
 #define END_GROUP }
 
-#define CRIT( id, pred, desc)                  \
+#define CRIT( id, pred, desc)                 \
     inline constexpr ::dsl::Criterion id      \
     {                                         \
         GroupName,                            \
