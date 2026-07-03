@@ -51,7 +51,7 @@ public:
 
         // Establish the connection: close this point's crosspoint. We open
         // the matrix first so only the intended path is live.
-        rig_.matrix().open_all();
+        rig_.matrix().openAll();
         rig_.matrix().close(point->crosspoint);
 
         // Select the instrument abstractly and fetch. The rig hands back a
@@ -59,12 +59,12 @@ public:
         switch (point->instrument) {
             case Instrument::Voltmeter:
                 if (auto* vm = rig_.voltmeter()) {
-                    return vm->measure_voltage();
+                    return vm->measureVoltage();
                 }
                 return std::nullopt;
             case Instrument::Oscilloscope:
                 if (auto* scope = rig_.oscilloscope()) {
-                    return scope->measure_level();
+                    return scope->measureLevel();
                 }
                 return std::nullopt;
             case Instrument::PowerSupply:

@@ -19,7 +19,7 @@ public:
 
     [[nodiscard]] core::IOscilloscope* oscilloscope() override { return &scope_; }
     [[nodiscard]] core::IVoltmeter* voltmeter() override { return &voltmeter_; }
-    [[nodiscard]] core::IPowerSupply* power_supply() override { return &supply_; }
+    [[nodiscard]] core::IPowerSupply* powerSupply() override { return &supply_; }
     [[nodiscard]] core::ISwitchMatrix& matrix() override { return matrix_; }
 
     // Direct access to the concrete instruments, for tests/harness setup that

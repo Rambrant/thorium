@@ -30,14 +30,14 @@ public:
     // Called by the rig to tell the instrument which crosspoint is live.
     void set_active_crosspoint(core::Crosspoint point) { active_ = point; }
 
-    [[nodiscard]] core::Voltage measure_voltage() override {
+    [[nodiscard]] core::Voltage measureVoltage() override {
         auto it = by_point_.find(key(active_));
         return it != by_point_.end() ? it->second : default_;
     }
 
 private:
     [[nodiscard]] static std::uint32_t key(core::Crosspoint p) {
-        return (static_cast<std::uint32_t>(p.row) << 16) | p.col;
+        return (static_cast<std::uint32_t>(p.mRow) << 16) | p.mCol;
     }
 
     core::Voltage default_;
@@ -51,7 +51,7 @@ public:
 
     void set_level(core::Voltage v) { level_ = v; }
 
-    [[nodiscard]] core::Voltage measure_level() override { return level_; }
+    [[nodiscard]] core::Voltage measureLevel() override { return level_; }
 
 private:
     core::Voltage level_;
@@ -59,7 +59,7 @@ private:
 
 class SimPowerSupply : public core::IPowerSupply {
 public:
-    void set_output(core::Voltage v) override { output_ = v; }
+    void setOutput(core::Voltage v) override { output_ = v; }
     void enable() override { enabled_ = true; }
     void disable() override { enabled_ = false; }
 

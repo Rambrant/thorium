@@ -15,8 +15,8 @@ public:
     public:
         void close(core::Crosspoint p) override { last_closed = p; ++close_count; }
         void open(core::Crosspoint) override {}
-        void open_all() override { ++open_all_count; }
-        [[nodiscard]] bool is_closed(core::Crosspoint p) const override { return p == last_closed; }
+        void openAll() override { ++open_all_count; }
+        [[nodiscard]] bool isClosed(core::Crosspoint p) const override { return p == last_closed; }
 
         core::Crosspoint last_closed{0xFFFF, 0xFFFF};
         int close_count{0};
@@ -26,18 +26,18 @@ public:
     class FakeVoltmeter : public core::IVoltmeter {
     public:
         core::Voltage reading{0.0};
-        [[nodiscard]] core::Voltage measure_voltage() override { return reading; }
+        [[nodiscard]] core::Voltage measureVoltage() override { return reading; }
     };
 
     class FakeScope : public core::IOscilloscope {
     public:
         core::Voltage level{0.0};
-        [[nodiscard]] core::Voltage measure_level() override { return level; }
+        [[nodiscard]] core::Voltage measureLevel() override { return level; }
     };
 
     [[nodiscard]] core::IOscilloscope* oscilloscope() override { return &scope; }
     [[nodiscard]] core::IVoltmeter* voltmeter() override { return &vm; }
-    [[nodiscard]] core::IPowerSupply* power_supply() override { return nullptr; }
+    [[nodiscard]] core::IPowerSupply* powerSupply() override { return nullptr; }
     [[nodiscard]] core::ISwitchMatrix& matrix() override { return mtx; }
 
     FakeMatrix mtx;

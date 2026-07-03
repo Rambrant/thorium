@@ -14,7 +14,7 @@ namespace hal {
 // the rig's hardware and is enforced here.
 class SwitchMatrix : public core::ISwitchMatrix {
 public:
-    SwitchMatrix(std::uint16_t rows, std::uint16_t cols) : rows_(rows), cols_(cols) {}
+    SwitchMatrix(std::uint16_t rows, std::uint16_t cols) : mRows(rows), mCols(cols) {}
 
     void close(core::Crosspoint point) override {
         validate(point);
@@ -26,24 +26,24 @@ public:
         closed_.erase(key(point));
     }
 
-    void open_all() override { closed_.clear(); }
+    void openAll() override { closed_.clear(); }
 
-    [[nodiscard]] bool is_closed(core::Crosspoint point) const override {
+    [[nodiscard]] bool isClosed(core::Crosspoint point) const override {
         return closed_.count(key(point)) > 0;
     }
 
-    [[nodiscard]] std::uint16_t rows() const { return rows_; }
-    [[nodiscard]] std::uint16_t cols() const { return cols_; }
+    [[nodiscard]] std::uint16_t rows() const { return mRows; }
+    [[nodiscard]] std::uint16_t cols() const { return mCols; }
 
 private:
     [[nodiscard]] std::uint32_t key(core::Crosspoint p) const {
-        return (static_cast<std::uint32_t>(p.row) << 16) | p.col;
+        return (static_cast<std::uint32_t>(p.mRow) << 16) | p.mCol;
     }
 
     void validate(core::Crosspoint p) const;
 
-    std::uint16_t rows_;
-    std::uint16_t cols_;
+    std::uint16_t mRows;
+    std::uint16_t mCols;
     std::set<std::uint32_t> closed_;
 };
 
