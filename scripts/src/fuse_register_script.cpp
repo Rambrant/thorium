@@ -3,7 +3,7 @@
 #include "core/criterion.hpp"
 #include "core/predicates.hpp"
 #include "core/quantity.hpp"
-#include "dsl/verify.hpp"
+#include "../../libs/core/include/core/verify.hpp"
 
 using namespace core::literals;
 
@@ -25,8 +25,8 @@ namespace scripts
 
         const auto fuseValue = device.readFuseRegister();
 
-        allPassed &= dsl::Verify(FS_Fuse_6::FS_Fuse_01, fuseValue);
-        allPassed &= dsl::Verify(FS_Fuse_6::FS_Fuse_02, fuseValue);
+        allPassed &= core::Verify( FS_Fuse_6::FS_Fuse_01, fuseValue);
+        allPassed &= core::Verify( FS_Fuse_6::FS_Fuse_02, fuseValue);
 
         //
         // Ad-hoc check (no CRIT constant declared up front) against a measured
@@ -37,7 +37,7 @@ namespace scripts
         //
         const auto voltage = device.measureOutputVoltage();
 
-        allPassed &= dsl::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).within( 0.05), voltage.value());
+        allPassed &= core::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).within( 0.05), voltage.value());
 
         return allPassed;
     }

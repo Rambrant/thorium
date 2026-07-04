@@ -4,7 +4,7 @@
 
 #include "core/criterion.hpp"
 #include "core/quantity.hpp"
-#include "dsl/verify.hpp"
+#include "../../../core/include/core/verify.hpp"
 #include "dut/rig_device.hpp"
 
 namespace dsl
@@ -39,7 +39,7 @@ namespace dsl
             // Point unknown or instrument unavailable: report as a failed check
             // rather than silently passing.
             //
-            detail::reportResult( criterion.group, criterion.id, criterion.description, false);
+            core::detail::reportResult( criterion.group, criterion.id, criterion.description, false);
 
             return false;
         }

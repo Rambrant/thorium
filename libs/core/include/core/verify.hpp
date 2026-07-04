@@ -4,7 +4,7 @@
 
 #include "core/criterion.hpp"
 
-namespace dsl
+namespace core
 {
     namespace detail
     {
@@ -48,4 +48,4 @@ namespace dsl
     {
         return Verify( core::Criterion{ group, id, description, predicate }, value);
     }
-} // namespace dsl
+} // namespace core
