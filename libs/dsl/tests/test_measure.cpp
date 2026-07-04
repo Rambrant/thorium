@@ -4,8 +4,8 @@
 
 #include <optional>
 
-#include "dsl/criterion.hpp"
-#include "dsl/predicates.hpp"
+#include "core/criterion.hpp"
+#include "core/predicates.hpp"
 #include "dut/rig_device.hpp"
 
 namespace
@@ -38,7 +38,7 @@ namespace
 } // namespace
 
 GROUP( FS_Supply, "Supply rail checks")
-    CRIT( FS_Vout_01, dsl::EQ(5.0).within(0.05), "5Vdc rail within tolerance")
+    CRIT( FS_Vout_01, core::EQ(5.0).within(0.05), "5Vdc rail within tolerance")
 END_GROUP
 
 TEST( DslMeasure, PassesWhenReadingMeetsCriterion)

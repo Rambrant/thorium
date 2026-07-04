@@ -1,7 +1,7 @@
 #include "scripts/scripts.hpp"
 
-#include "dsl/criterion.hpp"
-#include "dsl/predicates.hpp"
+#include "core/criterion.hpp"
+#include "core/predicates.hpp"
 #include "core/quantity.hpp"
 #include "dsl/verify.hpp"
 
@@ -13,8 +13,8 @@ using namespace core::literals;
 // register addresses on dut::Device.
 //
 GROUP( FS_Fuse_6, "Check of Fuses @ Register CB30")
-    CRIT( FS_Fuse_01, dsl::BAND( 0x0Fu, 0x05u), "Low nibble of fuse register must be 0x5")
-    CRIT( FS_Fuse_02, dsl::EQ( 0xF5u), "Fuse register must read exactly 0xF5")
+    CRIT( FS_Fuse_01, core::BAND( 0x0Fu, 0x05u), "Low nibble of fuse register must be 0x5")
+    CRIT( FS_Fuse_02, core::EQ( 0xF5u), "Fuse register must read exactly 0xF5")
 END_GROUP
 
 namespace scripts
@@ -37,7 +37,7 @@ namespace scripts
         //
         const auto voltage = device.measureOutputVoltage();
 
-        allPassed &= dsl::Verify( "Voltage", "Vout", "Supply voltage", dsl::EQ( 12.0).within( 0.05), voltage.value());
+        allPassed &= dsl::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).within( 0.05), voltage.value());
 
         return allPassed;
     }

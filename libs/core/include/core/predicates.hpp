@@ -3,8 +3,15 @@
 #include <cmath>
 #include <concepts>
 
-namespace dsl
+namespace core
 {
+    //
+    // Predicate vocabulary for the framework. A predicate is any callable that
+    // takes one or more values and yields bool -- see PredicateFor in
+    // criterion.hpp for the concept. These live in core so any rig/device (or a
+    // standalone package built on this framework) can reuse them.
+    //
+
     template<typename T>
     struct EqPredicate
     {
@@ -15,7 +22,7 @@ namespace dsl
         // Constrained to floating_point: epsilon tolerance is meaningless for
         // exact types (ints, enums, ...), and operator() below only ever
         // *uses* epsilon in the floating_point branch. Constraining here turns
-        // a silent no-op (the original bug) into a compile error instead.
+        // a silent no-op into a compile error instead.
         //
         constexpr auto within( T eps) const
             requires std::floating_point<T>
@@ -52,17 +59,18 @@ namespace dsl
         T high;
         T epsilon{};
 
-        constexpr auto within( T eps ) const
+        constexpr auto within( T eps) const
             requires std::floating_point<T>
         {
             auto copy    = *this;
             copy.epsilon = eps;
+
             return copy;
         }
 
-        constexpr bool operator()( const T & actual ) const
+        constexpr auto operator()( const T & actual) const -> bool
         {
-            if constexpr( std::floating_point<T> )
+            if constexpr( std::floating_point<T>)
             {
                 return actual >= low - epsilon &&
                        actual <= high + epsilon;
@@ -87,7 +95,7 @@ namespace dsl
         T mask;
         T expected;
 
-        constexpr bool operator()( const T & value ) const
+        constexpr auto operator()( const T & value) const -> bool
         {
             return (value & mask) == expected;
         }
@@ -98,4 +106,4 @@ namespace dsl
     {
         return BandPredicate<T>{ mask, expected };
     }
-} // namespace dsl
+} // namespace core

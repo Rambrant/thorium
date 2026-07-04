@@ -2,13 +2,10 @@
 
 #include <string_view>
 
-#include "criterion.hpp"
-#include "verify.hpp"
+#include "core/criterion.hpp"
 #include "core/quantity.hpp"
-#include "dsl/criterion.hpp"
 #include "dsl/verify.hpp"
 #include "dut/rig_device.hpp"
-
 
 namespace dsl
 {
@@ -23,18 +20,18 @@ namespace dsl
     // the dsl layer orchestrates measurement without selecting the concrete rig
     // or instruments -- keeping it unit-testable against a fake device.
     //
-    //   Measure(device, FS_Vout_01, "5Vdc_port");
+    //   Measure( device, FS_Supply::FS_Vout_01, "5Vdc_port");
     //
     // where FS_Vout_01 is a CRIT-declared criterion whose predicate is checked
     // against the measured voltage (in volts).
     //
     template<typename Predicate>
-        requires ApplicablePredicate< Predicate, double>
-    auto Measure( dut::DeviceView &            device,
-                  const Criterion<Predicate> & criterion,
-                  std::string_view             test_point ) -> bool
+        requires core::PredicateFor< Predicate, double>
+    auto Measure( dut::DeviceView &                  device,
+                  const core::Criterion<Predicate> & criterion,
+                  std::string_view                   testPoint ) -> bool
     {
-        const auto reading = device.measure( test_point);
+        const auto reading = device.measure( testPoint);
 
         if( ! reading)
         {

@@ -2,14 +2,14 @@
 
 #include <gtest/gtest.h>
 
-#include "dsl/criterion.hpp"
-#include "dsl/predicates.hpp"
+#include "core/criterion.hpp"
+#include "core/predicates.hpp"
 
 //
 // Exercise the GROUP/CRIT macros directly, the same way a real test script would.
 //
 GROUP( TestGroup, "A group used purely for unit-testing the macros")
-    CRIT( SomeRegisterCheck, dsl::BAND(0x0Fu, 0x05u), "Low nibble must be 0x5")
+    CRIT( SomeRegisterCheck, core::BAND(0x0Fu, 0x05u), "Low nibble must be 0x5")
 END_GROUP
 
 TEST( DslVerify, CriterionOverloadReturnsTrueOnPass)
@@ -24,8 +24,8 @@ TEST( DslVerify, CriterionOverloadReturnsFalseOnFail)
 
 TEST( DslVerify, AdHocOverloadWorksWithoutCritMacro)
 {
-    EXPECT_TRUE( dsl::Verify("Voltage", "Vout", "Supply voltage", dsl::EQ( 12.0).within( 0.05), 12.03));
-    EXPECT_FALSE( dsl::Verify( "Voltage", "Vout", "Supply voltage", dsl::EQ( 12.0).within( 0.05), 12.50));
+    EXPECT_TRUE( dsl::Verify("Voltage", "Vout", "Supply voltage", core::EQ( 12.0).within( 0.05), 12.03));
+    EXPECT_FALSE( dsl::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).within( 0.05), 12.50));
 }
 
 TEST( DslCriterion, FieldsAreDeducedCorrectly)

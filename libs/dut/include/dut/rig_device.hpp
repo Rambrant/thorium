@@ -37,7 +37,7 @@ namespace dut
             // isn't present on the rig.
             //
             [[nodiscard]]
-            virtual auto measure( std::string_view pointName ) -> std::optional<core::Voltage> = 0;
+            virtual auto measure( std::string_view pointNMame ) -> std::optional<core::Voltage> = 0;
 
             [[nodiscard]]
             virtual auto hasPoint( std::string_view pointName ) const -> bool = 0;
@@ -78,7 +78,6 @@ namespace dut
                 // Select the instrument abstractly and fetch. The rig hands back a
                 // core interface; we never see the concrete driver.
                 //
-                // ReSharper disable once CppDefaultCaseNotHandledInSwitchStatement
                 switch( point->instrument)
                 {
                     case Instrument::Voltmeter :
@@ -96,15 +95,12 @@ namespace dut
                         return std::nullopt;
 
                     case Instrument::PowerSupply :
-
-                        //
                         // A power supply sources rather than measures; not a valid
                         // measurement target.
-                        //
                         return std::nullopt;
-                }
 
-                return std::nullopt;
+                    default: return std::nullopt;
+                }
             }
 
         private:

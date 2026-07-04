@@ -79,17 +79,17 @@ namespace hal
                 public:
                     NotifyingMatrix( SimRig & rig, const std::uint16_t rows, const std::uint16_t cols) :
                         SwitchMatrix( rows, cols),
-                        mRig( rig)
+                        rig_( rig)
                     {}
 
                     void close( core::Crosspoint point) override
                     {
                         SwitchMatrix::close( point);
-                        mRig.mVoltmeter.setActiveCrosspoint( point);
+                        rig_.mVoltmeter.setActiveCrosspoint( point);
                     }
 
                 private:
-                    SimRig & mRig;
+                    SimRig & rig_;
             };
 
             NotifyingMatrix mMatrix;
