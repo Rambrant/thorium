@@ -1,6 +1,7 @@
 add_library(core STATIC
         src/logger.cpp
         src/verify.cpp
+        src/measure.cpp
         include/core/quantity.hpp        # header-only; listed so it shows up in IDEs
         include/core/instrument.hpp      # header-only
         include/core/switch_matrix.hpp   # header-only
@@ -20,5 +21,6 @@ if(BUILD_TESTING_LAYERS)
             tests/test_predicates.cpp
             tests/test_criterion.cpp
             tests/test_verify.cpp
+            tests/test_measure.cpp
     )
 endif()

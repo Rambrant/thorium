@@ -1,6 +1,5 @@
 add_library(dsl STATIC
         src/test_case.cpp
-        include/dsl/measure.hpp      # header-only
 )
 
 target_include_directories(dsl PUBLIC
@@ -12,6 +11,5 @@ target_link_libraries(dsl PUBLIC dut hal core)
 if(BUILD_TESTING_LAYERS)
     add_layer_tests(dsl dsl
             tests/test_test_case.cpp
-            tests/test_measure.cpp
     )
 endif()

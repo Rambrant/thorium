@@ -1,8 +1,8 @@
 #include "scripts/scripts.hpp"
 
 #include "core/criterion.hpp"
-#include "dsl/measure.hpp"
 #include "core/predicates.hpp"
+#include "core/verify.hpp"
 
 //
 // Requirements / test-plan values live here, tied to the spec. Each CRIT is
@@ -24,8 +24,8 @@ namespace scripts
         // Reads like the test spec: check this requirement at this port. No
         // instrument, crosspoint, or rig detail is visible here.
         //
-        allPassed &= dsl::Measure( device, FS_Supply_1::FS_Supply_5V0, "Port5Vdc");
-        allPassed &= dsl::Measure( device, FS_Supply_1::FS_Supply_3V3, "Port3V3");
+        allPassed &= core::Verify( FS_Supply_1::FS_Supply_5V0, device.measure( "Port5Vdc"));
+        allPassed &= core::Verify( FS_Supply_1::FS_Supply_3V3, device.measure( "Port3V3"));
 
         return allPassed;
     }

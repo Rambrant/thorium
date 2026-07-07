@@ -1,8 +1,10 @@
 #pragma once
 
+#include <optional>
 #include <string_view>
 
 #include "core/criterion.hpp"
+#include "core/quantity.hpp"
 
 namespace core
 {
@@ -47,5 +49,25 @@ namespace core
                  const T &         value )
     {
         return Verify( core::Criterion{ group, id, description, predicate }, value);
+    }
+
+    //
+    // Convenience overload for readings that may be absent (e.g. an unknown
+    // test point, or an instrument the rig doesn't have). A missing reading
+    // is reported as a failed check rather than silently skipped, so a
+    // misconfigured route shows up in the test log instead of vanishing.
+    //
+    template< typename Predicate, typename Unit>
+        requires core::PredicateFor< Predicate, double>
+    bool Verify( const core::Criterion<Predicate> & criterion, const std::optional<Quantity<Unit>> & reading)
+    {
+        if( ! reading)
+        {
+            detail::reportResult( criterion.group, criterion.id, criterion.description, false);
+
+            return false;
+        }
+
+        return Verify( criterion, reading->value());
     }
 } // namespace core
