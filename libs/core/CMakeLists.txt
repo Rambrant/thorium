@@ -22,5 +22,6 @@ if(BUILD_TESTING_LAYERS)
             tests/test_criterion.cpp
             tests/test_verify.cpp
             tests/test_measure.cpp
+            tests/test_static_constraints.cpp
     )
 endif()
