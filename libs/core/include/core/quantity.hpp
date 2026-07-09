@@ -65,6 +65,16 @@ namespace core
             }
 
             //
+            // Unary negation. Needed so the epsilon-safe relational predicates
+            // (LT/LE/GT/GE/NE in predicates.hpp) can write `-tolerance` for
+            // Quantity<Unit> the same way they do for plain floating_point.
+            //
+            friend constexpr auto operator-( Quantity q) -> Quantity
+            {
+                return Quantity{ -q.mValue };
+            }
+
+            //
             // Same-unit sum. Needed alongside operator- so RangePredicate's
             // `high + epsilon` compiles for Quantity<Unit> the same way it
             // does for plain floating_point.
@@ -82,7 +92,7 @@ namespace core
     // is_quantity / QuantityType: lets other headers (predicates.hpp) detect
     // "this is some Quantity<Unit>" without knowing which Unit, so tolerance
     // predicates can be written once for both plain floating_point and any
-    // Quantity<Unit>, instead of duplicating within()/operator() per unit.
+    // Quantity<Unit>, instead of duplicating epsilon()/operator() per unit.
     //
     template<typename T>
     struct is_quantity : std::false_type {};

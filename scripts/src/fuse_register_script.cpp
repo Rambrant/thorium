@@ -37,7 +37,7 @@ namespace scripts
         //
         const auto voltage = device.measureOutputVoltage();
 
-        allPassed &= core::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).within( 0.05), voltage.value());
+        allPassed &= core::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).epsilon( 0.05), voltage.value());
 
         return allPassed;
     }

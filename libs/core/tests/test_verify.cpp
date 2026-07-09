@@ -24,6 +24,6 @@ TEST( CoreVerify, CriterionOverloadReturnsFalseOnFail)
 
 TEST( CoreVerify, AdHocOverloadWorksWithoutCritMacro)
 {
-    EXPECT_TRUE( core::Verify("Voltage", "Vout", "Supply voltage", core::EQ( 12.0).within( 0.05), 12.03));
-    EXPECT_FALSE( core::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).within( 0.05), 12.50));
+    EXPECT_TRUE( core::Verify("Voltage", "Vout", "Supply voltage", core::EQ( 12.0).epsilon( 0.05), 12.03));
+    EXPECT_FALSE( core::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).epsilon( 0.05), 12.50));
 }

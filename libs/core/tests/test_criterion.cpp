@@ -47,7 +47,7 @@ TEST( CoreCriterion, PredicateEvaluatesThroughCriterion)
 TEST( CoreCriterion, MakeCriterionBuildsByHand)
 {
     constexpr auto crit =
-        core::makeCriterion( "Adhoc", "AdhocCheck", "built by hand", core::EQ( 3.3).within( 0.05));
+        core::makeCriterion( "Adhoc", "AdhocCheck", "built by hand", core::EQ( 3.3).epsilon( 0.05));
 
     EXPECT_EQ( crit.id, "AdhocCheck");
     EXPECT_TRUE( crit.predicate( 3.32));
