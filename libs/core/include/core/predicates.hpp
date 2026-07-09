@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/quantity.hpp"
+
 #include <cmath>
 #include <concepts>
 
@@ -12,6 +14,15 @@ namespace core
     // standalone package built on this framework) can reuse them.
     //
 
+    //
+    // A type an epsilon tolerance is meaningful for: either a plain
+    // floating_point, or any Quantity<Unit>. Exact types (ints, enums, ...)
+    // are excluded on purpose -- within() below only ever *uses* epsilon for
+    // these two cases, so admitting anything else would be a silent no-op.
+    //
+    template<typename T>
+    concept Toleranced = std::floating_point<T> || QuantityType<T>;
+
     template<typename T>
     struct EqPredicate
     {
@@ -19,13 +30,13 @@ namespace core
         T epsilon{};
 
         //
-        // Constrained to floating_point: epsilon tolerance is meaningless for
+        // Constrained to Toleranced: epsilon tolerance is meaningless for
         // exact types (ints, enums, ...), and operator() below only ever
-        // *uses* epsilon in the floating_point branch. Constraining here turns
+        // *uses* epsilon in the Toleranced branch. Constraining here turns
         // a silent no-op into a compile error instead.
         //
         constexpr auto within( T eps) const
-            requires std::floating_point<T>
+            requires Toleranced<T>
         {
             auto copy    = *this;
             copy.epsilon = eps;
@@ -35,9 +46,11 @@ namespace core
 
         constexpr auto operator()( const T & actual) const -> bool
         {
-            if constexpr( std::floating_point<T>)
+            if constexpr( Toleranced<T>)
             {
-                return std::abs( actual - expected) <= epsilon;
+                using std::abs;
+
+                return abs( actual - expected) <= epsilon;
             }
             else
             {
@@ -60,7 +73,7 @@ namespace core
         T epsilon{};
 
         constexpr auto within( T eps) const
-            requires std::floating_point<T>
+            requires Toleranced<T>
         {
             auto copy    = *this;
             copy.epsilon = eps;
@@ -70,7 +83,7 @@ namespace core
 
         constexpr auto operator()( const T & actual) const -> bool
         {
-            if constexpr( std::floating_point<T>)
+            if constexpr( Toleranced<T>)
             {
                 return actual >= low - epsilon &&
                        actual <= high + epsilon;

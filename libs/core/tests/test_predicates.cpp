@@ -52,3 +52,23 @@ TEST( BandPredicate, MaskedComparison)
     EXPECT_TRUE( pred( 0xF5u));  // low nibble is 0x5
     EXPECT_FALSE( pred( 0xF6u)); // low nibble is 0x6
 }
+
+#include "core/quantity.hpp"
+
+using namespace core::literals;
+
+TEST( EqPredicate, WithinToleranceOnQuantity)
+{
+    auto pred = core::EQ( 3.3_W).within( 0.05_W);
+
+    EXPECT_TRUE( pred( 3.32_W));
+    EXPECT_FALSE( pred( 3.40_W));
+}
+
+TEST( RangePredicate, WithinToleranceOnQuantityRange)
+{
+    auto pred = core::IN( 3.0_V, 3.6_V).within( 0.05_V);
+
+    EXPECT_TRUE( pred( 2.96_V));
+    EXPECT_FALSE( pred( 2.90_V));
+}

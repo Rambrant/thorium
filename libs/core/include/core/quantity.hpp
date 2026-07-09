@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cmath>
 #include <compare>
 #include <concepts>
+#include <type_traits>
 
 namespace core
 {
@@ -51,9 +53,45 @@ namespace core
                 return lhs.mValue <=> rhs.mValue;
             }
 
+            //
+            // Same-unit difference, kept in-unit (a Voltage minus a Voltage is
+            // still a Voltage). This is what lets predicates.hpp express an
+            // epsilon tolerance -- |actual - expected| <= epsilon -- for
+            // Quantity<Unit> the same way it does for plain floating_point.
+            //
+            friend constexpr auto operator-( Quantity lhs, Quantity rhs) -> Quantity
+            {
+                return Quantity{ lhs.mValue - rhs.mValue };
+            }
+
+            //
+            // Same-unit sum. Needed alongside operator- so RangePredicate's
+            // `high + epsilon` compiles for Quantity<Unit> the same way it
+            // does for plain floating_point.
+            //
+            friend constexpr auto operator+( Quantity lhs, Quantity rhs) -> Quantity
+            {
+                return Quantity{ lhs.mValue + rhs.mValue };
+            }
+
         private:
             double mValue{};
     };
+
+    //
+    // is_quantity / QuantityType: lets other headers (predicates.hpp) detect
+    // "this is some Quantity<Unit>" without knowing which Unit, so tolerance
+    // predicates can be written once for both plain floating_point and any
+    // Quantity<Unit>, instead of duplicating within()/operator() per unit.
+    //
+    template<typename T>
+    struct is_quantity : std::false_type {};
+
+    template<typename Unit>
+    struct is_quantity<Quantity<Unit>> : std::true_type {};
+
+    template<typename T>
+    concept QuantityType = is_quantity<T>::value;
 
     using Voltage       = Quantity< V_Tag>;
     using Current       = Quantity< A_Tag>;
@@ -70,6 +108,18 @@ namespace core
     constexpr auto operator*( const Voltage lhs, const Current rhs ) -> ApparentPower
     {
         return ApparentPower{ lhs.value() * rhs.value() };
+    }
+
+    //
+    // Magnitude, in-unit. Mirrors std::abs so an unqualified `abs(q)` inside
+    // core (predicates.hpp) resolves here for Quantity<Unit> and to std::abs
+    // for plain floating_point, via ordinary unqualified lookup.
+    //
+    template<typename Unit>
+    [[nodiscard]]
+    constexpr auto abs( Quantity<Unit> q) -> Quantity<Unit>
+    {
+        return Quantity<Unit>{ std::abs( q.value()) };
     }
 
     //
