@@ -9,7 +9,7 @@
 // would be written.
 //
 GROUP( TestGroup, "A group used purely for unit-testing the macros")
-    CRIT( SomeRegisterCheck, core::BAND( 0x0Fu, 0x05u), "Low nibble must be 0x5")
+    CRIT( SomeRegisterCheck, core::MASK( 0x0Fu, 0x05u), "Low nibble must be 0x5")
     CRIT( ExactValueCheck,   core::EQ( 0xF5u),          "Register must read 0xF5")
 END_GROUP
 

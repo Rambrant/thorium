@@ -39,6 +39,15 @@ namespace
     template<typename Unit, typename Raw>
     concept QuantityConstructibleFrom = requires( Raw r) { core::Quantity<Unit>{ r}; };
 
+    template<typename T>
+    concept Maskable = requires( T mask, T expected) { core::MASK( mask, expected); };
+
+    template<typename First, typename... Rest>
+    concept Anyable = requires( First first, Rest... rest) { core::ANY( first, rest...); };
+
+    template<typename T>
+    concept ThreeWayComparablePredicate = requires( T a, T b) { core::LT( a)( b); };
+
     //
     // within() is meaningless on an exact type (int, enum, ...) -- there is
     // no such thing as "42 plus or minus 1" for an exact equality check.
@@ -68,6 +77,20 @@ namespace
     static_assert( !QuantityConstructibleFrom<core::V_Tag, int> );
 
     //
+    // MASK is restricted to std::integral -- a float or a Quantity<Unit>
+    // has no meaningful bitwise mask operation.
+    //
+    static_assert( !Maskable<double> );
+    static_assert( !Maskable<core::Voltage> );
+
+    //
+    // ANY requires every option to be the exact same type as the first --
+    // consistent with EQ/IN/etc. never mixing units.
+    //
+    static_assert( !Anyable<core::Voltage, core::Current> );
+    static_assert( !Anyable<double, int> );
+
+    //
     // Mirror positive cases: if any of these ever start failing, one of the
     // negative checks above has been silently satisfied by an unrelated
     // change, rather than the fix actually loosening on purpose.
@@ -77,6 +100,9 @@ namespace
     static_assert(  EqComparable<core::Voltage> );
     static_assert(  Subtractable<core::Voltage> );
     static_assert(  QuantityConstructibleFrom<core::V_Tag, double> );
+    static_assert(  Maskable<unsigned int> );
+    static_assert(  Anyable<core::Voltage, core::Voltage, core::Voltage> );
+    static_assert(  ThreeWayComparablePredicate<core::Voltage> );
 } // namespace
 
 TEST( CoreStaticConstraints, IllegalPredicateAndUnitCombinationsAreCompileErrors)

@@ -9,7 +9,7 @@
 // Exercise the GROUP/CRIT macros directly, the same way a real test script would.
 //
 GROUP( VerifyTestGroup, "A group used purely for unit-testing Verify")
-    CRIT( SomeRegisterCheck, core::BAND(0x0Fu, 0x05u), "Low nibble must be 0x5")
+    CRIT( SomeRegisterCheck, core::MASK(0x0Fu, 0x05u), "Low nibble must be 0x5")
 END_GROUP
 
 TEST( CoreVerify, CriterionOverloadReturnsTrueOnPass)

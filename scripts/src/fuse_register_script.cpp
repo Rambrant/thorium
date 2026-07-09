@@ -13,7 +13,7 @@ using namespace core::literals;
 // register addresses on dut::Device.
 //
 GROUP( FS_Fuse_6, "Check of Fuses @ Register CB30")
-    CRIT( FS_Fuse_01, core::BAND( 0x0Fu, 0x05u), "Low nibble of fuse register must be 0x5")
+    CRIT( FS_Fuse_01, core::MASK( 0x0Fu, 0x05u), "Low nibble of fuse register must be 0x5")
     CRIT( FS_Fuse_02, core::EQ( 0xF5u), "Fuse register must read exactly 0xF5")
 END_GROUP
 
