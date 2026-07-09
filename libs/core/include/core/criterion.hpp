@@ -66,7 +66,7 @@ namespace core
 // once reflection lands (see below), iterated and looked up by string.
 //
 //   GROUP( FS_Fuse_6, "Check of Fuses @ Register CB30")
-//       CRIT( FS_Fuse_01, core::BAND( 0x0Fu, 0x05u), "Low nibble must be 0x5")
+//       CRIT( FS_Fuse_01, core::MASK( 0x0Fu, 0x05u), "Low nibble must be 0x5")
 //       CRIT( FS_Fuse_02, core::EQ( 0xF5u),          "Fuse register == 0xF5")
 //   END_GROUP
 //
@@ -76,9 +76,9 @@ namespace core
 // members, so each CRIT can reference it to stamp the group into its criterion.
 //
 #define GROUP( groupName, desc)                                       \
-    struct groupName                                                   \
-    {                                                                   \
-        static constexpr std::string_view Name        = #groupName;    \
+    struct groupName                                                  \
+    {                                                                 \
+        static constexpr std::string_view Name        = #groupName;   \
         static constexpr std::string_view Description = desc;
 
 #define CRIT( id, pred, desc)                                          \
