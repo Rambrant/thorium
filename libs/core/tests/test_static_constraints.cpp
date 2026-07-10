@@ -36,6 +36,12 @@ namespace
     template<typename A, typename B = A>
     concept Subtractable = requires( A a, B b) { a - b; };
 
+    template<typename A, typename B = A>
+    concept Multipliable = requires( A a, B b) { a * b; };
+
+    template<typename A, typename B = A>
+    concept Divisible = requires( A a, B b) { a / b; };
+
     template<typename Unit, typename Raw>
     concept QuantityConstructibleFrom = requires( Raw r) { core::Quantity<Unit>{ r}; };
 
@@ -92,6 +98,23 @@ namespace
     static_assert( !Subtractable<core::Voltage, core::Current> );
 
     //
+    // Quantity<Unit> * Quantity<Unit> has no generic meaning and is never
+    // defined -- only the one specific cross-unit combination (Voltage *
+    // Current -> ApparentPower) exists. Multiplying two Powers, two
+    // Voltages, or two of anything else is a compile error by omission,
+    // the same way it would be for any other pair of units.
+    //
+    static_assert( !Multipliable<core::Power,    core::Power> );
+    static_assert( !Multipliable<core::Voltage,  core::Voltage> );
+    static_assert( !Multipliable<core::Current,  core::Current> );
+
+    //
+    // Same-unit division (W / W) would need a dimensionless ratio result,
+    // which is a separate design question -- not provided yet.
+    //
+    static_assert( !Divisible<core::Power, core::Power> );
+
+    //
     // Quantity's converting constructor is constrained to floating_point,
     // so an int (or any other non-floating-point value) can't construct one.
     //
@@ -138,6 +161,16 @@ namespace
     static_assert(  Maskable<unsigned int> );
     static_assert(  Anyable<core::Voltage, core::Voltage, core::Voltage> );
     static_assert(  ThreeWayComparablePredicate<core::Voltage> );
+
+    //
+    // A Quantity<Unit> scaled by a bare floating-point factor stays in the
+    // same unit, in either argument order, and the one true cross-unit
+    // multiplication (Voltage * Current) still holds.
+    //
+    static_assert(  Multipliable<core::Power,   double> );
+    static_assert(  Multipliable<double,        core::Power> );
+    static_assert(  Multipliable<core::Voltage, core::Current> );
+    static_assert(  Divisible<core::Power, double> );
 } // namespace
 
 TEST( CoreStaticConstraints, IllegalPredicateAndUnitCombinationsAreCompileErrors)

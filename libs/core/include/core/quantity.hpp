@@ -120,6 +120,50 @@ namespace core
         return ApparentPower{ lhs.value() * rhs.value() };
     }
 
+    constexpr auto operator*(  const Current lhs, const Voltage rhs) -> ApparentPower
+    {
+        return ApparentPower{ lhs.value() * rhs.value() };
+    }
+
+    //
+    // Scalar algebra: a Quantity<Unit> scaled by a bare floating-point factor
+    // stays in the same unit -- W * 2.0 is a doubling of the Power, still a
+    // Power. Quantity<Unit> * Quantity<Unit> has no such generic meaning and
+    // is deliberately never defined here; only the specific cross-unit
+    // combination above (Voltage * Current) exists. Because Quantity<Unit>
+    // never satisfies std::floating_point, these scalar overloads can never
+    // collide with that cross-unit one, and W * W (or any Q * Q) remains a
+    // compile error by omission rather than by explicit deletion.
+    //
+    template< typename Unit, std::floating_point T>
+    [[nodiscard]]
+    constexpr auto operator*( Quantity<Unit> q, T scalar) -> Quantity<Unit>
+    {
+        return Quantity<Unit>{ q.value() * static_cast<double>( scalar) };
+    }
+
+    template< typename Unit, std::floating_point T>
+    [[nodiscard]]
+    constexpr auto operator*( T scalar, Quantity<Unit> q) -> Quantity<Unit>
+    {
+        return q * scalar;
+    }
+
+    //
+    // Scalar division mirrors scalar multiplication -- W / 2.0 halves the
+    // Power, still in Watts. There is no matching "scalar / Quantity"
+    // overload: that would need a new inverse unit (e.g. 1/W) that Thorium
+    // doesn't model, so it's deliberately not provided. Same-unit division
+    // (W / W) is likewise not provided yet -- it would need a dimensionless
+    // ratio result, which is a separate design question from this pass.
+    //
+    template< typename Unit, std::floating_point T>
+    [[nodiscard]]
+    constexpr auto operator/( Quantity<Unit> q, T scalar) -> Quantity<Unit>
+    {
+        return Quantity<Unit>{ q.value() / static_cast<double>( scalar) };
+    }
+
     //
     // Magnitude, in-unit. Mirrors std::abs so an unqualified `abs(q)` inside
     // core (predicates.hpp) resolves here for Quantity<Unit> and to std::abs
