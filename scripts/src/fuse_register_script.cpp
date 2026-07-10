@@ -3,19 +3,12 @@
 #include "core/criterion.hpp"
 #include "core/predicates.hpp"
 #include "core/quantity.hpp"
-#include "../../libs/core/include/core/verify.hpp"
+#include "core/verify.hpp"
+
+#include "core/criterions.hpp"
 
 using namespace core::literals;
 
-//
-// A criteria table, declared once at file scope and reused across runs.
-// This mirrors the original prototype's GROUP/CRIT usage, now against real
-// register addresses on dut::Device.
-//
-GROUP( FS_Fuse_6, "Check of Fuses @ Register CB30")
-    CRIT( FS_Fuse_01, core::MASK( 0x0Fu, 0x05u), "Low nibble of fuse register must be 0x5")
-    CRIT( FS_Fuse_02, core::EQ( 0xF5u), "Fuse register must read exactly 0xF5")
-END_GROUP
 
 namespace scripts
 {
