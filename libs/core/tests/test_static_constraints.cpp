@@ -57,6 +57,9 @@ namespace
     template<typename T>
     concept CanNE = requires( T a) { core::NE( a); };
 
+    template<typename A, typename B>
+    concept CanComputeReactivePower = requires( A a, B b) { core::reactivePower( a, b); };
+
     //
     // A type with equality but deliberately no ordering at all. Proves NE's
     // constraint really is only "whatever EQ needs" (currently: nothing at
@@ -125,6 +128,17 @@ namespace
     static_assert( !Multipliable<core::PowerFactor, core::PowerFactor> );
 
     //
+    // ReactivePower is the third leg of the power triangle, and it's just
+    // as distinct a unit as the other two: no cross-unit +/-/* against
+    // Power or ApparentPower (the S^2 = P^2 + Q^2 identity is deliberately
+    // a named function, not operator overloading -- see quantity.hpp), and
+    // no ReactivePower * ReactivePower either.
+    //
+    static_assert( !EqComparable<core::Power, core::ReactivePower> );
+    static_assert( !Subtractable<core::ApparentPower, core::ReactivePower> );
+    static_assert( !Multipliable<core::ReactivePower, core::ReactivePower> );
+
+    //
     // Quantity's converting constructor is constrained to floating_point,
     // so an int (or any other non-floating-point value) can't construct one.
     //
@@ -191,6 +205,15 @@ namespace
     static_assert(  Multipliable<core::PowerFactor,   core::ApparentPower> );
     static_assert(  Divisible<core::Power, core::ApparentPower> );
     static_assert(  Divisible<core::Power, core::PowerFactor> );
+
+    //
+    // The reactivePower() named function exists for the one pairing this
+    // file bothers to check at compile time (ApparentPower, Power) --
+    // realPower() and apparentPower() are exercised at runtime instead in
+    // test_quantity.cpp, since all three are just S^2 = P^2 + Q^2 solved
+    // for a different leg.
+    //
+    static_assert(  CanComputeReactivePower<core::ApparentPower, core::Power> );
 } // namespace
 
 TEST( CoreStaticConstraints, IllegalPredicateAndUnitCombinationsAreCompileErrors)

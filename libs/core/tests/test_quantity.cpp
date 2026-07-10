@@ -63,6 +63,42 @@ TEST( CoreQuantity, RealPowerDividedByPowerFactorGivesApparentPower)
     EXPECT_DOUBLE_EQ( apparent.value(), 100.0);
 }
 
+TEST( CoreQuantity, PowerTriangleReactivePowerFromApparentAndReal)
+{
+    const core::ApparentPower apparent{ 100.0};
+    const core::Power         real{ 80.0};
+
+    const core::ReactivePower reactive = core::reactivePower( apparent, real);
+
+    EXPECT_DOUBLE_EQ( reactive.value(), 60.0);
+}
+
+TEST( CoreQuantity, PowerTriangleRealPowerFromApparentAndReactive)
+{
+    const core::ApparentPower apparent{ 100.0};
+    const core::ReactivePower reactive{ 60.0};
+
+    const core::Power real = core::realPower( apparent, reactive);
+
+    EXPECT_DOUBLE_EQ( real.value(), 80.0);
+}
+
+TEST( CoreQuantity, PowerTriangleApparentPowerFromRealAndReactive)
+{
+    const core::Power         real{ 80.0};
+    const core::ReactivePower reactive{ 60.0};
+
+    const core::ApparentPower apparent = core::apparentPower( real, reactive);
+
+    EXPECT_DOUBLE_EQ( apparent.value(), 100.0);
+}
+
+TEST( CoreQuantity, ReactivePowerLiteralsProduceExpectedValue)
+{
+    EXPECT_DOUBLE_EQ( (60.0_var).value(),  60.0);
+    EXPECT_DOUBLE_EQ( (1.5_kvar).value(),  1500.0);
+}
+
 TEST( CoreQuantity, SameUnitAdditionAndSubtractionStayInUnit)
 {
     const core::Power sum  = 2.0_W + 3.0_W;
@@ -103,5 +139,11 @@ TEST( CoreQuantity, ScalarDivisionScalesInUnit)
 //
 // TEST(CoreQuantity, CannotAddPowerAndPowerFactor) {
 //     const auto illegal = 80.0_W + core::PowerFactor{ 0.8};  // compile error: different units
+// }
+//
+// TEST(CoreQuantity, CannotAddRealAndReactivePower) {
+//     const auto illegal = 80.0_W + 60.0_var;  // compile error: different units, and
+//                                               // wrong anyway -- see reactivePower()/
+//                                               // realPower()/apparentPower() instead
 // }
 //

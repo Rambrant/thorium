@@ -20,6 +20,7 @@ namespace core
     struct Hz_Tag {};
     struct time_Tag {};
     struct PF_Tag {};
+    struct var_Tag {};
 
     template< typename Unit>
     class Quantity
@@ -113,6 +114,7 @@ namespace core
     using Decibel       = Quantity< dB_Tag>;
     using Frequency     = Quantity< Hz_Tag>;
     using PowerFactor   = Quantity< PF_Tag>;
+    using ReactivePower = Quantity< var_Tag>;
 
     //
     // Algebra: combining distinct units to produce a new unit.
@@ -135,10 +137,6 @@ namespace core
     // one has no physical dimension. No literal suffix is provided for it
     // (unlike _V, _A, _W, ...): a bare number has no unit to abbreviate, so
     // `PowerFactor{ 0.95}` is the constructor call, not a "0.95_pf" literal.
-    //
-    // Only the real-power corner of the power triangle is modelled here --
-    // reactive power (VAR) and the P^2 + Q^2 = S^2 identity are a separate,
-    // later design question.
     //
     // PowerFactor's valid range ([-1, 1]) is deliberately not enforced here;
     // like every other Quantity<Unit>, it's a plain value holder, and range
@@ -168,6 +166,40 @@ namespace core
     constexpr auto operator/( const Power p, const PowerFactor pf ) -> ApparentPower
     {
         return ApparentPower{ p.value() / pf.value() };
+    }
+
+    //
+    // The rest of the power triangle: S^2 = P^2 + Q^2, connecting apparent,
+    // real, and reactive power. This is deliberately NOT expressed as
+    // operator+/operator- (e.g. "s - p" to mean Q), because that would look
+    // like ordinary scalar arithmetic while actually being wrong -- the
+    // three legs combine as a Pythagorean triple, not additively.
+    // ApparentPower - Power already doesn't compile today (different
+    // units), and that's left alone rather than repurposed to mean this.
+    // Given any two legs, the third is one named function away.
+    //
+    // No physical-validity check is performed (e.g. S >= P always holds for
+    // a real triangle) -- like every other Quantity<Unit> here, this is a
+    // plain value holder. Inconsistent inputs (measurement noise, etc.)
+    // produce a NaN, which a downstream Verify/predicate simply fails
+    // against, rather than needing a guard in core.
+    //
+    [[nodiscard]]
+    constexpr auto reactivePower( const ApparentPower s, const Power p ) -> ReactivePower
+    {
+        return ReactivePower{ std::sqrt( s.value() * s.value() - p.value() * p.value() ) };
+    }
+
+    [[nodiscard]]
+    constexpr auto realPower( const ApparentPower s, const ReactivePower q ) -> Power
+    {
+        return Power{ std::sqrt( s.value() * s.value() - q.value() * q.value() ) };
+    }
+
+    [[nodiscard]]
+    constexpr auto apparentPower( const Power p, const ReactivePower q ) -> ApparentPower
+    {
+        return ApparentPower{ std::sqrt( p.value() * p.value() + q.value() * q.value() ) };
     }
 
     //
@@ -241,6 +273,14 @@ namespace core
 
         constexpr ApparentPower operator""_VA( long double v ) { return ApparentPower{ static_cast<double>(v) }; }
         constexpr ApparentPower operator""_mVA( long double v ) { return ApparentPower{ static_cast<double>(v / 1000.0) }; }
+
+        //
+        // Lowercase "var" (not VAR/VAr) is the correct IEC/SI symbol for
+        // reactive power -- see IEC 80000-6 / the EU metric directive.
+        // "VAR" is common in the power industry but is not the standard.
+        //
+        constexpr ReactivePower operator""_var( long double v ) { return ReactivePower{ static_cast<double>(v) }; }
+        constexpr ReactivePower operator""_kvar( long double v ) { return ReactivePower{ static_cast<double>(v * 1000.0) }; }
 
         constexpr Time operator""_s( long double v ) { return Time{ static_cast<double>(v) }; }
         constexpr Time operator""_ms( long double v ) { return Time{ static_cast<double>(v / 1000.0) }; }
