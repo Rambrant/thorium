@@ -5,9 +5,10 @@
 #include "core/quantity.hpp"
 #include "core/verify.hpp"
 
-#include "core/criterions.hpp"
+#include "core/active_criteria.hpp"
 
 using namespace core::literals;
+using core::Verify;
 
 
 namespace scripts
@@ -18,8 +19,8 @@ namespace scripts
 
         const auto fuseValue = device.readFuseRegister();
 
-        allPassed &= core::Verify( FS_Fuse_6::FS_Fuse_01, fuseValue);
-        allPassed &= core::Verify( FS_Fuse_6::FS_Fuse_02, fuseValue);
+        allPassed &= Verify( FS_Fuse_6::FS_Fuse_01, fuseValue);
+        allPassed &= Verify( FS_Fuse_6::FS_Fuse_02, fuseValue);
 
         //
         // Ad-hoc check (no CRIT constant declared up front) against a measured

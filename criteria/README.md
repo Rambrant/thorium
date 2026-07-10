@@ -22,8 +22,8 @@ across all three files, just different tolerance values.
 Each `.inc` file is deliberately bare: just `GROUP( ... ) ... END_GROUP`
 blocks, nothing else. No `#pragma once`, no `#include`s, no namespace. All
 of that scaffolding lives in the one place that actually needs it --
-`libs/core/include/core/criterions.hpp` -- so every file here is easy to
-open and easy to diff against its siblings.
+`libs/core/include/core/active_criteria.hpp` -- so every file here is easy
+to open and easy to diff against its siblings.
 
 Not everything belongs here: tolerances that never change between variants
 (or one-off ad-hoc checks added to catch a specific fault) stay as ad-hoc
@@ -43,8 +43,18 @@ cmake -B build -DTHORIUM_CRITERIA_VARIANT=aged
 ```
 
 Default is `production`. This is a build-wide setting: every script picks
-up the same variant through `core/criterions.hpp`, so a build always
+up the same variant through `core/active_criteria.hpp`, so a build always
 represents one coherent hardware/test scenario, never a mix.
+
+## Why `active_criteria.hpp` is a separate header from `criterion.hpp`
+
+`core/criterion.hpp` is the general, dependency-free `GROUP`/`CRIT`
+mechanism -- it's used on its own (e.g. by `test_criterion.cpp`) with no
+notion of "variants" at all. `core/active_criteria.hpp` is a specific
+*consumer* of that mechanism: it resolves `THORIUM_ACTIVE_CRITERIA`, which
+requires the `scripts` target's build configuration. Folding the two
+together would force that requirement onto every unrelated user of the
+general macros -- `core`'s own unit tests would stop compiling.
 
 ## Why every variant compiles, always
 
@@ -75,7 +85,7 @@ whichever variant isn't currently active.
 
 1. Add the `GROUP`/`CRIT` block to every existing `.inc` file here.
 2. Reference it from the script the same way `supply_rail_script.cpp` and
-   `fuse_register_script.cpp` do: `#include "core/criterions.hpp"`, then
-   use `YourGroupName::YourCritName` directly.
+   `fuse_register_script.cpp` do: `#include "core/active_criteria.hpp"`,
+   then use `YourGroupName::YourCritName` directly.
 3. Add a `HasYourGroupCriteria` concept + `static_assert`s for it in
    `test_criteria_variants_compile.cpp`, one per variant.

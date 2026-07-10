@@ -15,8 +15,8 @@ target_include_directories(scripts PUBLIC
 target_link_libraries(scripts PUBLIC dsl dut hal core)
 
 # --- Criteria/tolerance variant selection ---
-# Points core/criterions.hpp at the active variant's single flat .inc file
-# (every script's GROUP/CRIT side by side), per THORIUM_CRITERIA_VARIANT
+# Points core/active_criteria.hpp at the active variant's single flat .inc
+# file (every script's GROUP/CRIT side by side), per THORIUM_CRITERIA_VARIANT
 # (validated in the top-level CMakeLists.txt). Absolute path, so no extra
 # include-directory wrangling. See criteria/README.md.
 target_compile_definitions(scripts PRIVATE
@@ -38,9 +38,9 @@ if(BUILD_TESTING_LAYERS)
     )
 
     # test_criteria_variants_compile.cpp #includes every variant .inc file
-    # directly (not through core/criterions.hpp, which only ever sees the
-    # one active variant) -- it needs core::criterion machinery but not the
-    # scripts library itself, and it doesn't go through the
+    # directly (not through core/active_criteria.hpp, which only ever sees
+    # the one active variant) -- it needs core::criterion machinery but not
+    # the scripts library itself, and it doesn't go through the
     # THORIUM_ACTIVE_CRITERIA compile definition above.
     target_include_directories(scripts_tests PRIVATE ${CMAKE_SOURCE_DIR})
 endif()

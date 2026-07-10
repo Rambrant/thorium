@@ -2,7 +2,7 @@
 
 #include "core/verify.hpp"
 
-#include "core/criterions.hpp"
+#include "core/active_criteria.hpp"
 
 namespace scripts
 {

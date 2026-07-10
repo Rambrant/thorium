@@ -14,8 +14,8 @@
 // that hardware/temperature/age scenario for real.
 //
 // The actual scripts never see more than one variant at a time (see
-// core/criterions.hpp), selected by THORIUM_CRITERIA_VARIANT. This file is
-// the only place all variants exist side by side.
+// core/active_criteria.hpp), selected by THORIUM_CRITERIA_VARIANT. This
+// file is the only place all variants exist side by side.
 //
 namespace thorium_criteria_compile_check
 {

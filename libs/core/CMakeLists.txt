@@ -7,7 +7,7 @@ add_library(core STATIC
         include/core/switch_matrix.hpp   # header-only
         include/core/predicates.hpp      # header-only
         include/core/criterion.hpp       # header-only
-        include/core/criterions.hpp      # header-only
+        include/core/active_criteria.hpp # header-only
 )
 
 target_include_directories(core PUBLIC
