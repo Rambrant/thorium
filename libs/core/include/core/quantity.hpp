@@ -19,6 +19,7 @@ namespace core
     struct dB_Tag {};
     struct Hz_Tag {};
     struct time_Tag {};
+    struct PF_Tag {};
 
     template< typename Unit>
     class Quantity
@@ -111,6 +112,7 @@ namespace core
     using Time          = Quantity< time_Tag>;
     using Decibel       = Quantity< dB_Tag>;
     using Frequency     = Quantity< Hz_Tag>;
+    using PowerFactor   = Quantity< PF_Tag>;
 
     //
     // Algebra: combining distinct units to produce a new unit.
@@ -123,6 +125,49 @@ namespace core
     constexpr auto operator*(  const Current lhs, const Voltage rhs) -> ApparentPower
     {
         return ApparentPower{ lhs.value() * rhs.value() };
+    }
+
+    //
+    // Real power (W) vs. apparent power (VA): P = S * PF, where PF is the
+    // dimensionless power factor cos(phi). PowerFactor is still its own
+    // Quantity<Unit> (not a bare double) so a raw 0.95 can't silently stand
+    // in for it -- same reasoning as every other unit here, even though this
+    // one has no physical dimension. No literal suffix is provided for it
+    // (unlike _V, _A, _W, ...): a bare number has no unit to abbreviate, so
+    // `PowerFactor{ 0.95}` is the constructor call, not a "0.95_pf" literal.
+    //
+    // Only the real-power corner of the power triangle is modelled here --
+    // reactive power (VAR) and the P^2 + Q^2 = S^2 identity are a separate,
+    // later design question.
+    //
+    // PowerFactor's valid range ([-1, 1]) is deliberately not enforced here;
+    // like every other Quantity<Unit>, it's a plain value holder, and range
+    // checking is a CRIT/predicate's job, not the type's.
+    //
+    constexpr auto operator*( const ApparentPower s, const PowerFactor pf ) -> Power
+    {
+        return Power{ s.value() * pf.value() };
+    }
+
+    constexpr auto operator*( const PowerFactor pf, const ApparentPower s ) -> Power
+    {
+        return Power{ pf.value() * s.value() };
+    }
+
+    //
+    // The two algebraic inverses of P = S * PF: divide out the factor to
+    // recover apparent power, or divide out the apparent power to recover
+    // the factor. Both are ordinary double division underneath -- no
+    // divide-by-zero guard, same as every other Quantity division here.
+    //
+    constexpr auto operator/( const Power p, const ApparentPower s ) -> PowerFactor
+    {
+        return PowerFactor{ p.value() / s.value() };
+    }
+
+    constexpr auto operator/( const Power p, const PowerFactor pf ) -> ApparentPower
+    {
+        return ApparentPower{ p.value() / pf.value() };
     }
 
     //

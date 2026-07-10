@@ -24,11 +24,43 @@ TEST( CoreQuantity, SameUnitComparisonsWork)
 
 TEST( CoreQuantity, MultiplyingVoltageAndCurrentGivesApparentPower)
 {
-    const core::ApparentPower power1 = 12.0_V * 2.0_A;
-    const core::ApparentPower power2 = 2.0_A * 12.0_V;
+    const core::ApparentPower fromVA = 12.0_V * 2.0_A;
+    const core::ApparentPower fromAV = 2.0_A * 12.0_V;
 
-    EXPECT_DOUBLE_EQ( power1.value(), 24.0);
-    EXPECT_DOUBLE_EQ( power2.value(), 24.0);
+    EXPECT_DOUBLE_EQ( fromVA.value(), 24.0);
+    EXPECT_DOUBLE_EQ( fromAV.value(), 24.0);
+}
+
+TEST( CoreQuantity, ApparentPowerTimesPowerFactorGivesRealPower)
+{
+    const core::ApparentPower apparent{ 100.0};
+    const core::PowerFactor   pf{ 0.8};
+
+    const core::Power fromSxPF = apparent * pf;
+    const core::Power fromPFxS = pf * apparent;
+
+    EXPECT_DOUBLE_EQ( fromSxPF.value(), 80.0);
+    EXPECT_DOUBLE_EQ( fromPFxS.value(), 80.0);
+}
+
+TEST( CoreQuantity, RealPowerDividedByApparentPowerGivesPowerFactor)
+{
+    const core::Power         real{ 80.0};
+    const core::ApparentPower apparent{ 100.0};
+
+    const core::PowerFactor pf = real / apparent;
+
+    EXPECT_DOUBLE_EQ( pf.value(), 0.8);
+}
+
+TEST( CoreQuantity, RealPowerDividedByPowerFactorGivesApparentPower)
+{
+    const core::Power       real{ 80.0};
+    const core::PowerFactor pf{ 0.8};
+
+    const core::ApparentPower apparent = real / pf;
+
+    EXPECT_DOUBLE_EQ( apparent.value(), 100.0);
 }
 
 TEST( CoreQuantity, SameUnitAdditionAndSubtractionStayInUnit)
@@ -67,5 +99,9 @@ TEST( CoreQuantity, ScalarDivisionScalesInUnit)
 //
 // TEST(CoreQuantity, CannotMultiplyTwoQuantitiesOfTheSameUnit) {
 //     const auto illegal = 2.0_W * 3.0_W;  // compile error: no operator* for Power * Power
+// }
+//
+// TEST(CoreQuantity, CannotAddPowerAndPowerFactor) {
+//     const auto illegal = 80.0_W + core::PowerFactor{ 0.8};  // compile error: different units
 // }
 //

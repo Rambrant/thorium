@@ -115,6 +115,16 @@ namespace
     static_assert( !Divisible<core::Power, core::Power> );
 
     //
+    // PowerFactor is a Quantity<Unit> like any other -- it can't be added to
+    // or compared against a Power or ApparentPower, and it can't be
+    // multiplied by itself (no PF * PF is defined, same reasoning as
+    // Power * Power above).
+    //
+    static_assert( !EqComparable<core::Power, core::PowerFactor> );
+    static_assert( !Subtractable<core::Power, core::PowerFactor> );
+    static_assert( !Multipliable<core::PowerFactor, core::PowerFactor> );
+
+    //
     // Quantity's converting constructor is constrained to floating_point,
     // so an int (or any other non-floating-point value) can't construct one.
     //
@@ -171,6 +181,16 @@ namespace
     static_assert(  Multipliable<double,        core::Power> );
     static_assert(  Multipliable<core::Voltage, core::Current> );
     static_assert(  Divisible<core::Power, double> );
+
+    //
+    // The real-power / apparent-power / power-factor triangle: P = S * PF
+    // holds in either argument order, and both algebraic inverses
+    // (recovering PF or S) hold too.
+    //
+    static_assert(  Multipliable<core::ApparentPower, core::PowerFactor> );
+    static_assert(  Multipliable<core::PowerFactor,   core::ApparentPower> );
+    static_assert(  Divisible<core::Power, core::ApparentPower> );
+    static_assert(  Divisible<core::Power, core::PowerFactor> );
 } // namespace
 
 TEST( CoreStaticConstraints, IllegalPredicateAndUnitCombinationsAreCompileErrors)
