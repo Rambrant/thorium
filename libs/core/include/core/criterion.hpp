@@ -87,6 +87,35 @@ namespace core
 #define END_GROUP };
 
 //
+// CRIT_FROM_PRODUCTION( group, id): a companion to CRIT for tolerance-variant
+// files (see criteria/README.md) where a criterion's value doesn't change
+// from production -- group/id are still stated explicitly, so a typo'd id
+// still fails to compile exactly like an ordinary CRIT (there's no
+// inheritance here, nothing to silently fall back to), but the predicate AND
+// description are borrowed from production's matching criterion, so the
+// actual tolerance value and its prose live in exactly one place. A typo in
+// the reference itself is also a hard compile error: production::group::id
+// simply won't exist.
+//
+// This macro's definition is inert on its own -- it only requires a
+// "production" namespace to exist at the point it's actually *used*, not
+// merely defined, so declaring it here costs nothing to code that never
+// invokes it (e.g. this file's own reflection experiments below, or
+// test_criterion.cpp's throwaway groups). That's different from baking
+// "production" awareness into GROUP/CRIT themselves, which would force
+// every use of the general mechanism to satisfy it.
+//
+// Deliberately unqualified (production::group::id, not ::production::...):
+// resolves correctly whether "production" is a sibling at global scope (a
+// real build) or nested inside a wrapper namespace (as in
+// test_criteria_variants_compile.cpp, which needs every variant to compile
+// side by side rather than picking one).
+//
+#define CRIT_FROM_PRODUCTION( group, id)                                                   \
+        static constexpr auto id = ::core::makeCriterion(                                  \
+            Name, #id, production::group::id.description, production::group::id.predicate);
+
+//
 // ---------------------------------------------------------------------------
 // FUTURE (C++26 / GCC 16 reflection, -freflection): automatic iteration and
 // string-name lookup over a group's criteria, with a misspelled string name a

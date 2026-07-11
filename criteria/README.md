@@ -31,6 +31,35 @@ Not everything belongs here: tolerances that never change between variants
 have -- see the "Vout" check in `fuse_register_script.cpp`. This directory
 is only for tolerances that genuinely vary by variant.
 
+## When a criterion doesn't actually change between variants
+
+Most variants only change *some* of production's criteria -- a lot of them
+stay identical. Rather than retype an unchanged value (and risk it quietly
+drifting between files), use `CRIT_FROM_PRODUCTION( group, id)` instead of
+`CRIT`:
+
+```cpp
+GROUP( FS_Fuse_6, "Check of Fuses @ Register CB30")
+    CRIT_FROM_PRODUCTION( FS_Fuse_6, FS_Fuse_01)
+    CRIT_FROM_PRODUCTION( FS_Fuse_6, FS_Fuse_02)
+END_GROUP
+```
+
+`group`/`id` are still stated explicitly -- unlike inheritance, there's
+nothing to silently fall back to, so a typo'd id still fails to compile
+exactly like an ordinary `CRIT` would. Only the predicate and description
+are borrowed from `production`'s matching criterion, so the actual
+tolerance value and its prose live in exactly one place. A typo in the
+reference itself (wrong group or id) is also a hard compile error. See the
+macro's own comment in `core/criterion.hpp` for the full reasoning,
+including why it's a companion to `CRIT` rather than a change to `GROUP`
+itself.
+
+This is why `production.inc` is always available as `production::...`
+regardless of which variant is actually active (see `core/active_criteria.hpp`)
+-- every other variant can reference it, even though only one variant's
+criteria actually get used by the running scripts.
+
 ## Selecting a variant
 
 Which variant actually gets built is a single CMake option,
@@ -83,7 +112,9 @@ whichever variant isn't currently active.
 
 ## Adding a new GROUP (e.g. for a new script)
 
-1. Add the `GROUP`/`CRIT` block to every existing `.inc` file here.
+1. Add the `GROUP`/`CRIT` block to every existing `.inc` file here -- use
+   `CRIT_FROM_PRODUCTION( group, id)` in place of `CRIT` for any criterion
+   that's identical to production's.
 2. Reference it from the script the same way `supply_rail_script.cpp` and
    `fuse_register_script.cpp` do: `#include "core/active_criteria.hpp"`,
    then use `YourGroupName::YourCritName` directly.

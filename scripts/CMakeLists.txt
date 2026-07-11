@@ -17,9 +17,13 @@ target_link_libraries(scripts PUBLIC dsl dut hal core)
 # --- Criteria/tolerance variant selection ---
 # Points core/active_criteria.hpp at the active variant's single flat .inc
 # file (every script's GROUP/CRIT side by side), per THORIUM_CRITERIA_VARIANT
-# (validated in the top-level CMakeLists.txt). Absolute path, so no extra
-# include-directory wrangling. See criteria/README.md.
+# (validated in the top-level CMakeLists.txt). THORIUM_PRODUCTION_CRITERIA is
+# a second, fixed path -- always production.inc -- so other variants can
+# reference "the same value as production" via CRIT_FROM_PRODUCTION without
+# retyping it. Absolute paths, so no extra include-directory wrangling.
+# See criteria/README.md.
 target_compile_definitions(scripts PRIVATE
+    THORIUM_PRODUCTION_CRITERIA="${CMAKE_SOURCE_DIR}/criteria/production.inc"
     THORIUM_ACTIVE_CRITERIA="${CMAKE_SOURCE_DIR}/criteria/${THORIUM_CRITERIA_VARIANT}.inc"
 )
 
