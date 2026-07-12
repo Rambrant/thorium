@@ -57,8 +57,17 @@ namespace core
     // is reported as a failed check rather than silently skipped, so a
     // misconfigured route shows up in the test log instead of vanishing.
     //
+    // A criterion against a Quantity<Unit> reading can be written two ways:
+    // against the raw double (EQ( 5.0)) or against the Quantity itself
+    // (EQ( 5.0_V)). The latter is what actually catches a unit mismatch at
+    // compile time -- EQ( 5.0_A) against a Voltage reading fails to
+    // compile, where EQ( 5.0) against either "works" the same way, since
+    // both unwrap to a bare double. Which one a given criterion uses is
+    // picked automatically from the predicate's own type, so callers don't
+    // have to know or care.
+    //
     template< typename Predicate, typename Unit>
-        requires core::PredicateFor< Predicate, double>
+        requires core::PredicateFor< Predicate, double> || core::PredicateFor< Predicate, Quantity<Unit>>
     bool Verify( const core::Criterion<Predicate> & criterion, const std::optional<Quantity<Unit>> & reading)
     {
         if( ! reading)
@@ -68,6 +77,13 @@ namespace core
             return false;
         }
 
-        return Verify( criterion, reading->value());
+        if constexpr( core::PredicateFor< Predicate, Quantity<Unit>>)
+        {
+            return Verify( criterion, *reading);
+        }
+        else
+        {
+            return Verify( criterion, reading->value());
+        }
     }
 } // namespace core

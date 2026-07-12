@@ -64,7 +64,7 @@ namespace dut
 
 //
 // MATRIX / POINT / END_MATRIX: declarative routing table, deliberately
-// mirroring the GROUP / CRIT style used for criteria so the two feel of a
+// mirroring the CRITERIA / CRIT style used for criteria so the two feel of a
 // piece. A DUT's routing lives in a header as a compile-time constant:
 //
 //   MATRIX(StdAdapter, "Standard adapter for Device X")

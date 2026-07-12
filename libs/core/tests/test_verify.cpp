@@ -6,11 +6,11 @@
 #include "core/predicates.hpp"
 
 //
-// Exercise the GROUP/CRIT macros directly, the same way a real test script would.
+// Exercise the CRITERIA/CRIT macros directly, the same way a real test script would.
 //
-GROUP( VerifyTestGroup, "A group used purely for unit-testing Verify")
+CRITERIA( VerifyTestGroup, "A group used purely for unit-testing Verify")
     CRIT( SomeRegisterCheck, core::MASK(0x0Fu, 0x05u), "Low nibble must be 0x5")
-END_GROUP
+END_CRITERIA
 
 TEST( CoreVerify, CriterionOverloadReturnsTrueOnPass)
 {

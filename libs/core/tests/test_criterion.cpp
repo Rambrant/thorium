@@ -5,13 +5,13 @@
 #include "core/predicates.hpp"
 
 //
-// Exercise the GROUP/CRIT macros directly, the same way a test-spec table
+// Exercise the CRITERIA/CRIT macros directly, the same way a test-spec table
 // would be written.
 //
-GROUP( TestGroup, "A group used purely for unit-testing the macros")
+CRITERIA( TestGroup, "A group used purely for unit-testing the macros")
     CRIT( SomeRegisterCheck, core::MASK( 0x0Fu, 0x05u), "Low nibble must be 0x5")
     CRIT( ExactValueCheck,   core::EQ( 0xF5u),          "Register must read 0xF5")
-END_GROUP
+END_CRITERIA
 
 //
 // The whole table is a compile-time constant: prove the criteria are usable in

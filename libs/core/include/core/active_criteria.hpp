@@ -2,11 +2,12 @@
 
 #include "core/criterion.hpp"
 #include "core/predicates.hpp"
+#include "core/quantity.hpp"
 
 //
-// Pulls in every GROUP/CRIT table for the currently active tolerance
+// Pulls in every CRITERIA/CRIT table for the currently active tolerance
 // variant, in one shot. This is deliberately a separate header from
-// criterion.hpp: that file is the general, dependency-free GROUP/CRIT
+// criterion.hpp: that file is the general, dependency-free CRITERIA/CRIT
 // mechanism (used on its own by e.g. test_criterion.cpp, with no notion of
 // "variants" at all), while this one is a specific consumer of it --
 // resolving THORIUM_ACTIVE_CRITERIA/THORIUM_PRODUCTION_CRITERIA requires the
@@ -23,8 +24,13 @@
 // #ifdef.
 //
 // Every .inc file itself has no scaffolding of its own (no #pragma once, no
-// #includes, no namespace) -- this header supplies all of that. Each one is
-// one flat file holding every script's GROUP/CRIT side by side.
+// #includes, no namespace, no "core::"/"using namespace" of its own) --
+// this header supplies all of that, including bringing core's predicates
+// (EQ, MASK, ...), quantity types (Voltage, ...), and literals (_V, ...)
+// into unqualified scope, so a criteria file can write
+// EQ( 5.0_V).epsilon( 0.05_V) instead of core::EQ( core::Voltage{ 5.0}).epsilon( core::Voltage{ 0.05}).
+// Each .inc file is one flat file holding every script's CRITERIA/CRIT side
+// by side.
 //
 
 //
@@ -36,8 +42,18 @@
 // -- unlike THORIUM_ACTIVE_CRITERIA below, which depends on
 // THORIUM_CRITERIA_VARIANT.
 //
+// The two "using namespace" lines here are confined to this reopened
+// "production" block -- a using-directive inside a *named* namespace does
+// not leak to the enclosing scope (verified directly; unlike an anonymous
+// namespace, which would, since using-directives are transitive and an
+// anonymous namespace implicitly "using"s itself into whatever scope it's
+// declared in).
+//
 namespace production
 {
+    using namespace core;
+    using namespace core::literals;
+
     #include THORIUM_PRODUCTION_CRITERIA
 }
 
@@ -47,4 +63,17 @@ namespace production
 // redundant but harmless. Any other variant can use CRIT_FROM_PRODUCTION for
 // criteria that don't change; see criteria/stress.inc and criteria/aged.inc.
 //
+// Unlike the production block above, this can't be confined to a named
+// namespace: the resulting CRITERIA structs (FS_Supply_1, FS_Fuse_6, ...)
+// need to land unqualified, at whatever scope includes this header, so
+// scripts can keep writing FS_Supply_1::FS_Supply_5V0 directly. That means
+// the two "using namespace" lines below are NOT confined the way
+// production's are -- they remain in effect for the rest of whatever
+// script.cpp includes this header, the same as if that script had written
+// `using namespace core::literals;` itself (which fuse_register_script.cpp
+// already does, explicitly, today).
+//
+using namespace core;
+using namespace core::literals;
+
 #include THORIUM_ACTIVE_CRITERIA

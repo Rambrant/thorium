@@ -21,21 +21,30 @@ namespace thorium_criteria_compile_check
 {
     namespace production
     {
+        using namespace core;
+        using namespace core::literals;
+
         #include "criteria/production.inc"
     }
 
     namespace stress
     {
+        using namespace core;
+        using namespace core::literals;
+
         #include "criteria/stress.inc"
     }
 
     namespace aged
     {
+        using namespace core;
+        using namespace core::literals;
+
         #include "criteria/aged.inc"
     }
 
     //
-    // Bare compilation only proves a variant's GROUP/CRIT block is
+    // Bare compilation only proves a variant's CRITERIA/CRIT block is
     // *syntactically* valid C++ -- it does NOT prove a CRIT id wasn't
     // silently renamed (a struct with a renamed member still compiles
     // fine). This concept, checked against every variant below, is
@@ -77,7 +86,7 @@ TEST( CriteriaVariants, AllVariantsCompile)
 {
     //
     // Nothing to run: reaching this line at all means every #include above
-    // already compiled as valid GROUP/CRIT C++. See the file comment.
+    // already compiled as valid CRITERIA/CRIT C++. See the file comment.
     //
     SUCCEED();
 }

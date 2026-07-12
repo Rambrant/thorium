@@ -58,24 +58,30 @@ namespace core
 } // namespace core
 
 //
-// GROUP / CRIT / END_GROUP: declarative, Excel-readable criteria tables. Each
-// CRIT expands to a named `static constexpr` member of the group struct, so a
-// misspelled criterion identifier is a compile error (undeclared member) --
-// the compile-time typo check we want, for free. Because the group is a struct
-// (not a namespace), it is a first-class value: it can be passed around and,
-// once reflection lands (see below), iterated and looked up by string.
+// CRITERIA / CRIT / END_CRITERIA: declarative, Excel-readable criteria
+// tables. Each CRIT expands to a named `static constexpr` member of the
+// group struct, so a misspelled criterion identifier is a compile error
+// (undeclared member) -- the compile-time typo check we want, for free.
+// Because the group is a struct (not a namespace), it is a first-class
+// value: it can be passed around and, once reflection lands (see below),
+// iterated and looked up by string.
 //
-//   GROUP( FS_Fuse_6, "Check of Fuses @ Register CB30")
+// Deliberately not called GROUP/END_GROUP: that name is reserved for
+// grouping test cases (a separate, upcoming mechanism), and the two would
+// otherwise collide -- both lexically (same token, easy to misread one for
+// the other) and literally (both would try to #define END_GROUP).
+//
+//   CRITERIA( FS_Fuse_6, "Check of Fuses @ Register CB30")
 //       CRIT( FS_Fuse_01, core::MASK( 0x0Fu, 0x05u), "Low nibble must be 0x5")
 //       CRIT( FS_Fuse_02, core::EQ( 0xF5u),          "Fuse register == 0xF5")
-//   END_GROUP
+//   END_CRITERIA
 //
 //   dsl::Verify( FS_Fuse_6::FS_Fuse_01, registerValue);
 //
 // Note: `Name` (the group's static member) is declared before the CRIT
 // members, so each CRIT can reference it to stamp the group into its criterion.
 //
-#define GROUP( groupName, desc)                                       \
+#define CRITERIA( groupName, desc)                                    \
     struct groupName                                                  \
     {                                                                 \
         static constexpr std::string_view Name        = #groupName;   \
@@ -84,7 +90,7 @@ namespace core
 #define CRIT( id, pred, desc)                                          \
         static constexpr auto id = ::core::makeCriterion( Name, #id, desc, pred);
 
-#define END_GROUP };
+#define END_CRITERIA };
 
 //
 // CRIT_FROM_PRODUCTION( group, id): a companion to CRIT for tolerance-variant
@@ -102,7 +108,7 @@ namespace core
 // merely defined, so declaring it here costs nothing to code that never
 // invokes it (e.g. this file's own reflection experiments below, or
 // test_criterion.cpp's throwaway groups). That's different from baking
-// "production" awareness into GROUP/CRIT themselves, which would force
+// "production" awareness into CRITERIA/CRIT themselves, which would force
 // every use of the general mechanism to satisfy it.
 //
 // Deliberately unqualified (production::group::id, not ::production::...):

@@ -34,7 +34,7 @@ add_link_options(-fcontracts)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # --- Criteria/tolerance variant selection ---
-# Which tolerance table the scripts layer's CRIT/GROUP checks are built
+# Which tolerance table the scripts layer's CRIT/CRITERIA checks are built
 # against: e.g. production hardware fresh off the line vs. a stress-chamber
 # run vs. equipment that's been in service for years. This is a single,
 # CMake-validated choice -- not a raw environment variable read via #ifdef --
