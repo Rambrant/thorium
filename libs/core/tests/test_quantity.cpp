@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 using namespace core::literals;
+using namespace core::quantities;
 
 TEST( CoreQuantity, LiteralsProduceExpectedValue)
 {
@@ -24,8 +25,8 @@ TEST( CoreQuantity, SameUnitComparisonsWork)
 
 TEST( CoreQuantity, MultiplyingVoltageAndCurrentGivesApparentPower)
 {
-    const core::ApparentPower fromVA = 12.0_V * 2.0_A;
-    const core::ApparentPower fromAV = 2.0_A * 12.0_V;
+    const ApparentPower fromVA = 12.0_V * 2.0_A;
+    const ApparentPower fromAV = 2.0_A * 12.0_V;
 
     EXPECT_DOUBLE_EQ( fromVA.value(), 24.0);
     EXPECT_DOUBLE_EQ( fromAV.value(), 24.0);
@@ -33,11 +34,11 @@ TEST( CoreQuantity, MultiplyingVoltageAndCurrentGivesApparentPower)
 
 TEST( CoreQuantity, ApparentPowerTimesPowerFactorGivesRealPower)
 {
-    const core::ApparentPower apparent{ 100.0};
-    const core::PowerFactor   pf{ 0.8};
+    const ApparentPower apparent{ 100.0};
+    const PowerFactor   pf{ 0.8};
 
-    const core::Power fromSxPF = apparent * pf;
-    const core::Power fromPFxS = pf * apparent;
+    const Power fromSxPF = apparent * pf;
+    const Power fromPFxS = pf * apparent;
 
     EXPECT_DOUBLE_EQ( fromSxPF.value(), 80.0);
     EXPECT_DOUBLE_EQ( fromPFxS.value(), 80.0);
@@ -45,50 +46,50 @@ TEST( CoreQuantity, ApparentPowerTimesPowerFactorGivesRealPower)
 
 TEST( CoreQuantity, RealPowerDividedByApparentPowerGivesPowerFactor)
 {
-    const core::Power         real{ 80.0};
-    const core::ApparentPower apparent{ 100.0};
+    const Power         real{ 80.0};
+    const ApparentPower apparent{ 100.0};
 
-    const core::PowerFactor pf = real / apparent;
+    const PowerFactor pf = real / apparent;
 
     EXPECT_DOUBLE_EQ( pf.value(), 0.8);
 }
 
 TEST( CoreQuantity, RealPowerDividedByPowerFactorGivesApparentPower)
 {
-    const core::Power       real{ 80.0};
-    const core::PowerFactor pf{ 0.8};
+    const Power       real{ 80.0};
+    const PowerFactor pf{ 0.8};
 
-    const core::ApparentPower apparent = real / pf;
+    const ApparentPower apparent = real / pf;
 
     EXPECT_DOUBLE_EQ( apparent.value(), 100.0);
 }
 
 TEST( CoreQuantity, PowerTriangleReactivePowerFromApparentAndReal)
 {
-    const core::ApparentPower apparent{ 100.0};
-    const core::Power         real{ 80.0};
+    const ApparentPower apparent{ 100.0};
+    const Power         real{ 80.0};
 
-    const core::ReactivePower reactive = core::reactivePower( apparent, real);
+    const ReactivePower reactive = reactivePower( apparent, real);
 
     EXPECT_DOUBLE_EQ( reactive.value(), 60.0);
 }
 
 TEST( CoreQuantity, PowerTriangleRealPowerFromApparentAndReactive)
 {
-    const core::ApparentPower apparent{ 100.0};
-    const core::ReactivePower reactive{ 60.0};
+    const ApparentPower apparent{ 100.0};
+    const ReactivePower reactive{ 60.0};
 
-    const core::Power real = core::realPower( apparent, reactive);
+    const Power real = realPower( apparent, reactive);
 
     EXPECT_DOUBLE_EQ( real.value(), 80.0);
 }
 
 TEST( CoreQuantity, PowerTriangleApparentPowerFromRealAndReactive)
 {
-    const core::Power         real{ 80.0};
-    const core::ReactivePower reactive{ 60.0};
+    const Power         real{ 80.0};
+    const ReactivePower reactive{ 60.0};
 
-    const core::ApparentPower apparent = core::apparentPower( real, reactive);
+    const ApparentPower apparent = apparentPower( real, reactive);
 
     EXPECT_DOUBLE_EQ( apparent.value(), 100.0);
 }
@@ -101,9 +102,9 @@ TEST( CoreQuantity, ReactivePowerLiteralsProduceExpectedValue)
 
 TEST( CoreQuantity, SameUnitAdditionAndSubtractionStayInUnit)
 {
-    const core::Power sum  = 2.0_W + 3.0_W;
-    const core::Power diff = 5.0_W - 3.0_W;
-    const core::Power neg  = -2.0_W;
+    const Power sum  = 2.0_W + 3.0_W;
+    const Power diff = 5.0_W - 3.0_W;
+    const Power neg  = -2.0_W;
 
     EXPECT_DOUBLE_EQ( sum.value(),  5.0);
     EXPECT_DOUBLE_EQ( diff.value(), 2.0);
@@ -112,8 +113,8 @@ TEST( CoreQuantity, SameUnitAdditionAndSubtractionStayInUnit)
 
 TEST( CoreQuantity, ScalarMultiplicationScalesInUnit)
 {
-    const core::Power doubled     = 2.0_W * 2.0;
-    const core::Power alsoDoubled = 2.0 * 2.0_W;
+    const Power doubled     = 2.0_W * 2.0;
+    const Power alsoDoubled = 2.0 * 2.0_W;
 
     EXPECT_DOUBLE_EQ( doubled.value(),     4.0);
     EXPECT_DOUBLE_EQ( alsoDoubled.value(), 4.0);
@@ -121,7 +122,7 @@ TEST( CoreQuantity, ScalarMultiplicationScalesInUnit)
 
 TEST( CoreQuantity, ScalarDivisionScalesInUnit)
 {
-    const core::Power halved = 6.0_W / 2.0;
+    const Power halved = 6.0_W / 2.0;
 
     EXPECT_DOUBLE_EQ( halved.value(), 3.0);
 }
@@ -138,7 +139,7 @@ TEST( CoreQuantity, ScalarDivisionScalesInUnit)
 // }
 //
 // TEST(CoreQuantity, CannotAddPowerAndPowerFactor) {
-//     const auto illegal = 80.0_W + core::PowerFactor{ 0.8};  // compile error: different units
+//     const auto illegal = 80.0_W + PowerFactor{ 0.8};  // compile error: different units
 // }
 //
 // TEST(CoreQuantity, CannotAddRealAndReactivePower) {

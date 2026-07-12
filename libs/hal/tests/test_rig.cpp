@@ -4,6 +4,8 @@
 
 #include "core/rig.hpp"
 
+using core::quantities::Voltage;
+
 TEST( HalRig, ExposesInstrumentsThroughCoreInterface)
 {
     hal::SimRig  rig;
@@ -19,7 +21,7 @@ TEST( HalRig, ProgrammedScopeReadingIsVisibleThroughInterface)
 {
     hal::SimRig rig;
 
-    rig.simScope().setLevel(core::Voltage{ 5.0 });
+    rig.simScope().setLevel(Voltage{ 5.0 });
 
     core::IRig & interface = rig;
 
@@ -32,7 +34,7 @@ TEST( HalRig, PowerSupplyRoundTripsThroughInterface)
     core::IRig & interface = rig;
     auto *       supply    = interface.powerSupply();
 
-    supply->setOutput( core::Voltage{ 3.3 });
+    supply->setOutput( Voltage{ 3.3 });
     supply->enable();
 
     EXPECT_DOUBLE_EQ( rig.simSupply().output().value(), 3.3);
@@ -53,8 +55,8 @@ TEST( HalRig, PerCrosspointVoltmeterReadingFollowsMatrixRouting)
 {
     hal::SimRig rig;
 
-    rig.simVoltmeter().setReadingAt({ 3, 7 }, core::Voltage{ 5.0 });
-    rig.simVoltmeter().setReadingAt({ 3, 6 }, core::Voltage{ 3.3 });
+    rig.simVoltmeter().setReadingAt({ 3, 7 }, Voltage{ 5.0 });
+    rig.simVoltmeter().setReadingAt({ 3, 6 }, Voltage{ 3.3 });
 
     core::IRig & interface = rig;
 

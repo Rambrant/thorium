@@ -8,6 +8,8 @@
 
 #include "dut/rig_device.hpp"
 
+using core::quantities::Voltage;
+
 namespace
 {
     // Fake device returning a programmed reading per named test point. Keeps the
@@ -15,14 +17,14 @@ namespace
     class FakeDevice : public dut::DeviceView
     {
         public:
-            std::map<std::string, core::Voltage> readings;
+            std::map<std::string, Voltage> readings;
 
             [[nodiscard]] bool hasPoint( std::string_view name ) const override
             {
                 return readings.count(std::string(name)) > 0;
             }
 
-            [[nodiscard]] std::optional<core::Voltage> measure( std::string_view name ) override
+            [[nodiscard]] std::optional<Voltage> measure( std::string_view name ) override
             {
                 auto it = readings.find(std::string(name));
                 if( it == readings.end() )
@@ -35,23 +37,23 @@ namespace
 TEST(SupplyRailScript, PassesWhenBothRailsInTolerance)
 {
     FakeDevice device;
-    device.readings["Port5Vdc"] = core::Voltage{ 5.02 };
-    device.readings["Port3V3"]  = core::Voltage{ 3.29 };
+    device.readings["Port5Vdc"] = Voltage{ 5.02 };
+    device.readings["Port3V3"]  = Voltage{ 3.29 };
     EXPECT_TRUE(scripts::supplyRailScript(device));
 }
 
 TEST(SupplyRailScript, FailsWhenARailIsOutOfTolerance)
 {
     FakeDevice device;
-    device.readings["Port5Vdc"] = core::Voltage{ 5.02 };
-    device.readings["Port3V3"]  = core::Voltage{ 3.10 }; // outside +/-50mV
+    device.readings["Port5Vdc"] = Voltage{ 5.02 };
+    device.readings["Port3V3"]  = Voltage{ 3.10 }; // outside +/-50mV
     EXPECT_FALSE(scripts::supplyRailScript(device));
 }
 
 TEST(SupplyRailScript, FailsWhenAPointIsMissing)
 {
     FakeDevice device;
-    device.readings["Port5Vdc"] = core::Voltage{ 5.02 };
+    device.readings["Port5Vdc"] = Voltage{ 5.02 };
     // Port3V3 not provided at all
     EXPECT_FALSE(scripts::supplyRailScript(device));
 }

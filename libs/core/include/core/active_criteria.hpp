@@ -25,10 +25,20 @@
 //
 // Every .inc file itself has no scaffolding of its own (no #pragma once, no
 // #includes, no namespace, no "core::"/"using namespace" of its own) --
-// this header supplies all of that, including bringing core's predicates
-// (EQ, MASK, ...), quantity types (Voltage, ...), and literals (_V, ...)
-// into unqualified scope, so a criteria file can write
-// EQ( 5.0_V).epsilon( 0.05_V) instead of core::EQ( core::Voltage{ 5.0}).epsilon( core::Voltage{ 0.05}).
+// this header supplies all of that, including bringing core::quantities'
+// predicates (EQ, MASK, ...), quantity types (Voltage, ...), and
+// core::literals' literals (_V, ...) into unqualified scope, so a criteria
+// file can write EQ( 5.0_V).epsilon( 0.05_V) instead of
+// core::quantities::EQ( core::quantities::Voltage{ 5.0}).epsilon( core::quantities::Voltage{ 0.05}).
+//
+// Deliberately core::quantities, not a blanket "using namespace core;":
+// core also holds Instrument, Verify, SwitchMatrix, Logger, and everything
+// else in the framework, none of which a criteria file has any business
+// touching. core::quantities holds only the predicate/quantity vocabulary
+// (see quantity.hpp and predicates.hpp, which define it and reopen it
+// respectively) -- anything new added there is automatically part of what a
+// criteria file can use, with nothing else dragged in alongside it.
+//
 // Each .inc file is one flat file holding every script's CRITERIA/CRIT side
 // by side.
 //
@@ -51,7 +61,7 @@
 //
 namespace production
 {
-    using namespace core;
+    using namespace core::quantities;
     using namespace core::literals;
 
     #include THORIUM_PRODUCTION_CRITERIA
@@ -73,7 +83,7 @@ namespace production
 // `using namespace core::literals;` itself (which fuse_register_script.cpp
 // already does, explicitly, today).
 //
-using namespace core;
+using namespace core::quantities;
 using namespace core::literals;
 
 #include THORIUM_ACTIVE_CRITERIA

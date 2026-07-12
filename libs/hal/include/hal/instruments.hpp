@@ -7,6 +7,8 @@
 
 namespace hal
 {
+    using core::quantities::Voltage;
+
     //
     // Concrete, simulated instruments. On a real rig these would drive actual
     // hardware (VISA/SCPI, vendor SDKs, etc.); here they return programmable
@@ -21,11 +23,11 @@ namespace hal
     class SimVoltmeter : public core::IVoltmeter
     {
         public:
-            explicit SimVoltmeter( core::Voltage defaultReading) :
+            explicit SimVoltmeter( Voltage defaultReading) :
                 mDefault( defaultReading)
             {}
 
-            auto setReading( core::Voltage v ) -> void
+            auto setReading( Voltage v ) -> void
             {
                 mDefault = v;
             }
@@ -33,7 +35,7 @@ namespace hal
             //
             // Program the reading seen when a specific crosspoint is the live route.
             //
-            auto setReadingAt( core::Crosspoint point, core::Voltage voltage) -> void
+            auto setReadingAt( core::Crosspoint point, Voltage voltage) -> void
             {
                 mByPoint[key(point)] = voltage;
             }
@@ -47,7 +49,7 @@ namespace hal
             }
 
             [[nodiscard]]
-            auto measureVoltage() -> core::Voltage override
+            auto measureVoltage() -> Voltage override
             {
                 auto it = mByPoint.find(key( mActive));
 
@@ -61,37 +63,37 @@ namespace hal
                 return (static_cast< std::uint32_t>(point.mRow) << 16) | point.mCol;
             }
 
-            core::Voltage                          mDefault;
-            core::Crosspoint                       mActive{ 0xFFFF, 0xFFFF };
-            std::map<std::uint32_t, core::Voltage> mByPoint;
+            Voltage                          mDefault;
+            core::Crosspoint                 mActive{ 0xFFFF, 0xFFFF };
+            std::map<std::uint32_t, Voltage> mByPoint;
     };
 
     class SimOscilloscope : public core::IOscilloscope
     {
         public:
-            explicit SimOscilloscope( core::Voltage level) :
+            explicit SimOscilloscope( Voltage level) :
                 mLevel(level)
             {}
 
-            auto setLevel( core::Voltage voltage) -> void
+            auto setLevel( Voltage voltage) -> void
             {
                 mLevel = voltage;
             }
 
             [[nodiscard]]
-            auto measureLevel() -> core::Voltage override
+            auto measureLevel() -> Voltage override
             {
                 return mLevel;
             }
 
         private:
-            core::Voltage mLevel;
+            Voltage mLevel;
     };
 
     class SimPowerSupply : public core::IPowerSupply
     {
         public:
-            auto setOutput( core::Voltage voltage ) -> void override
+            auto setOutput( Voltage voltage ) -> void override
             {
                 mOutput = voltage;
             }
@@ -107,7 +109,7 @@ namespace hal
             }
 
             [[nodiscard]]
-            auto output() const -> core::Voltage
+            auto output() const -> Voltage
             {
                 return mOutput;
             }
@@ -119,7 +121,7 @@ namespace hal
             }
 
         private:
-            core::Voltage mOutput{ 0.0 };
-            bool          mEnabled{ false };
+            Voltage mOutput{ 0.0 };
+            bool    mEnabled{ false };
     };
 } // namespace hal

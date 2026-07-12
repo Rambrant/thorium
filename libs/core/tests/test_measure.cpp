@@ -5,6 +5,8 @@
 
 #include <gtest/gtest.h>
 
+using core::quantities::Voltage;
+
 namespace
 {
     class FakeMatrix : public core::ISwitchMatrix
@@ -37,10 +39,10 @@ namespace
     class FakeVoltmeter : public core::IVoltmeter
     {
         public:
-            core::Voltage reading{ 0.0 };
+            Voltage reading{ 0.0 };
 
             [[nodiscard]]
-            auto measureVoltage() -> core::Voltage override
+            auto measureVoltage() -> Voltage override
             {
                 return reading;
             }
@@ -49,10 +51,10 @@ namespace
     class FakeScope : public core::IOscilloscope
     {
         public:
-            core::Voltage level{ 0.0 };
+            Voltage level{ 0.0 };
 
             [[nodiscard]]
-            auto measureLevel() -> core::Voltage override
+            auto measureLevel() -> Voltage override
             {
                 return level;
             }
@@ -63,7 +65,7 @@ TEST( CoreMeasure, RoutesMatrixThenReadsVoltmeter)
 {
     FakeMatrix    matrix;
     FakeVoltmeter voltmeter;
-    voltmeter.reading = core::Voltage{ 5.01 };
+    voltmeter.reading = Voltage{ 5.01 };
 
     const auto result = core::Measure( matrix, core::Crosspoint{ 3, 7 }, voltmeter);
 
@@ -76,7 +78,7 @@ TEST( CoreMeasure, RoutesMatrixThenReadsOscilloscope)
 {
     FakeMatrix matrix;
     FakeScope  scope;
-    scope.level = core::Voltage{ 3.28 };
+    scope.level = Voltage{ 3.28 };
 
     const auto result = core::Measure( matrix, core::Crosspoint{ 1, 2 }, scope);
 

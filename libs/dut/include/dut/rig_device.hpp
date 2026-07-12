@@ -9,6 +9,8 @@
 
 namespace dut
 {
+    using core::quantities::Voltage;
+
     //
     // A DUT modeled in terms of rig instruments and matrix routing, rather than
     // a register bus. The device governs *what* is needed to test it: it holds
@@ -37,7 +39,7 @@ namespace dut
             // isn't present on the rig.
             //
             [[nodiscard]]
-            virtual auto measure( std::string_view pointNMame ) -> std::optional<core::Voltage> = 0;
+            virtual auto measure( std::string_view pointNMame ) -> std::optional<Voltage> = 0;
 
             [[nodiscard]]
             virtual auto hasPoint( std::string_view pointName ) const -> bool = 0;
@@ -58,7 +60,7 @@ namespace dut
             }
 
             [[nodiscard]]
-            auto measure( std::string_view pointName) -> std::optional<core::Voltage> override
+            auto measure( std::string_view pointName) -> std::optional<Voltage> override
             {
                 const auto point = mMap.find( pointName);
 

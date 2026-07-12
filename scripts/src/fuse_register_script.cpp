@@ -8,6 +8,7 @@
 #include "core/active_criteria.hpp"
 
 using namespace core::literals;
+using namespace core::quantities;
 using core::Verify;
 
 
@@ -31,7 +32,7 @@ namespace scripts
         //
         const auto voltage = device.measureOutputVoltage();
 
-        allPassed &= core::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).epsilon( 0.05), voltage.value());
+        allPassed &= Verify( "Voltage", "Vout", "Supply voltage", EQ( 12.0).epsilon( 0.05), voltage.value());
 
         return allPassed;
     }

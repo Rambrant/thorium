@@ -6,6 +6,8 @@
 
 namespace core
 {
+    using core::quantities::Voltage;
+
     //
     // Measure is a pure value-fetching primitive: route the matrix to the given
     // crosspoint, then take one reading from the given instrument. It never

@@ -4,6 +4,8 @@
 
 namespace core
 {
+    using quantities::Voltage;
+
     //
     // Abstract instrument interfaces. These live in core so that dut and dsl can
     // reason about "an oscilloscope" or "a meter" without depending on any

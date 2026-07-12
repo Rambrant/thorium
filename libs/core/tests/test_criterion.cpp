@@ -4,13 +4,15 @@
 
 #include "core/predicates.hpp"
 
+using namespace core::quantities;
+
 //
 // Exercise the CRITERIA/CRIT macros directly, the same way a test-spec table
 // would be written.
 //
 CRITERIA( TestGroup, "A group used purely for unit-testing the macros")
-    CRIT( SomeRegisterCheck, core::MASK( 0x0Fu, 0x05u), "Low nibble must be 0x5")
-    CRIT( ExactValueCheck,   core::EQ( 0xF5u),          "Register must read 0xF5")
+    CRIT( SomeRegisterCheck, MASK( 0x0Fu, 0x05u), "Low nibble must be 0x5")
+    CRIT( ExactValueCheck,   EQ( 0xF5u),          "Register must read 0xF5")
 END_CRITERIA
 
 //
@@ -47,7 +49,7 @@ TEST( CoreCriterion, PredicateEvaluatesThroughCriterion)
 TEST( CoreCriterion, MakeCriterionBuildsByHand)
 {
     constexpr auto crit =
-        core::makeCriterion( "Adhoc", "AdhocCheck", "built by hand", core::EQ( 3.3).epsilon( 0.05));
+        core::makeCriterion( "Adhoc", "AdhocCheck", "built by hand", EQ( 3.3).epsilon( 0.05));
 
     EXPECT_EQ( crit.id, "AdhocCheck");
     EXPECT_TRUE( crit.predicate( 3.32));

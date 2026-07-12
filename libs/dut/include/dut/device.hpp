@@ -7,6 +7,8 @@
 
 namespace dut
 {
+    using core::quantities::Voltage;
+
     //
     // Models the device under test in terms of the hal::Bus primitives.
     // This is where register maps / memory layout for the actual chip
@@ -41,7 +43,7 @@ namespace dut
             auto readFuseRegister() const -> std::uint32_t;
 
             [[nodiscard]]
-            auto measureOutputVoltage() const -> core::Voltage;
+            auto measureOutputVoltage() const -> Voltage;
 
         private:
             static constexpr std::uint32_t kPowerRegister = 0x0000;

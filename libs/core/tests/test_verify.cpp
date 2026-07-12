@@ -5,11 +5,13 @@
 #include "core/criterion.hpp"
 #include "core/predicates.hpp"
 
+using namespace core::quantities;
+
 //
 // Exercise the CRITERIA/CRIT macros directly, the same way a real test script would.
 //
 CRITERIA( VerifyTestGroup, "A group used purely for unit-testing Verify")
-    CRIT( SomeRegisterCheck, core::MASK(0x0Fu, 0x05u), "Low nibble must be 0x5")
+    CRIT( SomeRegisterCheck, MASK(0x0Fu, 0x05u), "Low nibble must be 0x5")
 END_CRITERIA
 
 TEST( CoreVerify, CriterionOverloadReturnsTrueOnPass)
@@ -24,6 +26,6 @@ TEST( CoreVerify, CriterionOverloadReturnsFalseOnFail)
 
 TEST( CoreVerify, AdHocOverloadWorksWithoutCritMacro)
 {
-    EXPECT_TRUE( core::Verify("Voltage", "Vout", "Supply voltage", core::EQ( 12.0).epsilon( 0.05), 12.03));
-    EXPECT_FALSE( core::Verify( "Voltage", "Vout", "Supply voltage", core::EQ( 12.0).epsilon( 0.05), 12.50));
+    EXPECT_TRUE( core::Verify("Voltage", "Vout", "Supply voltage", EQ( 12.0).epsilon( 0.05), 12.03));
+    EXPECT_FALSE( core::Verify( "Voltage", "Vout", "Supply voltage", EQ( 12.0).epsilon( 0.05), 12.50));
 }

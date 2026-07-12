@@ -8,6 +8,8 @@
 
 namespace core
 {
+    using quantities::Quantity;
+
     namespace detail
     {
         //
@@ -27,11 +29,11 @@ namespace core
     //
     template< typename Predicate, typename T>
         requires core::PredicateFor< Predicate, T>
-    bool Verify( const core::Criterion<Predicate> & criterion, const T & value)
+    bool Verify( const Criterion<Predicate> & criterion, const T & value)
     {
         const bool passed = criterion.predicate( value);
 
-        detail::reportResult( criterion.group, criterion.id, criterion.description, passed);
+        core::detail::reportResult( criterion.group, criterion.id, criterion.description, passed);
 
         return passed;
     }
@@ -48,7 +50,7 @@ namespace core
                  const Predicate & predicate,
                  const T &         value )
     {
-        return Verify( core::Criterion{ group, id, description, predicate }, value);
+        return Verify( Criterion{ group, id, description, predicate }, value);
     }
 
     //
@@ -68,11 +70,11 @@ namespace core
     //
     template< typename Predicate, typename Unit>
         requires core::PredicateFor< Predicate, double> || core::PredicateFor< Predicate, Quantity<Unit>>
-    bool Verify( const core::Criterion<Predicate> & criterion, const std::optional<Quantity<Unit>> & reading)
+    bool Verify( const Criterion<Predicate> & criterion, const std::optional<Quantity<Unit>> & reading)
     {
         if( ! reading)
         {
-            detail::reportResult( criterion.group, criterion.id, criterion.description, false);
+            core::detail::reportResult( criterion.group, criterion.id, criterion.description, false);
 
             return false;
         }

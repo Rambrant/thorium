@@ -5,6 +5,8 @@
 #include "core/rig.hpp"
 #include "dut/matrix_map.hpp"
 
+using core::quantities::Voltage;
+
 namespace {
 
 // A hand-rolled fake rig -- proves RigDevice depends only on core::IRig and
@@ -25,14 +27,14 @@ public:
 
     class FakeVoltmeter : public core::IVoltmeter {
     public:
-        core::Voltage reading{0.0};
-        [[nodiscard]] core::Voltage measureVoltage() override { return reading; }
+        Voltage reading{0.0};
+        [[nodiscard]] Voltage measureVoltage() override { return reading; }
     };
 
     class FakeScope : public core::IOscilloscope {
     public:
-        core::Voltage level{0.0};
-        [[nodiscard]] core::Voltage measureLevel() override { return level; }
+        Voltage level{0.0};
+        [[nodiscard]] Voltage measureLevel() override { return level; }
     };
 
     [[nodiscard]] core::IOscilloscope* oscilloscope() override { return &scope; }
@@ -54,7 +56,7 @@ END_MATRIX
 
 TEST(DutRigDevice, MeasureRoutesMatrixThenReadsVoltmeter) {
     FakeRig rig;
-    rig.vm.reading = core::Voltage{5.01};
+    rig.vm.reading = Voltage{5.01};
     dut::RigDevice device{rig, RigDevTestAdapter};
 
     auto result = device.measure("Port5Vdc");
@@ -69,7 +71,7 @@ TEST(DutRigDevice, MeasureRoutesMatrixThenReadsVoltmeter) {
 
 TEST(DutRigDevice, MeasureUsesOscilloscopeForScopePoints) {
     FakeRig rig;
-    rig.scope.level = core::Voltage{3.28};
+    rig.scope.level = Voltage{3.28};
     dut::RigDevice device{rig, RigDevTestAdapter};
 
     auto result = device.measure("ClkProbe");

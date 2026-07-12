@@ -6,6 +6,8 @@
 
 namespace hal
 {
+    using core::quantities::Voltage;
+
     //
     // A concrete rig wiring together simulated instruments and a switch matrix.
     // This is the "collection of instruments" the physical bench owns; many
@@ -17,8 +19,8 @@ namespace hal
         public:
             SimRig()
                 : mMatrix( *this, /*rows=*/8, /*cols=*/8),
-                  mScope( core::Voltage{ 0.0 }),
-                  mVoltmeter( core::Voltage{ 0.0 })
+                  mScope( Voltage{ 0.0 }),
+                  mVoltmeter( Voltage{ 0.0 })
             {}
 
             [[nodiscard]]

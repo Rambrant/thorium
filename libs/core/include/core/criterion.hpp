@@ -72,8 +72,8 @@ namespace core
 // the other) and literally (both would try to #define END_GROUP).
 //
 //   CRITERIA( FS_Fuse_6, "Check of Fuses @ Register CB30")
-//       CRIT( FS_Fuse_01, core::MASK( 0x0Fu, 0x05u), "Low nibble must be 0x5")
-//       CRIT( FS_Fuse_02, core::EQ( 0xF5u),          "Fuse register == 0xF5")
+//       CRIT( FS_Fuse_01, MASK( 0x0Fu, 0x05u), "Low nibble must be 0x5")
+//       CRIT( FS_Fuse_02, EQ( 0xF5u),          "Fuse register == 0xF5")
 //   END_CRITERIA
 //
 //   dsl::Verify( FS_Fuse_6::FS_Fuse_01, registerValue);

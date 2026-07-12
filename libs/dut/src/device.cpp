@@ -2,6 +2,8 @@
 
 namespace dut
 {
+    using core::quantities::Voltage;
+
     Device::Device( hal::Bus & bus ) : mBus(bus) {}
 
     void Device::powerOn()
@@ -34,10 +36,10 @@ namespace dut
         return mBus.readRegister(kFuseRegister);
     }
 
-    core::Voltage Device::measureOutputVoltage() const
+    Voltage Device::measureOutputVoltage() const
     {
         const auto millivolts = mBus.readRegister( kVoltageRegister);
 
-        return core::Voltage{ static_cast<double>(millivolts) / 1000.0 };
+        return Voltage{ static_cast<double>(millivolts) / 1000.0 };
     }
 } // namespace dut

@@ -7,6 +7,8 @@
 #include "scripts/device_x_profile.hpp"
 #include "scripts/scripts.hpp"
 
+using core::quantities::Voltage;
+
 int main()
 {
     //
@@ -41,8 +43,8 @@ int main()
     // from real hardware). Crosspoints match DeviceX_StdAdapter:
     // Port5Vdc -> (3,7), Port3V3 -> (3,6).
     //
-    rig.simVoltmeter().setReadingAt({ 3, 7 }, core::Voltage{ 5.02 });
-    rig.simVoltmeter().setReadingAt({ 3, 6 }, core::Voltage{ 3.29 });
+    rig.simVoltmeter().setReadingAt({ 3, 7 }, Voltage{ 5.02 });
+    rig.simVoltmeter().setReadingAt({ 3, 6 }, Voltage{ 3.29 });
 
     dut::RigDevice rigDevice{ rig, DeviceX_StdAdapter };
 
