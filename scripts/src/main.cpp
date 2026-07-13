@@ -1,52 +1,119 @@
+#include <algorithm>
 #include <iostream>
+#include <string_view>
+#include <vector>
 
-#include "dut/device.hpp"
-#include "dut/rig_device.hpp"
-#include "hal/bus.hpp"
-#include "hal/rig.hpp"
-#include "scripts/device_x_profile.hpp"
-#include "scripts/scripts.hpp"
+#include "scripts/catalog.hpp"
 
-using core::quantities::Voltage;
-
-int main()
+//
+// Runner for the test-script catalog (scripts/catalog.hpp). Three modes,
+// matching what tools/run-tests.sh expects:
+//
+//   run_scripts                    run every test in the catalog
+//   run_scripts --list-tests       print "group|id|description", one per
+//                                  test, then exit -- nothing is run
+//   run_scripts --select=a,b,c     run only the named test ids (from any
+//                                  group), in catalog order
+//
+// ids are only ever compared for a match against what's already in the
+// catalog -- never parsed into anything -- so a typo in --select just
+// means that test doesn't run, not a crash or an unintended one.
+//
+namespace
 {
-    //
-    // --- Register-bus based scripts (existing) ---
-    //
-    hal::Bus          bus;
+    auto splitCommaList( std::string_view csv) -> std::vector<std::string_view>
+    {
+        std::vector<std::string_view> parts;
+        std::size_t                   start = 0;
 
-    //
-    // Simulate fuse + voltage register values that would normally come
-    // from real hardware.
-    //
-    bus.writeRegister( dut::Device::kFuseRegister, 0xF5);
-    bus.writeRegister( dut::Device::kVoltageRegister, 12030); // 12.030 V
+        while ( start <= csv.size())
+        {
+            auto comma = csv.find( ',', start);
+            auto end   = (comma == std::string_view::npos) ? csv.size() : comma;
 
-    bool allPassed = true;
+            if ( end > start)
+                parts.push_back( csv.substr( start, end - start));
 
-    allPassed &= scripts::fuseRegisterScript( "group", "test");
-    allPassed &= scripts::supplyRailScript( "group", "test");
+            if ( comma == std::string_view::npos)
+                break;
 
-    //
-    // --- Composition root for the instrument/matrix path ---
-    // This is the one place that chooses the concrete rig and binds the DUT
-    // profile (routing table) to it. The RigDevice is handed to scripts as a
-    // dut::DeviceView, so nothing above sees the concrete rig or instruments.
-    //
-    hal::SimRig rig;
+            start = comma + 1;
+        }
 
-    //
-    // Program simulated instrument readings per matrix crosspoint (would come
-    // from real hardware). Crosspoints match DeviceX_StdAdapter:
-    // Port5Vdc -> (3,7), Port3V3 -> (3,6).
-    //
-    rig.simVoltmeter().setReadingAt({ 3, 7 }, Voltage{ 5.02 });
-    rig.simVoltmeter().setReadingAt({ 3, 6 }, Voltage{ 3.29 });
+        return parts;
+    }
 
-    dut::RigDevice rigDevice{ rig, DeviceX_StdAdapter };
+    auto isSelected( std::string_view id, const std::vector<std::string_view> & selection) -> bool
+    {
+        return selection.empty() || std::find( selection.begin(), selection.end(), id) != selection.end();
+    }
 
-    allPassed &= scripts::supplyRailScript( "group", "test");
+    void listTests()
+    {
+        for ( const auto & group : scripts::catalog::Catalog)
+            for ( const auto & test : group.tests)
+                std::cout << group.name << '|' << test.id << '|' << test.description << '\n';
+    }
+
+    auto runTests( const std::vector<std::string_view> & selection) -> bool
+    {
+        bool allPassed = true;
+        bool ranAny    = false;
+
+        for ( const auto & group : scripts::catalog::Catalog)
+        {
+            for ( const auto & test : group.tests)
+            {
+                if ( !isSelected( test.id, selection))
+                    continue;
+
+                ranAny = true;
+                std::cout << "--- " << group.name << "::" << test.id << " -- " << test.description << " ---\n";
+                allPassed &= test.script( group.name, test.id);
+            }
+        }
+
+        if ( !ranAny)
+        {
+            std::cerr << "No catalog test matched --select; nothing ran.\n";
+            return false;
+        }
+
+        return allPassed;
+    }
+} // namespace
+
+int main( int argc, char ** argv)
+{
+    std::vector<std::string_view> selection; // empty => run everything
+    bool                          listOnly = false;
+
+    for ( int i = 1; i < argc; ++i)
+    {
+        std::string_view arg = argv[i];
+
+        if ( arg == "--list-tests")
+        {
+            listOnly = true;
+        }
+        else if ( arg.starts_with( "--select="))
+        {
+            selection = splitCommaList( arg.substr( std::string_view{ "--select="}.size()));
+        }
+        else
+        {
+            std::cerr << "Unknown argument: " << arg << '\n';
+            return 1;
+        }
+    }
+
+    if ( listOnly)
+    {
+        listTests();
+        return 0;
+    }
+
+    bool allPassed = runTests( selection);
 
     std::cout << "\n=== " << (allPassed ? "ALL SCRIPTS PASSED" : "SOME SCRIPTS FAILED") << " ===\n";
 
