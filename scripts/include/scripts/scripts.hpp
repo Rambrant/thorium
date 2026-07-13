@@ -12,25 +12,12 @@
 namespace scripts
 {
     //
-    // Verifies the device can be powered on and off, and reports the correct
-    // state at each step.
-    //
-    [[nodiscard]]
-    auto powerCycleScript( dut::Device & device) -> bool;
-
-    //
-    // Verifies a value written to the device round-trips correctly.
-    //
-    [[nodiscard]]
-    auto valueScript( dut::Device & device) -> bool;
-
-    //
     // Verifies fuse register content and output voltage against expected
     // criteria. Demonstrates the declarative Criterion/Verify DSL style,
     // as opposed to the fluent TestCase style used above.
     //
     [[nodiscard]]
-    auto fuseRegisterScript( const dut::Device & device) -> bool;
+    auto fuseRegisterScript( std::string_view group, std::string_view test) -> bool;
 
     // Verifies supply rail voltages by measuring at named test points. This is
     // the instrument/matrix path: the script names *what* to check (a criterion)
@@ -38,5 +25,5 @@ namespace scripts
     // select-instrument / route-matrix / fetch sequence entirely.
     //
     [[nodiscard]]
-    auto supplyRailScript( dut::DeviceView & device) -> bool;
+    auto supplyRailScript( std::string_view group, std::string_view test) -> bool;
 } // namespace scripts

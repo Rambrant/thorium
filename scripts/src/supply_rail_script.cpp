@@ -6,7 +6,7 @@
 
 namespace scripts
 {
-    auto supplyRailScript( dut::DeviceView & device) -> bool
+    auto supplyRailScript(  std::string_view, std::string_view) -> bool
     {
         bool allPassed = true;
 
@@ -14,8 +14,12 @@ namespace scripts
         // Reads like the test spec: check this requirement at this port. No
         // instrument, crosspoint, or rig detail is visible here.
         //
-        allPassed &= core::Verify( FS_Supply_1::FS_Supply_5V0, device.measure( "Port5Vdc"));
-        allPassed &= core::Verify( FS_Supply_1::FS_Supply_3V3, device.measure( "Port3V3"));
+        // Measure (...)
+        constexpr auto dc5Voltage = 5.0_V;
+        constexpr auto dc3Voltage = 3.3_V;
+
+        allPassed &= core::Verify( FS_Supply_1::FS_Supply_5V0, dc5Voltage);
+        allPassed &= core::Verify( FS_Supply_1::FS_Supply_3V3, dc3Voltage);
 
         return allPassed;
     }

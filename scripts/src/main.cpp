@@ -14,8 +14,7 @@ int main()
     //
     // --- Register-bus based scripts (existing) ---
     //
-    hal::Bus    bus;
-    dut::Device device( bus);
+    hal::Bus          bus;
 
     //
     // Simulate fuse + voltage register values that would normally come
@@ -26,9 +25,8 @@ int main()
 
     bool allPassed = true;
 
-    allPassed &= scripts::powerCycleScript( device);
-    allPassed &= scripts::valueScript( device);
-    allPassed &= scripts::fuseRegisterScript( device);
+    allPassed &= scripts::fuseRegisterScript( "group", "test");
+    allPassed &= scripts::supplyRailScript( "group", "test");
 
     //
     // --- Composition root for the instrument/matrix path ---
@@ -48,7 +46,7 @@ int main()
 
     dut::RigDevice rigDevice{ rig, DeviceX_StdAdapter };
 
-    allPassed &= scripts::supplyRailScript( rigDevice);
+    allPassed &= scripts::supplyRailScript( "group", "test");
 
     std::cout << "\n=== " << (allPassed ? "ALL SCRIPTS PASSED" : "SOME SCRIPTS FAILED") << " ===\n";
 

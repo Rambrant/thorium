@@ -1,8 +1,6 @@
 # The test scripts themselves, written against the dsl layer.
 # Split into a library (so scripts are unit-testable) + a thin runner exe.
 add_library(scripts STATIC
-    src/power_cycle_script.cpp
-    src/value_script.cpp
     src/fuse_register_script.cpp
     src/supply_rail_script.cpp
     include/scripts/device_x_profile.hpp   # header-only
@@ -12,7 +10,7 @@ target_include_directories(scripts PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(scripts PUBLIC dsl dut hal core)
+target_link_libraries(scripts PUBLIC dut hal core)
 
 # --- Criteria/tolerance variant selection ---
 # Points core/active_criteria.hpp at the active variant's single flat .inc
@@ -34,8 +32,6 @@ target_link_libraries(run_scripts PRIVATE scripts)
 
 if(BUILD_TESTING_LAYERS)
     add_layer_tests(scripts scripts
-        tests/test_power_cycle_script.cpp
-        tests/test_value_script.cpp
         tests/test_fuse_register_script.cpp
         tests/test_supply_rail_script.cpp
         tests/test_criteria_variants_compile.cpp

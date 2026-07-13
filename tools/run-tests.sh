@@ -70,8 +70,57 @@ if [ ! -x "$BIN" ]; then
 fi
 
 if [ "$choice" = "run_scripts" ]; then
-    echo "Running $BIN ..."
-    exec "$BIN"
+    # --- Catalog-aware picker -----------------------------------------------
+    # Expects run_scripts to support:
+    #   --list-tests        print "group|id|description", one line per test
+    #   --select=id1,id2    run only those test ids (blank/absent = run all)
+    # Older binaries without --list-tests just fall through to running
+    # everything, same as before.
+    catalog="$("$BIN" --list-tests 2>/dev/null || true)"
+    if [ -z "$catalog" ]; then
+        echo "Running $BIN ..."
+        exec "$BIN"
+    fi
+
+    echo
+    echo "Groups in $choice:"
+    groups="$(printf '%s\n' "$catalog" | awk -F'|' '!seen[$1]++ { print $1 }')"
+
+    old_ifs="$IFS"
+    IFS='
+'
+    set -- $groups
+    IFS="$old_ifs"
+
+    echo "Select a group:"
+    group=""
+    select g in "$@" "All groups" "Quit"; do
+        case "$g" in
+            "Quit")       exit 0 ;;
+            "All groups") group=""; break ;;
+            "")           echo "Not a valid choice, try again." ;;
+            *)            group="$g"; break ;;
+        esac
+    done
+
+    if [ -z "$group" ]; then
+        echo "Running all tests in $BIN ..."
+        exec "$BIN"
+    fi
+
+    echo
+    echo "Tests in group '$group':"
+    printf '%s\n' "$catalog" | awk -F'|' -v grp="$group" '$1 == grp { printf "  %s - %s\n", $2, $3 }'
+    echo
+
+    echo "Enter comma-separated test ids to run (blank = run all in this group):"
+    read -r ids
+    if [ -z "$ids" ]; then
+        ids="$(printf '%s\n' "$catalog" | awk -F'|' -v grp="$group" '$1 == grp { printf "%s,", $2 }' | sed 's/,$//')"
+    fi
+
+    echo "Running $BIN --select=$ids ..."
+    exec "$BIN" "--select=$ids"
 fi
 
 # --- A GoogleTest binary: show what's in it, then let the user filter -----

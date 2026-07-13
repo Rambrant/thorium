@@ -1,15 +1,15 @@
-add_library(dsl STATIC
-        src/test_case.cpp
-)
+#add_library(dsl STATIC
+#        src/test_case.cpp
+#)
 
-target_include_directories(dsl PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+#target_include_directories(dsl PUBLIC
+#        ${CMAKE_CURRENT_SOURCE_DIR}/include
+#)
 
-target_link_libraries(dsl PUBLIC dut hal core)
+#target_link_libraries(dsl PUBLIC dut hal core)
 
-if(BUILD_TESTING_LAYERS)
-    add_layer_tests(dsl dsl
-            tests/test_test_case.cpp
-    )
-endif()
+#if(BUILD_TESTING_LAYERS)
+#    add_layer_tests(dsl dsl
+#            tests/test_test_case.cpp
+#    )
+#endif()
