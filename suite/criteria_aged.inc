@@ -1,3 +1,5 @@
+// ReSharper disable once CppMissingIncludeGuard
+
 //
 // FS_Fuse_6 is unchanged from production: a fuse register readback has no
 // natural tolerance to loosen for aged equipment either -- the fuse is

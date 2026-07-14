@@ -1,3 +1,5 @@
+// ReSharper disable once CppMissingIncludeGuard
+
 //
 // FS_Fuse_6 is unchanged from production: a fuse register readback is a
 // digital exact-bits check, with no natural thermal tolerance to widen.

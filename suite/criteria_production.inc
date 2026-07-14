@@ -1,3 +1,5 @@
+// ReSharper disable once CppMissingIncludeGuard
+
 //
 // Production variant -- matches the tolerances shipped in
 // fuse_register_script.cpp today. No scaffolding here on purpose: see
