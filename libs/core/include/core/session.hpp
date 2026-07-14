@@ -63,6 +63,47 @@ namespace core
     };
 
     //
+    // A session that forwards to whichever other session it currently holds,
+    // defaulting to the one it was constructed with. This is what lets a
+    // catalog script's Bench -- necessarily a global, since a TestScript's
+    // signature is fixed to (group, test) -> bool with no device parameter
+    // (see core/test_catalog.hpp) -- be pointed at a ScriptedSession for the
+    // duration of one test and back again, with no recompile and no change to
+    // the script itself.
+    //
+    class SwitchableSession : public ISession
+    {
+        public:
+            explicit SwitchableSession( ISession & defaultSession) : mDefault( defaultSession), mCurrent( &defaultSession) {}
+
+            // Points this session at another session until use() or useDefault() is called again.
+            auto use( ISession & session) -> void
+            {
+                mCurrent = &session;
+            }
+
+            // Restores whichever session this was constructed with.
+            auto useDefault() -> void
+            {
+                mCurrent = &mDefault;
+            }
+
+            [[nodiscard]]
+            auto fetch(
+                const std::string_view                    name,
+                const std::string_view                    instrumentId,
+                const QuantityKind                        kind,
+                const std::function<QuantityVariant()> &  liveRead) -> QuantityVariant override
+            {
+                return mCurrent->fetch( name, instrumentId, kind, liveRead);
+            }
+
+        private:
+            ISession &  mDefault;
+            ISession *  mCurrent;
+    };
+
+    //
     // A session that never touches hardware: it hands back pre-determined
     // values per DUT point name, so script unit tests (and later, debugging
     // playback of a real run) never need hal at all and never need a

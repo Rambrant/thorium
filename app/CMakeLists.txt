@@ -18,10 +18,14 @@ file(GLOB THORIUM_SUITE_SCRIPT_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/su
 # defining it (this one) no longer is.
 add_library(scripts STATIC
     ${THORIUM_SUITE_SCRIPT_SOURCES}
+    ${CMAKE_SOURCE_DIR}/suite/rig.cpp
+    ${CMAKE_SOURCE_DIR}/suite/rig.hpp                # header-only; listed for IDE visibility only
     ${CMAKE_SOURCE_DIR}/suite/device_x_profile.hpp   # header-only; listed for IDE visibility only
 )
 
 target_link_libraries(scripts PUBLIC dut hal core)
+
+target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 
 # --- Criteria/tolerance variant selection ---
 # Points core/active_criteria.hpp at the active variant's single flat .inc

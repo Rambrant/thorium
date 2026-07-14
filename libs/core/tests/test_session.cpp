@@ -70,6 +70,32 @@ TEST( CoreSession, ScriptedSessionThrowsWhenNothingWasProgrammed)
         std::runtime_error);
 }
 
+TEST( CoreSession, SwitchableSessionDefaultsToTheConstructedSession)
+{
+    core::LiveSession       live;
+    core::SwitchableSession switchable( live);
+
+    const auto value = switchable.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 5.02));
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>( value).value(), 5.02);
+}
+
+TEST( CoreSession, SwitchableSessionUseSwapsToAnotherSessionAndBack)
+{
+    core::LiveSession       live;
+    core::SwitchableSession switchable( live);
+    core::ScriptedSession   scripted;
+    scripted.program( "5VOutput", Voltage{ 9.99 });
+
+    switchable.use( scripted);
+    const auto scriptedValue = switchable.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 5.02));
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>( scriptedValue).value(), 9.99);
+
+    switchable.useDefault();
+    const auto liveValue = switchable.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 5.02));
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>( liveValue).value(), 5.02);
+}
+
 TEST( CoreSession, RecordingSessionLogsEachFetchInOrder)
 {
     core::LiveSession     live;
