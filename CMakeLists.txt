@@ -39,7 +39,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 # run vs. equipment that's been in service for years. This is a single,
 # CMake-validated choice -- not a raw environment variable read via #ifdef --
 # so a typo fails the *configure* step loudly, the same way a misspelled
-# CRIT id fails to compile. See criteria/README.md for the full mechanism.
+# CRIT id fails to compile. See suite/README.md for the full mechanism.
 set(THORIUM_KNOWN_CRITERIA_VARIANTS production stress aged)
 set(THORIUM_CRITERIA_VARIANT "production" CACHE STRING
     "Which criteria/tolerance variant to build the scripts layer against (${THORIUM_KNOWN_CRITERIA_VARIANTS})")

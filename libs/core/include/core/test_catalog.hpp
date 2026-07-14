@@ -7,26 +7,28 @@
 namespace core
 {
     //
-    // A single named, traceable test case: an id + description (matching a
-    // test-plan entry) plus the script it runs. Templated on the script's
-    // exact function-pointer type so the compiler sees straight through it --
-    // the same trick Criterion plays with its predicate. In practice every
-    // TestCase in a given catalog shares one Script alias (see
-    // scripts/catalog.hpp), which is what lets the whole catalog collapse
-    // into a single, homogeneous, compile-time array further down -- not
-    // just style, a real precondition for that to type-check at all.
+    // The one signature every catalog-registered test script has:
+    // (group, test) -- both compile-time-known strings straight out of the
+    // catalog -- and nothing else. No device/rig/crosspoint handle is
+    // passed in: that routing is resolved statically inside the script, the
+    // same way GROUP/CRIT/MATRIX/POINT already are. Because every script
+    // shares this one signature, TestCase/TestGroup need no Script template
+    // parameter -- unlike Criterion's predicate, there's only one shape
+    // here to support.
     //
-    template<typename Script>
+    using TestScript = auto (*)( std::string_view group, std::string_view test) -> bool;
+
+    //
+    // A single named, traceable test case: an id + description (matching a
+    // test-plan entry) plus the script it runs.
+    //
     struct TestCase
     {
         std::string_view id;
         std::string_view description;
 
-        Script script;
+        TestScript script;
     };
-
-    template<typename Script>
-    TestCase( std::string_view, std::string_view, Script) -> TestCase<Script>;
 
     //
     // Runtime-traversable view of one GROUP: its own name/description plus a
@@ -34,13 +36,12 @@ namespace core
     // these to present "group -> tests" and to collect a selection, without
     // knowing anything about how the tests are actually invoked.
     //
-    template<typename Script>
     struct TestGroup
     {
         std::string_view name;
         std::string_view description;
 
-        std::span<const TestCase<Script>> tests;
+        std::span<const TestCase> tests;
     };
 } // namespace core
 
@@ -49,17 +50,15 @@ namespace core
 // the same shape as CRITERIA / CRIT / END_CRITERIA (see core/criterion.hpp,
 // which reserves this name for exactly this mechanism). Each TEST names the
 // actual script function directly -- not a string -- so a renamed or
-// misspelled script is a compile error, not a runtime lookup miss.
+// misspelled script is a compile error against its scripts.hpp declaration,
+// not a runtime lookup miss.
 //
-// Unlike a CRITERIA group (named static members, one per CRIT, looked up by
-// C++ name), a GROUP's tests collapse into a single
-// `static constexpr std::array Tests`. That requires every TEST in the group
-// to share one Script type -- see scripts/catalog.hpp for the concrete
-// Script alias and why unifying script signatures is what makes this array
-// (and the top-level catalog built from several groups) possible at all.
+// A GROUP's tests collapse into a single `static constexpr std::array
+// Tests`, which needs at least one TEST in it (like CRITERIA/CRIT) for
+// std::array's CTAD deduction guide to have an element to deduce from.
 //
 //   GROUP( OutputVoltage, "Tests validating DUT output voltage rails")
-//       TEST( SupplyRail, scripts::supplyRailScript, "Verify supply rail voltages via matrix")
+//       TEST( SupplyRail, supplyRailScript, "Verify supply rail voltages via matrix")
 //   END_GROUP
 //
 // `id` doubles as both the C++-checked macro token and the display string

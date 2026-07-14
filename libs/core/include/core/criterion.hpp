@@ -94,7 +94,7 @@ namespace core
 
 //
 // CRIT_FROM_PRODUCTION( group, id): a companion to CRIT for tolerance-variant
-// files (see criteria/README.md) where a criterion's value doesn't change
+// files (see suite/README.md) where a criterion's value doesn't change
 // from production -- group/id are still stated explicitly, so a typo'd id
 // still fails to compile exactly like an ordinary CRIT (there's no
 // inheritance here, nothing to silently fall back to), but the predicate AND

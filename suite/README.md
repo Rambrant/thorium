@@ -1,17 +1,27 @@
-# Criteria variants
+# suite/ -- criteria variants and test catalog
 
 This directory holds the tolerance tables (`CRITERIA`/`CRIT` blocks, see
 `libs/core/include/core/criterion.hpp`) for scripts that need more than one
 set of numbers: production hardware fresh off the line, a stress-chamber
 run, equipment that's been in service for years, etc.
 
+It also holds `catalog.inc` -- the `GROUP`/`TEST`/`END_GROUP` test catalog
+(see `libs/core/include/core/test_catalog.hpp`), listing which scripts exist
+and what to call them. Unlike the criteria variants, there's only one of
+these (no `THORIUM_TEST_CATALOG_VARIANT` -- a build represents one hardware
+scenario, but always runs the same set of tests). It lives here rather than
+under `scripts/` because, like the criteria variants, it's data specific to
+this DUT's test plan, not framework code -- see
+`scripts/include/scripts/catalog.hpp` for how it's consumed.
+
 ## Layout
 
 ```
-criteria/
+suite/
     production.inc
     stress.inc
     aged.inc
+    catalog.inc
 ```
 
 One flat `.inc` file per variant. Each file holds every script's `CRITERIA`
