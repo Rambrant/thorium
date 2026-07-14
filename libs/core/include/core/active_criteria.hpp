@@ -48,7 +48,7 @@
 // which variant is actually active, so other variants can use
 // CRIT_FROM_PRODUCTION (see core/criterion.hpp) to borrow "the same value as
 // production" for criteria that don't change, instead of retyping it.
-// THORIUM_PRODUCTION_CRITERIA is a fixed path -- always suite/production.inc
+// THORIUM_PRODUCTION_CRITERIA is a fixed path -- always suite/criteria_production.inc
 // -- unlike THORIUM_ACTIVE_CRITERIA below, which depends on
 // THORIUM_CRITERIA_VARIANT.
 //
@@ -71,7 +71,7 @@ namespace production
 // The active variant. If THORIUM_CRITERIA_VARIANT is "production", this is
 // the same file as above, included a second time, now unqualified --
 // redundant but harmless. Any other variant can use CRIT_FROM_PRODUCTION for
-// criteria that don't change; see suite/stress.inc and suite/aged.inc.
+// criteria that don't change; see suite/criteria_stress.inc and suite/criteria_aged.inc.
 //
 // Unlike the production block above, this can't be confined to a named
 // namespace: the resulting CRITERIA structs (FS_Supply_1, FS_Fuse_6, ...)

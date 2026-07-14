@@ -24,7 +24,7 @@ namespace thorium_criteria_compile_check
         using namespace core::quantities;
         using namespace core::literals;
 
-        #include "suite/production.inc"
+        #include "suite/criteria_production.inc"
     }
 
     namespace stress
@@ -32,7 +32,7 @@ namespace thorium_criteria_compile_check
         using namespace core::quantities;
         using namespace core::literals;
 
-        #include "suite/stress.inc"
+        #include "suite/criteria_stress.inc"
     }
 
     namespace aged
@@ -40,7 +40,7 @@ namespace thorium_criteria_compile_check
         using namespace core::quantities;
         using namespace core::literals;
 
-        #include "suite/aged.inc"
+        #include "suite/criteria_aged.inc"
     }
 
     //

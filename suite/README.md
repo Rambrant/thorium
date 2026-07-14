@@ -5,23 +5,49 @@ This directory holds the tolerance tables (`CRITERIA`/`CRIT` blocks, see
 set of numbers: production hardware fresh off the line, a stress-chamber
 run, equipment that's been in service for years, etc.
 
-It also holds `catalog.inc` -- the `GROUP`/`TEST`/`END_GROUP` test catalog
+It also holds `test_catalog.inc` -- the `GROUP`/`TEST`/`END_GROUP` test catalog
 (see `libs/core/include/core/test_catalog.hpp`), listing which scripts exist
 and what to call them. Unlike the criteria variants, there's only one of
 these (no `THORIUM_TEST_CATALOG_VARIANT` -- a build represents one hardware
-scenario, but always runs the same set of tests). It lives here rather than
-under `scripts/` because, like the criteria variants, it's data specific to
-this DUT's test plan, not framework code -- see
-`scripts/include/scripts/catalog.hpp` for how it's consumed.
+scenario, but always runs the same set of tests). It lives here, not under
+`scripts/`, because it's data specific to this DUT's test plan, not
+framework code -- see `core/active_test_catalog.hpp` for how it's consumed.
+
+`scripts.hpp` holds the test scripts' declarations, at global scope
+deliberately (see the comment there) -- which is what lets
+`core/active_test_catalog.hpp` name one directly in a `TEST(...)` without
+knowing any suite-specific namespace at all. `scripts/` holds their
+definitions, one `.cpp` per script -- not built via a `CMakeLists.txt` of
+its own (this directory has none, deliberately), but discovered by
+`app/CMakeLists.txt`. `device_x_profile.hpp` is the same kind of
+DUT-specific content, one level removed: a fixed `MATRIX`/`POINT` routing
+table pairing this DUT with a specific rig adapter (see its own comment) --
+expect this one to change shape once the compile-time named-port/
+instrument-alias system it's a placeholder for lands.
+
+`tests/` holds the tests *of* this suite's content -- the scripts and the
+criteria variants -- as opposed to tests of the runner itself (there is no
+runner-specific test; `app/` just has the one executable). The target
+they build into is still defined in `app/CMakeLists.txt`, same principle
+as `scripts/`: content here, build definition there.
 
 ## Layout
 
 ```
 suite/
-    production.inc
-    stress.inc
-    aged.inc
-    catalog.inc
+    criteria_production.inc
+    criteria_stress.inc
+    criteria_aged.inc
+    test_catalog.inc
+    scripts.hpp
+    device_x_profile.hpp
+    scripts/
+        fuse_register_script.cpp
+        supply_rail_script.cpp
+    tests/
+        test_fuse_register_script.cpp
+        test_supply_rail_script.cpp
+        test_criteria_variants_compile.cpp
 ```
 
 One flat `.inc` file per variant. Each file holds every script's `CRITERIA`
@@ -76,10 +102,15 @@ macro's own comment in `core/criterion.hpp` for the full reasoning,
 including why it's a companion to `CRIT` rather than a change to `CRITERIA`
 itself.
 
-This is why `production.inc` is always available as `production::...`
+This is why `criteria_production.inc` is always available as `production::...`
 regardless of which variant is actually active (see `core/active_criteria.hpp`)
 -- every other variant can reference it, even though only one variant's
 criteria actually get used by the running scripts.
+
+Related: `app/` (not this directory) is the runner -- `main.cpp` plus the
+two build targets (`scripts`, `run_scripts`) it needs -- kept free of any
+DUT-specific content, the same way this directory is kept free of build
+files.
 
 ## Selecting a variant
 
@@ -113,7 +144,7 @@ definition in `criterion.hpp`.
 
 ## Why every variant compiles, always
 
-`scripts/tests/test_criteria_variants_compile.cpp` `#include`s every
+`suite/tests/test_criteria_variants_compile.cpp` `#include`s every
 variant file, each in its own namespace, regardless of which one
 `THORIUM_CRITERIA_VARIANT` is currently set to. A typo in `aged` is caught
 the moment anyone builds the `scripts_tests` target -- not the day someone
@@ -129,8 +160,8 @@ whichever variant isn't currently active.
 
 ## Adding a new variant
 
-1. Add a new `<name>.inc` file here, with the same `CRITERIA`/`CRIT` names
-   as its siblings.
+1. Add a new `criteria_<name>.inc` file here, with the same `CRITERIA`/`CRIT`
+   names as its siblings.
 2. Add the new variant name to `THORIUM_KNOWN_CRITERIA_VARIANTS` in the
    top-level `CMakeLists.txt`.
 3. Add it to the `#include`/`static_assert` block in

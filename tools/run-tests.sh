@@ -35,8 +35,8 @@ path_for()
         hal_tests)     echo "libs/hal/hal_tests" ;;
         dut_tests)     echo "libs/dut/dut_tests" ;;
         dsl_tests)     echo "libs/dsl/dsl_tests" ;;
-        scripts_tests) echo "scripts/scripts_tests" ;;
-        run_scripts)   echo "scripts/run_scripts" ;;
+        scripts_tests) echo "app/scripts_tests" ;;
+        run_scripts)   echo "app/run_scripts" ;;
         *)             echo "" ;;
     esac
 }

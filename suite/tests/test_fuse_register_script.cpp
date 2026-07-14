@@ -1,4 +1,4 @@
-#include "scripts/scripts.hpp"
+#include "suite/scripts.hpp"
 
 #include <gtest/gtest.h>
 
@@ -17,17 +17,17 @@ struct FuseRegisterFixture : public ::testing::Test {
 TEST_F(FuseRegisterFixture, PassesWhenFuseAndVoltageAreWithinCriteria) {
     bus.writeRegister(dut::Device::kFuseRegister, 0xF5);
     bus.writeRegister(dut::Device::kVoltageRegister, 12030);
-//    EXPECT_TRUE(scripts::fuseRegisterScript( "group", "test"));
+//    EXPECT_TRUE(fuseRegisterScript( "group", "test"));
 }
 
 TEST_F(FuseRegisterFixture, FailsWhenFuseLowNibbleIsWrong) {
     bus.writeRegister(dut::Device::kFuseRegister, 0xF6);  // low nibble should be 0x5
     bus.writeRegister(dut::Device::kVoltageRegister, 12030);
-    EXPECT_FALSE(scripts::fuseRegisterScript("group", "test"));
+    EXPECT_FALSE(fuseRegisterScript("group", "test"));
 }
 
 TEST_F(FuseRegisterFixture, FailsWhenVoltageOutOfTolerance) {
     bus.writeRegister(dut::Device::kFuseRegister, 0xF5);
     bus.writeRegister(dut::Device::kVoltageRegister, 12500);  // 12.5V, outside 12.0 +/- 0.05
-    EXPECT_FALSE(scripts::fuseRegisterScript("group", "test"));
+    EXPECT_FALSE(fuseRegisterScript("group", "test"));
 }

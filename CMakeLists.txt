@@ -63,9 +63,12 @@ endif()
 # hal   : hardware abstraction layer, depends on core
 # dut   : device-under-test model, depends on hal + core
 # dsl   : domain-specific language for writing tests, depends on dut + hal + core
-# scripts: the actual test scripts, written using the dsl
+# app   : the runner (main.cpp) plus the "scripts" library it runs -- the
+#         scripts themselves, and everything else specific to this DUT's
+#         test plan (criteria, catalog, scripts.hpp), live under suite/
+#         rather than in app/, which holds no DUT-specific content at all
 add_subdirectory(libs/core)
 add_subdirectory(libs/hal)
 add_subdirectory(libs/dut)
 #add_subdirectory(libs/dsl)
-add_subdirectory(scripts)
+add_subdirectory(app)

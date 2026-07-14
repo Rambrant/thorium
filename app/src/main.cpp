@@ -3,11 +3,11 @@
 #include <string_view>
 #include <vector>
 
-#include "scripts/catalog.hpp"
+#include "core/active_test_catalog.hpp"
 
 //
-// Runner for the test-script catalog (scripts/catalog.hpp). Three modes,
-// matching what tools/run-tests.sh expects:
+// Runner for the test-script catalog (core/active_test_catalog.hpp). Three
+// modes, matching what tools/run-tests.sh expects:
 //
 //   run_scripts                    run every test in the catalog
 //   run_scripts --list-tests       print "group|id|description", one per
@@ -50,7 +50,7 @@ namespace
 
     void listTests()
     {
-        for ( const auto & group : scripts::catalog::Catalog)
+        for ( const auto & group : core::catalog::Catalog)
             for ( const auto & test : group.tests)
                 std::cout << group.name << '|' << test.id << '|' << test.description << '\n';
     }
@@ -60,7 +60,7 @@ namespace
         bool allPassed = true;
         bool ranAny    = false;
 
-        for ( const auto & group : scripts::catalog::Catalog)
+        for ( const auto & group : core::catalog::Catalog)
         {
             for ( const auto & test : group.tests)
             {
