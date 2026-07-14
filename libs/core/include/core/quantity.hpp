@@ -28,19 +28,19 @@ namespace core
     namespace quantities
     {
         //
-        // Unit tags. These exist only to make Quantity<Tag> a distinct type per unit,
+        // Unit types. These exist only to make Quantity<Type> a distinct type per unit,
         // so e.g. a Voltage can never be silently compared against a Current.
         //
-        struct V_Tag {};
-        struct A_Tag {};
-        struct VA_Tag {};
-        struct W_Tag {};
-        struct Ohm_Tag {};
-        struct dB_Tag {};
-        struct Hz_Tag {};
-        struct time_Tag {};
-        struct PF_Tag {};
-        struct var_Tag {};
+        struct V_Type {};
+        struct A_Type {};
+        struct VA_Type {};
+        struct W_Type {};
+        struct Ohm_Type {};
+        struct dB_Type {};
+        struct Hz_Type {};
+        struct time_Type {};
+        struct PF_Type {};
+        struct var_Type {};
 
         template< typename Unit>
         class Quantity
@@ -125,16 +125,16 @@ namespace core
         template<typename T>
         concept QuantityType = is_quantity<T>::value;
 
-        using Voltage       = Quantity< V_Tag>;
-        using Current       = Quantity< A_Tag>;
-        using Power         = Quantity< W_Tag>;
-        using ApparentPower = Quantity< VA_Tag>;
-        using Resistance    = Quantity< Ohm_Tag>;
-        using Time          = Quantity< time_Tag>;
-        using Decibel       = Quantity< dB_Tag>;
-        using Frequency     = Quantity< Hz_Tag>;
-        using PowerFactor   = Quantity< PF_Tag>;
-        using ReactivePower = Quantity< var_Tag>;
+        using Voltage       = Quantity< V_Type>;
+        using Current       = Quantity< A_Type>;
+        using Power         = Quantity< W_Type>;
+        using ApparentPower = Quantity< VA_Type>;
+        using Resistance    = Quantity< Ohm_Type>;
+        using Time          = Quantity< time_Type>;
+        using Decibel       = Quantity< dB_Type>;
+        using Frequency     = Quantity< Hz_Type>;
+        using PowerFactor   = Quantity< PF_Type>;
+        using ReactivePower = Quantity< var_Type>;
 
         //
         // Algebra: combining distinct units to produce a new unit.

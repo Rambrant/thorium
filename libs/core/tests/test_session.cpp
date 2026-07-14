@@ -1,0 +1,118 @@
+#include "core/session.hpp"
+
+#include <cstdio>
+#include <filesystem>
+#include <fstream>
+
+#include <gtest/gtest.h>
+
+using namespace core::literals;
+using namespace core::quantities;
+
+namespace
+{
+    auto liveVoltage( double v) -> std::function<core::QuantityVariant()>
+    {
+        return [v]() -> core::QuantityVariant { return Voltage{ v }; };
+    }
+} // namespace
+
+TEST( CoreSession, LiveSessionAlwaysCallsTheLiveRead)
+{
+    core::LiveSession session;
+
+    const auto value = session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 5.02));
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>( value).value(), 5.02);
+}
+
+TEST( CoreSession, ScriptedSessionStickyValueRepeatsForever)
+{
+    core::ScriptedSession session;
+    session.program( "5VOutput", Voltage{ 5.02 });
+
+    for( int i = 0; i < 3; ++i)
+    {
+        const auto value = session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 999.0));
+        EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>( value).value(), 5.02);
+    }
+}
+
+TEST( CoreSession, ScriptedSessionNeverCallsLiveRead)
+{
+    core::ScriptedSession session;
+    session.program( "5VOutput", Voltage{ 5.02 });
+
+    bool liveReadCalled = false;
+    auto explodingLiveRead = [&]() -> core::QuantityVariant { liveReadCalled = true; return Voltage{ 0.0 }; };
+
+    (void)session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, explodingLiveRead);
+
+    EXPECT_FALSE( liveReadCalled);
+}
+
+TEST( CoreSession, ScriptedSessionThrowsOnKindMismatch)
+{
+    core::ScriptedSession session;
+    session.program( "5VOutput", Voltage{ 5.02 });
+
+    EXPECT_THROW(
+        (void)session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0)),
+        std::runtime_error);
+}
+
+TEST( CoreSession, ScriptedSessionThrowsWhenNothingWasProgrammed)
+{
+    core::ScriptedSession session;
+
+    EXPECT_THROW(
+        (void)session.fetch( "Unprogrammed", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0)),
+        std::runtime_error);
+}
+
+TEST( CoreSession, RecordingSessionLogsEachFetchInOrder)
+{
+    core::LiveSession     live;
+    core::RecordingSession recording( live);
+
+    (void)recording.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 5.02));
+    (void)recording.fetch( "3V3Output", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 3.29));
+
+    ASSERT_EQ( recording.samples().size(), 2u);
+    EXPECT_EQ( recording.samples()[0].mSequence, 0u);
+    EXPECT_EQ( recording.samples()[0].mPointName, "5VOutput");
+    EXPECT_EQ( recording.samples()[1].mSequence, 1u);
+    EXPECT_EQ( recording.samples()[1].mPointName, "3V3Output");
+}
+
+TEST( CoreSession, RecordingDumpedToFileReplaysInOrderThenThrowsWhenExhausted)
+{
+    core::LiveSession      live;
+    core::RecordingSession recording( live);
+
+    // Two readings of the same point -- e.g. before and after a step change --
+    // so playback has to preserve order rather than collapsing to one value.
+    (void)recording.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 4.98));
+    (void)recording.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 5.02));
+
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_recording.tsv";
+
+    {
+        std::ofstream out( path);
+        core::writeRecording( out, recording.samples());
+    }
+
+    auto playback = core::ScriptedSession::loadFromFile( path.string());
+
+    const auto first  = playback.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+    const auto second = playback.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>( first).value(),  4.98);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>( second).value(), 5.02);
+
+    EXPECT_THROW(
+        (void)playback.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0)),
+        std::runtime_error);
+
+    std::remove( path.string().c_str());
+}

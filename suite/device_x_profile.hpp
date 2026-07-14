@@ -1,21 +1,20 @@
 #pragma once
 
-#include "dut/matrix_map.hpp"
+#include "dut/adapter.hpp"
 
 //
 // Routing table for "Device X" on its standard adapter. Because there is one
-// adapter type per device, this is a fixed compile-time table: each logical
-// test point (named to match the test spec) maps to the abstract instrument
-// used to measure it and the matrix crosspoint that routes that instrument
-// to the point.
+// adapter type per device (the connector on the device doesn't change), this
+// is a fixed table: each logical point (named to match the test spec) maps
+// to where it lands on the VPC90 connector array and what kind of quantity
+// is expected there. Which instrument actually measures it, and by which
+// matrix/mux path, is a separate rig-level fact -- see hal::RouteTable --
+// not something this adapter table knows about.
 //
-// This lives at the scripts/profile level because it pairs a specific device
-// with the rig; the crosspoint coordinates themselves are the rig's fixed
-// fabric (defined via core::Crosspoint / hal), and the instrument choices are
-// abstract (dut::Instrument).
-//
-MATRIX( DeviceX_StdAdapter, "Device X on standard adapter")
-    POINT( Port5Vdc,   dut::Instrument::Voltmeter,    3, 7, "5Vdc supply port")
-    POINT( Port3V3,    dut::Instrument::Voltmeter,    3, 6, "3.3Vdc supply port")
-    POINT( ClkProbe,   dut::Instrument::Oscilloscope, 1, 2, "Config clock probe")
-END_MATRIX
+inline const dut::Adapter DeviceX_StdAdapter{
+    "DeviceX_StdAdapter", "Device X on standard adapter",
+    {
+        dut::AdapterPoint{ "5VOutput",  hal::VpcLocation{ hal::VpcRack::A, 1, 3 }, core::QuantityKind::Voltage, "5Vdc supply port" },
+        dut::AdapterPoint{ "3V3Output", hal::VpcLocation{ hal::VpcRack::A, 1, 6 }, core::QuantityKind::Voltage, "3.3Vdc supply port" },
+        dut::AdapterPoint{ "ClkProbe",  hal::VpcLocation{ hal::VpcRack::A, 1, 2 }, core::QuantityKind::Voltage, "Config clock probe" },
+    }};

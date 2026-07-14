@@ -143,7 +143,7 @@ namespace
     // Quantity's converting constructor is constrained to floating_point,
     // so an int (or any other non-floating-point value) can't construct one.
     //
-    static_assert( !QuantityConstructibleFrom<V_Tag, int> );
+    static_assert( !QuantityConstructibleFrom<V_Type, int> );
 
     //
     // MASK is restricted to std::integral -- a float or a Quantity<Unit>
@@ -182,7 +182,7 @@ namespace
     static_assert(  HasEpsilon<NotPredicate<EqPredicate<Power>>,  Power> );
     static_assert(  EqComparable<Voltage> );
     static_assert(  Subtractable<Voltage> );
-    static_assert(  QuantityConstructibleFrom<V_Tag, double> );
+    static_assert(  QuantityConstructibleFrom<V_Type, double> );
     static_assert(  Maskable<unsigned int> );
     static_assert(  Anyable<Voltage, Voltage, Voltage> );
     static_assert(  ThreeWayComparablePredicate<Voltage> );

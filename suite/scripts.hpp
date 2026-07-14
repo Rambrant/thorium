@@ -1,7 +1,8 @@
 #pragma once
 
-#include "dut/device.hpp"
-#include "dut/rig_device.hpp"
+#include "dut/adapter.hpp"
+#include "dut/bench.hpp"
+#include "dut/measure.hpp"
 
 //
 // Each function here is a "test script": a scenario expressed using the

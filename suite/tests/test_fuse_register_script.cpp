@@ -2,32 +2,19 @@
 
 #include <gtest/gtest.h>
 
-#include "dut/device.hpp"
-#include "hal/bus.hpp"
+//
+// fuseRegisterScript currently checks fixed constants rather than reading a
+// real device (see suite/scripts/fuse_register_script.cpp) -- once it's
+// wired through dut::Measure/dut::Bench, these tests should gain a Bench
+// fixture (ScriptedSession-backed, per core/session.hpp) the same way
+// test_measure.cpp's MeasureFixture does, rather than reintroducing a
+// device/bus double that the script never actually reads.
+//
 
-namespace {
-
-struct FuseRegisterFixture : public ::testing::Test {
-    hal::Bus bus;
-    dut::Device device{bus};
-};
-
-}  // namespace
-
-TEST_F(FuseRegisterFixture, PassesWhenFuseAndVoltageAreWithinCriteria) {
-    bus.writeRegister(dut::Device::kFuseRegister, 0xF5);
-    bus.writeRegister(dut::Device::kVoltageRegister, 12030);
-//    EXPECT_TRUE(fuseRegisterScript( "group", "test"));
-}
-
-TEST_F(FuseRegisterFixture, FailsWhenFuseLowNibbleIsWrong) {
-    bus.writeRegister(dut::Device::kFuseRegister, 0xF6);  // low nibble should be 0x5
-    bus.writeRegister(dut::Device::kVoltageRegister, 12030);
+TEST(FuseRegisterFixture, FailsWhenFuseLowNibbleIsWrong) {
     EXPECT_FALSE(fuseRegisterScript("group", "test"));
 }
 
-TEST_F(FuseRegisterFixture, FailsWhenVoltageOutOfTolerance) {
-    bus.writeRegister(dut::Device::kFuseRegister, 0xF5);
-    bus.writeRegister(dut::Device::kVoltageRegister, 12500);  // 12.5V, outside 12.0 +/- 0.05
+TEST(FuseRegisterFixture, FailsWhenVoltageOutOfTolerance) {
     EXPECT_FALSE(fuseRegisterScript("group", "test"));
 }
