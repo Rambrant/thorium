@@ -6,47 +6,39 @@ namespace
 {
     //
     // A minimal location type -- just something comparable -- standing in
-    // for hal::VpcLocation, demonstrating core::Adapter has no idea what a
-    // real physical coordinate looks like.
+    // for hal::VpcLocation, demonstrating core::AdapterPointTag has no idea
+    // what a real physical coordinate looks like.
     //
     struct MockLocation
     {
         int value;
         friend constexpr auto operator==( MockLocation, MockLocation) -> bool = default;
     };
-
-    auto makeAdapter() -> core::Adapter<MockLocation>
-    {
-        return core::Adapter<MockLocation>{ "MockAdapter", "A mock DUT profile",
-            {
-                core::AdapterPoint<MockLocation>{ "5VOutput", MockLocation{ 3 }, core::QuantityKind::Voltage, "5Vdc supply port" },
-                core::AdapterPoint<MockLocation>{ "3V3Output", MockLocation{ 6 }, core::QuantityKind::Voltage, "3.3Vdc supply port" },
-            }};
-    }
 } // namespace
 
-TEST( CoreAdapter, FindReturnsAKnownPoint)
+TEST( CoreAdapterPointTag, CarriesLocationAndKindAsCompileTimeValues)
 {
-    const auto adapter = makeAdapter();
+    constexpr core::AdapterPointTag<MockLocation{ 3 }, core::QuantityKind::Voltage> point{ "Output5V", "5Vdc supply port" };
 
-    const auto point = adapter.find( "5VOutput");
+    static_assert( point.LocationValue == MockLocation{ 3 });
+    static_assert( point.KindValue == core::QuantityKind::Voltage);
 
-    ASSERT_TRUE( point.has_value());
-    EXPECT_EQ( point->location, MockLocation{ 3 });
-    EXPECT_EQ( point->kind, core::QuantityKind::Voltage);
+    EXPECT_EQ( point.Name, "Output5V");
+    EXPECT_EQ( point.Description, "5Vdc supply port");
 }
 
-TEST( CoreAdapter, FindReturnsNulloptForAnUnknownPoint)
+TEST( CoreAdapterPointTag, DifferentLocationsAreDifferentTypes)
 {
-    const auto adapter = makeAdapter();
+    using PointA = core::AdapterPointTag<MockLocation{ 3 }, core::QuantityKind::Voltage>;
+    using PointB = core::AdapterPointTag<MockLocation{ 4 }, core::QuantityKind::Voltage>;
 
-    EXPECT_FALSE( adapter.find( "NoSuchPoint").has_value());
+    static_assert( !std::is_same_v<PointA, PointB>);
 }
 
-TEST( CoreAdapter, NameAndDescriptionAreAccessible)
+TEST( CoreAdapterPointTag, DifferentKindsAreDifferentTypes)
 {
-    const auto adapter = makeAdapter();
+    using VoltagePoint = core::AdapterPointTag<MockLocation{ 3 }, core::QuantityKind::Voltage>;
+    using CurrentPoint = core::AdapterPointTag<MockLocation{ 3 }, core::QuantityKind::Current>;
 
-    EXPECT_EQ( adapter.name(), "MockAdapter");
-    EXPECT_EQ( adapter.description(), "A mock DUT profile");
+    static_assert( !std::is_same_v<VoltagePoint, CurrentPoint>);
 }

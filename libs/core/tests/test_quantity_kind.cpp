@@ -12,6 +12,13 @@ TEST( CoreQuantityKind, QuantityKindOfMatchesTheAliasUsed)
     EXPECT_EQ( core::quantityKindOf<Power>(),   core::QuantityKind::Power);
 }
 
+TEST( CoreQuantityKind, QuantityForIsTheInverseOfQuantityKindOf)
+{
+    static_assert( std::is_same_v<core::QuantityFor<core::QuantityKind::Voltage>, Voltage>);
+    static_assert( std::is_same_v<core::QuantityFor<core::QuantityKind::Current>, Current>);
+    static_assert( std::is_same_v<core::QuantityFor<core::quantityKindOf<Power>()>, Power>);
+}
+
 TEST( CoreQuantityKind, ToStringRoundTripsThroughFromString)
 {
     for( auto kind : { core::QuantityKind::Voltage, core::QuantityKind::Current, core::QuantityKind::Power,

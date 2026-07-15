@@ -91,6 +91,32 @@ namespace core
     }
 
     //
+    // The inverse of QuantityKindOf above: maps a QuantityKind *value* back
+    // to its concrete Quantity<Unit> *type*. Needed wherever a QuantityKind
+    // is known at compile time (e.g. baked into an AdapterPointTag's
+    // template parameters -- see core/adapter.hpp) but the corresponding
+    // concrete type is what's actually needed to name a Port<Q, Instrument>.
+    // Specialized once per unit below, alongside QuantityKindOf; add a line
+    // to both whenever a new unit is added to core::quantities.
+    //
+    template<QuantityKind Kind>
+    struct QuantityTypeOf;
+
+    template<> struct QuantityTypeOf<QuantityKind::Voltage>       { using type = quantities::Voltage; };
+    template<> struct QuantityTypeOf<QuantityKind::Current>       { using type = quantities::Current; };
+    template<> struct QuantityTypeOf<QuantityKind::Power>         { using type = quantities::Power; };
+    template<> struct QuantityTypeOf<QuantityKind::ApparentPower> { using type = quantities::ApparentPower; };
+    template<> struct QuantityTypeOf<QuantityKind::Resistance>    { using type = quantities::Resistance; };
+    template<> struct QuantityTypeOf<QuantityKind::Time>          { using type = quantities::Time; };
+    template<> struct QuantityTypeOf<QuantityKind::Decibel>       { using type = quantities::Decibel; };
+    template<> struct QuantityTypeOf<QuantityKind::Frequency>     { using type = quantities::Frequency; };
+    template<> struct QuantityTypeOf<QuantityKind::PowerFactor>   { using type = quantities::PowerFactor; };
+    template<> struct QuantityTypeOf<QuantityKind::ReactivePower> { using type = quantities::ReactivePower; };
+
+    template<QuantityKind Kind>
+    using QuantityFor = typename QuantityTypeOf<Kind>::type;
+
+    //
     // The raw double inside a QuantityVariant, regardless of which unit is
     // live. Pairs with quantityVariantFromKind -- together they're what let
     // core/recording.hpp serialize a value as (kind, double) and rebuild it

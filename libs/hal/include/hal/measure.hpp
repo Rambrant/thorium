@@ -1,35 +1,31 @@
 #pragma once
 
 #include "core/measure.hpp"
-#include "hal/adapter.hpp"
-#include "hal/route_table.hpp"
 #include "hal/switch_fabric.hpp"
+#include "hal/wiring.hpp"
 
 //
 // The concrete instantiation of core::MeasureEngine for this rig -- see
-// core/measure.hpp's own comment on FabricT/RouteTableT/AdapterT. Every
-// piece this needs -- the fabric, the route table, and the adapter type
-// itself -- is a hal-level rig fact. The DUT-specific adapter *data*
-// (DeviceX_StdAdapter) is only named where the one Measure object below is
-// actually constructed -- see hal/measure.cpp -- via a plain #include of
-// dut/device_x_profile.inc, the same "generic mechanism consumes a flat
-// DUT data file" pattern THORIUM_ACTIVE_CRITERIA already uses for the
-// criteria variants (see libs/dut/README.md). That is a textual, build-time
-// file dependency only: this header has no C++-level dependency on
-// anything named dut::.
+// core/measure.hpp's own comment on FabricT/InstrumentWiringT/ConnectorWiringT.
+// Every piece this needs is a hal-level rig fact: this header has no
+// dependency, textual or otherwise, on anything named dut:: -- unlike
+// before AdapterPointTag existed, there is no DUT-specific *type* for
+// MeasureEngine to be instantiated with any more, only the point values
+// themselves (e.g. dut::DeviceX_StdAdapter::Output5V), which are passed at
+// each Measure() call site, not baked into this alias.
 //
-using MeasureEngine = core::MeasureEngine<hal::SwitchFabric, hal::RouteTable, hal::Adapter>;
+using MeasureEngine = core::MeasureEngine<hal::SwitchFabric, hal::InstrumentWiring, hal::ConnectorWiring>;
 
 //
 // The single point every script measures through:
 //
-//   Measure( Dmm1.voltage(), "5VOutput");
+//   Measure( Dmm1.voltage(), DeviceX_StdAdapter::Output5V);
 //
 // Injection, recording, and playback are methods on this same object --
 // Measure.inject(...), Measure.useLive(),
 // Measure.startRecording()/stopRecording()/dump(...), Measure.load(...) --
 // rather than a separate device/session parameter threaded through every
-// call. Defined once in hal/measure.cpp, wired to this DUT's adapter data
-// and this rig's fabric/RouteTable.
+// call. Defined once in hal/measure.cpp, wired to this rig's fabric and
+// its two static wiring tables (see hal/wiring.inc).
 //
 extern MeasureEngine Measure;

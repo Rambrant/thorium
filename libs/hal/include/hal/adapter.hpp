@@ -1,48 +1,37 @@
 #pragma once
 
 #include "core/adapter.hpp"
+#include "core/quantity_kind.hpp"
 #include "hal/vpc_location.hpp"
-
-namespace hal
-{
-    //
-    // The concrete instantiation of core::Adapter for this project: adapters
-    // here are keyed by hal::VpcLocation, since that's the coordinate system
-    // this rig's VPC90 connector array uses. core::Adapter itself has no
-    // idea hal::VpcLocation exists -- see core/adapter.hpp -- this is the
-    // "build stage" injection point, the same role hal/measure.hpp's
-    // MeasureEngine alias plays for core::MeasureEngine.
-    //
-    using AdapterPoint = core::AdapterPoint<VpcLocation>;
-    using Adapter      = core::Adapter<VpcLocation>;
-} // namespace hal
 
 //
 // ADAPTER / POINT / END_ADAPTER: declarative, Excel-readable adapter wiring
-// tables, mirroring CRITERIA/CRIT/END_CRITERIA in core/criterion.hpp -- see
-// e.g. dut/device_x_profile.inc. Unlike CRITERIA (which expands into a
-// struct of named static members, so a typo in a criterion id is a compile
-// error), POINT expands into an ordinary runtime vector entry: hal::Adapter
-// is a runtime-searched lookup (see core/adapter.hpp's own comment on why),
-// so there is no compile-time member name yet for a macro to stamp out --
-// misspelling a POINT name is still only caught when Measure() is called
-// against it. See the matching TODO(reflection) in core/measure.hpp for
-// what upgrades this later.
+// tables, mirroring CRITERIA/CRIT/END_CRITERIA in core/criterion.hpp. Each
+// POINT becomes a genuine static constexpr member of the group struct --
+// exactly like CRIT -- so a misspelled point name at a Measure() call site
+// is a real "no such member" compile error, and a quantity mismatch
+// (Measure(dmm1.current(), Output5V) where Output5V is Voltage-tagged) is
+// an overload-resolution failure -- see core/measure.hpp. Both come for
+// free from ordinary C++ once the point's location and quantity are baked
+// into its *type* (core::AdapterPointTag<Loc, Kind>) rather than stored as
+// runtime data -- no reflection needed.
+//
+// Point identifiers can't reuse a spec label verbatim when it starts with a
+// digit (e.g. "5VOutput"): C++ identifiers can't start with a digit. Use a
+// legal rearrangement instead (Output5V) -- see dut/device_x_profile.inc.
 //
 //   ADAPTER( DeviceX_StdAdapter, "Device X on standard adapter")
-//       POINT( "5VOutput", A, 1, 3, Voltage, "5Vdc supply port")
+//       POINT( Output5V, A, 1, 3, Voltage, "5Vdc supply port")
 //   END_ADAPTER
 //
-// Fully qualified (::hal::..., ::core::...) throughout, unlike CRITERIA/CRIT
-// -- an adapter profile file needs no "using namespace" wrapper of its own,
-// so POINT can be used directly from a plain #include with nothing else in
-// scope; see dut/device_x_profile.inc, which has none.
+//   Measure( Dmm1.voltage(), DeviceX_StdAdapter::Output5V);
 //
-#define ADAPTER( varName, desc)           \
-    inline const ::hal::Adapter varName{ #varName, desc, {
+#define ADAPTER( groupName, desc)                                      \
+    struct groupName                                                   \
+    {                                                                  \
+        static constexpr std::string_view Description = desc;
 
-#define POINT( name, rack, connector, pin, kind, desc)                                                                    \
-        ::hal::AdapterPoint{ name, ::hal::VpcLocation{ ::hal::VpcRack::rack, connector, pin }, ::core::QuantityKind::kind, desc },
+#define POINT( id, rack, connector, pin, kind, desc)                                                                          \
+        static constexpr ::core::AdapterPointTag<::hal::VpcLocation{ ::hal::VpcRack::rack, connector, pin }, ::core::QuantityKind::kind> id{ #id, desc };
 
-#define END_ADAPTER \
-    }};
+#define END_ADAPTER };

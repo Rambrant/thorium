@@ -4,8 +4,9 @@ This directory holds *only* data specific to the actual device under test --
 Device X on its standard adapter -- expressed as flat, macro-driven `.inc`
 files with no C++ logic of their own. There is deliberately no library here
 (no `add_library(dut ...)`): the mechanisms that make sense of this data
-(`hal::Adapter`, `core::MeasureEngine`, the `CRITERIA`/`ADAPTER` macros
-themselves) all live in hal/core -- see below for why that split is possible.
+(`core::AdapterPointTag`, `core::MeasureEngine`, the `CRITERIA`/`ADAPTER`
+macros themselves) all live in hal/core -- see below for why that split is
+possible.
 
 ## Layout
 
@@ -23,11 +24,25 @@ libs/dut/
 
 `ADAPTER`/`POINT`/`END_ADAPTER` (see `libs/hal/include/hal/adapter.hpp`) --
 mirroring `CRITERIA`/`CRIT`/`END_CRITERIA` below -- expand into the one
-`DeviceX_StdAdapter` value: a fixed table mapping each named point (e.g.
-`"5VOutput"`) to where it lands on the VPC90 array and what kind of
-quantity is expected there. Because there is exactly one adapter per device
-(the connector on the device doesn't change), this table -- not some
-separate profile type -- *is* the adapter.
+`DeviceX_StdAdapter` struct: a fixed set of named points (e.g. `Output5V`),
+each carrying its VPC90 location and expected quantity kind baked into its
+own *type* (`core::AdapterPointTag<Loc, Kind>`), not stored as runtime data.
+That is what makes both of the following genuine compile errors, exactly
+like `CRIT`'s protection against a misspelled criterion id:
+
+- **A misspelled point name** -- `DeviceX_StdAdapter::Output5Vx` is "no such
+  member", the same way `FS_Fuse_6::FS_Fuse_01x` already is.
+- **A quantity mismatch** -- `Measure( Dmm1.current(), DeviceX_StdAdapter::Output5V)`
+  fails to find a matching `operator()` overload, since `Output5V` is
+  `Voltage`-tagged and `Dmm1.current()` is a `Port<Current, ...>`.
+
+Point identifiers can't reuse a spec label verbatim where it starts with a
+digit (C++ identifiers can't start with a digit) -- `Output5V`/`Output3V3`
+stand in for the spec's "5VOutput"/"3V3Output".
+
+Because there is exactly one adapter per device (the connector on the
+device doesn't change), this struct -- not some separate profile type --
+*is* the adapter.
 
 Like the criteria files below, this file is deliberately bare: just
 `ADAPTER( ... ) ... END_ADAPTER`, nothing else -- no `#pragma once`, no
@@ -35,11 +50,17 @@ Like the criteria files below, this file is deliberately bare: just
 (`::hal::...`, `::core::...`), unlike `CRITERIA`/`CRIT` which need a
 `using namespace` wrapper -- see `hal/adapter.hpp`'s own comment for why.
 
-`hal/measure.cpp` is the one place this file is actually `#include`d for
-real use, to construct the one `Measure` object every script measures
-through. That is a plain, textual `#include` of a data file -- hal has no
-C++-level dependency on anything named `dut::` as a result; see
-`hal/measure.cpp`'s own comment and `hal/measure.hpp`'s.
+Each script that measures against this profile `#include`s it directly
+(after `hal/adapter.hpp`, for the macros), the same way each script already
+`#include`s `core/active_criteria.hpp` individually rather than through
+`suite/scripts.hpp` -- see `suite/scripts/supply_rail_script.cpp`.
+
+Reachability -- whether this rig's wiring (see
+`libs/hal/include/hal/wiring.hpp`) actually connects a given instrument to
+a given point -- is still a runtime check, since `Loc`/`Kind` being
+compile-time values doesn't by itself make the *wiring table lookup*
+compile-time; see the `TODO(reflection)` in `hal/wiring.hpp` for what a
+further upgrade there would look like.
 
 ## Criteria variants
 

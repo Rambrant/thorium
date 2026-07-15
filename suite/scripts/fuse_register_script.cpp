@@ -4,8 +4,11 @@
 #include "core/predicates.hpp"
 #include "core/quantity.hpp"
 #include "core/verify.hpp"
+#include "hal/adapter.hpp"
 
 #include "core/active_criteria.hpp"
+
+#include "libs/dut/device_x_profile.inc"
 
 using namespace core::literals;
 using namespace core::quantities;
@@ -33,7 +36,7 @@ auto fuseRegisterScript( std::string_view, std::string_view) -> bool
     // Ad-hoc check (no CRIT constant declared up front) against a measured
     // quantity.
     //
-    const auto voltage = Measure( Dmm2.voltage(), "Vout");
+    const auto voltage = Measure( Dmm2.voltage(), DeviceX_StdAdapter::Vout);
 
     allPassed &= Verify( "Voltage", "Vout", "Supply voltage", EQ( 12.0_V).epsilon( 0.05_V), voltage);
 

@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 
+#include "core/adapter.hpp"
 #include "core/port.hpp"
 #include "core/quantity_kind.hpp"
 #include "core/recording.hpp"
@@ -14,24 +15,32 @@ namespace core
     //
     // The mechanism behind a single callable Measure object:
     //
-    //   Measure( Dmm1.voltage(), "5VOutput");
+    //   Measure( Dmm1.voltage(), DeviceX_StdAdapter::Output5V);
     //
     // Generic over three externally-supplied types, each a "build stage"
     // concern this header knows nothing about:
-    //   - FabricT:     something with .route(path) -- see hal::SwitchFabric
-    //   - RouteTableT: something with .find(location, instrumentId, kind)
-    //                  returning a path FabricT::route() accepts -- see
-    //                  hal::RouteTable
-    //   - AdapterT:    something with .find(name) returning an optional-like
-    //                  point with .location/.kind members, plus a .name()
-    //                  for error messages -- see dut::Adapter
+    //   - FabricT:           something with .route(path) -- see hal::SwitchFabric
+    //   - InstrumentWiringT: something with .find(instrumentId) -> a channel
+    //                        FabricT::route() accepts -- see hal::InstrumentWiring
+    //   - ConnectorWiringT:  something with .find(location) -> a channel
+    //                        FabricT::route() accepts -- see hal::ConnectorWiring
+    //
+    // There is no AdapterT any more: since an AdapterPointTag now carries its
+    // location and quantity kind as compile-time values (see core/adapter.hpp),
+    // there is nothing left to look up by name at runtime -- the point IS the
+    // lookup result. That is also why what used to be one combined RouteTable
+    // (keyed by (location, instrument, kind)) has become two independent
+    // tables here: an instrument's matrix/mux channel and a connector pin's
+    // channel are each fixed, static wiring facts on their own, so a route is
+    // just their composition at the moment a measurement is taken, not a
+    // fact that needs storing per (instrument, pin) pair.
     //
     // This is what lets the low-level machinery here (this file, core::Port,
     // core/session.hpp) be lifted into a standalone library with zero
     // dependency on any specific rig's hal/dut types: the concrete
-    // FabricT/RouteTableT/AdapterT are only ever named where the concrete
-    // instance is put together -- see dut/measure.cpp -- the same "inject
-    // the project-specific bit at the build stage" role
+    // FabricT/InstrumentWiringT/ConnectorWiringT are only ever named where
+    // the concrete instance is put together -- see hal/measure.cpp -- the
+    // same "inject the project-specific bit at the build stage" role
     // THORIUM_ACTIVE_CRITERIA/THORIUM_TEST_CATALOG already play for the
     // criteria variants and the test catalog (see core/active_criteria.hpp,
     // core/active_test_catalog.hpp).
@@ -42,49 +51,58 @@ namespace core
     // once instantiated with hal's types, without this header ever
     // #include-ing anything from hal.
     //
-    template<typename FabricT, typename RouteTableT, typename AdapterT>
+    template<typename FabricT, typename InstrumentWiringT, typename ConnectorWiringT>
     class MeasureEngine
     {
         public:
-            MeasureEngine( FabricT & fabric, const RouteTableT & routes, const AdapterT & adapter) :
+            MeasureEngine( FabricT & fabric, const InstrumentWiringT & instrumentWiring, const ConnectorWiringT & connectorWiring) :
                 mFabric( fabric),
-                mRoutes( routes),
-                mAdapter( adapter)
+                mInstrumentWiring( instrumentWiring),
+                mConnectorWiring( connectorWiring)
             {}
 
             //
-            // Resolves pointName on this DUT's Adapter, checks its declared
-            // quantity against QuantityT, then fetches through whichever
-            // session is currently active (see below) -- live routing by
-            // default. See the TODO in resolve()'s definition for why both
-            // that check and the RouteTable lookup inside operator() are
-            // runtime checks today rather than compile-time ones.
+            // point's Loc/Kind are compile-time template parameters (see
+            // core/adapter.hpp), so a mismatch between the port's quantity
+            // and the point's declared quantity is an ordinary overload-
+            // resolution failure -- Port<QuantityFor<Kind>, InstrumentT> is
+            // the parameter type, so calling with e.g. dmm1.current() against
+            // a Voltage-tagged point simply doesn't match, at compile time.
             //
-            template<quantities::QuantityType QuantityT, typename InstrumentT>
+            // Reachability -- whether InstrumentWiringT/ConnectorWiringT
+            // actually have an entry for this instrument/location -- is still
+            // a runtime check today; see the TODO in hal/wiring.hpp for why,
+            // and for the compile-time upgrade path now that Loc is known at
+            // compile time here too.
+            //
+            template<auto Loc, QuantityKind Kind, typename InstrumentT>
             [[nodiscard]]
-            auto operator()( Port<QuantityT, InstrumentT> port, std::string_view pointName) -> QuantityT
+            auto operator()( Port<QuantityFor<Kind>, InstrumentT> port, const AdapterPointTag<Loc, Kind> & point) -> QuantityFor<Kind>
             {
-                constexpr auto expectedKind = quantityKindOf<QuantityT>();
-
-                const auto location     = resolve( pointName, expectedKind);
                 const auto instrumentId = port.instrumentId();
 
                 auto liveRead = [&]() -> QuantityVariant
                 {
-                    mFabric.route( mRoutes.find( location, instrumentId, expectedKind));
+                    const auto instrumentChannel = mInstrumentWiring.find( instrumentId);
+                    const auto connectorChannel  = mConnectorWiring.find( Loc);
+
+                    mFabric.route( { instrumentChannel, connectorChannel });
+
                     return QuantityVariant{ port.rawMeasure() };
                 };
 
-                auto value = activeSession().fetch( pointName, to_string( instrumentId), expectedKind, liveRead);
+                auto value = activeSession().fetch( point.Name, to_string( instrumentId), Kind, liveRead);
 
-                return asQuantity<QuantityT>( value);
+                return asQuantity<QuantityFor<Kind>>( value);
             }
 
             //
             // Feeds a canned value for a point, bypassing hal entirely --
             // for script unit tests. Switches this engine to use injected/
             // loaded values if it wasn't already (no separate "now use
-            // this" call needed); see useLive() to go back.
+            // this" call needed); see useLive() to go back. Keyed by the
+            // point's Name (e.g. "Output5V"), matching what operator() above
+            // passes to the session.
             //
             auto inject( std::string_view pointName, QuantityVariant value) -> void
             {
@@ -127,53 +145,15 @@ namespace core
             }
 
         private:
-            //
-            // TODO(reflection): this lookup, and the RouteTable lookup in
-            // operator() above, are runtime checks only because AdapterT's
-            // find() is a plain runtime search, keyed by a std::string_view
-            // that's an ordinary function parameter -- there is no
-            // macro/reflection layer yet giving the compiler a compile-time
-            // picture of "this name resolves to this location with this
-            // quantity". Once the reflection-based get<"id">() work in
-            // core/criterion.hpp is verified on GCC 16, both this and the
-            // RouteTable lookup (which has the matching TODO in
-            // hal/route_table.hpp) are candidates to move to compile-time
-            // static_asserts. Until then, a script that misspells a point
-            // name or asks for the wrong quantity fails when Measure is
-            // called, not at compile time.
-            //
-            [[nodiscard]]
-            auto resolve( std::string_view pointName, QuantityKind expectedKind) const
-            {
-                const auto point = mAdapter.find( pointName);
-
-                if( !point)
-                {
-                    throw std::runtime_error(
-                        "Measure: adapter '" + std::string( mAdapter.name()) +
-                        "' has no point named '" + std::string( pointName) + "'");
-                }
-
-                if( point->kind != expectedKind)
-                {
-                    throw std::runtime_error(
-                        "Measure: point '" + std::string( pointName) + "' is declared as " +
-                        std::string( to_string( point->kind)) + " but was measured as " +
-                        std::string( to_string( expectedKind)));
-                }
-
-                return point->location;
-            }
-
             [[nodiscard]]
             auto activeSession() -> ISession &
             {
                 return mRecording ? static_cast<ISession &>( mRecorder) : static_cast<ISession &>( mSwitchable);
             }
 
-            FabricT &            mFabric;
-            const RouteTableT &  mRoutes;
-            const AdapterT &     mAdapter;
+            FabricT &                  mFabric;
+            const InstrumentWiringT &  mInstrumentWiring;
+            const ConnectorWiringT &   mConnectorWiring;
 
             LiveSession        mLive;
             ScriptedSession    mScripted;
