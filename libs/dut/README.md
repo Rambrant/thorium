@@ -1,50 +1,45 @@
-# dut/ -- DUT-specific data: adapter wiring, tolerances, and the Measure singleton
+# dut/ -- DUT-specific data, and nothing else
 
-This directory holds everything specific to the actual device under test --
-Device X on its standard adapter -- as opposed to core/hal, which is
-rig/framework machinery with no idea what "Device X" is.
+This directory holds *only* data specific to the actual device under test --
+Device X on its standard adapter -- expressed as flat, macro-driven `.inc`
+files with no C++ logic of their own. There is deliberately no library here
+(no `add_library(dut ...)`): the mechanisms that make sense of this data
+(`hal::Adapter`, `core::MeasureEngine`, the `CRITERIA`/`ADAPTER` macros
+themselves) all live in hal/core -- see below for why that split is possible.
 
 ## Layout
 
 ```
 libs/dut/
-    include/dut/
-        adapter.hpp           # core::Adapter<hal::VpcLocation> alias
-        device_x_profile.hpp  # DeviceX_StdAdapter -- this DUT's pin map
-        measure.hpp           # MeasureEngine alias + extern Measure
-    src/
-        measure.cpp           # the one Measure instance, wired to DeviceX_StdAdapter
     tests/
-        test_adapter.cpp
+        test_device_x_profile.cpp
+    device_x_profile.inc
     criteria_production.inc
     criteria_stress.inc
     criteria_aged.inc
 ```
 
-## Adapter and DeviceX_StdAdapter
+## device_x_profile.inc
 
-`adapter.hpp` is a thin "build stage" alias: `core::Adapter`/`core::AdapterPoint`
-(see `libs/core/include/core/adapter.hpp`) are generic over the location
-type; this file binds that to `hal::VpcLocation`, since that's the
-coordinate system this rig's VPC90 connector array uses.
+`ADAPTER`/`POINT`/`END_ADAPTER` (see `libs/hal/include/hal/adapter.hpp`) --
+mirroring `CRITERIA`/`CRIT`/`END_CRITERIA` below -- expand into the one
+`DeviceX_StdAdapter` value: a fixed table mapping each named point (e.g.
+`"5VOutput"`) to where it lands on the VPC90 array and what kind of
+quantity is expected there. Because there is exactly one adapter per device
+(the connector on the device doesn't change), this table -- not some
+separate profile type -- *is* the adapter.
 
-`device_x_profile.hpp` is the actual DUT-specific data: `DeviceX_StdAdapter`,
-a fixed table mapping each named point (e.g. "5VOutput") to where it lands
-on the VPC90 array and what kind of quantity is expected there. Because
-there is exactly one adapter per device (the connector on the device
-doesn't change), this table -- not some separate profile type -- *is* the
-adapter.
+Like the criteria files below, this file is deliberately bare: just
+`ADAPTER( ... ) ... END_ADAPTER`, nothing else -- no `#pragma once`, no
+`#include`s, no namespace. `ADAPTER`/`POINT` expand fully qualified
+(`::hal::...`, `::core::...`), unlike `CRITERIA`/`CRIT` which need a
+`using namespace` wrapper -- see `hal/adapter.hpp`'s own comment for why.
 
-## Measure
-
-`measure.hpp`/`measure.cpp` assemble the one `Measure` object every test
-script calls (`Measure( Dmm1.voltage(), "5VOutput")` -- see
-`libs/hal/include/hal/instruments.hpp` for `Dmm1` etc): `core::MeasureEngine`
-(see `libs/core/include/core/measure.hpp`) instantiated with
-`hal::SwitchFabric`/`hal::RouteTable`/`dut::Adapter`. This lives here,
-rather than in hal, because it's the layer that knows which Adapter is
-being measured; the fabric/route wiring themselves are pure hal facts (see
-`hal/instruments.hpp`) with no DUT knowledge at all.
+`hal/measure.cpp` is the one place this file is actually `#include`d for
+real use, to construct the one `Measure` object every script measures
+through. That is a plain, textual `#include` of a data file -- hal has no
+C++-level dependency on anything named `dut::` as a result; see
+`hal/measure.cpp`'s own comment and `hal/measure.hpp`'s.
 
 ## Criteria variants
 
@@ -53,7 +48,7 @@ The tolerance tables (`CRITERIA`/`CRIT` blocks, see
 set of numbers: production hardware fresh off the line, a stress-chamber
 run, equipment that's been in service for years, etc. They live here, not
 in `suite/`, because a tolerance is a property of the DUT being tested --
-the same reasoning that puts `device_x_profile.hpp` here.
+the same reasoning that puts `device_x_profile.inc` here.
 
 One flat `.inc` file per variant. Each file holds every script's `CRITERIA`
 side by side (currently `FS_Fuse_6` for fuse-register checks and
@@ -136,7 +131,8 @@ the moment anyone builds the `scripts_tests` target -- not the day someone
 finally targets aged equipment for real. It lives under `suite/tests/`
 rather than here because it's a test *of* this data, following the same
 "content in one place, its tests alongside the rest of the test-script
-tests" split the rest of the project uses.
+tests" split this whole directory uses -- `test_device_x_profile.cpp`
+above is the same idea, for `device_x_profile.inc`.
 
 That file also `static_assert`s that each variant defines the exact
 expected `CRIT` names for both `FS_Fuse_6` and `FS_Supply_1` (not just that

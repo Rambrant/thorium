@@ -20,7 +20,7 @@ add_library(scripts STATIC
     ${THORIUM_SUITE_SCRIPT_SOURCES}
 )
 
-target_link_libraries(scripts PUBLIC dut hal core)
+target_link_libraries(scripts PUBLIC hal core)
 
 target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 

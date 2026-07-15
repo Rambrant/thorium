@@ -61,7 +61,9 @@ endif()
 # --- Layers, in dependency order ---
 # core  : foundational utilities, no dependencies on other layers
 # hal   : hardware abstraction layer, depends on core
-# dut   : device-under-test model, depends on hal + core
+# dut   : DUT-specific data only (adapter profile + criteria variants, both
+#         flat macro-driven .inc files -- see libs/dut/README.md) -- no
+#         library of its own, just tests over that data linked against hal
 # dsl   : domain-specific language for writing tests, depends on dut + hal + core
 # app   : the runner (main.cpp) plus the "scripts" library it runs -- the
 #         scripts themselves, the test catalog, and scripts.hpp live under
