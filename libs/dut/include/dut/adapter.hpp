@@ -29,7 +29,7 @@ namespace dut
     //
     // A fixed collection of named points for one DUT/adapter. Runtime-
     // constructed and runtime-searched for now (no MATRIX/POINT-style macros
-    // yet, and no reflection) -- see the TODO in dut/measure.hpp for what
+    // yet, and no reflection) -- see the TODO in dut/measure_engine.hpp for what
     // changes here once that lands.
     //
     class Adapter
