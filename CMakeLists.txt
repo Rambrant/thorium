@@ -64,9 +64,11 @@ endif()
 # dut   : device-under-test model, depends on hal + core
 # dsl   : domain-specific language for writing tests, depends on dut + hal + core
 # app   : the runner (main.cpp) plus the "scripts" library it runs -- the
-#         scripts themselves, and everything else specific to this DUT's
-#         test plan (criteria, catalog, scripts.hpp), live under suite/
-#         rather than in app/, which holds no DUT-specific content at all
+#         scripts themselves, the test catalog, and scripts.hpp live under
+#         suite/ rather than in app/, which holds no DUT-specific content at
+#         all; the criteria/tolerance variants live under libs/dut/ instead,
+#         since tolerances are a property of the DUT being tested (see
+#         libs/dut/README.md)
 add_subdirectory(libs/core)
 add_subdirectory(libs/hal)
 add_subdirectory(libs/dut)

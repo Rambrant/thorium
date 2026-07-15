@@ -3,6 +3,9 @@ add_library(dut STATIC
     include/dut/adapter.hpp             # header-only
     include/dut/device_x_profile.hpp    # header-only
     include/dut/measure.hpp             # header-only
+    criteria_production.inc             # content only; not compiled directly, see README.md
+    criteria_stress.inc                 # content only; not compiled directly, see README.md
+    criteria_aged.inc                   # content only; not compiled directly, see README.md
 )
 
 target_include_directories(dut PUBLIC

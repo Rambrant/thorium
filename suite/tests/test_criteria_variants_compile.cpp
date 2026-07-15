@@ -24,7 +24,7 @@ namespace thorium_criteria_compile_check
         using namespace core::quantities;
         using namespace core::literals;
 
-        #include "suite/criteria_production.inc"
+        #include "libs/dut/criteria_production.inc"
     }
 
     namespace stress
@@ -32,7 +32,7 @@ namespace thorium_criteria_compile_check
         using namespace core::quantities;
         using namespace core::literals;
 
-        #include "suite/criteria_stress.inc"
+        #include "libs/dut/criteria_stress.inc"
     }
 
     namespace aged
@@ -40,7 +40,7 @@ namespace thorium_criteria_compile_check
         using namespace core::quantities;
         using namespace core::literals;
 
-        #include "suite/criteria_aged.inc"
+        #include "libs/dut/criteria_aged.inc"
     }
 
     //
@@ -104,17 +104,17 @@ namespace thorium_criteria_compile_check
 
     namespace verify_from_production
     {
-        #include "suite/criteria_production.inc"
+        #include "libs/dut/criteria_production.inc"
     }
 
     namespace verify_from_stress
     {
-        #include "suite/criteria_stress.inc"
+        #include "libs/dut/criteria_stress.inc"
     }
 
     namespace verify_from_aged
     {
-        #include "suite/criteria_aged.inc"
+        #include "libs/dut/criteria_aged.inc"
     }
 
     #undef THORIUM_CHECK_ID
