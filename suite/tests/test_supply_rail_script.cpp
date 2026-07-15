@@ -11,7 +11,7 @@ namespace
     // script, then restores live routing afterward -- Measure is a single
     // rig-wide object (the catalog's fixed (group, test) -> bool script
     // signature has no per-call device parameter to inject through instead;
-    // see suite/measure.hpp), so every test must clean up after itself or
+    // see dut/measure.hpp), so every test must clean up after itself or
     // leak into the next one.
     //
     struct SupplyRailFixture : ::testing::Test

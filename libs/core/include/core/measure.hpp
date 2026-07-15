@@ -30,7 +30,7 @@ namespace core
     // core/session.hpp) be lifted into a standalone library with zero
     // dependency on any specific rig's hal/dut types: the concrete
     // FabricT/RouteTableT/AdapterT are only ever named where the concrete
-    // instance is put together -- see suite/measure.cpp -- the same "inject
+    // instance is put together -- see dut/measure.cpp -- the same "inject
     // the project-specific bit at the build stage" role
     // THORIUM_ACTIVE_CRITERIA/THORIUM_TEST_CATALOG already play for the
     // criteria variants and the test catalog (see core/active_criteria.hpp,

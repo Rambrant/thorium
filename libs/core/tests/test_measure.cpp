@@ -15,7 +15,7 @@ using namespace core::quantities;
 // exactly what core::MeasureEngine needs and nothing more -- see
 // core/measure.hpp's own comment for the exact shape each is expected to
 // have. hal::SwitchFabric/hal::RouteTable/dut::Adapter (see
-// suite/measure.cpp) are just one concrete set of types happening to
+// dut/measure.cpp) are just one concrete set of types happening to
 // satisfy this same shape; core::MeasureEngine never sees them.
 //
 namespace mock

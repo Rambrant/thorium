@@ -10,6 +10,7 @@ add_library(core STATIC
         include/core/session.hpp         # header-only
         include/core/port.hpp            # header-only
         include/core/measure.hpp         # header-only
+        include/core/adapter.hpp         # header-only
         include/core/predicates.hpp      # header-only
         include/core/criterion.hpp       # header-only
         include/core/active_criteria.hpp # header-only
@@ -27,6 +28,7 @@ if(BUILD_TESTING_LAYERS)
             tests/test_session.cpp
             tests/test_port.cpp
             tests/test_measure.cpp
+            tests/test_adapter.cpp
             tests/test_predicates.cpp
             tests/test_criterion.cpp
             tests/test_verify.cpp

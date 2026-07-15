@@ -1,6 +1,7 @@
 #pragma once
 
-#include "suite/measure.hpp"
+#include "dut/measure.hpp"
+#include "hal/instruments.hpp"
 
 //
 // Each function here is a "test script": a scenario expressed using the

@@ -6,6 +6,7 @@ add_library(hal STATIC
     include/hal/vpc_location.hpp   # header-only
     include/hal/switch_fabric.hpp  # header-only
     include/hal/instrument.hpp     # header-only
+    include/hal/instruments.hpp    # header-only
     include/hal/route_table.hpp    # header-only
 )
 
