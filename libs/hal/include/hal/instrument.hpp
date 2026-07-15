@@ -3,6 +3,7 @@
 #include <string_view>
 #include <type_traits>
 
+#include "core/port.hpp"
 #include "core/quantity.hpp"
 #include "core/quantity_kind.hpp"
 
@@ -28,36 +29,6 @@ namespace hal
     auto to_string( InstrumentId id) -> std::string_view;
 
     //
-    // A single physical port on an instrument: a quantity type bound to a
-    // specific instrument instance. Returned by an instrument's builder
-    // methods (e.g. dmm1.voltage()) rather than constructed directly, so
-    // `Measure(dmm1.voltage(), "5VOutput")` both names the port and fixes the
-    // return type at the call site -- there is no separate "which quantity
-    // did I ask for" argument to get out of sync with the instrument used.
-    //
-    template<core::quantities::QuantityType QuantityT, typename InstrumentT>
-    class Port
-    {
-        public:
-            explicit Port( InstrumentT & instrument) : mInstrument( instrument) {}
-
-            [[nodiscard]]
-            auto rawMeasure() const -> QuantityT
-            {
-                return mInstrument.template rawMeasure<QuantityT>();
-            }
-
-            [[nodiscard]]
-            auto instrumentId() const -> InstrumentId
-            {
-                return mInstrument.id();
-            }
-
-        private:
-            InstrumentT & mInstrument;
-    };
-
-    //
     // An oscilloscope: a single Voltage-measuring port (an automatic
     // measurement such as Vpp/mean; richer waveform capture can be layered on
     // later without changing callers). mSimVoltage stands in for the real
@@ -75,9 +46,9 @@ namespace hal
             }
 
             [[nodiscard]]
-            auto voltage() -> Port<core::quantities::Voltage, Oscilloscope>
+            auto voltage() -> core::Port<core::quantities::Voltage, Oscilloscope>
             {
-                return Port<core::quantities::Voltage, Oscilloscope>{ *this };
+                return core::Port<core::quantities::Voltage, Oscilloscope>{ *this };
             }
 
             // Test/simulation hook -- real hardware has no such setter.
@@ -120,15 +91,15 @@ namespace hal
             }
 
             [[nodiscard]]
-            auto voltage() -> Port<core::quantities::Voltage, Dmm>
+            auto voltage() -> core::Port<core::quantities::Voltage, Dmm>
             {
-                return Port<core::quantities::Voltage, Dmm>{ *this };
+                return core::Port<core::quantities::Voltage, Dmm>{ *this };
             }
 
             [[nodiscard]]
-            auto current() -> Port<core::quantities::Current, Dmm>
+            auto current() -> core::Port<core::quantities::Current, Dmm>
             {
-                return Port<core::quantities::Current, Dmm>{ *this };
+                return core::Port<core::quantities::Current, Dmm>{ *this };
             }
 
             // Test/simulation hooks -- real hardware has no such setters.

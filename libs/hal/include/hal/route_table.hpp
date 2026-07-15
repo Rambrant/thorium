@@ -35,7 +35,7 @@ namespace hal
     // core/criterion.hpp is verified on GCC 16, this lookup is a candidate to
     // move from a runtime find() (throwing when a route is missing) to a
     // consteval search that hard-fails compilation instead -- the same
-    // upgrade path as the dut::Adapter lookup in dut/measure_engine.hpp. Until then, a
+    // upgrade path as the dut::Adapter lookup in core/measure.hpp. Until then, a
     // script that asks for an instrument/pin pairing that isn't wired into the
     // rig fails at the point Measure is called, not at compile time.
     //

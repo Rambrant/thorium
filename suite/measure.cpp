@@ -41,4 +41,4 @@ namespace
     const hal::RouteTable routes = buildRoutes();
 } // namespace
 
-dut::MeasureEngine Measure{ fabric, routes, DeviceX_StdAdapter };
+MeasureEngine Measure{ fabric, routes, DeviceX_StdAdapter };
