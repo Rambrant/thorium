@@ -1,6 +1,6 @@
 #pragma once
 
-#include "suite/rig.hpp"
+#include "suite/measure.hpp"
 
 //
 // Each function here is a "test script": a scenario expressed using the

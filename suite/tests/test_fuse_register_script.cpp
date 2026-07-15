@@ -10,31 +10,29 @@ namespace
     // The fuse register byte is a fixed stand-in (see
     // suite/scripts/fuse_register_script.cpp) -- no digital-register
     // instrument exists to feed it through, so these tests can only vary the
-    // voltage half of the check via rig::testSession().
+    // voltage half of the check, via Measure.inject().
     //
     struct FuseRegisterFixture : ::testing::Test
     {
-        core::ScriptedSession session;
+        protected:
 
-        void TearDown() override
-        {
-            rig::testSession().useDefault();
-        }
+            void TearDown() override
+            {
+                Measure.useLive();
+            }
     };
 } // namespace
 
 TEST_F(FuseRegisterFixture, PassesWhenVoltageIsWithinCriteria)
 {
-    session.program( "Vout", Voltage{ 12.01 });
-    rig::testSession().use( session);
+    Measure.inject( "Vout", Voltage{ 12.01 });
 
     EXPECT_TRUE(fuseRegisterScript("group", "test"));
 }
 
 TEST_F(FuseRegisterFixture, FailsWhenVoltageOutOfTolerance)
 {
-    session.program( "Vout", Voltage{ 12.50 }); // outside 12.0 +/- 0.05
-    rig::testSession().use( session);
+    Measure.inject( "Vout", Voltage{ 12.50 }); // outside 12.0 +/- 0.05
 
     EXPECT_FALSE(fuseRegisterScript("group", "test"));
 }

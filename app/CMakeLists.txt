@@ -18,8 +18,8 @@ file(GLOB THORIUM_SUITE_SCRIPT_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/su
 # defining it (this one) no longer is.
 add_library(scripts STATIC
     ${THORIUM_SUITE_SCRIPT_SOURCES}
-    ${CMAKE_SOURCE_DIR}/suite/rig.cpp
-    ${CMAKE_SOURCE_DIR}/suite/rig.hpp                # header-only; listed for IDE visibility only
+    ${CMAKE_SOURCE_DIR}/suite/measure.cpp
+    ${CMAKE_SOURCE_DIR}/suite/measure.hpp            # header-only; listed for IDE visibility only
     ${CMAKE_SOURCE_DIR}/suite/device_x_profile.hpp   # header-only; listed for IDE visibility only
 )
 

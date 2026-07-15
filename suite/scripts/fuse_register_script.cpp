@@ -4,7 +4,6 @@
 #include "core/predicates.hpp"
 #include "core/quantity.hpp"
 #include "core/verify.hpp"
-#include "dut/measure.hpp"
 
 #include "core/active_criteria.hpp"
 
@@ -20,10 +19,10 @@ auto fuseRegisterScript( std::string_view, std::string_view) -> bool
     //
     // No digital-register instrument exists in the hal model (the
     // register-bus DUT model -- hal::Bus/dut::Device -- was removed rather
-    // than carried into the VPC/instrument redesign; see suite/rig.hpp).
-    // This stays a fixed stand-in -- 0xF5 is a value that passes both
-    // criteria below -- until a real digital readback path exists; a test
-    // can't vary it the way it can the voltage below.
+    // than carried into the VPC/instrument redesign). This stays a fixed
+    // stand-in -- 0xF5 is a value that passes both criteria below -- until
+    // a real digital readback path exists; a test can't vary it the way it
+    // can the voltage below.
     //
     constexpr auto fuseValue = 0xF5;
 
@@ -34,7 +33,7 @@ auto fuseRegisterScript( std::string_view, std::string_view) -> bool
     // Ad-hoc check (no CRIT constant declared up front) against a measured
     // quantity.
     //
-    const auto voltage = dut::Measure( rig::bench(), rig::dmm2().voltage(), "Vout");
+    const auto voltage = Measure( Dmm2.voltage(), "Vout");
 
     allPassed &= Verify( "Voltage", "Vout", "Supply voltage", EQ( 12.0_V).epsilon( 0.05_V), voltage);
 
