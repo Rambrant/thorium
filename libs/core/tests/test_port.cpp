@@ -23,7 +23,7 @@ namespace
             auto setSimulatedVoltage( Voltage v) -> void { mVoltage = v; }
 
             template<core::quantities::QuantityType Q>
-            [[nodiscard]] auto rawMeasure() -> Q { return mVoltage; }
+            [[nodiscard]] auto rawMeasure( const core::MeasureSetup<Q> & ) -> Q { return mVoltage; }
 
         private:
             int     mId;

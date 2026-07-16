@@ -36,7 +36,7 @@ auto fuseRegisterScript( std::string_view, std::string_view) -> bool
     // Ad-hoc check (no CRIT constant declared up front) against a measured
     // quantity.
     //
-    const auto voltage = Measure( Dmm2.voltage(), DeviceX_StdAdapter::Vout);
+    const auto voltage = Measure( Dmm2.voltage(), at( DeviceX_StdAdapter::Vout));
 
     allPassed &= Verify( "Voltage", "Vout", "Supply voltage", EQ( 12.0_V).epsilon( 0.05_V), voltage);
 

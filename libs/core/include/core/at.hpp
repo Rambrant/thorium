@@ -9,7 +9,7 @@ namespace core
     // source code, so a call like
     //
     //     Measure( Dmm1.voltage(), at( Output5V));
-    //     Apply(   DcN6701A.dc(    at( Output5V)).voltage( 24_V));
+    //     Apply(   Dcp1.dc(    at( Output5V)).voltage( 24_V));
     //
     // reads unambiguously as "at this DUT point", the same way _V/_A make a
     // bare literal read unambiguously as a Quantity. Measure/Apply/Remove

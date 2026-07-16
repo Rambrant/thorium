@@ -11,6 +11,11 @@ INSTRUMENT_WIRING
     WIRE_INSTRUMENT( Dmm1, Matrix, "Matrix2", 14)
     WIRE_INSTRUMENT( Dmm2, Matrix, "Matrix2", 16)
     WIRE_INSTRUMENT( Osc1, Matrix, "Matrix2", 10)
+    WIRE_INSTRUMENT( DcP1, Matrix, "Matrix2", 20)
+    WIRE_INSTRUMENT( DcP2, Matrix, "Matrix2", 21)
+    WIRE_INSTRUMENT( DcP3, Matrix, "Matrix2", 24)
+    WIRE_INSTRUMENT( DcP4, Matrix, "Matrix2", 25)
+    WIRE_INSTRUMENT( AcP1, Matrix, "Matrix2", 22)
 END_INSTRUMENT_WIRING
 
 CONNECTOR_WIRING
@@ -18,4 +23,9 @@ CONNECTOR_WIRING
     WIRE_CONNECTOR( A, 1, 6, Mux, "Mux1", 4)
     WIRE_CONNECTOR( A, 1, 2, Mux, "Mux2", 1)
     WIRE_CONNECTOR( A, 1, 4, Mux, "Mux1", 5)
+    WIRE_CONNECTOR( A, 1, 5, Mux, "Mux1", 6)
+    WIRE_CONNECTOR( A, 3, 1, Mux, "Mux2", 2)
+    WIRE_CONNECTOR( A, 3, 3, Mux, "Mux2", 3)
+    WIRE_CONNECTOR( A, 3, 5, Mux, "Mux2", 4)
+    WIRE_CONNECTOR( A, 3, 7, Mux, "Mux2", 5)
 END_CONNECTOR_WIRING

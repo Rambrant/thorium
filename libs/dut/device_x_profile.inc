@@ -12,8 +12,13 @@
 // stand in for the spec's "5VOutput"/"3V3Output".
 //
 ADAPTER( DeviceX_StdAdapter, "Device X on standard adapter")
-    POINT( Output5V,  A, 1, 3, Voltage, "5Vdc supply port")
-    POINT( Output3V3, A, 1, 6, Voltage, "3.3Vdc supply port")
-    POINT( ClkProbe,  A, 1, 2, Voltage, "Config clock probe")
-    POINT( Vout,      A, 1, 4, Voltage, "12V rail probe")
+    POINT( Output5V,   A, 1, 3, Voltage, "5Vdc supply port")
+    POINT( Output3V3,  A, 1, 6, Voltage, "3.3Vdc supply port")
+    POINT( ClkProbe,   A, 1, 2, Voltage, "Config clock probe")
+    POINT( Vout,       A, 1, 4, Voltage, "12V rail probe")
+    POINT( Input24V,   A, 1, 5, Voltage, "24Vdc input supply port")
+    POINT( AcInput_A,  A, 3, 1, Voltage, "AC input, phase A")
+    POINT( AcInput_B,  A, 3, 3, Voltage, "AC input, phase B")
+    POINT( AcInput_C,  A, 3, 5, Voltage, "AC input, phase C")
+    POINT( AcInput_N,  A, 3, 7, Voltage, "AC input, neutral")
 END_ADAPTER

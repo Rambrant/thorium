@@ -8,9 +8,9 @@ namespace core
     // Apply/Remove engines: the generic sourcing counterparts to
     // MeasureEngine, called as:
     //
-    //     Apply(  DcN6701A.dc( at( Output24V)).voltage( 24_V).currentLimit( 7_A));
-    //     Remove( DcN6701A.dc( at( Output24V)));
-    //     Apply(  Ac6674A.threePhaseWye({ .a=at(A), .b=at(B), .c=at(C), .n=at(N) })
+    //     Apply(  Dcp1.dc( at( Output24V)).voltage( 24_V).currentLimit( 7_A));
+    //     Remove( Dcp1.dc( at( Output24V)));
+    //     Apply(  Acp1.threePhaseWye({ .a=at(A), .b=at(B), .c=at(C) })
     //             .phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 3_A));
     //
     // Symmetric with MeasureEngine: same layered session/injection/recording
