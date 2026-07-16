@@ -11,6 +11,8 @@ add_library(core STATIC
         include/core/port.hpp            # header-only
         include/core/measure.hpp         # header-only
         include/core/adapter.hpp         # header-only
+        include/core/at.hpp              # header-only
+        include/core/apply.hpp           # header-only
         include/core/predicates.hpp      # header-only
         include/core/criterion.hpp       # header-only
         include/core/active_criteria.hpp # header-only

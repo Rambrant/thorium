@@ -6,8 +6,12 @@
 
 #include <gtest/gtest.h>
 
+#include "core/at.hpp"
+
 using namespace core::literals;
 using namespace core::quantities;
+
+using core::at;
 
 //
 // A minimal Fabric/InstrumentWiring/ConnectorWiring/Instrument stand-in,
@@ -93,7 +97,7 @@ namespace mock
             auto setSimulatedVoltage( Voltage v) -> void { mVoltage = v; }
 
             template<core::quantities::QuantityType Q>
-            [[nodiscard]] auto rawMeasure() -> Q { return mVoltage; }
+            [[nodiscard]] auto rawMeasure( const core::MeasureSetup<Q> & ) -> Q { return mVoltage; }
 
         private:
             InstrumentId mId;
@@ -128,7 +132,7 @@ TEST_F( MeasureEngineFixture, LiveByDefaultRoutesTheFabricAndReturnsTheInstrumen
 {
     dmm1.setSimulatedVoltage( 5.02_V);
 
-    const auto value = Measure( dmm1.voltage(), Output5V);
+    const auto value = Measure( dmm1.voltage(), at( Output5V));
 
     EXPECT_DOUBLE_EQ( value.value(), 5.02);
     EXPECT_EQ( fabric.lastRouted(), (std::vector<mock::Channel>{ 14, 3 }));
@@ -139,7 +143,7 @@ TEST_F( MeasureEngineFixture, InjectBypassesTheFabricEntirely)
     Measure.inject( "Output5V", Voltage{ 5.02 });
     dmm1.setSimulatedVoltage( 999.0_V); // would fail the test if this were ever read
 
-    const auto value = Measure( dmm1.voltage(), Output5V);
+    const auto value = Measure( dmm1.voltage(), at( Output5V));
 
     EXPECT_DOUBLE_EQ( value.value(), 5.02);
     EXPECT_TRUE( fabric.lastRouted().empty());
@@ -151,7 +155,7 @@ TEST_F( MeasureEngineFixture, UseLiveRestoresRealRoutingAfterAnInject)
     Measure.useLive();
     dmm1.setSimulatedVoltage( 6.0_V);
 
-    const auto value = Measure( dmm1.voltage(), Output5V);
+    const auto value = Measure( dmm1.voltage(), at( Output5V));
 
     EXPECT_DOUBLE_EQ( value.value(), 6.0);
 }
@@ -160,17 +164,17 @@ TEST_F( MeasureEngineFixture, ThrowsWhenTheRequestedInstrumentIsNotWiredToThatPi
 {
     mock::Instrument dmm2{ mock::InstrumentId::Dmm2 }; // no wire added for Dmm2
 
-    EXPECT_THROW( (void)Measure( dmm2.voltage(), Output5V), std::runtime_error);
+    EXPECT_THROW( (void)Measure( dmm2.voltage(), at( Output5V)), std::runtime_error);
 }
 
 TEST_F( MeasureEngineFixture, RecordingCapturesEachFetchThenLoadReplaysItInOrder)
 {
     dmm1.setSimulatedVoltage( 4.98_V);
     Measure.startRecording();
-    (void)Measure( dmm1.voltage(), Output5V);
+    (void)Measure( dmm1.voltage(), at( Output5V));
 
     dmm1.setSimulatedVoltage( 5.02_V);
-    (void)Measure( dmm1.voltage(), Output5V);
+    (void)Measure( dmm1.voltage(), at( Output5V));
     Measure.stopRecording();
 
     const auto path = std::filesystem::temp_directory_path() / "thorium_core_measure_test_recording.tsv";
@@ -183,13 +187,13 @@ TEST_F( MeasureEngineFixture, RecordingCapturesEachFetchThenLoadReplaysItInOrder
     core::MeasureEngine<mock::Fabric, mock::InstrumentWiring, mock::ConnectorWiring> playback{ fabric, instrumentWiring, connectorWiring };
     playback.load( path.string());
 
-    const auto first  = playback( dmm1.voltage(), Output5V);
-    const auto second = playback( dmm1.voltage(), Output5V);
+    const auto first  = playback( dmm1.voltage(), at( Output5V));
+    const auto second = playback( dmm1.voltage(), at( Output5V));
 
     EXPECT_DOUBLE_EQ( first.value(),  4.98);
     EXPECT_DOUBLE_EQ( second.value(), 5.02);
 
-    EXPECT_THROW( (void)playback( dmm1.voltage(), Output5V), std::runtime_error);
+    EXPECT_THROW( (void)playback( dmm1.voltage(), at( Output5V)), std::runtime_error);
 
     std::remove( path.string().c_str());
 }

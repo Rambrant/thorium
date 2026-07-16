@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "core/adapter.hpp"
+#include "core/at.hpp"
 #include "core/port.hpp"
 #include "core/quantity_kind.hpp"
 #include "core/recording.hpp"
@@ -77,9 +78,10 @@ namespace core
             //
             template<auto Loc, QuantityKind Kind, typename InstrumentT>
             [[nodiscard]]
-            auto operator()( Port<QuantityFor<Kind>, InstrumentT> port, const AdapterPointTag<Loc, Kind> & point) -> QuantityFor<Kind>
+            auto operator()( Port<QuantityFor<Kind>, InstrumentT> port, const At<AdapterPointTag<Loc, Kind>> & wrapped) -> QuantityFor<Kind>
             {
-                const auto instrumentId = port.instrumentId();
+                const auto & point        = wrapped.point;
+                const auto   instrumentId = port.instrumentId();
 
                 auto liveRead = [&]() -> QuantityVariant
                 {
