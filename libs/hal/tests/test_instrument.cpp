@@ -7,31 +7,116 @@
 using namespace core::literals;
 using namespace core::quantities;
 
+namespace
+{
+    using namespace core::literals;
+    using namespace core::quantities;
+
+    //
+    // ValidDso8064Channel's compile-time bound, checked the concept-wrapped
+    // way -- see core/tests/test_static_constraints.cpp's own comment for
+    // why a bare static_assert(!requires{...}) is unreliable and this
+    // routing-through-a-concept form isn't.
+    //
+    template<unsigned N>
+    concept CanChannel = requires( hal::DSO8064 & osc) { osc.template channel<N>(); };
+
+    static_assert(  CanChannel<1> );
+    static_assert(  CanChannel<4> );
+    static_assert( !CanChannel<0> );
+    static_assert( !CanChannel<5> );
+} // namespace
+
 TEST( HalInstrument, DSO8064VppPortReturnsSimulatedReading)
 {
     hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
-    osc1.setSimulatedVpp( 3.3_V);
+    osc1.setSimulatedVpp( 1, 3.3_V);
 
-    auto port = osc1.vpp();
+    auto port = osc1.channel<1>().vpp();
 
     EXPECT_DOUBLE_EQ( port.rawMeasure().value(), 3.3);
     EXPECT_EQ( port.instrumentId(), hal::InstrumentId::Osc1);
 }
 
+TEST( HalInstrument, DSO8064PortOutlivesTheTemporaryChannelViewThatCreatedIt)
+{
+    // The dangling-reference trap an earlier version of this file had:
+    // channel<1>() returns a temporary DSO8064Channel<1>, gone by the next
+    // statement -- Port must bind to the real, long-lived DSO8064&, not to
+    // that temporary, or this reads garbage (or crashes) instead of 3.3.
+    // See hal/dso8064.hpp's own comment on DSO8064Channel for why.
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    osc1.setSimulatedVpp( 1, 3.3_V);
+
+    auto port = osc1.channel<1>().vpp();  // the channel view temporary is gone after this line
+
+    EXPECT_DOUBLE_EQ( port.rawMeasure().value(), 3.3);  // still valid here
+}
+
 TEST( HalInstrument, DSO8064ExposesTheWholeAmplitudeFamily)
 {
     hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
-    osc1.setSimulatedVpp( 3.3_V);
-    osc1.setSimulatedVmax( 1.9_V);
-    osc1.setSimulatedVmin( -1.4_V);
-    osc1.setSimulatedVrms( 1.2_V);
-    osc1.setSimulatedVaverage( 0.1_V);
+    osc1.setSimulatedVpp( 1, 3.3_V);
+    osc1.setSimulatedVmax( 1, 1.9_V);
+    osc1.setSimulatedVmin( 1, -1.4_V);
+    osc1.setSimulatedVrms( 1, 1.2_V);
+    osc1.setSimulatedVaverage( 1, 0.1_V);
 
-    EXPECT_DOUBLE_EQ( osc1.vpp().rawMeasure().value(),      3.3);
-    EXPECT_DOUBLE_EQ( osc1.vmax().rawMeasure().value(),     1.9);
-    EXPECT_DOUBLE_EQ( osc1.vmin().rawMeasure().value(),    -1.4);
-    EXPECT_DOUBLE_EQ( osc1.vrms().rawMeasure().value(),     1.2);
-    EXPECT_DOUBLE_EQ( osc1.vaverage().rawMeasure().value(), 0.1);
+    auto ch1 = osc1.channel<1>();
+
+    EXPECT_DOUBLE_EQ( ch1.vpp().rawMeasure().value(),      3.3);
+    EXPECT_DOUBLE_EQ( ch1.vmax().rawMeasure().value(),     1.9);
+    EXPECT_DOUBLE_EQ( ch1.vmin().rawMeasure().value(),    -1.4);
+    EXPECT_DOUBLE_EQ( ch1.vrms().rawMeasure().value(),     1.2);
+    EXPECT_DOUBLE_EQ( ch1.vaverage().rawMeasure().value(), 0.1);
+}
+
+TEST( HalInstrument, DSO8064ChannelsAreIndependentlyAddressedSimulatedData)
+{
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    osc1.setSimulatedVpp( 1, 3.3_V);
+    osc1.setSimulatedVpp( 3, 5.0_V);
+
+    EXPECT_DOUBLE_EQ( osc1.channel<1>().vpp().rawMeasure().value(), 3.3);
+    EXPECT_DOUBLE_EQ( osc1.channel<3>().vpp().rawMeasure().value(), 5.0);
+}
+
+TEST( HalInstrument, DSO8064ExposesTheTimingFamily)
+{
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    osc1.setSimulatedFrequency( 3, 1.0_kHz);
+    osc1.setSimulatedPeriod( 3, 1.0_ms);
+    osc1.setSimulatedRiseTime( 3, Time{ 12e-9});
+    osc1.setSimulatedFallTime( 3, Time{ 14e-9});
+
+    auto ch3 = osc1.channel<3>();
+
+    EXPECT_DOUBLE_EQ( ch3.frequency().rawMeasure().value(), 1000.0);
+    EXPECT_DOUBLE_EQ( ch3.period().rawMeasure().value(),    0.001);
+    EXPECT_DOUBLE_EQ( ch3.riseTime().rawMeasure().value(),  12e-9);
+    EXPECT_DOUBLE_EQ( ch3.fallTime().rawMeasure().value(),  14e-9);
+}
+
+TEST( HalInstrument, DSO8064RiseTimeDefaultsToTenNinetyThresholds)
+{
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+
+    auto port = osc1.channel<1>().riseTime();
+
+    ASSERT_TRUE( port.setup().LowThreshold.has_value());
+    ASSERT_TRUE( port.setup().HighThreshold.has_value());
+    EXPECT_DOUBLE_EQ( *port.setup().LowThreshold,  0.1);
+    EXPECT_DOUBLE_EQ( *port.setup().HighThreshold, 0.9);
+}
+
+TEST( HalInstrument, DSO8064RiseTimeThresholdsAreOverridable)
+{
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+
+    auto port = osc1.channel<1>().riseTime().lowThreshold( 0.2).highThreshold( 0.8);
+
+    EXPECT_DOUBLE_EQ( *port.setup().LowThreshold,  0.2);
+    EXPECT_DOUBLE_EQ( *port.setup().HighThreshold, 0.8);
 }
 
 TEST( HalInstrument, DSO8064DefaultsToVppMode)
@@ -48,13 +133,29 @@ TEST( HalInstrument, DSO8064ModeIsSharedAcrossPortHandlesHeldPastAModeSwitch)
     // whichever mode is current when rawMeasure() is eventually called, not
     // the mode active when the handle was created.
     hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
-    osc1.setSimulatedVpp( 3.3_V);
-    osc1.setSimulatedVrms( 1.2_V);
+    osc1.setSimulatedVpp( 1, 3.3_V);
+    osc1.setSimulatedVrms( 1, 1.2_V);
 
-    auto vppPort = osc1.vpp();
-    (void)osc1.vrms();
+    auto vppPort = osc1.channel<1>().vpp();
+    (void)osc1.channel<1>().vrms();
 
     EXPECT_DOUBLE_EQ( vppPort.rawMeasure().value(), 1.2);
+}
+
+TEST( HalInstrument, DSO8064ChannelIsSharedAcrossPortHandlesHeldPastAChannelSwitch)
+{
+    // Same sharp edge, other axis: channel is instrument-level state too
+    // (see hal/dso8064.hpp's own comment on DSO8064Channel for why), so a
+    // port handle obtained on channel 1 still reads whichever channel is
+    // current at rawMeasure() time if channel 3 gets selected afterward.
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    osc1.setSimulatedVpp( 1, 3.3_V);
+    osc1.setSimulatedVpp( 3, 5.0_V);
+
+    auto ch1Port = osc1.channel<1>().vpp();
+    (void)osc1.channel<3>().vpp();
+
+    EXPECT_DOUBLE_EQ( ch1Port.rawMeasure().value(), 5.0);
 }
 
 TEST( HalInstrument, L4411AExposesBothVoltageAndCurrentPorts)

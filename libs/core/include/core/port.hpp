@@ -45,6 +45,17 @@ namespace core
         // what to look for (some AC DMMs can't autodetect below a few Hz).
         //
         std::optional<quantities::Frequency>  Frequency;
+
+        //
+        // Edge-timing reference levels for rise/fall-time measurements, as
+        // a fraction of full swing (e.g. 0.1/0.9 for the usual 10%/90%
+        // convention) -- SCPI :MEASure:RISetime/:FALLtime's own threshold
+        // arguments. Meaningless for anything else, same as Range/Nplc are
+        // meaningless off a scope; an instrument that doesn't do edge
+        // timing simply never reads these two.
+        //
+        std::optional<double>  LowThreshold;
+        std::optional<double>  HighThreshold;
     };
 
     //
@@ -99,6 +110,22 @@ namespace core
             {
                 auto copy = *this;
                 copy.mSetup.Frequency = f;
+                return copy;
+            }
+
+            [[nodiscard]]
+            auto lowThreshold( double fraction) const -> Port
+            {
+                auto copy = *this;
+                copy.mSetup.LowThreshold = fraction;
+                return copy;
+            }
+
+            [[nodiscard]]
+            auto highThreshold( double fraction) const -> Port
+            {
+                auto copy = *this;
+                copy.mSetup.HighThreshold = fraction;
                 return copy;
             }
 
