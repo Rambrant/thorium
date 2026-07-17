@@ -201,36 +201,49 @@ namespace hal
 
     //
     // ADL targets for core::ApplyEngine/RemoveEngine -- see hal/n6701a.hpp's
-    // own comment on the same mechanism. Routes the instrument channel plus
-    // the three phase channels together as one path (no neutral -- see
-    // ThreePhaseWyePoints's own comment), then programs -- or disables --
-    // the instrument's simulated output.
+    // own comment on the same mechanism. Programs -- or disables -- the
+    // instrument's simulated output only; see connectDriver/disconnectDriver
+    // below for the fabric routing this used to also do.
     //
-    inline auto applyDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const Ac6677AConfig & config) -> void
+    inline auto applyDriver( const Ac6677AConfig & config) -> void
     {
-        const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
-
-        fabric.route( {
-            instrumentChannel,
-            connectorWiring.find( config.Points.a.Location),
-            connectorWiring.find( config.Points.b.Location),
-            connectorWiring.find( config.Points.c.Location)
-        });
-
         config.Instrument.applyOutput( config.PhaseVoltage.value_or( core::quantities::Voltage{}), config.Frequency, config.CurrentLimit);
     }
 
-    inline auto removeDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const Ac6677AConfig & config) -> void
+    inline auto removeDriver( const Ac6677AConfig & config) -> void
+    {
+        config.Instrument.removeOutput();
+    }
+
+    //
+    // ADL targets for core::ConnectEngine/DisconnectEngine -- see
+    // hal/n6701a.hpp's own comment on the same mechanism. Closes -- or
+    // opens -- the instrument channel plus the three phase channels
+    // together as one path (no neutral -- see ThreePhaseWyePoints's own
+    // comment), additively (hal::SwitchFabric::connect()/disconnect()) so
+    // it doesn't disturb whatever else is currently routed.
+    //
+    inline auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const Ac6677AConfig & config) -> void
     {
         const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
 
-        fabric.route( {
+        fabric.connect( {
             instrumentChannel,
             connectorWiring.find( config.Points.a.Location),
             connectorWiring.find( config.Points.b.Location),
             connectorWiring.find( config.Points.c.Location)
         });
+    }
 
-        config.Instrument.removeOutput();
+    inline auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const Ac6677AConfig & config) -> void
+    {
+        const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
+
+        fabric.disconnect( {
+            instrumentChannel,
+            connectorWiring.find( config.Points.a.Location),
+            connectorWiring.find( config.Points.b.Location),
+            connectorWiring.find( config.Points.c.Location)
+        });
     }
 } // namespace hal

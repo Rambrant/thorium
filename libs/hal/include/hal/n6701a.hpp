@@ -181,31 +181,48 @@ namespace hal
     //
     // ADL targets for core::ApplyEngine/RemoveEngine -- see core/apply.hpp's
     // own comment on the applyDriver/removeDriver customization points.
-    // Routes the fabric exactly like MeasureEngine does (see
-    // core/measure.hpp), then programs -- or disables -- the instrument's
-    // simulated output. Found via ADL because N6701AConfig<Loc> lives in
-    // namespace hal, the same trick core/measure.hpp's to_string(instrumentId)
-    // call relies on.
+    // Programs -- or disables -- the instrument's simulated output only;
+    // the fabric path is a separate concern now, see connectDriver/
+    // disconnectDriver below. Found via ADL because N6701AConfig<Loc> lives
+    // in namespace hal, the same trick core/measure.hpp's
+    // to_string(instrumentId) call relies on.
     //
     template<auto Loc>
-    auto applyDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const N6701AConfig<Loc> & config) -> void
+    auto applyDriver( const N6701AConfig<Loc> & config) -> void
     {
-        const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
-        const auto connectorChannel  = connectorWiring.find( Loc);
-
-        fabric.route( { instrumentChannel, connectorChannel });
-
         config.Instrument.applyOutput( config.Voltage.value_or( core::quantities::Voltage{}), config.CurrentLimit);
     }
 
     template<auto Loc>
-    auto removeDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const N6701AConfig<Loc> & config) -> void
+    auto removeDriver( const N6701AConfig<Loc> & config) -> void
+    {
+        config.Instrument.removeOutput();
+    }
+
+    //
+    // ADL targets for core::ConnectEngine/DisconnectEngine -- see
+    // core/apply.hpp's own comment on the connectDriver/disconnectDriver
+    // customization points. This is the half applyDriver/removeDriver used
+    // to do: close (or open) exactly this instrument's matrix channel and
+    // this point's connector channel, additively (see
+    // hal::SwitchFabric::connect()/disconnect()) so it doesn't disturb
+    // whatever else is currently routed.
+    //
+    template<auto Loc>
+    auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const N6701AConfig<Loc> & config) -> void
     {
         const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
         const auto connectorChannel  = connectorWiring.find( Loc);
 
-        fabric.route( { instrumentChannel, connectorChannel });
+        fabric.connect( { instrumentChannel, connectorChannel });
+    }
 
-        config.Instrument.removeOutput();
+    template<auto Loc>
+    auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const N6701AConfig<Loc> & config) -> void
+    {
+        const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
+        const auto connectorChannel  = connectorWiring.find( Loc);
+
+        fabric.disconnect( { instrumentChannel, connectorChannel });
     }
 } // namespace hal

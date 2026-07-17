@@ -38,8 +38,10 @@ namespace
         hal::N6701A            dcP2{ hal::InstrumentId::DcP2, 2 };
         hal::Ac6677A           acP1{ hal::InstrumentId::AcP1 };
 
-        ApplyEngine  apply{  fabric, instrumentWiring, connectorWiring };
-        RemoveEngine remove{ fabric, instrumentWiring, connectorWiring };
+        ApplyEngine      apply{};
+        RemoveEngine     remove{};
+        ConnectEngine    connect{    fabric, instrumentWiring, connectorWiring };
+        DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };
 
         SourceInstrumentFixture()
         {
@@ -56,7 +58,7 @@ namespace
     };
 } // namespace
 
-TEST_F( SourceInstrumentFixture, DcApplyRoutesTheFabricAndProgramsTheInstrument)
+TEST_F( SourceInstrumentFixture, DcApplyProgramsTheInstrumentWithoutTouchingTheFabric)
 {
     apply( dcP1.dc( at( Input24V)).voltage( 24.0_V).currentLimit( 7.0_A));
 
@@ -64,29 +66,77 @@ TEST_F( SourceInstrumentFixture, DcApplyRoutesTheFabricAndProgramsTheInstrument)
     EXPECT_DOUBLE_EQ( dcP1.outputVoltage().value(), 24.0);
     ASSERT_TRUE( dcP1.currentLimit().has_value());
     EXPECT_DOUBLE_EQ( dcP1.currentLimit()->value(), 7.0);
+
+    // Apply no longer routes -- nothing is closed, and it never needed
+    // instrumentWiring/connectorWiring to have an entry for DcP1 at all.
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    6 }));
 }
 
 TEST( SourceInstrument, DcApplyWithOnlyVoltageLeavesCurrentLimitUnset)
 {
     hal::N6701A dcP1{ hal::InstrumentId::DcP1, 1 };
 
-    // Programs the instrument directly, bypassing routing -- exercised on
-    // its own since applyDriver requires wired fabric/tables (see the
-    // fixture-based tests above for that path).
+    // Programs the instrument directly -- applyDriver needs no fabric/
+    // wiring at all any more, so there's no separate "fixture-based" path
+    // to exercise here the way there used to be.
     dcP1.applyOutput( 24.0_V, std::nullopt);
 
     EXPECT_DOUBLE_EQ( dcP1.outputVoltage().value(), 24.0);
     EXPECT_FALSE( dcP1.currentLimit().has_value());
 }
 
-TEST_F( SourceInstrumentFixture, DcRemoveRoutesTheFabricAndDisablesTheInstrument)
+TEST_F( SourceInstrumentFixture, DcConnectClosesExactlyTheInstrumentAndConnectorChannels)
+{
+    connect( dcP1.dc( at( Input24V)));
+
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    6 }));
+}
+
+TEST_F( SourceInstrumentFixture, DcConnectAndDisconnectDoNotDisturbAnUnrelatedAlreadyConnectedPath)
+{
+    // dcP1 -> Input24V and dcP2 -> Output5V are two independent paths.
+    // Connecting/disconnecting one must leave the other's relays alone --
+    // the whole reason connect()/disconnect() are additive rather than
+    // route()'s "make this the one live path" behaviour.
+    connect( dcP1.dc( at( Input24V)));
+    connect( dcP2.dc( at( Output5V)));
+
+    disconnect( dcP1.dc( at( Input24V)));
+
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    6 }));
+
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 21 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    3 }));
+}
+
+TEST_F( SourceInstrumentFixture, DcApplyCanBeCalledBeforeConnectIsEverMade)
+{
+    // The point of splitting Apply out from Connect: programming the
+    // supply doesn't require the DUT to be wired up yet.
+    apply( dcP1.dc( at( Input24V)).voltage( 24.0_V));
+    EXPECT_TRUE( dcP1.isEnabled());
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
+
+    connect( dcP1.dc( at( Input24V)));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
+}
+
+TEST_F( SourceInstrumentFixture, DcRemoveDisablesTheInstrumentWithoutTouchingTheFabric)
 {
     apply( dcP1.dc( at( Input24V)).voltage( 24.0_V));
+    connect( dcP1.dc( at( Input24V)));
     ASSERT_TRUE( dcP1.isEnabled());
 
     remove( dcP1.dc( at( Input24V)));
 
     EXPECT_FALSE( dcP1.isEnabled());
+    // Remove doesn't disconnect -- that's Disconnect's job, called on its
+    // own schedule (e.g. immediately, for a safety interlock, without
+    // waiting on some other Remove-driven ramp-down).
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
 }
 
 TEST_F( SourceInstrumentFixture, DcBuilderChainReturnsUpdatedCopiesWithoutMutatingTheOriginal)
@@ -99,7 +149,7 @@ TEST_F( SourceInstrumentFixture, DcBuilderChainReturnsUpdatedCopiesWithoutMutati
     EXPECT_DOUBLE_EQ( withVolt.config().Voltage->value(), 24.0);
 }
 
-TEST_F( SourceInstrumentFixture, TwoN6701AChannelsAreProgrammedAndRoutedIndependently)
+TEST_F( SourceInstrumentFixture, TwoN6701AChannelsAreProgrammedIndependently)
 {
     // DcP1 and DcP2 are two separate hal::N6701A instances -- two channels
     // of the same physical mainframe, but with no shared state at this
@@ -118,13 +168,25 @@ TEST_F( SourceInstrumentFixture, TwoN6701AChannelsAreProgrammedAndRoutedIndepend
     EXPECT_TRUE( dcP2.isEnabled());
 }
 
-TEST_F( SourceInstrumentFixture, AcApplyRoutesTheInstrumentAndTheThreePhaseChannelsTogether)
+TEST_F( SourceInstrumentFixture, AcApplyProgramsTheInstrumentWithoutTouchingTheFabric)
 {
     apply( acP1.threePhaseWye( { .a=phase( at( AcInput_A)), .b=phase( at( AcInput_B)),
                                  .c=phase( at( AcInput_C)) })
                .phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
 
     EXPECT_TRUE( acP1.isEnabled());
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 }));
+}
+
+TEST_F( SourceInstrumentFixture, AcConnectClosesTheInstrumentAndAllThreePhaseChannels)
+{
+    connect( acP1.threePhaseWye( { .a=phase( at( AcInput_A)), .b=phase( at( AcInput_B)),
+                                   .c=phase( at( AcInput_C)) }));
+
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux2",    2 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux2",    3 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux2",    4 }));
 }
 
 TEST_F( SourceInstrumentFixture, AcApplySetsPhaseVoltageFrequencyAndCurrentLimit)

@@ -86,6 +86,34 @@ namespace hal
                 }
             }
 
+            //
+            // connect()/disconnect(): the additive counterparts to route()
+            // -- close (or open) exactly the given path's elements, leaving
+            // every other currently-closed element untouched. This is what
+            // core::ConnectEngine/DisconnectEngine call (see core/apply.hpp)
+            // rather than route(): a source instrument's own relay path
+            // shouldn't tear down some other already-live route (another
+            // instrument's supply, say) just because it's being connected
+            // or disconnected. route() stays exclusive -- and is still what
+            // dut::Measure uses -- because a measurement path genuinely is
+            // "make this the one live route" each time it's taken.
+            //
+            auto connect( const std::vector<SwitchElementId> & path) -> void
+            {
+                for( const auto id : path)
+                {
+                    close( id);
+                }
+            }
+
+            auto disconnect( const std::vector<SwitchElementId> & path) -> void
+            {
+                for( const auto id : path)
+                {
+                    open( id);
+                }
+            }
+
         private:
             std::set<SwitchElementId> mClosed;
     };

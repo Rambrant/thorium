@@ -11,5 +11,7 @@
 //
 #include "libs/hal/wiring.inc"
 
-ApplyEngine  Apply{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };
-RemoveEngine Remove{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };
+ApplyEngine      Apply{};
+RemoveEngine     Remove{};
+ConnectEngine    Connect{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };
+DisconnectEngine Disconnect{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };
