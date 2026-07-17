@@ -15,6 +15,7 @@ add_library(hal STATIC
     include/hal/apply.hpp          # header-only
     include/hal/n6701a.hpp         # header-only
     include/hal/ac6677a.hpp        # header-only
+    include/hal/l4411a.hpp         # header-only
     wiring.inc                     # content only; not compiled directly, see README.md
     instrument.inc                 # content only; not compiled directly, see README.md
 )

@@ -13,8 +13,8 @@
 // they get.
 //
 INSTRUMENTS
-    INSTRUMENT( Dmm,          Dmm1, Dmm1)
-    INSTRUMENT( Dmm,          Dmm2, Dmm2)
+    INSTRUMENT( L4411A,       Dmm1, Dmm1)
+    INSTRUMENT( L4411A,       Dmm2, Dmm2)
     INSTRUMENT( Oscilloscope, Osc1, Osc1)
     INSTRUMENT( N6701A,       DcP1, DcP1, 1)
     INSTRUMENT( N6701A,       DcP2, DcP2, 2)

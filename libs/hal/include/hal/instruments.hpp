@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hal/instrument.hpp"
+#include "hal/l4411a.hpp"
 #include "hal/n6701a.hpp"
 #include "hal/ac6677a.hpp"
 #include "hal/switch_fabric.hpp"
@@ -21,7 +22,7 @@
 // script writes directly, not hal-internal plumbing.
 //
 //   INSTRUMENTS
-//       INSTRUMENT( Dmm, Dmm1, Dmm1)
+//       INSTRUMENT( L4411A, Dmm1, Dmm1)
 //       INSTRUMENT( N6701A, DcP1, DcP1, 1)
 //   END_INSTRUMENTS
 //
