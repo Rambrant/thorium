@@ -14,7 +14,9 @@ libs/hal/
     include/hal/
         vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
         switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
-        instrument.hpp     # InstrumentId, Oscilloscope/Dmm types (measuring side)
+        instrument.hpp     # InstrumentId (measuring side)
+        l4411a.hpp          # hal::L4411A -- Dmm1/Dmm2's concrete type
+        dso8064.hpp         # hal::DSO8064 -- Osc1's concrete type
         n6701a.hpp          # hal::N6701A/N6701ABuilder -- one N6701A channel
         ac6677a.hpp          # hal::Ac6677A/Ac6677ABuilder, phase()/ThreePhaseWyePoints
         instruments.hpp    # Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/fabric -- this rig's instances
@@ -119,11 +121,13 @@ Two different naming axes, on purpose:
   A script never needs to know or care that `DcP1` happens to be an N6701A
   channel underneath.
 - **The C++ class** (`hal::N6701A`, `hal::Ac6677A`) is named after the
-  physical instrument model. Unlike `hal::Dmm`/`hal::Oscilloscope` --
-  generic enough to stand in for roughly any DMM/scope with minor changes
-  -- a real power-supply driver's SCPI dialect and channel-addressing
-  scheme is inherently tied to its exact model, so naming the class after
-  the model documents that non-portability rather than hiding it.
+  physical instrument model. A real power-supply driver's SCPI dialect and
+  channel-addressing scheme is inherently tied to its exact model, so
+  naming the class after the model documents that non-portability rather
+  than hiding it -- the same reasoning that named `hal::L4411A` (Dmm1/Dmm2's
+  concrete type) and `hal::DSO8064` (Osc1's) after their real models, once
+  each was known, retiring the old generic `hal::Dmm`/`hal::Oscilloscope`
+  placeholders that stood in for "roughly any DMM/scope" before that.
 
 `DcP1`..`DcP4` are four separate `hal::N6701A` instances, one per module
 slot of a single physical N6701A mainframe (it takes up to 4 independent

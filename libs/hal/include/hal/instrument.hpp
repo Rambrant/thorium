@@ -1,11 +1,6 @@
 #pragma once
 
 #include <string_view>
-#include <type_traits>
-
-#include "core/port.hpp"
-#include "core/quantity.hpp"
-#include "core/quantity_kind.hpp"
 
 namespace hal
 {
@@ -27,6 +22,11 @@ namespace hal
     // comment in hal/n6701a.hpp for why the class itself is model-named
     // even though these ids aren't.
     //
+    // Osc1 is likewise no longer the old generic hal::Oscilloscope
+    // placeholder -- it's now a hal::DSO8064 (see hal/dso8064.hpp), the same
+    // retirement hal::L4411A gave the old generic hal::Dmm, once the real
+    // scope model plugged into this rig was known.
+    //
     enum class InstrumentId
     {
         Osc1,
@@ -41,52 +41,4 @@ namespace hal
 
     [[nodiscard]]
     auto to_string( InstrumentId id) -> std::string_view;
-
-    //
-    // An oscilloscope: a single Voltage-measuring port (an automatic
-    // measurement such as Vpp/mean; richer waveform capture can be layered on
-    // later without changing callers). mSimVoltage stands in for the real
-    // VXI/GPIB driver read until one exists.
-    //
-    class Oscilloscope
-    {
-        public:
-            explicit Oscilloscope( const InstrumentId id) : mId( id) {}
-
-            [[nodiscard]]
-            auto id() const -> InstrumentId
-            {
-                return mId;
-            }
-
-            [[nodiscard]]
-            auto voltage() -> core::Port<core::quantities::Voltage, Oscilloscope>
-            {
-                return core::Port<core::quantities::Voltage, Oscilloscope>{ *this };
-            }
-
-            // Test/simulation hook -- real hardware has no such setter.
-            auto setSimulatedVoltage( const core::quantities::Voltage v) -> void
-            {
-                mSimVoltage = v;
-            }
-
-            template<core::quantities::QuantityType QuantityT>
-            [[nodiscard]]
-            auto rawMeasure( const core::MeasureSetup<QuantityT> & ) -> QuantityT
-            {
-                if constexpr( std::is_same_v<QuantityT, core::quantities::Voltage>)
-                {
-                    return mSimVoltage;
-                }
-                else
-                {
-                    static_assert( !sizeof( QuantityT), "Oscilloscope has no port for this quantity");
-                }
-            }
-
-        private:
-            InstrumentId              mId;
-            core::quantities::Voltage mSimVoltage{};
-    };
 } // namespace hal

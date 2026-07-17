@@ -101,12 +101,14 @@ namespace hal
     // in the switching fabric; mChannel is which slot this module occupies
     // inside the mainframe. Neither table knows about the other.
     //
-    // Modeled after the physical instrument deliberately, unlike
-    // hal::Dmm/hal::Oscilloscope: those two are generic enough to stand in
-    // for roughly any DMM/scope with minor changes, but a real power-supply
-    // driver's SCPI dialect and channel-addressing scheme is inherently tied
-    // to its exact model, so naming the class after the model documents that
-    // non-portability rather than pretending it isn't there.
+    // Modeled after the physical instrument deliberately, unlike the old
+    // generic hal::Dmm/hal::Oscilloscope placeholders (both since retired,
+    // by hal::L4411A and hal::DSO8064 respectively): those two were generic
+    // enough to stand in for roughly any DMM/scope with minor changes, but a
+    // real power-supply driver's SCPI dialect and channel-addressing scheme
+    // is inherently tied to its exact model, so naming the class after the
+    // model documents that non-portability rather than pretending it isn't
+    // there.
     //
     class N6701A
     {

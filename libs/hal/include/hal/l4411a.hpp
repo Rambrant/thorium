@@ -24,8 +24,9 @@ namespace hal
     // real model is known, naming the class after it documents the
     // non-portability of its measurement-function set (CONF:VOLT:DC,
     // CONF:RES, CONF:FRES, ...) rather than pretending a DMM driver is as
-    // interchangeable across models as hal::Oscilloscope's single
-    // Vpp/mean-style port still is.
+    // interchangeable across models as a generic placeholder can pretend to
+    // be -- hal::DSO8064 (see hal/dso8064.hpp) has since given
+    // hal::Oscilloscope the same retirement.
     //
     // AC/DC mode and 2-wire/4-wire resistance mode are both deliberately
     // stored on the instrument, not the port -- calling .acVoltage()/

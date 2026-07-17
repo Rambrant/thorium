@@ -63,9 +63,9 @@ namespace core
     // Generic over InstrumentT: this header has no idea what a real
     // instrument looks like, only that it has a templated rawMeasure<Q>()
     // (with or without a MeasureSetup argument, dispatched at compile time)
-    // and an id() -- hal::L4411A/hal::Oscilloscope/etc (see hal/instrument.hpp,
-    // hal/l4411a.hpp) are simply concrete instrument types that happen to
-    // satisfy this shape, not something this type depends on.
+    // and an id() -- hal::L4411A/hal::DSO8064/etc (see hal/instrument.hpp,
+    // hal/l4411a.hpp, hal/dso8064.hpp) are simply concrete instrument types
+    // that happen to satisfy this shape, not something this type depends on.
     //
     template<quantities::QuantityType QuantityT, typename InstrumentT>
     class Port

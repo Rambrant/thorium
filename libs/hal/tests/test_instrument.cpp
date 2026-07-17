@@ -1,20 +1,60 @@
 #include "hal/instrument.hpp"
 #include "hal/l4411a.hpp"
+#include "hal/dso8064.hpp"
 
 #include <gtest/gtest.h>
 
 using namespace core::literals;
 using namespace core::quantities;
 
-TEST( HalInstrument, OscilloscopeVoltagePortReturnsSimulatedReading)
+TEST( HalInstrument, DSO8064VppPortReturnsSimulatedReading)
 {
-    hal::Oscilloscope osc1{ hal::InstrumentId::Osc1 };
-    osc1.setSimulatedVoltage( 3.3_V);
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    osc1.setSimulatedVpp( 3.3_V);
 
-    auto port = osc1.voltage();
+    auto port = osc1.vpp();
 
     EXPECT_DOUBLE_EQ( port.rawMeasure().value(), 3.3);
     EXPECT_EQ( port.instrumentId(), hal::InstrumentId::Osc1);
+}
+
+TEST( HalInstrument, DSO8064ExposesTheWholeAmplitudeFamily)
+{
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    osc1.setSimulatedVpp( 3.3_V);
+    osc1.setSimulatedVmax( 1.9_V);
+    osc1.setSimulatedVmin( -1.4_V);
+    osc1.setSimulatedVrms( 1.2_V);
+    osc1.setSimulatedVaverage( 0.1_V);
+
+    EXPECT_DOUBLE_EQ( osc1.vpp().rawMeasure().value(),      3.3);
+    EXPECT_DOUBLE_EQ( osc1.vmax().rawMeasure().value(),     1.9);
+    EXPECT_DOUBLE_EQ( osc1.vmin().rawMeasure().value(),    -1.4);
+    EXPECT_DOUBLE_EQ( osc1.vrms().rawMeasure().value(),     1.2);
+    EXPECT_DOUBLE_EQ( osc1.vaverage().rawMeasure().value(), 0.1);
+}
+
+TEST( HalInstrument, DSO8064DefaultsToVppMode)
+{
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+
+    EXPECT_EQ( osc1.mode(), hal::DSO8064::Mode::Vpp);
+}
+
+TEST( HalInstrument, DSO8064ModeIsSharedAcrossPortHandlesHeldPastAModeSwitch)
+{
+    // Documents the same known, accepted sharp edge as hal::L4411A's own
+    // test: a port handle obtained before a mode switch still reads
+    // whichever mode is current when rawMeasure() is eventually called, not
+    // the mode active when the handle was created.
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    osc1.setSimulatedVpp( 3.3_V);
+    osc1.setSimulatedVrms( 1.2_V);
+
+    auto vppPort = osc1.vpp();
+    (void)osc1.vrms();
+
+    EXPECT_DOUBLE_EQ( vppPort.rawMeasure().value(), 1.2);
 }
 
 TEST( HalInstrument, L4411AExposesBothVoltageAndCurrentPorts)

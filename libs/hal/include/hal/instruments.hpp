@@ -2,6 +2,7 @@
 
 #include "hal/instrument.hpp"
 #include "hal/l4411a.hpp"
+#include "hal/dso8064.hpp"
 #include "hal/n6701a.hpp"
 #include "hal/ac6677a.hpp"
 #include "hal/switch_fabric.hpp"
