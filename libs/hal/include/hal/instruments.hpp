@@ -6,25 +6,34 @@
 #include "hal/switch_fabric.hpp"
 
 //
-// The concrete instruments this bench has, addressed directly by name --
-// no factory function, no lookup: Dmm1 IS the DMM plugged into the rig.
-// Left unqualified (not hal::Dmm1) deliberately, mirroring why scripts
-// themselves are global rather than namespaced (see suite/scripts.hpp) --
-// these are names a test script writes directly, not hal-internal plumbing.
+// INSTRUMENTS / INSTRUMENT / END_INSTRUMENTS: declarative instrument list,
+// mirroring INSTRUMENT_WIRING/WIRE_INSTRUMENT/END_INSTRUMENT_WIRING in
+// hal/wiring.hpp -- see hal/instrument.inc. Unlike wiring's table (a
+// single InstrumentWiring object accumulated one addWire() at a time),
+// each INSTRUMENT here declares its own independent global -- Dmm1 IS the
+// DMM plugged into the rig, addressed directly by name, no factory
+// function, no lookup -- so INSTRUMENTS/END_INSTRUMENTS don't build
+// anything; they're just the opening/closing bracket every other
+// declarative table in this codebase uses (CRITERIA/ADAPTER/GROUP), kept
+// here for the same Excel-like readability. Left unqualified (not
+// hal::Dmm1) deliberately, mirroring why scripts themselves are global
+// rather than namespaced (see suite/scripts.hpp) -- these are names a test
+// script writes directly, not hal-internal plumbing.
 //
-// DcP1..DcP4 are the N6701A mainframe's four module slots, each its own
-// hal::N6701A instance -- see that class's own comment in hal/n6701a.hpp
-// for why the channel number is a constructor argument here, and why that's
-// a different fact from which InstrumentWiring/wiring.inc entry they get.
+//   INSTRUMENTS
+//       INSTRUMENT( Dmm, Dmm1, Dmm1)
+//       INSTRUMENT( N6701A, DcP1, DcP1, 1)
+//   END_INSTRUMENTS
 //
-inline hal::Dmm          Dmm1{ hal::InstrumentId::Dmm1 };
-inline hal::Dmm          Dmm2{ hal::InstrumentId::Dmm2 };
-inline hal::Oscilloscope Osc1{ hal::InstrumentId::Osc1 };
-inline hal::N6701A       DcP1{ hal::InstrumentId::DcP1, 1 };
-inline hal::N6701A       DcP2{ hal::InstrumentId::DcP2, 2 };
-inline hal::N6701A       DcP3{ hal::InstrumentId::DcP3, 3 };
-inline hal::N6701A       DcP4{ hal::InstrumentId::DcP4, 4 };
-inline hal::Ac6677A      AcP1{ hal::InstrumentId::AcP1 };
+#define INSTRUMENTS
+
+#define INSTRUMENT( type, name, id, ...) \
+    inline hal::type name{ hal::InstrumentId::id __VA_OPT__(,) __VA_ARGS__ };
+
+#define END_INSTRUMENTS
+
+// This rig's actual instruments -- see hal/instrument.inc's own comment.
+#include "libs/hal/instrument.inc"
 
 namespace hal
 {

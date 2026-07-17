@@ -16,6 +16,7 @@ add_library(hal STATIC
     include/hal/n6701a.hpp         # header-only
     include/hal/ac6677a.hpp        # header-only
     wiring.inc                     # content only; not compiled directly, see README.md
+    instrument.inc                 # content only; not compiled directly, see README.md
 )
 
 target_include_directories(hal PUBLIC
@@ -25,8 +26,9 @@ target_include_directories(hal PUBLIC
 target_link_libraries(hal PUBLIC core)
 
 # src/measure.cpp/src/apply.cpp #include wiring.inc (this rig's fixed wiring
-# data) via a repo-root-relative path, the same convention libs/dut/*.inc
-# already use -- see wiring.inc's own comment.
+# data), and include/hal/instruments.hpp #includes instrument.inc (this
+# rig's fixed instrument list), via a repo-root-relative path, the same
+# convention libs/dut/*.inc already use -- see wiring.inc's own comment.
 target_include_directories(hal PRIVATE ${CMAKE_SOURCE_DIR})
 
 if(BUILD_TESTING_LAYERS)
