@@ -1,7 +1,7 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// This rig's fixed, concrete instrument list -- see hal/instruments.hpp's
+// This rig's fixed, concrete instrument list -- see hal/active_instruments.hpp's
 // own comment for the INSTRUMENTS/INSTRUMENT/END_INSTRUMENTS macros this
 // expands through, and hal/wiring.inc for the sibling fact (which channel
 // each of these instruments is wired to).

@@ -8,7 +8,7 @@ add_library(hal STATIC
     include/hal/vpc_location.hpp   # header-only
     include/hal/switch_fabric.hpp  # header-only
     include/hal/instrument.hpp     # header-only
-    include/hal/instruments.hpp    # header-only
+    include/hal/active_instruments.hpp    # header-only
     include/hal/wiring.hpp         # header-only
     include/hal/adapter.hpp        # header-only
     include/hal/measure.hpp        # header-only
@@ -28,7 +28,7 @@ target_include_directories(hal PUBLIC
 target_link_libraries(hal PUBLIC core)
 
 # src/measure.cpp/src/apply.cpp #include wiring.inc (this rig's fixed wiring
-# data), and include/hal/instruments.hpp #includes instrument.inc (this
+# data), and include/hal/active_instruments.hpp #includes instrument.inc (this
 # rig's fixed instrument list), via a repo-root-relative path, the same
 # convention libs/dut/*.inc already use -- see wiring.inc's own comment.
 target_include_directories(hal PRIVATE ${CMAKE_SOURCE_DIR})

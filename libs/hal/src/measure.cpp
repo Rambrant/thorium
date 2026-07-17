@@ -1,6 +1,6 @@
 #include "hal/measure.hpp"
 
-#include "hal/instruments.hpp"
+#include "hal/active_instruments.hpp"
 #include "hal/wiring.hpp"
 
 //

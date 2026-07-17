@@ -1,6 +1,6 @@
 #pragma once
 
-#include "hal/instruments.hpp"
+#include "hal/active_instruments.hpp"
 #include "hal/measure.hpp"
 
 //

@@ -19,7 +19,7 @@ libs/hal/
         dso8064.hpp         # hal::DSO8064 -- Osc1's concrete type
         n6701a.hpp          # hal::N6701A/N6701ABuilder -- one N6701A channel
         ac6677a.hpp          # hal::Ac6677A/Ac6677ABuilder, phase()/ThreePhaseWyePoints
-        instruments.hpp    # Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/fabric -- this rig's instances
+        active_instruments.hpp # Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/fabric -- this rig's instances
         wiring.hpp         # InstrumentWiring/ConnectorWiring + WIRE macros
         adapter.hpp        # ADAPTER/POINT/END_ADAPTER macros
         measure.hpp        # MeasureEngine alias + extern Measure
