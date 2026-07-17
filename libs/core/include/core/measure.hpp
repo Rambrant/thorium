@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "core/adapter.hpp"
 #include "core/at.hpp"
@@ -20,11 +21,14 @@ namespace core
     //
     // Generic over three externally-supplied types, each a "build stage"
     // concern this header knows nothing about:
-    //   - FabricT:           something with .route(path) -- see hal::SwitchFabric
+    //   - FabricT:           something with .connect(path)/.disconnect(path)
+    //                        -- see hal::SwitchFabric
     //   - InstrumentWiringT: something with .find(instrumentId) -> a channel
-    //                        FabricT::route() accepts -- see hal::InstrumentWiring
+    //                        FabricT::connect()/disconnect() accepts -- see
+    //                        hal::InstrumentWiring
     //   - ConnectorWiringT:  something with .find(location) -> a channel
-    //                        FabricT::route() accepts -- see hal::ConnectorWiring
+    //                        FabricT::connect()/disconnect() accepts -- see
+    //                        hal::ConnectorWiring
     //
     // There is no AdapterT any more: since an AdapterPointTag now carries its
     // location and quantity kind as compile-time values (see core/adapter.hpp),
@@ -87,10 +91,27 @@ namespace core
                 {
                     const auto instrumentChannel = mInstrumentWiring.find( instrumentId);
                     const auto connectorChannel  = mConnectorWiring.find( Loc);
+                    const auto path               = std::vector{ instrumentChannel, connectorChannel };
 
-                    mFabric.route( { instrumentChannel, connectorChannel });
+                    //
+                    // Connect just long enough to take the reading, then
+                    // disconnect again -- rather than leaving the path
+                    // routed until some later, unrelated Measure/Connect
+                    // call happens to bump it. Both calls are additive/
+                    // reference-counted (see hal::SwitchFabric's own
+                    // comment), so this never disturbs a path some other
+                    // instrument is holding open right now (e.g. a supply
+                    // parked on the very point being read here) -- it only
+                    // ever opens its own two channels back up, and only
+                    // once nothing else still needs them.
+                    //
+                    mFabric.connect( path);
 
-                    return QuantityVariant{ port.rawMeasure() };
+                    auto value = QuantityVariant{ port.rawMeasure() };
+
+                    mFabric.disconnect( path);
+
+                    return value;
                 };
 
                 auto value = activeSession().fetch( point.Name, to_string( instrumentId), Kind, liveRead);

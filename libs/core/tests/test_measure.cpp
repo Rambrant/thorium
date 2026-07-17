@@ -41,12 +41,15 @@ namespace mock
     class Fabric
     {
         public:
-            auto route( const std::vector<Channel> & path) -> void { mLastRouted = path; }
+            auto connect( const std::vector<Channel> & path) -> void { mLastConnected = path; }
+            auto disconnect( const std::vector<Channel> & path) -> void { mLastDisconnected = path; }
 
-            [[nodiscard]] auto lastRouted() const -> const std::vector<Channel> & { return mLastRouted; }
+            [[nodiscard]] auto lastConnected() const -> const std::vector<Channel> & { return mLastConnected; }
+            [[nodiscard]] auto lastDisconnected() const -> const std::vector<Channel> & { return mLastDisconnected; }
 
         private:
-            std::vector<Channel> mLastRouted;
+            std::vector<Channel> mLastConnected;
+            std::vector<Channel> mLastDisconnected;
     };
 
     class InstrumentWiring
@@ -128,14 +131,15 @@ namespace
     };
 } // namespace
 
-TEST_F( MeasureEngineFixture, LiveByDefaultRoutesTheFabricAndReturnsTheInstrumentReading)
+TEST_F( MeasureEngineFixture, LiveByDefaultConnectsTakesTheReadingThenDisconnects)
 {
     dmm1.setSimulatedVoltage( 5.02_V);
 
     const auto value = Measure( dmm1.voltage(), at( Output5V));
 
     EXPECT_DOUBLE_EQ( value.value(), 5.02);
-    EXPECT_EQ( fabric.lastRouted(), (std::vector<mock::Channel>{ 14, 3 }));
+    EXPECT_EQ( fabric.lastConnected(),    (std::vector<mock::Channel>{ 14, 3 }));
+    EXPECT_EQ( fabric.lastDisconnected(), (std::vector<mock::Channel>{ 14, 3 }));
 }
 
 TEST_F( MeasureEngineFixture, InjectBypassesTheFabricEntirely)
@@ -146,7 +150,8 @@ TEST_F( MeasureEngineFixture, InjectBypassesTheFabricEntirely)
     const auto value = Measure( dmm1.voltage(), at( Output5V));
 
     EXPECT_DOUBLE_EQ( value.value(), 5.02);
-    EXPECT_TRUE( fabric.lastRouted().empty());
+    EXPECT_TRUE( fabric.lastConnected().empty());
+    EXPECT_TRUE( fabric.lastDisconnected().empty());
 }
 
 TEST_F( MeasureEngineFixture, UseLiveRestoresRealRoutingAfterAnInject)

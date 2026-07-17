@@ -30,19 +30,53 @@ TEST( HalSwitchFabric, OpenAllClearsEveryElement)
     EXPECT_FALSE( fabric.isClosed( b));
 }
 
-TEST( HalSwitchFabric, RouteOpensEverythingElseFirst)
+TEST( HalSwitchFabric, ConnectTwiceThenDisconnectOnceLeavesTheSharedElementClosed)
 {
     hal::SwitchFabric fabric;
-    hal::SwitchElementId stale{ hal::SwitchDeviceKind::Mux, "Mux3", 1 };
-    hal::SwitchElementId a{ hal::SwitchDeviceKind::Matrix, "Matrix2", 14 };
-    hal::SwitchElementId b{ hal::SwitchDeviceKind::Mux,    "Mux1",    3 };
+    hal::SwitchElementId shared{ hal::SwitchDeviceKind::Mux, "Mux1", 6 };
+    hal::SwitchElementId supplyOnly{ hal::SwitchDeviceKind::Matrix, "Matrix2", 22 };
+    hal::SwitchElementId dmmOnly{ hal::SwitchDeviceKind::Matrix, "Matrix2", 14 };
 
-    fabric.close( stale);
-    fabric.route( { a, b });
+    // A supply parked on `shared` (e.g. Connect(Ac1...) holding 115V live)...
+    fabric.connect( { supplyOnly, shared });
 
-    EXPECT_FALSE( fabric.isClosed( stale));
-    EXPECT_TRUE( fabric.isClosed( a));
-    EXPECT_TRUE( fabric.isClosed( b));
+    // ...then a DMM briefly listening in on that very same point.
+    fabric.connect( { dmmOnly, shared });
+
+    // The DMM is done -- but `shared` has two uses on it now, so it must
+    // stay closed for the still-active supply.
+    fabric.disconnect( { dmmOnly, shared });
+
+    EXPECT_FALSE( fabric.isClosed( dmmOnly));
+    EXPECT_TRUE( fabric.isClosed( shared));
+    EXPECT_TRUE( fabric.isClosed( supplyOnly));
+}
+
+TEST( HalSwitchFabric, DisconnectingBothUsersFinallyOpensTheSharedElement)
+{
+    hal::SwitchFabric fabric;
+    hal::SwitchElementId shared{ hal::SwitchDeviceKind::Mux, "Mux1", 6 };
+    hal::SwitchElementId supplyOnly{ hal::SwitchDeviceKind::Matrix, "Matrix2", 22 };
+    hal::SwitchElementId dmmOnly{ hal::SwitchDeviceKind::Matrix, "Matrix2", 14 };
+
+    fabric.connect( { supplyOnly, shared });
+    fabric.connect( { dmmOnly, shared });
+
+    fabric.disconnect( { dmmOnly, shared });
+    fabric.disconnect( { supplyOnly, shared });
+
+    EXPECT_FALSE( fabric.isClosed( supplyOnly));
+    EXPECT_FALSE( fabric.isClosed( dmmOnly));
+    EXPECT_FALSE( fabric.isClosed( shared));
+}
+
+TEST( HalSwitchFabric, OpenWithoutAMatchingCloseIsHarmless)
+{
+    hal::SwitchFabric fabric;
+    hal::SwitchElementId ch{ hal::SwitchDeviceKind::Matrix, "Matrix2", 14 };
+
+    fabric.open( ch); // never closed -- must not underflow or throw
+    EXPECT_FALSE( fabric.isClosed( ch));
 }
 
 TEST( HalSwitchFabric, ToStringDescribesTheElement)
