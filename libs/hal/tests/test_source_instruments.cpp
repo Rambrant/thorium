@@ -4,30 +4,11 @@
 
 #include <gtest/gtest.h>
 
-#include "core/at.hpp"
-
 using namespace core::literals;
 using namespace core::quantities;
 
-using core::at;
-using hal::phase;
-
 namespace
 {
-    constexpr hal::VpcLocation kInput24V{ hal::VpcRack::A, 1, 5 };
-    constexpr hal::VpcLocation kOutput5V{ hal::VpcRack::A, 1, 3 };
-    constexpr hal::VpcLocation kPhaseA{ hal::VpcRack::A, 3, 1 };
-    constexpr hal::VpcLocation kPhaseB{ hal::VpcRack::A, 3, 3 };
-    constexpr hal::VpcLocation kPhaseC{ hal::VpcRack::A, 3, 5 };
-
-    constexpr core::AdapterPointTag<kInput24V, core::QuantityKind::Voltage> Input24V{ "Input24V", "24Vdc input supply port" };
-    constexpr core::AdapterPointTag<kOutput5V, core::QuantityKind::Voltage> Output5V{ "Output5V", "5Vdc supply port" };
-    constexpr core::AdapterPointTag<kPhaseA,   core::QuantityKind::Voltage> AcInput_A{ "AcInput_A", "AC input, phase A" };
-    constexpr core::AdapterPointTag<kPhaseB,   core::QuantityKind::Voltage> AcInput_B{ "AcInput_B", "AC input, phase B" };
-    constexpr core::AdapterPointTag<kPhaseC,   core::QuantityKind::Voltage> AcInput_C{ "AcInput_C", "AC input, phase C" };
-
-    constexpr core::AdapterPointTag<kInput24V, core::QuantityKind::Current> NotVoltageTagged{ "NotVoltageTagged", "wrong kind, on purpose" };
-
     struct SourceInstrumentFixture : ::testing::Test
     {
         hal::SwitchFabric      fabric;
@@ -45,32 +26,36 @@ namespace
 
         SourceInstrumentFixture()
         {
+            // DcP1/DcP2: one fixed channel apiece -- a real DC rail is
+            // hard-cabled straight to one VPC pin (see hal::N6701A's own
+            // comment for why), not routed through a mux.
             instrumentWiring.addWire( hal::InstrumentId::DcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 });
             instrumentWiring.addWire( hal::InstrumentId::DcP2, { hal::SwitchDeviceKind::Matrix, "Matrix2", 21 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 });
 
-            connectorWiring.addWire( kInput24V, { hal::SwitchDeviceKind::Mux, "Mux1", 6 });
-            connectorWiring.addWire( kOutput5V, { hal::SwitchDeviceKind::Mux, "Mux1", 3 });
-            connectorWiring.addWire( kPhaseA,   { hal::SwitchDeviceKind::Mux, "Mux2", 2 });
-            connectorWiring.addWire( kPhaseB,   { hal::SwitchDeviceKind::Mux, "Mux2", 3 });
-            connectorWiring.addWire( kPhaseC,   { hal::SwitchDeviceKind::Mux, "Mux2", 4 });
+            // AcP1: four fixed channels -- phases A/B/C plus the neutral/
+            // ground return (see hal::Ac6677A's own comment on why the
+            // return is included), all under the same InstrumentId so
+            // hal::InstrumentWiring::findAll() returns all four together.
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 23 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 26 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 27 });
         }
     };
 } // namespace
 
 TEST_F( SourceInstrumentFixture, DcApplyProgramsTheInstrumentWithoutTouchingTheFabric)
 {
-    apply( dcP1.dc( at( Input24V)).voltage( 24.0_V).currentLimit( 7.0_A));
+    apply( dcP1.dc().voltage( 24.0_V).currentLimit( 7.0_A));
 
     EXPECT_TRUE( dcP1.isEnabled());
     EXPECT_DOUBLE_EQ( dcP1.outputVoltage().value(), 24.0);
     ASSERT_TRUE( dcP1.currentLimit().has_value());
     EXPECT_DOUBLE_EQ( dcP1.currentLimit()->value(), 7.0);
 
-    // Apply no longer routes -- nothing is closed, and it never needed
-    // instrumentWiring/connectorWiring to have an entry for DcP1 at all.
+    // Apply doesn't touch the fabric at all -- programming the instrument
+    // and closing its relay are separate calls (Connect, below).
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    6 }));
 }
 
 TEST( SourceInstrument, DcApplyWithOnlyVoltageLeavesCurrentLimitUnset)
@@ -86,51 +71,47 @@ TEST( SourceInstrument, DcApplyWithOnlyVoltageLeavesCurrentLimitUnset)
     EXPECT_FALSE( dcP1.currentLimit().has_value());
 }
 
-TEST_F( SourceInstrumentFixture, DcConnectClosesExactlyTheInstrumentAndConnectorChannels)
+TEST_F( SourceInstrumentFixture, DcConnectClosesExactlyTheOneFixedChannel)
 {
-    connect( dcP1.dc( at( Input24V)));
+    connect( dcP1.dc());
 
     EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    6 }));
 }
 
 TEST_F( SourceInstrumentFixture, DcConnectAndDisconnectDoNotDisturbAnUnrelatedAlreadyConnectedPath)
 {
-    // dcP1 -> Input24V and dcP2 -> Output5V are two independent paths.
-    // Connecting/disconnecting one must leave the other's relays alone --
-    // the whole reason connect()/disconnect() are additive rather than
-    // route()'s "make this the one live path" behaviour.
-    connect( dcP1.dc( at( Input24V)));
-    connect( dcP2.dc( at( Output5V)));
+    // dcP1 and dcP2 are two independent fixed channels. Connecting/
+    // disconnecting one must leave the other's relay alone -- the whole
+    // reason connect()/disconnect() are additive rather than route()'s
+    // "make this the one live path" behaviour.
+    connect( dcP1.dc());
+    connect( dcP2.dc());
 
-    disconnect( dcP1.dc( at( Input24V)));
+    disconnect( dcP1.dc());
 
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    6 }));
-
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 21 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    3 }));
+    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 21 }));
 }
 
 TEST_F( SourceInstrumentFixture, DcApplyCanBeCalledBeforeConnectIsEverMade)
 {
     // The point of splitting Apply out from Connect: programming the
     // supply doesn't require the DUT to be wired up yet.
-    apply( dcP1.dc( at( Input24V)).voltage( 24.0_V));
+    apply( dcP1.dc().voltage( 24.0_V));
     EXPECT_TRUE( dcP1.isEnabled());
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
 
-    connect( dcP1.dc( at( Input24V)));
+    connect( dcP1.dc());
     EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
 }
 
 TEST_F( SourceInstrumentFixture, DcRemoveDisablesTheInstrumentWithoutTouchingTheFabric)
 {
-    apply( dcP1.dc( at( Input24V)).voltage( 24.0_V));
-    connect( dcP1.dc( at( Input24V)));
+    apply( dcP1.dc().voltage( 24.0_V));
+    connect( dcP1.dc());
     ASSERT_TRUE( dcP1.isEnabled());
 
-    remove( dcP1.dc( at( Input24V)));
+    remove( dcP1.dc());
 
     EXPECT_FALSE( dcP1.isEnabled());
     // Remove doesn't disconnect -- that's Disconnect's job, called on its
@@ -141,7 +122,7 @@ TEST_F( SourceInstrumentFixture, DcRemoveDisablesTheInstrumentWithoutTouchingThe
 
 TEST_F( SourceInstrumentFixture, DcBuilderChainReturnsUpdatedCopiesWithoutMutatingTheOriginal)
 {
-    const auto base     = dcP1.dc( at( Input24V));
+    const auto base     = dcP1.dc();
     const auto withVolt = base.voltage( 24.0_V);
 
     EXPECT_FALSE( base.config().Voltage.has_value());
@@ -154,15 +135,15 @@ TEST_F( SourceInstrumentFixture, TwoN6701AChannelsAreProgrammedIndependently)
     // DcP1 and DcP2 are two separate hal::N6701A instances -- two channels
     // of the same physical mainframe, but with no shared state at this
     // layer, the same way Dmm1/Dmm2 don't share state today.
-    apply( dcP1.dc( at( Input24V)).voltage( 24.0_V));
-    apply( dcP2.dc( at( Output5V)).voltage( 5.0_V));
+    apply( dcP1.dc().voltage( 24.0_V));
+    apply( dcP2.dc().voltage( 5.0_V));
 
     EXPECT_DOUBLE_EQ( dcP1.outputVoltage().value(), 24.0);
     EXPECT_DOUBLE_EQ( dcP2.outputVoltage().value(), 5.0);
     EXPECT_EQ( dcP1.channel(), 1);
     EXPECT_EQ( dcP2.channel(), 2);
 
-    remove( dcP1.dc( at( Input24V)));
+    remove( dcP1.dc());
 
     EXPECT_FALSE( dcP1.isEnabled());
     EXPECT_TRUE( dcP2.isEnabled());
@@ -170,30 +151,36 @@ TEST_F( SourceInstrumentFixture, TwoN6701AChannelsAreProgrammedIndependently)
 
 TEST_F( SourceInstrumentFixture, AcApplyProgramsTheInstrumentWithoutTouchingTheFabric)
 {
-    apply( acP1.threePhaseWye( { .a=phase( at( AcInput_A)), .b=phase( at( AcInput_B)),
-                                 .c=phase( at( AcInput_C)) })
-               .phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
+    apply( acP1.threePhaseWye().phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
 
     EXPECT_TRUE( acP1.isEnabled());
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 }));
 }
 
-TEST_F( SourceInstrumentFixture, AcConnectClosesTheInstrumentAndAllThreePhaseChannels)
+TEST_F( SourceInstrumentFixture, AcConnectClosesAllFourFixedChannelsPhasesAndGround)
 {
-    connect( acP1.threePhaseWye( { .a=phase( at( AcInput_A)), .b=phase( at( AcInput_B)),
-                                   .c=phase( at( AcInput_C)) }));
+    connect( acP1.threePhaseWye());
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux2",    2 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux2",    3 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux2",    4 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 })); // phase A
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 23 })); // phase B
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 26 })); // phase C
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 27 })); // ground/neutral
+}
+
+TEST_F( SourceInstrumentFixture, AcDisconnectOpensAllFourFixedChannelsTogether)
+{
+    connect( acP1.threePhaseWye());
+    disconnect( acP1.threePhaseWye());
+
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 23 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 26 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 27 }));
 }
 
 TEST_F( SourceInstrumentFixture, AcApplySetsPhaseVoltageFrequencyAndCurrentLimit)
 {
-    apply( acP1.threePhaseWye( { .a=phase( at( AcInput_A)), .b=phase( at( AcInput_B)),
-                                 .c=phase( at( AcInput_C)) })
-               .phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
+    apply( acP1.threePhaseWye().phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
 
     EXPECT_DOUBLE_EQ( acP1.phaseVoltage().value(), 115.0);
     ASSERT_TRUE( acP1.frequency().has_value());
@@ -204,58 +191,20 @@ TEST_F( SourceInstrumentFixture, AcApplySetsPhaseVoltageFrequencyAndCurrentLimit
 
 TEST_F( SourceInstrumentFixture, AcRemoveDisablesTheInstrumentWithoutRequiringAnySetupCalls)
 {
-    const hal::ThreePhaseWyePoints points{ .a=phase( at( AcInput_A)), .b=phase( at( AcInput_B)),
-                                            .c=phase( at( AcInput_C)) };
-
-    apply( acP1.threePhaseWye( points).phaseVoltage( 115.0_V));
+    apply( acP1.threePhaseWye().phaseVoltage( 115.0_V));
     ASSERT_TRUE( acP1.isEnabled());
 
-    remove( acP1.threePhaseWye( points));
+    remove( acP1.threePhaseWye());
 
     EXPECT_FALSE( acP1.isEnabled());
 }
 
 TEST_F( SourceInstrumentFixture, AcBuilderChainReturnsUpdatedCopiesWithoutMutatingTheOriginal)
 {
-    const hal::ThreePhaseWyePoints points{ .a=phase( at( AcInput_A)), .b=phase( at( AcInput_B)),
-                                            .c=phase( at( AcInput_C)) };
-
-    const auto base      = acP1.threePhaseWye( points);
+    const auto base      = acP1.threePhaseWye();
     const auto withVolts = base.phaseVoltage( 115.0_V);
 
     EXPECT_FALSE( base.config().PhaseVoltage.has_value());
     ASSERT_TRUE( withVolts.config().PhaseVoltage.has_value());
     EXPECT_DOUBLE_EQ( withVolts.config().PhaseVoltage->value(), 115.0);
-}
-
-namespace
-{
-    //
-    // Same concept-wrapped static_assert pattern as
-    // core/tests/test_static_constraints.cpp -- see that file's own comment
-    // for why a bare static_assert(!requires{...}) isn't reliable here.
-    // Proves the two verified compile-fail cases from this session's design
-    // work: a Current-tagged point has no matching .dc(at(...))/phase(at(...))
-    // overload, since both require Kind == Voltage.
-    //
-    template<typename InstrumentT, typename WrappedT>
-    concept HasDcOverload = requires( InstrumentT & instrument, const WrappedT & wrapped) { instrument.dc( wrapped); };
-
-    template<typename WrappedT>
-    concept HasPhaseOverload = requires( const WrappedT & wrapped) { hal::phase( wrapped); };
-
-    using VoltagePoint = decltype( core::at( Input24V));
-    using CurrentPoint = decltype( core::at( NotVoltageTagged));
-
-    static_assert(  HasDcOverload<hal::N6701A, VoltagePoint> );
-    static_assert( !HasDcOverload<hal::N6701A, CurrentPoint> );
-
-    static_assert(  HasPhaseOverload<VoltagePoint> );
-    static_assert( !HasPhaseOverload<CurrentPoint> );
-} // namespace
-
-TEST( SourceInstrumentStaticConstraints, DcAndPhaseRejectNonVoltagePointsAtCompileTime)
-{
-    // Nothing to run -- see the file comment on the static_asserts above.
-    SUCCEED();
 }

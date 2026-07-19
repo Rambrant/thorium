@@ -15,7 +15,15 @@ INSTRUMENT_WIRING
     WIRE_INSTRUMENT( DcP2, Matrix, "Matrix2", 21)
     WIRE_INSTRUMENT( DcP3, Matrix, "Matrix2", 24)
     WIRE_INSTRUMENT( DcP4, Matrix, "Matrix2", 25)
-    WIRE_INSTRUMENT( AcP1, Matrix, "Matrix2", 22)
+    // AcP1 is fixed-wired on four channels, not one -- phases A/B/C plus
+    // the neutral/ground return, all closed and opened together (see
+    // hal::Ac6677A's own comment on why the return is included, and
+    // hal::InstrumentWiring::findAll() for how a script-facing Connect/
+    // Disconnect gets all four back from one InstrumentId).
+    WIRE_INSTRUMENT( AcP1, Matrix, "Matrix2", 22) // phase A
+    WIRE_INSTRUMENT( AcP1, Matrix, "Matrix2", 23) // phase B
+    WIRE_INSTRUMENT( AcP1, Matrix, "Matrix2", 26) // phase C
+    WIRE_INSTRUMENT( AcP1, Matrix, "Matrix2", 27) // neutral/ground return
 END_INSTRUMENT_WIRING
 
 CONNECTOR_WIRING

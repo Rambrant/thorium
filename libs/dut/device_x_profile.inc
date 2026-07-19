@@ -7,6 +7,18 @@
 // separate rig-level fact -- see hal::InstrumentWiring/hal::ConnectorWiring
 // -- not something this data knows about.
 //
+// A handful of these points are also where a fixed-wired source instrument
+// (hal::N6701A/hal::DcP1..DcP4, hal::Ac6677A/hal::AcP1) permanently lands --
+// Output5V and Input24V look like DC rails, AcInput_A/B/C/N look like a
+// three-phase-plus-neutral AC input, for instance. hal:: itself has no idea
+// any of that -- DcP1's fixed matrix channel (hal/wiring.inc) is a bare
+// SwitchElementId with no notion of "Output5V" attached (see hal::N6701A's
+// own comment on why) -- so if that association matters to a reader here,
+// it belongs as a comment on the specific POINT() below, once it's known
+// which DcP/AcP instance is actually cabled to which pin on this rig. Not
+// yet recorded below: worth confirming against the schematic before
+// asserting it.
+//
 // Identifiers here can't reuse the spec label verbatim where it starts with
 // a digit (C++ identifiers can't start with a digit) -- Output5V/Output3V3
 // stand in for the spec's "5VOutput"/"3V3Output".

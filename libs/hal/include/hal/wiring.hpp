@@ -48,6 +48,23 @@ namespace hal
             [[nodiscard]]
             auto find( InstrumentId instrument) const -> SwitchElementId;
 
+            //
+            // Same table, every matching channel rather than just the
+            // first -- for an instrument fixed-wired with more than one
+            // physical connection (e.g. hal::Ac6677A's three phases plus
+            // ground/neutral return, see that header's own comment), each
+            // one is its own addWire() entry under the same InstrumentId,
+            // and Connect/Disconnect need all of them together, not just
+            // one. Single-connection instruments (hal::N6701A,
+            // hal::L4411A, hal::DSO8064) keep using find() above; this
+            // exists alongside it rather than replacing it so their call
+            // sites don't have to deal with a one-element vector for no
+            // reason. Throws std::runtime_error if this instrument has no
+            // fixed channel at all.
+            //
+            [[nodiscard]]
+            auto findAll( InstrumentId instrument) const -> std::vector<SwitchElementId>;
+
         private:
             std::vector<InstrumentWiringEntry> mEntries;
     };

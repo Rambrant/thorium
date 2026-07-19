@@ -1,85 +1,31 @@
 #pragma once
 
 #include <optional>
-#include <string_view>
 
-#include "core/adapter.hpp"
-#include "core/at.hpp"
 #include "core/quantity.hpp"
-#include "core/quantity_kind.hpp"
 
 #include "hal/instrument.hpp"
 #include "hal/switch_fabric.hpp"
-#include "hal/vpc_location.hpp"
 #include "hal/wiring.hpp"
 
 namespace hal
 {
     class Ac6677A;
-    class Ac6677ABuilder;
 
     //
-    // A single phase point, its Loc erased to a runtime VpcLocation. This is
-    // what makes ThreePhaseWyePoints below a plain, non-templated aggregate:
-    // a `template<auto LocA, auto LocB, auto LocC> ThreePhaseWyePoints`
-    // version was tried first and abandoned, because constructing one via
-    // designated-initializer aggregate init -- `{ .a=phase(at(A)), ... }` --
-    // is not a deduction context for a class template's non-type parameters;
-    // every one of A/B/C would come back undeduced. Losing Loc here costs
-    // nothing: the connector lookup in applyDriver below only ever needs it
-    // as a runtime value anyway, same as InstrumentWiring::find(InstrumentId)
-    // already does for the instrument side.
-    //
-    struct ErasedPhasePoint
-    {
-        VpcLocation      Location;
-        std::string_view Name;
-    };
-
-    //
-    // The one place the compile-time Kind == Voltage check happens: phase()
-    // only accepts an At<AdapterPointTag<Loc, Voltage>>, so wrapping a
-    // Current-tagged point here (`phase(at(SomeCurrentPoint))`) has no
-    // matching overload -- a hard compile error at this exact call site,
-    // before the point ever gets the chance to erase down to a bare
-    // VpcLocation.
-    //
-    template<auto Loc>
-    [[nodiscard]]
-    constexpr auto phase( const core::At<core::AdapterPointTag<Loc, core::QuantityKind::Voltage>> & wrapped) -> ErasedPhasePoint
-    {
-        return ErasedPhasePoint{ Loc, wrapped.point.Name };
-    }
-
-    //
-    // The three phase points of a wye connection -- deliberately just A/B/C,
-    // no neutral: the rig's neutral is hard-wired to ground rather than
-    // routed through the switching fabric, so there's nothing for Apply/
-    // Remove to route or for this instrument to source. AcInput_N still
-    // exists as an ordinary DUT adapter point (see
-    // libs/dut/device_x_profile.inc) for continuity/diagnostic Measure(...)
-    // calls -- it's just never part of a ThreePhaseWyePoints.
-    //
-    struct ThreePhaseWyePoints
-    {
-        ErasedPhasePoint a;
-        ErasedPhasePoint b;
-        ErasedPhasePoint c;
-    };
-
-    //
-    // Symmetric with N6701AConfig (see hal/n6701a.hpp), but not templated:
-    // ThreePhaseWyePoints already erased every Loc, so there is nothing left
-    // for a template parameter to carry, and applyDriver/removeDriver below
-    // need no deduction trick at all.
+    // Symmetric with N6701AConfig (see hal/n6701a.hpp) -- no points here
+    // either, and for the same reason: AcP1's three phases (and its
+    // ground/neutral return -- see this header's own comment on Ac6677A)
+    // are each hard-cabled to one fixed VPC pin, not routed through a mux
+    // to whichever pins a script names, so there's nothing left for a
+    // point argument to carry.
     //
     struct Ac6677AConfig
     {
-        Ac6677A &                                       Instrument;
-        ThreePhaseWyePoints                            Points;
-        std::optional<core::quantities::Voltage>       PhaseVoltage;
-        std::optional<core::quantities::Frequency>     Frequency;
-        std::optional<core::quantities::Current>       CurrentLimit;
+        Ac6677A &                                    Instrument;
+        std::optional<core::quantities::Voltage>     PhaseVoltage;
+        std::optional<core::quantities::Frequency>   Frequency;
+        std::optional<core::quantities::Current>     CurrentLimit;
     };
 
     //
@@ -91,8 +37,8 @@ namespace hal
         public:
             using Config = Ac6677AConfig;
 
-            Ac6677ABuilder( Ac6677A & instrument, const ThreePhaseWyePoints & points) :
-                mConfig{ instrument, points, std::nullopt, std::nullopt, std::nullopt }
+            explicit Ac6677ABuilder( Ac6677A & instrument) :
+                mConfig{ instrument, std::nullopt, std::nullopt, std::nullopt }
             {}
 
             [[nodiscard]]
@@ -130,11 +76,29 @@ namespace hal
     };
 
     //
-    // A programmable three-phase AC source. Only .threePhaseWye(...) exists
+    // A programmable three-phase AC source. Only .threePhaseWye() exists
     // today -- a delta-connected variant would be a second builder method,
     // not a change to this one, if/when it's ever needed. Modeled after the
     // physical instrument deliberately -- see hal::N6701A's own comment in
     // hal/n6701a.hpp for why.
+    //
+    // Fixed-wired, same reasoning and same safety motivation as
+    // hal::N6701A (see that class's own comment) -- but with four physical
+    // connections rather than one: phases A, B, and C, plus the neutral/
+    // ground return. An earlier version of this file treated the neutral
+    // return as simply not modeled at all ("hard-wired to ground, outside
+    // the switching fabric entirely") on the theory that it's never
+    // switched -- true, but that reasoning quietly stopped applying once
+    // the three phases *also* became fixed, always-together relays rather
+    // than mux-routed ones: if opening this instrument's path is meant to
+    // fully isolate it (the same safety motivation for fixed-wiring the
+    // phases in the first place), the return conductor is part of that
+    // isolation too, not a wire that gets to sit outside the model.
+    // threePhaseWye() below takes no points -- connectDriver/
+    // disconnectDriver close/open all four of this instrument's fixed
+    // channels together (see hal::InstrumentWiring::findAll()), phases and
+    // ground alike, each its own hal/wiring.inc entry under the same
+    // InstrumentId.
     //
     class Ac6677A
     {
@@ -148,9 +112,9 @@ namespace hal
             }
 
             [[nodiscard]]
-            auto threePhaseWye( const ThreePhaseWyePoints & points) -> Ac6677ABuilder
+            auto threePhaseWye() -> Ac6677ABuilder
             {
-                return Ac6677ABuilder{ *this, points };
+                return Ac6677ABuilder{ *this };
             }
 
             // Test/simulation hooks -- real hardware has no such setters.
@@ -218,32 +182,22 @@ namespace hal
     //
     // ADL targets for core::ConnectEngine/DisconnectEngine -- see
     // hal/n6701a.hpp's own comment on the same mechanism. Closes -- or
-    // opens -- the instrument channel plus the three phase channels
-    // together as one path (no neutral -- see ThreePhaseWyePoints's own
-    // comment), additively (hal::SwitchFabric::connect()/disconnect()) so
-    // it doesn't disturb whatever else is currently routed.
+    // opens -- all four of this instrument's fixed channels together (see
+    // hal::InstrumentWiring::findAll() and this class's own comment on why
+    // ground/neutral is included), additively (hal::SwitchFabric::
+    // connect()/disconnect()) so it doesn't disturb whatever else is
+    // currently routed. connectorWiring is accepted (signature symmetry
+    // with every other instrument's connectDriver/disconnectDriver) but
+    // never consulted -- see N6701A's own connectDriver for the same
+    // reasoning.
     //
-    inline auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const Ac6677AConfig & config) -> void
+    inline auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const Ac6677AConfig & config) -> void
     {
-        const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
-
-        fabric.connect( {
-            instrumentChannel,
-            connectorWiring.find( config.Points.a.Location),
-            connectorWiring.find( config.Points.b.Location),
-            connectorWiring.find( config.Points.c.Location)
-        });
+        fabric.connect( instrumentWiring.findAll( config.Instrument.id()));
     }
 
-    inline auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const Ac6677AConfig & config) -> void
+    inline auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const Ac6677AConfig & config) -> void
     {
-        const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
-
-        fabric.disconnect( {
-            instrumentChannel,
-            connectorWiring.find( config.Points.a.Location),
-            connectorWiring.find( config.Points.b.Location),
-            connectorWiring.find( config.Points.c.Location)
-        });
+        fabric.disconnect( instrumentWiring.findAll( config.Instrument.id()));
     }
 } // namespace hal

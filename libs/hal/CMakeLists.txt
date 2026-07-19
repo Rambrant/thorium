@@ -40,5 +40,6 @@ if(BUILD_TESTING_LAYERS)
         tests/test_instrument.cpp
         tests/test_wiring.cpp
         tests/test_source_instruments.cpp
+        tests/test_call_syntax.cpp
     )
 endif()

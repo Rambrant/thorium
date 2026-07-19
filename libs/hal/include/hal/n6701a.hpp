@@ -2,10 +2,7 @@
 
 #include <optional>
 
-#include "core/adapter.hpp"
-#include "core/at.hpp"
 #include "core/quantity.hpp"
-#include "core/quantity_kind.hpp"
 
 #include "hal/instrument.hpp"
 #include "hal/switch_fabric.hpp"
@@ -16,45 +13,40 @@ namespace hal
     class N6701A;
 
     //
-    // What a single Apply(DcP1.dc(at(...)).voltage(...).currentLimit(...))
-    // call boils down to: which instrument, which DUT point (Loc, exactly
-    // like MeasureEngine's operator() in core/measure.hpp), and whichever of
-    // Voltage/CurrentLimit were actually set. A bare
-    // Remove(DcP1.dc(at(...))) leaves both at nullopt -- removeDriver below
-    // only ever reads Instrument/Point.
+    // What a single Apply(DcP1.dc().voltage(...).currentLimit(...)) call
+    // boils down to: which instrument, and whichever of Voltage/
+    // CurrentLimit were actually set. A bare Remove(DcP1.dc()) leaves both
+    // at nullopt -- removeDriver below only ever reads Instrument.
     //
-    // Templated directly on Loc (not nested inside N6701ABuilder<Loc>) so
-    // that applyDriver/removeDriver below can deduce Loc from an ordinary
-    // function-template argument: `typename N6701ABuilder<Loc>::Config`
-    // would put Loc in a non-deduced context (a nested name after `::`),
-    // exactly the same deduction trap ac6677a.hpp's ErasedPhasePoint
-    // sidesteps a different way, because its call site rules out templating
-    // at all.
+    // No Loc/AdapterPointTag here any more -- DcP1's output is hard-wired
+    // straight to one specific VPC pin for safety reasons (see this
+    // class's own comment), not routed through the switching fabric to
+    // whichever pin a script names, so there was never a second point for
+    // at() to choose between. That fixed pin is purely a hal::wiring.inc
+    // fact (InstrumentWiring's one fixed channel for DcP1 -- see
+    // connectDriver below), not something a script or this config carries.
     //
-    template<auto Loc>
     struct N6701AConfig
     {
-        N6701A &                                                  Instrument;
-        core::AdapterPointTag<Loc, core::QuantityKind::Voltage>   Point;
-        std::optional<core::quantities::Voltage>                  Voltage;
-        std::optional<core::quantities::Current>                  CurrentLimit;
+        N6701A &                                  Instrument;
+        std::optional<core::quantities::Voltage>  Voltage;
+        std::optional<core::quantities::Current>  CurrentLimit;
     };
 
     //
     // The fluent chain a script builds up before handing it to Apply/Remove
     // -- exactly the same "return *this by value, updated" shape as
     // core::Port's range()/nplc()/frequency() builders in core/port.hpp, for
-    // the same reason: a bare `DcP1.dc(at(Input24V))` with no further calls
-    // is still a valid (if underspecified) config.
+    // the same reason: a bare `DcP1.dc()` with no further calls is still a
+    // valid (if underspecified) config.
     //
-    template<auto Loc>
     class N6701ABuilder
     {
         public:
-            using Config = N6701AConfig<Loc>;
+            using Config = N6701AConfig;
 
-            N6701ABuilder( N6701A & instrument, const core::AdapterPointTag<Loc, core::QuantityKind::Voltage> & point) :
-                mConfig{ instrument, point, std::nullopt, std::nullopt }
+            explicit N6701ABuilder( N6701A & instrument) :
+                mConfig{ instrument, std::nullopt, std::nullopt }
             {}
 
             [[nodiscard]]
@@ -101,6 +93,20 @@ namespace hal
     // in the switching fabric; mChannel is which slot this module occupies
     // inside the mainframe. Neither table knows about the other.
     //
+    // Fixed-wired, on purpose: a real DC rail is hard-cabled straight to one
+    // VPC pin rather than routed through a mux to whichever pin a script
+    // picks, for the same safety reason a matrix wouldn't be trusted to
+    // carry real load current or pick the wrong destination for a supply
+    // output. dc() below takes no point at all -- there is exactly one
+    // relay in this instrument's whole path (its own matrix channel, see
+    // connectDriver), not the instrument-channel-plus-connector-channel
+    // pair a routed instrument like hal::DSO8064 has. Which DUT point that
+    // fixed channel corresponds to (e.g. "Output5V") is a fact the DUT
+    // adapter documents about itself (see e.g. libs/dut/device_x_profile.inc),
+    // never something hal:: names -- this header has no idea DcP1 has
+    // anything to do with any point called Output5V, only that it has one
+    // fixed relay.
+    //
     // Modeled after the physical instrument deliberately, unlike the old
     // generic hal::Dmm/hal::Oscilloscope placeholders (both since retired,
     // by hal::L4411A and hal::DSO8064 respectively): those two were generic
@@ -128,17 +134,12 @@ namespace hal
             }
 
             //
-            // point's Loc is a compile-time template parameter, and the
-            // parameter type only accepts a Voltage-kind AdapterPointTag --
-            // wrapping a Current-tagged point in at() and passing it here
-            // simply has no matching overload, the same compile-time
-            // protection Measure() gets from core::MeasureEngine::operator().
+            // No point argument -- see this class's own comment for why.
             //
-            template<auto Loc>
             [[nodiscard]]
-            auto dc( const core::At<core::AdapterPointTag<Loc, core::QuantityKind::Voltage>> & wrapped) -> N6701ABuilder<Loc>
+            auto dc() -> N6701ABuilder
             {
-                return N6701ABuilder<Loc>{ *this, wrapped.point };
+                return N6701ABuilder{ *this };
             }
 
             // Test/simulation hooks -- real hardware has no such setters.
@@ -185,18 +186,16 @@ namespace hal
     // own comment on the applyDriver/removeDriver customization points.
     // Programs -- or disables -- the instrument's simulated output only;
     // the fabric path is a separate concern now, see connectDriver/
-    // disconnectDriver below. Found via ADL because N6701AConfig<Loc> lives
-    // in namespace hal, the same trick core/measure.hpp's
+    // disconnectDriver below. Found via ADL because N6701AConfig lives in
+    // namespace hal, the same trick core/measure.hpp's
     // to_string(instrumentId) call relies on.
     //
-    template<auto Loc>
-    auto applyDriver( const N6701AConfig<Loc> & config) -> void
+    inline auto applyDriver( const N6701AConfig & config) -> void
     {
         config.Instrument.applyOutput( config.Voltage.value_or( core::quantities::Voltage{}), config.CurrentLimit);
     }
 
-    template<auto Loc>
-    auto removeDriver( const N6701AConfig<Loc> & config) -> void
+    inline auto removeDriver( const N6701AConfig & config) -> void
     {
         config.Instrument.removeOutput();
     }
@@ -204,27 +203,20 @@ namespace hal
     //
     // ADL targets for core::ConnectEngine/DisconnectEngine -- see
     // core/apply.hpp's own comment on the connectDriver/disconnectDriver
-    // customization points. This is the half applyDriver/removeDriver used
-    // to do: close (or open) exactly this instrument's matrix channel and
-    // this point's connector channel, additively (see
-    // hal::SwitchFabric::connect()/disconnect()) so it doesn't disturb
-    // whatever else is currently routed.
+    // customization points. Closes -- or opens -- exactly this instrument's
+    // one fixed matrix channel. One hop, not two: there is no connector
+    // channel to look up any more (see N6701AConfig's own comment), so
+    // connectorWiring is accepted (for signature symmetry with every other
+    // instrument's connectDriver/disconnectDriver, all called through the
+    // same core::ConnectEngine/DisconnectEngine) but never consulted here.
     //
-    template<auto Loc>
-    auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const N6701AConfig<Loc> & config) -> void
+    inline auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const N6701AConfig & config) -> void
     {
-        const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
-        const auto connectorChannel  = connectorWiring.find( Loc);
-
-        fabric.connect( { instrumentChannel, connectorChannel });
+        fabric.connect( { instrumentWiring.find( config.Instrument.id()) });
     }
 
-    template<auto Loc>
-    auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring & connectorWiring, const N6701AConfig<Loc> & config) -> void
+    inline auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const N6701AConfig & config) -> void
     {
-        const auto instrumentChannel = instrumentWiring.find( config.Instrument.id());
-        const auto connectorChannel  = connectorWiring.find( Loc);
-
-        fabric.disconnect( { instrumentChannel, connectorChannel });
+        fabric.disconnect( { instrumentWiring.find( config.Instrument.id()) });
     }
 } // namespace hal

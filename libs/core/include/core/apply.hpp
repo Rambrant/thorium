@@ -17,11 +17,11 @@ namespace core
     // waiting on a slower output ramp-down. See ConnectEngine/DisconnectEngine
     // below for the half that moved out.
     //
-    //     Apply(  Dcp1.dc( at( Output24V)).voltage( 24_V).currentLimit( 7_A));
-    //     Connect( Dcp1.dc( at( Output24V)));
+    //     Apply(  Dcp1.dc().voltage( 24_V).currentLimit( 7_A));
+    //     Connect( Dcp1.dc());
     //     ...
-    //     Disconnect( Dcp1.dc( at( Output24V)));
-    //     Remove( Dcp1.dc( at( Output24V)));
+    //     Disconnect( Dcp1.dc());
+    //     Remove( Dcp1.dc());
     //
     // Apply/Remove can be called in either order relative to Connect/
     // Disconnect -- neither reaches for the fabric, so neither cares
@@ -60,14 +60,21 @@ namespace core
 
     //
     // Connect/Disconnect: the fast, fabric-only half of what Apply/Remove
-    // used to do together -- close (or open) exactly the matrix/mux path a
-    // source point needs, with no instrument I/O at all. Additive, not
+    // used to do together -- close (or open) exactly the relay path a
+    // source needs, with no instrument I/O at all. Additive, not
     // exclusive -- see hal::SwitchFabric::connect()/disconnect() -- so
     // connecting or disconnecting one instrument's path never disturbs
-    // whatever else is currently routed.
+    // whatever else is currently routed. That path can be a genuine
+    // matrix-plus-mux route chosen at the call site (a measuring
+    // instrument like hal::DSO8064, which takes an at(...) point), or
+    // just an instrument's own fixed channel(s) with nothing left to
+    // choose (hal::N6701A/hal::Ac6677A -- see their own comments on why a
+    // real power rail is hard-wired rather than routed) -- Connect/
+    // Disconnect don't need to know which; that's entirely up to what
+    // connectDriver/disconnectDriver does for the concrete config type.
     //
-    //     Connect( Dcp1.dc( at( Output24V)));
-    //     Disconnect( Dcp1.dc( at( Output24V)));
+    //     Connect( Dcp1.dc());
+    //     Disconnect( Dcp1.dc());
     //
     // Generic over the same three externally-supplied types as
     // MeasureEngine (see core/measure.hpp) -- FabricT/InstrumentWiringT/

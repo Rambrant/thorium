@@ -25,13 +25,18 @@ using ConnectEngine    = core::ConnectEngine<hal::SwitchFabric, hal::InstrumentW
 using DisconnectEngine = core::DisconnectEngine<hal::SwitchFabric, hal::InstrumentWiring, hal::ConnectorWiring>;
 
 //
-// The four points every script sources through:
+// The four calls every script sources through -- DcP1/AcP1 take no at(...)
+// point: they're fixed-wired straight to one VPC pin (or four, for AcP1's
+// three phases plus ground -- see hal::Ac6677A's own comment), so there's
+// nothing left to choose. A routed, measuring instrument like hal::DSO8064
+// still takes at(...) on Measure() -- see hal/measure.hpp -- since it
+// genuinely can reach more than one point through the mux.
 //
-//   Apply(      DcP1.dc( at( Input24V)).voltage( 24_V).currentLimit( 7_A));
-//   Connect(    DcP1.dc( at( Input24V)));
+//   Apply(      DcP1.dc().voltage( 24_V).currentLimit( 7_A));
+//   Connect(    DcP1.dc());
 //   ...
-//   Disconnect( DcP1.dc( at( Input24V)));
-//   Remove(     DcP1.dc( at( Input24V)));
+//   Disconnect( DcP1.dc());
+//   Remove(     DcP1.dc());
 //
 // Apply/Remove and Connect/Disconnect can be called in either relative
 // order -- see core/apply.hpp's own comment. Defined once in hal/apply.cpp,
