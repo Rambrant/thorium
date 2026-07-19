@@ -12,11 +12,12 @@
 // state with each other.
 //
 // This also demonstrates the two shapes Connect/Disconnect can take side by
-// side: DcP1 is fixed-wired (hal::N6701A::dc() takes no point at all --
-// see that header's own comment), Osc1 is routed (hal::DSO8064's Port
-// takes at(...) on every Measure()) -- both physically reach the same VPC
-// pin (Output5V), but only Osc1's path touches the mux; DcP1's connect()
-// closes just its own fixed channel.
+// side: DcP3 is fixed-wired (hal::N6701A::dc() takes no point at all --
+// see that header's own comment; DcP3 specifically has a real isolation
+// relay -- hal::N6701ARelay -- unlike DcP1/DcP2, which have none at all),
+// Osc1 is routed (hal::DSO8064's Port takes at(...) on every Measure()) --
+// both physically reach the same VPC pin (Output5V), but only Osc1's path
+// touches the mux; DcP3's connect() closes just its own fixed channel.
 //
 #include "hal/n6701a.hpp"
 #include "hal/dso8064.hpp"
@@ -38,7 +39,7 @@ namespace
     constexpr hal::VpcLocation kClockOut{ hal::VpcRack::A, 1, 4 };
 
     // Output5V/ClockOut are only ever named on the Measure() side below --
-    // DcP1 reaches the same physical Output5V pin too, but as a fixed wire,
+    // DcP3 reaches the same physical Output5V pin too, but as a fixed wire,
     // not as an at(...) argument (see hal::N6701A's own comment).
     constexpr core::AdapterPointTag<kOutput5V, core::QuantityKind::Voltage> Output5V{ "Output5V", "5Vdc supply port" };
     constexpr core::AdapterPointTag<kClockOut, core::QuantityKind::Time>    ClockOut{ "ClockOut", "clock edge test point" };
@@ -49,7 +50,7 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::N6701A  dcP1{ hal::InstrumentId::DcP1, 1 };
+        hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, 3 };
         hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
 
         ApplyEngine      apply{};
@@ -60,11 +61,11 @@ namespace
 
         CallSyntaxFixture()
         {
-            // Same shape as hal/wiring.inc's real entries -- DcP1's one
-            // fixed channel on Matrix2/20, Osc1 routed through Matrix2/10
+            // Same shape as hal/wiring.inc's real entries -- DcP3's one
+            // fixed channel on Matrix2/24, Osc1 routed through Matrix2/10
             // -- just declared locally so this fixture doesn't depend on
             // (or pollute) the rig's real global wiring tables.
-            instrumentWiring.addWire( hal::InstrumentId::DcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 });
             instrumentWiring.addWire( hal::InstrumentId::Osc1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 10 });
 
             connectorWiring.addWire( kOutput5V, { hal::SwitchDeviceKind::Mux, "Mux1", 3 });
@@ -75,21 +76,21 @@ namespace
 
 TEST_F( CallSyntaxFixture, SourceThenMeasureTheSamePhysicalRailTwoDifferentWays)
 {
-    // DcP1 drives Output5V's pin via its own fixed wire, no at(...)
+    // DcP3 drives Output5V's pin via its own fixed wire, no at(...)
     // involved; Osc1 reads the same physical pin back through the mux,
     // via at(Output5V) -- the two calls don't look symmetric any more,
     // and that asymmetry is the point: one of these instruments has a
     // routing decision to make, the other doesn't.
-    apply(   dcP1.dc().voltage( 5.0_V).currentLimit( 1.0_A));
-    connect( dcP1.dc());
+    apply(   dcP3.dc().voltage( 5.0_V).currentLimit( 1.0_A));
+    connect( dcP3.dc());
 
     osc1.setSimulatedVpp( 3, 5.0_V);
 
     const auto reading = Measure( osc1.channel<3>().vpp(), at( Output5V));
 
     EXPECT_DOUBLE_EQ( reading.value(), 5.0);
-    EXPECT_TRUE( dcP1.isEnabled());
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
+    EXPECT_TRUE( dcP3.isEnabled());
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
 }
 
 TEST_F( CallSyntaxFixture, MeasureConnectsThenDisconnectsAroundEachReading)
@@ -124,46 +125,46 @@ TEST_F( CallSyntaxFixture, MeasureAcceptsTheChainedThresholdBuilderDirectlyAtThe
 
 TEST_F( CallSyntaxFixture, DisconnectAndRemoveTearDownIndependentlyOfMeasure)
 {
-    apply(   dcP1.dc().voltage( 5.0_V));
-    connect( dcP1.dc());
+    apply(   dcP3.dc().voltage( 5.0_V));
+    connect( dcP3.dc());
 
     osc1.setSimulatedVpp( 3, 5.0_V);
     (void)Measure( osc1.channel<3>().vpp(), at( Output5V));
 
     // Measure's own connect/disconnect around the reading is already done
     // by this point -- disconnect()/remove() here are only tearing down
-    // dcP1's still-open source path, which was never touched by Measure()
-    // in the first place (see the fixture comment on why dcP1 and osc1
+    // dcP3's still-open source path, which was never touched by Measure()
+    // in the first place (see the fixture comment on why dcP3 and osc1
     // don't share any fabric channel any more).
-    disconnect( dcP1.dc());
-    remove(     dcP1.dc());
+    disconnect( dcP3.dc());
+    remove(     dcP3.dc());
 
-    EXPECT_FALSE( dcP1.isEnabled());
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
+    EXPECT_FALSE( dcP3.isEnabled());
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
 }
 
 TEST_F( CallSyntaxFixture, DcSourceAndScopeUseCompletelyDisjointFabricChannelsNow)
 {
-    // Before DcP1 became fixed-wired, DcP1 and Osc1 shared Mux1/3 (the
+    // Before DcP3 became fixed-wired, DcP3 and Osc1 shared Mux1/3 (the
     // same physical rail), so connecting/disconnecting one had to leave
     // the other's use of that shared mux channel alone -- see
     // hal::SwitchFabric's use-count-based connect()/disconnect(). Now that
-    // DcP1's own connect() never touches the mux at all, there's no
-    // overlap left to protect: DcP1's path is Matrix2/20 alone; Osc1's
+    // DcP3's own connect() never touches the mux at all, there's no
+    // overlap left to protect: DcP3's path is Matrix2/24 alone; Osc1's
     // Measure() path is Matrix2/10 plus Mux1/3. Disjoint sets, not shared
     // ones, even though both ultimately land on the same physical pin.
-    connect( dcP1.dc());
+    connect( dcP3.dc());
 
     osc1.setSimulatedVpp( 3, 5.0_V);
     (void)Measure( osc1.channel<3>().vpp(), at( Output5V));
 
-    // dcP1's own connect is still up, and Measure()'s internal connect/
-    // disconnect around the reading never touched Matrix2/20 at all.
-    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
+    // dcP3's own connect is still up, and Measure()'s internal connect/
+    // disconnect around the reading never touched Matrix2/24 at all.
+    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 10 }));
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    3 }));
 
-    disconnect( dcP1.dc());
+    disconnect( dcP3.dc());
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 20 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
 }

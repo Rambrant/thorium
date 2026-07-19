@@ -11,8 +11,11 @@ INSTRUMENT_WIRING
     WIRE_INSTRUMENT( Dmm1, HOP( Matrix, "Matrix2", 14))
     WIRE_INSTRUMENT( Dmm2, HOP( Matrix, "Matrix2", 16))
     WIRE_INSTRUMENT( Osc1, HOP( Matrix, "Matrix2", 10))
-    WIRE_INSTRUMENT( DcP1, HOP( Matrix, "Matrix2", 20))
-    WIRE_INSTRUMENT( DcP2, HOP( Matrix, "Matrix2", 21))
+    // DcP1/DcP2 have no entry here at all -- they're hal::N6701ADirect,
+    // wired straight through with no isolation relay, nothing for
+    // Connect/Disconnect to close or open (see hal::N6701A's own comment
+    // on DirectWiring). Only DcP3/DcP4 (hal::N6701ARelay) have a real
+    // fixed channel.
     WIRE_INSTRUMENT( DcP3, HOP( Matrix, "Matrix2", 24))
     WIRE_INSTRUMENT( DcP4, HOP( Matrix, "Matrix2", 25))
     // AcP1 is fixed-wired on four channels, not one -- phases A/B/C plus
