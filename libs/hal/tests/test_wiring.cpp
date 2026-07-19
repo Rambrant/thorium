@@ -101,3 +101,19 @@ TEST( HalConnectorWiring, AddWireWithAPathModelsAMultiMuxChain)
 
     EXPECT_EQ( wiring.find( location), (hal::Path{ mux1, mux2, matrixRow }));
 }
+
+TEST( HalConnectorWiring, RfMuxHopsComposeThroughTheDeclarativeWiringMacrosLikeAnyOtherDeviceKind)
+{
+    // WIRE_CONNECTOR/HOP (see hal/wiring.hpp) never singled out Matrix/Mux
+    // by name -- deviceKind is just whichever hal::SwitchDeviceKind value
+    // is passed, so an RF path through this rig's connector wiring reads
+    // exactly like an LF one, no separate macro needed.
+    hal::ConnectorWiring wiring;
+    hal::VpcLocation     location{ hal::VpcRack::A, 5, 1 };
+
+    wiring.addWire( location, hal::Path{ HOP( RfMux, "RfMux1", 2), HOP( Matrix, "Matrix2", 30) });
+
+    EXPECT_EQ( wiring.find( location), ( hal::Path{
+        hal::SwitchElementId{ hal::SwitchDeviceKind::RfMux,  "RfMux1",  2 },
+        hal::SwitchElementId{ hal::SwitchDeviceKind::Matrix, "Matrix2", 30 } }));
+}

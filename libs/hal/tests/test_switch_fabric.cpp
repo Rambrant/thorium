@@ -85,3 +85,62 @@ TEST( HalSwitchFabric, ToStringDescribesTheElement)
 
     EXPECT_EQ( to_string( ch), "Matrix Matrix2 channel 14");
 }
+
+TEST( HalSwitchFabric, RfMuxIsAnOrdinarySwitchElementLikeMatrixOrMux)
+{
+    // RfMux is a genuinely separate physical device from Mux (see
+    // hal::SwitchDeviceKind's own comment on why), but nothing in
+    // SwitchFabric itself treats it any differently -- close/open/isClosed
+    // work identically regardless of device kind.
+    hal::SwitchFabric fabric;
+    hal::SwitchElementId rf{ hal::SwitchDeviceKind::RfMux, "RfMux1", 2 };
+
+    EXPECT_FALSE( fabric.isClosed( rf));
+
+    fabric.close( rf);
+    EXPECT_TRUE( fabric.isClosed( rf));
+
+    fabric.open( rf);
+    EXPECT_FALSE( fabric.isClosed( rf));
+}
+
+TEST( HalSwitchFabric, ToStringDistinguishesRfMuxFromMux)
+{
+    // The bug this guards against: an RfMux element silently printing as
+    // "Mux" (or vice versa) because to_string() only ever checked for
+    // Matrix and treated everything else as Mux -- true right up until
+    // RfMux became a third kind.
+    hal::SwitchElementId rf{ hal::SwitchDeviceKind::RfMux, "RfMux1", 2 };
+    hal::SwitchElementId mux{ hal::SwitchDeviceKind::Mux, "Mux1", 2 };
+
+    EXPECT_EQ( to_string( rf),  "RfMux RfMux1 channel 2");
+    EXPECT_EQ( to_string( mux), "Mux Mux1 channel 2");
+}
+
+TEST( HalSwitchFabric, ConnectAcceptsAPathMixingAllThreeDeviceKinds)
+{
+    // hal::Path never distinguished device kinds -- it's just a vector of
+    // SwitchElementId -- so a chain spanning matrix, mux, and RF mux hops
+    // in one route (e.g. an RF signal narrowed down by an RfMux before
+    // landing on a shared matrix column) needs no new mechanism at all.
+    hal::SwitchFabric fabric;
+    hal::Path path{
+        { hal::SwitchDeviceKind::RfMux,  "RfMux1",  2 },
+        { hal::SwitchDeviceKind::Mux,    "Mux1",    3 },
+        { hal::SwitchDeviceKind::Matrix, "Matrix2", 30 }
+    };
+
+    fabric.connect( path);
+
+    for( const auto & element : path)
+    {
+        EXPECT_TRUE( fabric.isClosed( element));
+    }
+
+    fabric.disconnect( path);
+
+    for( const auto & element : path)
+    {
+        EXPECT_FALSE( fabric.isClosed( element));
+    }
+}

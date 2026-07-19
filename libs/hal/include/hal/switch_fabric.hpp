@@ -10,14 +10,31 @@ namespace hal
 {
     //
     // Which kind of switching hardware a SwitchElementId's channel lives on.
-    // Purely descriptive -- both kinds are commanded identically (open/close
+    // Purely descriptive -- every kind is commanded identically (open/close
     // a channel) -- kept so a route's path reads clearly and so error
     // messages can say "Matrix2 channel 14" rather than an opaque pair.
+    //
+    // RfMux is a genuinely separate physical device from Mux, not just a
+    // naming distinction: RF signal paths need controlled impedance
+    // (typically 50 ohm) end to end, which an LF matrix/mux card's relays
+    // aren't built to preserve -- an RF signal routed through an LF mux
+    // would see reflections/loss a real RF measurement can't tolerate. So
+    // the two never share hardware, and a route through the fabric mixes
+    // them only in the sense that hal::Path can hold either kind of
+    // SwitchElementId in the same chain -- e.g. an LF mux hop narrowing
+    // down to a matrix column is a different case from an RF signal's own,
+    // separate RfMux chain; nothing in this file enforces that an RF point
+    // is only ever reached through RfMux hops (see this project's decision
+    // not to build a compile-time-checked point-category gate for that
+    // kind of DUT-specific judgment call) -- that's left to whoever wires
+    // hal/wiring.inc and writes the test getting it right, the same way it
+    // already is for Matrix vs Mux today.
     //
     enum class SwitchDeviceKind
     {
         Matrix, // RACAL 1260 VXI matrix card
-        Mux     // Agilent E1472A multiplexer
+        Mux,    // Agilent E1472A multiplexer
+        RfMux   // RF multiplexer -- impedance-controlled, kept off the LF fabric entirely
     };
 
     //
