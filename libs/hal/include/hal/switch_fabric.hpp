@@ -40,6 +40,24 @@ namespace hal
     auto to_string( SwitchElementId id) -> std::string;
 
     //
+    // A route through the fabric between two fixed points is rarely just
+    // one relay -- the real wiring behind hal::InstrumentWiring/
+    // hal::ConnectorWiring's entries can be a chain of several (a mux
+    // narrowing thousands of DUT points down to a handful of lines, then
+    // another mux narrowing further, then finally a matrix crosspoint --
+    // see those two classes' own comments). SwitchFabric::connect()/
+    // disconnect() already take a plain std::vector<SwitchElementId> and
+    // don't care how many elements are in it or which wiring fact
+    // contributed which one -- every element in the chain just needs
+    // closing (or opening) together. Path names that vector at the type
+    // level so a chain and a single hop are the same thing to write and to
+    // compose (see hal::InstrumentWiring::find()/findAll() and
+    // core::MeasureEngine's operator(), which concatenates an instrument's
+    // Path with a connector's Path into the one combined route).
+    //
+    using Path = std::vector<SwitchElementId>;
+
+    //
     // The switching fabric sitting between the instruments and the VPC array:
     // every RACAL 1260 matrix card and every Agilent E1472A mux in the
     // signal chain, addressed uniformly by SwitchElementId. On real hardware

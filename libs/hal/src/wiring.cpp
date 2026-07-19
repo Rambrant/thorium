@@ -6,62 +6,72 @@ namespace hal
 {
     auto InstrumentWiring::addWire( const InstrumentId instrument, const SwitchElementId channel) -> void
     {
-        mEntries.push_back( InstrumentWiringEntry{ instrument, channel });
+        addWire( instrument, Path{ channel });
     }
 
-    auto InstrumentWiring::find( const InstrumentId instrument) const -> SwitchElementId
+    auto InstrumentWiring::addWire( const InstrumentId instrument, Path path) -> void
+    {
+        mEntries.push_back( InstrumentWiringEntry{ instrument, std::move( path) });
+    }
+
+    auto InstrumentWiring::find( const InstrumentId instrument) const -> Path
     {
         for( const auto & entry : mEntries)
         {
             if( entry.instrument == instrument)
             {
-                return entry.channel;
+                return entry.path;
             }
         }
 
         throw std::runtime_error(
             "hal::InstrumentWiring: instrument " + std::string( to_string( instrument)) +
-            " has no fixed channel on this rig's fabric");
+            " has no fixed path on this rig's fabric");
     }
 
-    auto InstrumentWiring::findAll( const InstrumentId instrument) const -> std::vector<SwitchElementId>
+    auto InstrumentWiring::findAll( const InstrumentId instrument) const -> Path
     {
-        std::vector<SwitchElementId> channels;
+        Path combined;
 
         for( const auto & entry : mEntries)
         {
             if( entry.instrument == instrument)
             {
-                channels.push_back( entry.channel);
+                combined.insert( combined.end(), entry.path.begin(), entry.path.end());
             }
         }
 
-        if( channels.empty())
+        if( combined.empty())
         {
             throw std::runtime_error(
                 "hal::InstrumentWiring: instrument " + std::string( to_string( instrument)) +
-                " has no fixed channel on this rig's fabric");
+                " has no fixed path on this rig's fabric");
         }
 
-        return channels;
+        return combined;
     }
 
     auto ConnectorWiring::addWire( const VpcLocation location, const SwitchElementId channel) -> void
     {
-        mEntries.push_back( ConnectorWiringEntry{ location, channel });
+        addWire( location, Path{ channel });
     }
 
-    auto ConnectorWiring::find( const VpcLocation location) const -> SwitchElementId
+    auto ConnectorWiring::addWire( const VpcLocation location, Path path) -> void
+    {
+        mEntries.push_back( ConnectorWiringEntry{ location, std::move( path) });
+    }
+
+    auto ConnectorWiring::find( const VpcLocation location) const -> Path
     {
         for( const auto & entry : mEntries)
         {
             if( entry.location == location)
             {
-                return entry.channel;
+                return entry.path;
             }
         }
 
         throw std::runtime_error(
-            "hal::ConnectorWiring: " + to_string( location) + " has no fixed channel on this rig's fabric");
+            "hal::ConnectorWiring: " + to_string( location) + " has no fixed path on this rig's fabric");
     }
 } // namespace hal

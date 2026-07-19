@@ -204,19 +204,21 @@ namespace hal
     // ADL targets for core::ConnectEngine/DisconnectEngine -- see
     // core/apply.hpp's own comment on the connectDriver/disconnectDriver
     // customization points. Closes -- or opens -- exactly this instrument's
-    // one fixed matrix channel. One hop, not two: there is no connector
-    // channel to look up any more (see N6701AConfig's own comment), so
+    // one fixed path (usually one hop, but see hal::InstrumentWiring's own
+    // comment -- find() returns whatever Path is actually wired, one
+    // element or several). No connector-side hop: there is no connector
+    // path to look up any more (see N6701AConfig's own comment), so
     // connectorWiring is accepted (for signature symmetry with every other
     // instrument's connectDriver/disconnectDriver, all called through the
     // same core::ConnectEngine/DisconnectEngine) but never consulted here.
     //
     inline auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const N6701AConfig & config) -> void
     {
-        fabric.connect( { instrumentWiring.find( config.Instrument.id()) });
+        fabric.connect( instrumentWiring.find( config.Instrument.id()));
     }
 
     inline auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const N6701AConfig & config) -> void
     {
-        fabric.disconnect( { instrumentWiring.find( config.Instrument.id()) });
+        fabric.disconnect( instrumentWiring.find( config.Instrument.id()));
     }
 } // namespace hal

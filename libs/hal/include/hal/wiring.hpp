@@ -10,13 +10,22 @@ namespace hal
 {
     //
     // Two independent static wiring facts, per the framing that motivated
-    // this split: an instrument's matrix/mux channel is fixed regardless of
-    // which DUT pin is being measured, and a connector pin's channel is
-    // fixed regardless of which instrument is doing the measuring. A route
-    // is their composition at the moment a measurement is taken -- see
+    // this split: an instrument's matrix/mux path is fixed regardless of
+    // which DUT pin is being measured, and a connector pin's path is fixed
+    // regardless of which instrument is doing the measuring. A route is
+    // their composition at the moment a measurement is taken -- see
     // core/measure.hpp -- not a fact either table stores per (instrument,
     // pin) pair, which is what the combined RouteTable this replaces used
     // to do.
+    //
+    // Each entry's Path (see hal/switch_fabric.hpp) is a chain, not
+    // necessarily a single element -- most instruments and most connector
+    // pins are one hop (WIRE_INSTRUMENT/WIRE_CONNECTOR below), but real
+    // wiring can be several muxes deep before reaching a matrix, or an
+    // instrument's own path can pass through more than one relay before
+    // its dedicated matrix column (WIRE_INSTRUMENT/WIRE_CONNECTOR below
+    // take one or more hops either way) -- both are just a longer Path to
+    // close or open together, not a different kind of fact.
     //
     // TODO(reflection): find() below is a runtime linear search over a
     // constexpr-eligible table -- the *data* is a fixed wiring fact decided
@@ -32,38 +41,52 @@ namespace hal
     //
     struct InstrumentWiringEntry
     {
-        InstrumentId     instrument;
-        SwitchElementId  channel;
+        InstrumentId  instrument;
+        Path          path;
     };
 
     class InstrumentWiring
     {
         public:
+            //
+            // Single-hop convenience -- the common case (one instrument,
+            // one dedicated matrix channel). Equivalent to
+            // addWire(instrument, Path{ channel}) below.
+            //
             auto addWire( InstrumentId instrument, SwitchElementId channel) -> void;
 
             //
-            // Throws std::runtime_error if this instrument has no fixed
-            // channel on this rig's fabric.
+            // The general form -- one whole chain, closed/opened together,
+            // for one fixed instrument connection. See WIRE_INSTRUMENT
+            // below for the declarative form (one or more HOP(...)
+            // elements, no separate "chain" macro).
             //
-            [[nodiscard]]
-            auto find( InstrumentId instrument) const -> SwitchElementId;
+            auto addWire( InstrumentId instrument, Path path) -> void;
 
             //
-            // Same table, every matching channel rather than just the
-            // first -- for an instrument fixed-wired with more than one
-            // physical connection (e.g. hal::Ac6677A's three phases plus
-            // ground/neutral return, see that header's own comment), each
-            // one is its own addWire() entry under the same InstrumentId,
-            // and Connect/Disconnect need all of them together, not just
-            // one. Single-connection instruments (hal::N6701A,
-            // hal::L4411A, hal::DSO8064) keep using find() above; this
-            // exists alongside it rather than replacing it so their call
-            // sites don't have to deal with a one-element vector for no
-            // reason. Throws std::runtime_error if this instrument has no
-            // fixed channel at all.
+            // The first matching entry's Path. Throws std::runtime_error
+            // if this instrument has no fixed path on this rig's fabric.
+            // For an instrument with more than one independent fixed
+            // connection (see findAll() below), which entry "first" means
+            // is unspecified -- use findAll() instead in that case.
             //
             [[nodiscard]]
-            auto findAll( InstrumentId instrument) const -> std::vector<SwitchElementId>;
+            auto find( InstrumentId instrument) const -> Path;
+
+            //
+            // Every matching entry's Path, flattened into one combined
+            // Path -- for an instrument fixed-wired with more than one
+            // independent physical connection (e.g. hal::Ac6677A's three
+            // phases plus ground/neutral return, see that header's own
+            // comment), each its own addWire() entry under the same
+            // InstrumentId, and Connect/Disconnect need all of them
+            // together, not just one. Single-connection instruments
+            // (hal::N6701A, hal::L4411A, hal::DSO8064) keep using find()
+            // above. Throws std::runtime_error if this instrument has no
+            // fixed path at all.
+            //
+            [[nodiscard]]
+            auto findAll( InstrumentId instrument) const -> Path;
 
         private:
             std::vector<InstrumentWiringEntry> mEntries;
@@ -71,21 +94,32 @@ namespace hal
 
     struct ConnectorWiringEntry
     {
-        VpcLocation      location;
-        SwitchElementId  channel;
+        VpcLocation  location;
+        Path         path;
     };
 
     class ConnectorWiring
     {
         public:
+            //
+            // Single-hop convenience -- see InstrumentWiring::addWire()'s
+            // own comment; same shape, same reasoning.
+            //
             auto addWire( VpcLocation location, SwitchElementId channel) -> void;
 
             //
-            // Throws std::runtime_error if this VPC pin has no fixed channel
+            // The general form -- see WIRE_CONNECTOR below for the
+            // declarative form (one or more HOP(...) elements, no separate
+            // "chain" macro).
+            //
+            auto addWire( VpcLocation location, Path path) -> void;
+
+            //
+            // Throws std::runtime_error if this VPC pin has no fixed path
             // on this rig's fabric.
             //
             [[nodiscard]]
-            auto find( VpcLocation location) const -> SwitchElementId;
+            auto find( VpcLocation location) const -> Path;
 
         private:
             std::vector<ConnectorWiringEntry> mEntries;
@@ -101,21 +135,35 @@ namespace hal
 // file), so these macros build one fixed, namespaced global apiece rather
 // than taking a name argument.
 //
+// Every wiring entry is a Path -- one hop or several, there's no separate
+// "chain" form: WIRE_INSTRUMENT/WIRE_CONNECTOR both just take one or more
+// HOP(...) elements and hand them straight to Path{...}.
+//
 //   INSTRUMENT_WIRING
-//       WIRE_INSTRUMENT( Dmm1, Matrix, "Matrix2", 14)
+//       WIRE_INSTRUMENT( Dmm1, HOP( Matrix, "Matrix2", 14))
+//       WIRE_INSTRUMENT( Osc1, HOP( Mux, "Mux22", 65), HOP( Matrix, "Matrix2", 10))
 //   END_INSTRUMENT_WIRING
 //
 //   CONNECTOR_WIRING
-//       WIRE_CONNECTOR( A, 1, 3, Mux, "Mux1", 3)
+//       WIRE_CONNECTOR( A, 1, 3, HOP( Mux, "Mux1", 3))
+//       WIRE_CONNECTOR( A, 3, 1, HOP( Mux, "Mux31", 9), HOP( Mux, "Mux22", 65), HOP( Matrix, "Matrix11", 0))
 //   END_CONNECTOR_WIRING
 //
+// HOP(...) below builds one SwitchElementId -- the one thing every
+// WIRE_INSTRUMENT/WIRE_CONNECTOR entry is made of, whether there's one or
+// several, so a one-hop entry and a multi-hop chain read the same way at
+// each individual hop.
+//
+#define HOP( deviceKind, device, channel) \
+    hal::SwitchElementId{ hal::SwitchDeviceKind::deviceKind, device, channel }
+
 #define INSTRUMENT_WIRING                                  \
     namespace hal { inline const InstrumentWiring instrumentWiring = [] \
     {                                                       \
         InstrumentWiring w;
 
-#define WIRE_INSTRUMENT( instrument, deviceKind, device, channel) \
-        w.addWire( InstrumentId::instrument, SwitchElementId{ SwitchDeviceKind::deviceKind, device, channel });
+#define WIRE_INSTRUMENT( instrument, ...) \
+        w.addWire( InstrumentId::instrument, Path{ __VA_ARGS__ });
 
 #define END_INSTRUMENT_WIRING \
         return w;              \
@@ -126,8 +174,8 @@ namespace hal
     {                                                      \
         ConnectorWiring w;
 
-#define WIRE_CONNECTOR( rack, connector, pin, deviceKind, device, channel) \
-        w.addWire( VpcLocation{ VpcRack::rack, connector, pin }, SwitchElementId{ SwitchDeviceKind::deviceKind, device, channel });
+#define WIRE_CONNECTOR( rack, connector, pin, ...) \
+        w.addWire( VpcLocation{ VpcRack::rack, connector, pin }, Path{ __VA_ARGS__ });
 
 #define END_CONNECTOR_WIRING \
         return w;              \

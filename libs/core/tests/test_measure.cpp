@@ -37,6 +37,7 @@ namespace mock
     };
 
     using Channel = int;
+    using Path    = std::vector<Channel>;
 
     class Fabric
     {
@@ -57,11 +58,19 @@ namespace mock
         public:
             auto addWire( InstrumentId instrument, Channel channel) -> void { mEntries.push_back( { instrument, channel }); }
 
-            [[nodiscard]] auto find( InstrumentId instrument) const -> Channel
+            //
+            // Returns a Path (see hal::Path's own comment in
+            // hal/switch_fabric.hpp for why this is a vector, not a
+            // scalar): core::MeasureEngine composes this with the
+            // connector's own Path by concatenation, so even this
+            // single-channel mock needs to hand back something
+            // vector-like, not the bare channel.
+            //
+            [[nodiscard]] auto find( InstrumentId instrument) const -> Path
             {
                 for( const auto & [ id, channel] : mEntries)
                 {
-                    if( id == instrument) return channel;
+                    if( id == instrument) return Path{ channel };
                 }
                 throw std::runtime_error( "mock::InstrumentWiring: not wired");
             }
@@ -75,11 +84,11 @@ namespace mock
         public:
             auto addWire( Location location, Channel channel) -> void { mEntries.push_back( { location, channel }); }
 
-            [[nodiscard]] auto find( Location location) const -> Channel
+            [[nodiscard]] auto find( Location location) const -> Path
             {
                 for( const auto & [ loc, channel] : mEntries)
                 {
-                    if( loc == location) return channel;
+                    if( loc == location) return Path{ channel };
                 }
                 throw std::runtime_error( "mock::ConnectorWiring: not wired");
             }

@@ -23,10 +23,10 @@ namespace core
     // concern this header knows nothing about:
     //   - FabricT:           something with .connect(path)/.disconnect(path)
     //                        -- see hal::SwitchFabric
-    //   - InstrumentWiringT: something with .find(instrumentId) -> a channel
-    //                        FabricT::connect()/disconnect() accepts -- see
-    //                        hal::InstrumentWiring
-    //   - ConnectorWiringT:  something with .find(location) -> a channel
+    //   - InstrumentWiringT: something with .find(instrumentId) -> a
+    //                        hal::Path FabricT::connect()/disconnect()
+    //                        accepts -- see hal::InstrumentWiring
+    //   - ConnectorWiringT:  something with .find(location) -> a hal::Path
     //                        FabricT::connect()/disconnect() accepts -- see
     //                        hal::ConnectorWiring
     //
@@ -89,9 +89,19 @@ namespace core
 
                 auto liveRead = [&]() -> QuantityVariant
                 {
-                    const auto instrumentChannel = mInstrumentWiring.find( instrumentId);
-                    const auto connectorChannel  = mConnectorWiring.find( Loc);
-                    const auto path               = std::vector{ instrumentChannel, connectorChannel };
+                    //
+                    // Each side's Path (see hal/switch_fabric.hpp) may be
+                    // more than one element -- a mux narrowing down to a
+                    // matrix, or an instrument passing through more than
+                    // one relay before its own dedicated matrix column --
+                    // so the composed route is a concatenation, not a
+                    // fixed two-element list the way it used to be when
+                    // both sides were always exactly one hop.
+                    //
+                    auto path              = mInstrumentWiring.find( instrumentId);
+                    const auto connectorPath = mConnectorWiring.find( Loc);
+
+                    path.insert( path.end(), connectorPath.begin(), connectorPath.end());
 
                     //
                     // Connect just long enough to take the reading, then
@@ -102,8 +112,8 @@ namespace core
                     // comment), so this never disturbs a path some other
                     // instrument is holding open right now (e.g. a supply
                     // parked on the very point being read here) -- it only
-                    // ever opens its own two channels back up, and only
-                    // once nothing else still needs them.
+                    // ever opens its own channels back up, and only once
+                    // nothing else still needs them.
                     //
                     mFabric.connect( path);
 
