@@ -56,6 +56,21 @@ namespace core
         //
         std::optional<double>  LowThreshold;
         std::optional<double>  HighThreshold;
+
+        //
+        // Whether this one reading needs its sense leads routed alongside
+        // the force path -- a 4-wire (Kelvin) resistance measurement, most
+        // often. Plain bool rather than std::optional<bool>: there's no
+        // meaningful "unset" state the way Range/Nplc have (no configured
+        // range yet) -- a reading either needs sense wired in addition to
+        // force, or it doesn't, and false is the correct default for
+        // every instrument that never uses this field at all. See
+        // core::MeasureEngine's own comment for what reading it true
+        // actually does, and hal::InstrumentWiring::findSense()/
+        // hal::ConnectorWiring::findSense() for where the sense Path
+        // itself comes from.
+        //
+        bool  RequiresSensePath{ false };
     };
 
     //
@@ -126,6 +141,25 @@ namespace core
             {
                 auto copy = *this;
                 copy.mSetup.HighThreshold = fraction;
+                return copy;
+            }
+
+            //
+            // Marks this one reading as needing its sense leads routed
+            // too -- see MeasureSetup::RequiresSensePath's own comment.
+            // Always true when called (there's no argument -- a reading
+            // either wants its sense path or it doesn't, and not calling
+            // this at all is how "doesn't" is spelled), so an instrument's
+            // 4-wire-style builder method (e.g. hal::L4411A::
+            // fourWireResistance()) just chains it on unconditionally,
+            // the same way riseTime()/fallTime() chain lowThreshold()/
+            // highThreshold() on unconditionally.
+            //
+            [[nodiscard]]
+            auto requiresSensePath() const -> Port
+            {
+                auto copy = *this;
+                copy.mSetup.RequiresSensePath = true;
                 return copy;
             }
 

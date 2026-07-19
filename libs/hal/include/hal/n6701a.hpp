@@ -270,14 +270,20 @@ namespace hal
     //
     // ADL targets for core::ConnectEngine/DisconnectEngine -- see
     // core/apply.hpp's own comment on the connectDriver/disconnectDriver
-    // customization points. Closes -- or opens -- exactly this instrument's
-    // one fixed path (usually one hop, but see hal::InstrumentWiring's own
-    // comment -- find() returns whatever Path is actually wired). No
-    // connector-side hop: there is no connector path to look up any more
-    // (see N6701AConfig's own comment), so connectorWiring is accepted (for
-    // signature symmetry with every other instrument's connectDriver/
-    // disconnectDriver, all called through the same
-    // core::ConnectEngine/DisconnectEngine) but never consulted here.
+    // customization points. Closes -- or opens -- every fixed path
+    // registered for this instrument, together (see
+    // hal::InstrumentWiring::findAll() and hal::WireRole's own comment on
+    // why force and any sense leads are meant to move as one unit here,
+    // unlike a DMM's per-measurement sense choice). For most N6701A
+    // instances that's just the one force channel -- findAll() over a
+    // single entry behaves identically to find() -- but if this rig ever
+    // wires remote-sense leads for a given DcP instance (WIRE_INSTRUMENT_SENSE
+    // in hal/wiring.inc), they close and open right along with it, no
+    // driver change needed. No connector-side hop: there is no connector
+    // path to look up any more (see N6701AConfig's own comment), so
+    // connectorWiring is accepted (for signature symmetry with every other
+    // instrument's connectDriver/disconnectDriver, all called through the
+    // same core::ConnectEngine/DisconnectEngine) but never consulted here.
     //
     // One generic template, constrained by SwitchableIsolation, rather
     // than one overload per relay-having tag -- see that concept's own
@@ -291,13 +297,13 @@ namespace hal
         requires SwitchableIsolation<Isolation>
     auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const N6701AConfig<Isolation> & config) -> void
     {
-        fabric.connect( instrumentWiring.find( config.Instrument.id()));
+        fabric.connect( instrumentWiring.findAll( config.Instrument.id()));
     }
 
     template<typename Isolation>
         requires SwitchableIsolation<Isolation>
     auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const N6701AConfig<Isolation> & config) -> void
     {
-        fabric.disconnect( instrumentWiring.find( config.Instrument.id()));
+        fabric.disconnect( instrumentWiring.findAll( config.Instrument.id()));
     }
 } // namespace hal

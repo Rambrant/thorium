@@ -98,10 +98,30 @@ namespace core
                     // fixed two-element list the way it used to be when
                     // both sides were always exactly one hop.
                     //
-                    auto path              = mInstrumentWiring.find( instrumentId);
+                    auto path                = mInstrumentWiring.find( instrumentId);
                     const auto connectorPath = mConnectorWiring.find( Loc);
 
                     path.insert( path.end(), connectorPath.begin(), connectorPath.end());
+
+                    //
+                    // A 4-wire (Kelvin) reading additionally needs its
+                    // sense leads routed, on both sides -- see
+                    // core::MeasureSetup::RequiresSensePath's own comment
+                    // for why this is a per-reading flag rather than
+                    // something InstrumentWiring/ConnectorWiring decide on
+                    // their own. Deliberately separate find()/findSense()
+                    // calls, not one combined lookup: a plain 2-wire
+                    // reading on the very same instrument must never touch
+                    // the sense channels at all.
+                    //
+                    if( port.setup().RequiresSensePath)
+                    {
+                        const auto instrumentSense = mInstrumentWiring.findSense( instrumentId);
+                        const auto connectorSense  = mConnectorWiring.findSense( Loc);
+
+                        path.insert( path.end(), instrumentSense.begin(), instrumentSense.end());
+                        path.insert( path.end(), connectorSense.begin(), connectorSense.end());
+                    }
 
                     //
                     // Connect just long enough to take the reading, then

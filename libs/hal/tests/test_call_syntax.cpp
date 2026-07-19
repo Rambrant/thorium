@@ -21,6 +21,7 @@
 //
 #include "hal/n6701a.hpp"
 #include "hal/dso8064.hpp"
+#include "hal/l4411a.hpp"
 #include "hal/apply.hpp"
 #include "hal/measure.hpp"
 
@@ -37,12 +38,14 @@ namespace
 {
     constexpr hal::VpcLocation kOutput5V{ hal::VpcRack::A, 1, 3 };
     constexpr hal::VpcLocation kClockOut{ hal::VpcRack::A, 1, 4 };
+    constexpr hal::VpcLocation kResistancePoint{ hal::VpcRack::A, 1, 6 };
 
     // Output5V/ClockOut are only ever named on the Measure() side below --
     // DcP3 reaches the same physical Output5V pin too, but as a fixed wire,
     // not as an at(...) argument (see hal::N6701A's own comment).
-    constexpr core::AdapterPointTag<kOutput5V, core::QuantityKind::Voltage> Output5V{ "Output5V", "5Vdc supply port" };
-    constexpr core::AdapterPointTag<kClockOut, core::QuantityKind::Time>    ClockOut{ "ClockOut", "clock edge test point" };
+    constexpr core::AdapterPointTag<kOutput5V, core::QuantityKind::Voltage>    Output5V{ "Output5V", "5Vdc supply port" };
+    constexpr core::AdapterPointTag<kClockOut, core::QuantityKind::Time>      ClockOut{ "ClockOut", "clock edge test point" };
+    constexpr core::AdapterPointTag<kResistancePoint, core::QuantityKind::Resistance> ResistancePoint{ "ResistancePoint", "4-wire Kelvin test point" };
 
     struct CallSyntaxFixture : ::testing::Test
     {
@@ -52,6 +55,7 @@ namespace
 
         hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, 3 };
         hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+        hal::L4411A  dmm1{ hal::InstrumentId::Dmm1 };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};
@@ -67,9 +71,18 @@ namespace
             // (or pollute) the rig's real global wiring tables.
             instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 });
             instrumentWiring.addWire( hal::InstrumentId::Osc1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 10 });
+            instrumentWiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 14 });
 
             connectorWiring.addWire( kOutput5V, { hal::SwitchDeviceKind::Mux, "Mux1", 3 });
             connectorWiring.addWire( kClockOut, { hal::SwitchDeviceKind::Mux, "Mux1", 4 });
+            connectorWiring.addWire( kResistancePoint, { hal::SwitchDeviceKind::Mux, "Mux1", 6 });
+
+            // Dmm1's sense terminals and ResistancePoint's own sense mux
+            // channel -- only ever touched by a 4-wire reading (see
+            // core::MeasureEngine's own comment on RequiresSensePath);
+            // a plain 2-wire resistance() call never looks these up.
+            instrumentWiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 15 }, hal::WireRole::Sense);
+            connectorWiring.addWire( kResistancePoint, { hal::SwitchDeviceKind::Mux, "Mux1", 7 }, hal::WireRole::Sense);
         }
     };
 } // namespace
@@ -167,4 +180,35 @@ TEST_F( CallSyntaxFixture, DcSourceAndScopeUseCompletelyDisjointFabricChannelsNo
     disconnect( dcP3.dc());
 
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
+}
+
+TEST_F( CallSyntaxFixture, TwoWireResistanceNeverTouchesTheSenseChannels)
+{
+    dmm1.setSimulatedResistance( 100.0_Ohm);
+
+    const auto reading = Measure( dmm1.resistance(), at( ResistancePoint));
+
+    EXPECT_DOUBLE_EQ( reading.value(), 100.0);
+    // Sense channels were never closed at all -- not even briefly -- since
+    // a plain 2-wire reading's Port never sets RequiresSensePath.
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 15 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    7 }));
+}
+
+TEST_F( CallSyntaxFixture, FourWireResistanceRoutesForceAndSenseTogetherThenReleasesBoth)
+{
+    dmm1.setSimulatedFourWireResistance( 99.5_Ohm);
+
+    const auto reading = Measure( dmm1.fourWireResistance(), at( ResistancePoint));
+
+    EXPECT_DOUBLE_EQ( reading.value(), 99.5);
+
+    // All four channels -- force (instrument + connector) and sense
+    // (instrument + connector) -- were closed together for the reading,
+    // then released together, exactly like the force-only case but with
+    // two more elements in the same Path.
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 14 })); // force, instrument side
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    6 }));  // force, connector side
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 15 })); // sense, instrument side
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    7 }));  // sense, connector side
 }

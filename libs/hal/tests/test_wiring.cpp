@@ -117,3 +117,97 @@ TEST( HalConnectorWiring, RfMuxHopsComposeThroughTheDeclarativeWiringMacrosLikeA
         hal::SwitchElementId{ hal::SwitchDeviceKind::RfMux,  "RfMux1",  2 },
         hal::SwitchElementId{ hal::SwitchDeviceKind::Matrix, "Matrix2", 30 } }));
 }
+
+TEST( HalInstrumentWiring, FindOnlyEverReturnsForceRoleEntriesNotSense)
+{
+    hal::InstrumentWiring wiring;
+    hal::SwitchElementId  force{ hal::SwitchDeviceKind::Matrix, "Matrix2", 14 };
+    hal::SwitchElementId  sense{ hal::SwitchDeviceKind::Matrix, "Matrix2", 15 };
+
+    wiring.addWire( hal::InstrumentId::Dmm1, force);
+    wiring.addWire( hal::InstrumentId::Dmm1, sense, hal::WireRole::Sense);
+
+    EXPECT_EQ( wiring.find( hal::InstrumentId::Dmm1), (hal::Path{ force }));
+}
+
+TEST( HalInstrumentWiring, FindSenseReturnsOnlyTheSenseRoleEntry)
+{
+    hal::InstrumentWiring wiring;
+    hal::SwitchElementId  force{ hal::SwitchDeviceKind::Matrix, "Matrix2", 14 };
+    hal::SwitchElementId  sense{ hal::SwitchDeviceKind::Matrix, "Matrix2", 15 };
+
+    wiring.addWire( hal::InstrumentId::Dmm1, force);
+    wiring.addWire( hal::InstrumentId::Dmm1, sense, hal::WireRole::Sense);
+
+    EXPECT_EQ( wiring.findSense( hal::InstrumentId::Dmm1), (hal::Path{ sense }));
+}
+
+TEST( HalInstrumentWiring, FindSenseThrowsWhenNoSenseEntryIsRegistered)
+{
+    hal::InstrumentWiring wiring;
+    wiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 14 });
+
+    // Dmm1 has a Force entry but no Sense one -- a 4-wire measurement
+    // attempted on it should fail loudly, not silently fall back to force.
+    EXPECT_THROW( (void)wiring.findSense( hal::InstrumentId::Dmm1), std::runtime_error);
+}
+
+TEST( HalInstrumentWiring, FindAllIgnoresRoleAndReturnsForceAndSenseTogether)
+{
+    // findAll() is the "close everything for this instrument together"
+    // lookup -- see its own comment -- so unlike find()/findSense(), it
+    // deliberately does not filter by role at all.
+    hal::InstrumentWiring wiring;
+    hal::SwitchElementId  force{ hal::SwitchDeviceKind::Matrix, "Matrix2", 20 };
+    hal::SwitchElementId  sense{ hal::SwitchDeviceKind::Matrix, "Matrix2", 21 };
+
+    wiring.addWire( hal::InstrumentId::DcP3, force);
+    wiring.addWire( hal::InstrumentId::DcP3, sense, hal::WireRole::Sense);
+
+    EXPECT_EQ( wiring.findAll( hal::InstrumentId::DcP3), (hal::Path{ force, sense }));
+}
+
+TEST( HalInstrumentWiring, WireInstrumentSenseMacroTagsTheEntryAsSense)
+{
+    using namespace hal; // WIRE_INSTRUMENT_SENSE expands to unqualified InstrumentId/Path/WireRole, as it does inside INSTRUMENT_WIRING's own namespace hal {} block
+
+    hal::InstrumentWiring w;
+    WIRE_INSTRUMENT_SENSE( Dmm1, HOP( Matrix, "Matrix2", 15));
+
+    EXPECT_EQ( w.findSense( hal::InstrumentId::Dmm1), (hal::Path{ { hal::SwitchDeviceKind::Matrix, "Matrix2", 15 } }));
+    EXPECT_THROW( (void)w.find( hal::InstrumentId::Dmm1), std::runtime_error);
+}
+
+TEST( HalConnectorWiring, FindSenseReturnsOnlyTheSenseRoleEntry)
+{
+    hal::ConnectorWiring wiring;
+    hal::VpcLocation     location{ hal::VpcRack::A, 1, 3 };
+    hal::SwitchElementId force{ hal::SwitchDeviceKind::Mux, "Mux1", 3 };
+    hal::SwitchElementId sense{ hal::SwitchDeviceKind::Mux, "Mux1", 4 };
+
+    wiring.addWire( location, force);
+    wiring.addWire( location, sense, hal::WireRole::Sense);
+
+    EXPECT_EQ( wiring.find( location),      (hal::Path{ force }));
+    EXPECT_EQ( wiring.findSense( location), (hal::Path{ sense }));
+}
+
+TEST( HalConnectorWiring, FindSenseThrowsWhenNoSenseEntryIsRegistered)
+{
+    hal::ConnectorWiring wiring;
+    hal::VpcLocation     location{ hal::VpcRack::A, 1, 3 };
+    wiring.addWire( location, { hal::SwitchDeviceKind::Mux, "Mux1", 3 });
+
+    EXPECT_THROW( (void)wiring.findSense( location), std::runtime_error);
+}
+
+TEST( HalConnectorWiring, WireConnectorSenseMacroTagsTheEntryAsSense)
+{
+    using namespace hal; // WIRE_CONNECTOR_SENSE expands to unqualified VpcRack/Path/WireRole, as it does inside CONNECTOR_WIRING's own namespace hal {} block
+
+    hal::ConnectorWiring w;
+    WIRE_CONNECTOR_SENSE( A, 1, 3, HOP( Mux, "Mux1", 4));
+
+    EXPECT_EQ( w.findSense( ( hal::VpcLocation{ hal::VpcRack::A, 1, 3 })),
+               (hal::Path{ { hal::SwitchDeviceKind::Mux, "Mux1", 4 } }));
+}

@@ -130,6 +130,37 @@ TEST_F( SourceInstrumentFixture, DcConnectClosesExactlyTheOneFixedChannel)
     EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
 }
 
+TEST( SourceInstrument, DcConnectClosesRemoteSenseLeadsTogetherWithForceWhenTheyAreWired)
+{
+    // Not every DC rail has remote-sense leads wired at all -- most of
+    // this rig's don't (see the shared fixture above, which never adds a
+    // Sense entry for DcP3). When one does, hal::N6701A's connectDriver
+    // uses findAll() (see that header's own comment), which doesn't
+    // filter by role -- so a WIRE_INSTRUMENT_SENSE entry closes/opens
+    // together with the force channel automatically, no driver change
+    // needed to support it.
+    hal::SwitchFabric      fabric;
+    hal::InstrumentWiring  instrumentWiring;
+    hal::ConnectorWiring   connectorWiring;
+    hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, 3 };
+
+    instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 });
+    instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 25 }, hal::WireRole::Sense);
+
+    ConnectEngine    connect{    fabric, instrumentWiring, connectorWiring };
+    DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };
+
+    connect( dcP3.dc());
+
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 })); // force
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 25 })); // sense
+
+    disconnect( dcP3.dc());
+
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 25 }));
+}
+
 TEST_F( SourceInstrumentFixture, DcConnectAndDisconnectDoNotDisturbAnUnrelatedAlreadyConnectedPath)
 {
     // acP1's phase A and dcP3's relay are two independent fixed channels.

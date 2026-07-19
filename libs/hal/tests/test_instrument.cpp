@@ -251,6 +251,14 @@ TEST( HalInstrument, L4411AResistanceAfterFourWireResistanceSwitchesBackToTwoWir
     EXPECT_DOUBLE_EQ( dmm1.resistance().rawMeasure().value(), 100.0);
 }
 
+TEST( HalInstrument, L4411AFourWireResistanceRequiresTheSensePathButTwoWireDoesNot)
+{
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+
+    EXPECT_FALSE( dmm1.resistance().setup().RequiresSensePath);
+    EXPECT_TRUE(  dmm1.fourWireResistance().setup().RequiresSensePath);
+}
+
 TEST( HalInstrument, PortRangeNplcAndFrequencyChainWithoutAffectingTheReading)
 {
     hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };

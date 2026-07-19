@@ -75,6 +75,19 @@ namespace mock
                 throw std::runtime_error( "mock::InstrumentWiring: not wired");
             }
 
+            //
+            // No sense-wired instrument in this mock's tests -- always
+            // throws, exactly like the real hal::InstrumentWiring::
+            // findSense() would for an instrument nobody wired sense
+            // leads for. Exists purely to satisfy core::MeasureEngine's
+            // structural requirement (see that class's own comment on
+            // RequiresSensePath) -- this file has no 4-wire-style test.
+            //
+            [[nodiscard]] auto findSense( InstrumentId ) const -> Path
+            {
+                throw std::runtime_error( "mock::InstrumentWiring: no sense wiring in this mock");
+            }
+
         private:
             std::vector<std::pair<InstrumentId, Channel>> mEntries;
     };
@@ -91,6 +104,12 @@ namespace mock
                     if( loc == location) return Path{ channel };
                 }
                 throw std::runtime_error( "mock::ConnectorWiring: not wired");
+            }
+
+            // See mock::InstrumentWiring::findSense()'s own comment.
+            [[nodiscard]] auto findSense( Location ) const -> Path
+            {
+                throw std::runtime_error( "mock::ConnectorWiring: no sense wiring in this mock");
             }
 
         private:

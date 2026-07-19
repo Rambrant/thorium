@@ -33,8 +33,8 @@ namespace hal
     enum class SwitchDeviceKind
     {
         Matrix, // RACAL 1260 VXI matrix card
-        Mux,    // Agilent E1472A multiplexer
-        RfMux   // RF multiplexer -- impedance-controlled, kept off the LF fabric entirely
+        Mux,    // LF multiplexer -- VXI modules configured as 8x12->1 or 2x48->1 2-wire multiplexers
+        RfMux   // HF/RF selector -- Agilent E1472A VXI modules, each 6 x 1x4 multiplexers
     };
 
     //
@@ -76,10 +76,11 @@ namespace hal
 
     //
     // The switching fabric sitting between the instruments and the VPC array:
-    // every RACAL 1260 matrix card and every Agilent E1472A mux in the
-    // signal chain, addressed uniformly by SwitchElementId. On real hardware
-    // close()/open() would be GPIB/VXI writes to the relevant card; here they
-    // just track state so routing logic can be exercised and asserted on.
+    // every RACAL 1260 matrix card, LF mux, and Agilent E1472A RF selector in
+    // the signal chain, addressed uniformly by SwitchElementId. On real
+    // hardware close()/open() would be GPIB/VXI writes to the relevant card;
+    // here they just track state so routing logic can be exercised and
+    // asserted on.
     //
     // Each element's state is a use count, not a plain bool: a physical
     // relay is either open or closed, but two independent callers can both

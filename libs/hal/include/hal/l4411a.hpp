@@ -95,13 +95,19 @@ namespace hal
 
             //
             // 4-wire (Kelvin) ohms: separate sense leads cancel out lead
-            // resistance, same as pressing the front-panel 4W OHMS key.
+            // resistance, same as pressing the front-panel 4W OHMS key --
+            // requiresSensePath() (see core/port.hpp) is what actually
+            // tells core::MeasureEngine to route this instrument's sense
+            // channel and the DUT point's sense channel alongside the
+            // normal force path, only for this one reading. A plain
+            // resistance() call above never sets it, so a 2-wire reading
+            // on this same instrument never touches sense at all.
             //
             [[nodiscard]]
             auto fourWireResistance() -> core::Port<core::quantities::Resistance, L4411A>
             {
                 mResistanceMode = ResistanceMode::FourWire;
-                return core::Port<core::quantities::Resistance, L4411A>{ *this };
+                return core::Port<core::quantities::Resistance, L4411A>{ *this }.requiresSensePath();
             }
 
             [[nodiscard]]
