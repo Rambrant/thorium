@@ -1,15 +1,19 @@
 #include "hal/safing.hpp"
 
-#include "hal/active_instruments.hpp"
+#include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/instrument.hpp"
 
 namespace hal
 {
     //
     // The safing pass itself. The instrument list is not written out here
-    // -- it is hal/instrument.inc, re-expanded a second time with
+    // -- it is the linking rig's instrument.inc (rig/instrument.inc in this
+    // repo, reached via THORIUM_INSTRUMENT_TABLE -- see
+    // hal/instrument.hpp's own comment on THORIUM_INSTRUMENT_IDS for why
+    // this file, being generic hal code shared by every rig, can't name any
+    // one rig's instrument.inc directly), re-expanded a second time with
     // INSTRUMENT redefined to call safe() instead of declaring a global.
-    // hal/active_instruments.hpp already expanded the same file once, with
+    // rig/active_instruments.hpp already expanded the same file once, with
     // the declaring definition; this is the same X-macro-with-two-meanings
     // pattern the criteria variants use for their parity checks, and for
     // the same reason: a hand-maintained list of instruments to safe would
@@ -66,7 +70,7 @@ namespace hal
         // peers -- a real constraint this file cannot express -- that is
         // when an explicit order earns its place.
         //
-#include "libs/hal/instrument.inc"
+#include THORIUM_INSTRUMENT_TABLE
 
 #pragma pop_macro( "INSTRUMENT")
 

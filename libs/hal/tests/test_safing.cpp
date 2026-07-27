@@ -1,6 +1,6 @@
 #include "hal/safing.hpp"
 
-#include "hal/active_instruments.hpp"
+#include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/ac6677a.hpp"
 #include "hal/dso8064.hpp"
 #include "hal/instrument.hpp"

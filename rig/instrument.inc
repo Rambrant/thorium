@@ -1,10 +1,12 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// This rig's fixed, concrete instrument list -- see hal/active_instruments.hpp's
+// This rig's fixed, concrete instrument list -- see rig/active_instruments.hpp's
 // own comment for the INSTRUMENTS/INSTRUMENT/END_INSTRUMENTS macros this
-// expands through, and hal/wiring.inc for the sibling fact (which channel
-// each of these instruments is wired to).
+// expands through, and rig/wiring.inc for the sibling fact (which channel
+// each of these instruments is wired to). rig/instrument_id.inc is the
+// third sibling -- the identities (Osc1, Dmm1, ...) themselves, generated
+// into hal::InstrumentId rather than declared here.
 //
 // DcP1..DcP4 are the N6701A mainframe's four module slots, each its own
 // hal::N6701A instance -- see that class's own comment in hal/n6701a.hpp

@@ -1,3 +1,33 @@
+# --- Rig-specific data this library needs but does not itself define ---
+# hal is a generic instrument-driver + switching-fabric library -- meant to
+# be linked by many rigs testing many DUTs, not just this repo's (see
+# README.md) -- so it cannot hardcode which instruments a given rig has,
+# how they're wired, or what to call them. Whoever configures a build that
+# includes this directory supplies that as four file paths: this repo's own
+# top-level CMakeLists.txt does it below (pointing at ./rig/), the same way
+# a separate rig's own top-level CMakeLists.txt would after pulling this
+# library in via add_subdirectory/FetchContent. Same compile-definition-
+# swap mechanism core/active_criteria.hpp already uses for
+# THORIUM_ACTIVE_CRITERIA/THORIUM_TEST_CATALOG -- see rig/README.md for
+# what each of these four files actually contains.
+set(THORIUM_INSTRUMENT_IDS "" CACHE FILEPATH
+    "Path to the linking rig's instrument_id.inc (hal::InstrumentId's enumerators)")
+set(THORIUM_ACTIVE_INSTRUMENTS "" CACHE FILEPATH
+    "Path to the linking rig's active_instruments.hpp (its concrete instrument globals + fabric)")
+set(THORIUM_INSTRUMENT_TABLE "" CACHE FILEPATH
+    "Path to the linking rig's instrument.inc (its fixed instrument list)")
+set(THORIUM_WIRING_TABLE "" CACHE FILEPATH
+    "Path to the linking rig's wiring.inc (its fixed instrument/connector wiring)")
+
+foreach(_thorium_rig_var THORIUM_INSTRUMENT_IDS THORIUM_ACTIVE_INSTRUMENTS THORIUM_INSTRUMENT_TABLE THORIUM_WIRING_TABLE)
+    if(NOT ${_thorium_rig_var} OR NOT EXISTS "${${_thorium_rig_var}}")
+        message(FATAL_ERROR
+            "${_thorium_rig_var} must point at an existing file -- hal is a generic "
+            "library and needs the linking rig to supply its own instrument/wiring "
+            "data before it will configure; see libs/hal/README.md.")
+    endif()
+endforeach()
+
 add_library(hal STATIC
     src/vpc_location.cpp
     src/switch_fabric.cpp
@@ -9,7 +39,6 @@ add_library(hal STATIC
     include/hal/vpc_location.hpp   # header-only
     include/hal/switch_fabric.hpp  # header-only
     include/hal/instrument.hpp     # header-only
-    include/hal/active_instruments.hpp    # header-only
     include/hal/wiring.hpp         # header-only
     include/hal/adapter.hpp        # header-only
     include/hal/measure.hpp        # header-only
@@ -19,8 +48,6 @@ add_library(hal STATIC
     include/hal/ac6677a.hpp        # header-only
     include/hal/l4411a.hpp         # header-only
     include/hal/dso8064.hpp        # header-only
-    wiring.inc                     # content only; not compiled directly, see README.md
-    instrument.inc                 # content only; not compiled directly, see README.md
 )
 
 target_include_directories(hal PUBLIC
@@ -29,13 +56,21 @@ target_include_directories(hal PUBLIC
 
 target_link_libraries(hal PUBLIC core)
 
-# src/measure.cpp/src/apply.cpp #include wiring.inc (this rig's fixed wiring
-# data), and include/hal/active_instruments.hpp #includes instrument.inc (this
-# rig's fixed instrument list), via a repo-root-relative path, the same
-# convention libs/dut/*.inc already use -- see wiring.inc's own comment.
-# src/safing.cpp #includes instrument.inc a second time, with INSTRUMENT
-# redefined to safe each instance rather than declare it -- see that file.
-target_include_directories(hal PRIVATE ${CMAKE_SOURCE_DIR})
+# PUBLIC: hal/instrument.hpp (a public header) expands THORIUM_INSTRUMENT_IDS
+# itself, and rig/active_instruments.hpp -- reached through
+# THORIUM_ACTIVE_INSTRUMENTS by hal's own src/apply.cpp, src/measure.cpp,
+# src/safing.cpp -- is also #included directly by consumers outside this
+# library (suite/scripts.hpp, hal_tests' test_safing.cpp). All four need to
+# reach anyone linking hal, transitively, the same reason
+# THORIUM_TEST_CATALOG/THORIUM_TEST_SCRIPTS are PUBLIC on app/'s scripts
+# target rather than PRIVATE like THORIUM_ACTIVE_CRITERIA (whose only
+# consumer is scripts' own .cpp files).
+target_compile_definitions(hal PUBLIC
+    THORIUM_INSTRUMENT_IDS="${THORIUM_INSTRUMENT_IDS}"
+    THORIUM_ACTIVE_INSTRUMENTS="${THORIUM_ACTIVE_INSTRUMENTS}"
+    THORIUM_INSTRUMENT_TABLE="${THORIUM_INSTRUMENT_TABLE}"
+    THORIUM_WIRING_TABLE="${THORIUM_WIRING_TABLE}"
+)
 
 if(BUILD_TESTING_LAYERS)
     add_layer_tests(hal hal
@@ -47,14 +82,4 @@ if(BUILD_TESTING_LAYERS)
         tests/test_call_syntax.cpp
         tests/test_safing.cpp
     )
-
-    # tests/test_safing.cpp is the first hal test to drive this rig's actual
-    # global instruments rather than locals of its own -- hal::safeRig()
-    # takes no arguments, so there is no substitute rig to hand it (see
-    # hal/safing.hpp). That means including hal/active_instruments.hpp,
-    # which reaches instrument.inc by a repo-root-relative path, so this
-    # test executable needs the same include directory the hal library
-    # itself does above. Same reason scripts_tests takes it in
-    # app/CMakeLists.txt.
-    target_include_directories(hal_tests PRIVATE ${CMAKE_SOURCE_DIR})
 endif()

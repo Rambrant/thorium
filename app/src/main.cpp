@@ -29,8 +29,8 @@
 // reach into the dead process's hal::fabric to open anything -- so it
 // re-invokes this same binary with --safe instead, which is why the mode
 // lives here rather than in a separate tool. Using the suite binary itself
-// matters: it was built against this rig's exact hal (see
-// hal/instrument.inc), so it needs no independent description of what
+// matters: it was built against this rig's exact instrument list (see
+// rig/instrument.inc), so it needs no independent description of what
 // instruments exist to safe, and cannot disagree with the run it is
 // cleaning up after.
 //

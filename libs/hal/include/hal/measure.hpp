@@ -25,7 +25,8 @@ using MeasureEngine = core::MeasureEngine<hal::SwitchFabric, hal::InstrumentWiri
 // Measure.inject(...), Measure.useLive(),
 // Measure.startRecording()/stopRecording()/dump(...), Measure.load(...) --
 // rather than a separate device/session parameter threaded through every
-// call. Defined once in hal/measure.cpp, wired to this rig's fabric and
-// its two static wiring tables (see hal/wiring.inc).
+// call. Defined once in hal/measure.cpp, wired to the linking rig's fabric
+// and its two static wiring tables (see that rig's wiring.inc --
+// rig/wiring.inc in this repo).
 //
 extern MeasureEngine Measure;

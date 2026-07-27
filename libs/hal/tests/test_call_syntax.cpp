@@ -8,7 +8,7 @@
 // ConnectEngine/DisconnectEngine/RemoveEngine from hal/measure.hpp and
 // hal/apply.hpp) end to end, exactly the call syntax a script would write,
 // just against a local fixture rather than the rig's real global fabric/
-// wiring/instruments (see hal/active_instruments.hpp) so tests don't share
+// wiring/instruments (see rig/active_instruments.hpp) so tests don't share
 // state with each other.
 //
 // This also demonstrates the two shapes Connect/Disconnect can take side by
@@ -65,7 +65,7 @@ namespace
 
         CallSyntaxFixture()
         {
-            // Same shape as hal/wiring.inc's real entries -- DcP3's one
+            // Same shape as the rig's real wiring.inc entries -- DcP3's one
             // fixed channel on Matrix2/24, Osc1 routed through Matrix2/10
             // -- just declared locally so this fixture doesn't depend on
             // (or pollute) the rig's real global wiring tables.

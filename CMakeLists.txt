@@ -58,9 +58,30 @@ if(BUILD_TESTING_LAYERS)
     include(cmake/FetchGTest.cmake)
 endif()
 
+# --- This rig's data for the generic hal library ---
+# libs/hal is a generic instrument-driver + switching-fabric library with no
+# instruments plugged into it at all -- it needs a rig to supply which
+# instruments exist, how they're wired, and what to call them, as four file
+# paths (see libs/hal/CMakeLists.txt's own comment). This repo IS that one
+# rig for now, so it points them at ./rig/ here; a separate rig repo pulling
+# hal in later would set these same four variables pointing at its own
+# rig/-equivalent instead -- see rig/README.md.
+set(THORIUM_INSTRUMENT_IDS "${CMAKE_SOURCE_DIR}/rig/instrument_id.inc" CACHE FILEPATH "" FORCE)
+set(THORIUM_ACTIVE_INSTRUMENTS "${CMAKE_SOURCE_DIR}/rig/active_instruments.hpp" CACHE FILEPATH "" FORCE)
+set(THORIUM_INSTRUMENT_TABLE "${CMAKE_SOURCE_DIR}/rig/instrument.inc" CACHE FILEPATH "" FORCE)
+set(THORIUM_WIRING_TABLE "${CMAKE_SOURCE_DIR}/rig/wiring.inc" CACHE FILEPATH "" FORCE)
+
 # --- Layers, in dependency order ---
 # core  : foundational utilities, no dependencies on other layers
-# hal   : hardware abstraction layer, depends on core
+# hal   : generic hardware abstraction layer (instrument drivers, switching
+#         fabric, wiring/measure/apply/safing mechanism) -- depends on core,
+#         and on this rig's data above, but knows nothing rig-specific
+#         itself; see libs/hal/README.md
+# rig   : this rig's data only (which instruments it has, how they're
+#         wired, what to call them) -- content only, no library of its own,
+#         the same shape libs/dut/ already uses for DUT-specific data; see
+#         rig/README.md. No add_subdirectory: nothing here has a build
+#         target yet (no rig-level tests), only the files pointed at above.
 # dut   : DUT-specific data only (adapter profile + criteria variants, both
 #         flat macro-driven .inc files -- see libs/dut/README.md) -- no
 #         library of its own, just tests over that data linked against hal

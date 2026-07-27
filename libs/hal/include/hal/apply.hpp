@@ -40,9 +40,9 @@ using DisconnectEngine = core::DisconnectEngine<hal::SwitchFabric, hal::Instrume
 //
 // Apply/Remove and Connect/Disconnect can be called in either relative
 // order -- see core/apply.hpp's own comment. Defined once in hal/apply.cpp,
-// Connect/Disconnect wired to this rig's fabric and its two static wiring
-// tables (see hal/wiring.inc) -- see hal/measure.hpp's own comment, which
-// this mirrors exactly.
+// Connect/Disconnect wired to the linking rig's fabric and its two static
+// wiring tables (see that rig's wiring.inc -- rig/wiring.inc in this repo)
+// -- see hal/measure.hpp's own comment, which this mirrors exactly.
 //
 extern ApplyEngine      Apply;
 extern RemoveEngine     Remove;

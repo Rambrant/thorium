@@ -27,8 +27,9 @@ namespace hal
     // is only ever reached through RfMux hops (see this project's decision
     // not to build a compile-time-checked point-category gate for that
     // kind of DUT-specific judgment call) -- that's left to whoever wires
-    // hal/wiring.inc and writes the test getting it right, the same way it
-    // already is for Matrix vs Mux today.
+    // the rig's wiring.inc (rig/wiring.inc in this repo) and writes the
+    // test getting it right, the same way it already is for Matrix vs Mux
+    // today.
     //
     enum class SwitchDeviceKind
     {

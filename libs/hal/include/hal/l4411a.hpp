@@ -15,9 +15,10 @@ namespace hal
     // 6.5-digit DMM, sharing that model's SCPI dialect and measurement
     // functions exactly (see the instrument's own Getting Started Guide) --
     // this class models that shared function set, not anything specific to
-    // the L4411A's LXI packaging. Dmm1/Dmm2 (see hal/instrument.inc) are two
-    // such instances, exactly the way DcP1..DcP4 are four hal::N6701A
-    // instances -- two distinct wiring facts sharing one C++ type.
+    // the L4411A's LXI packaging. A rig's Dmm1/Dmm2 (see, in this repo,
+    // rig/instrument.inc) are two such instances, exactly the way
+    // DcP1..DcP4 are four hal::N6701A instances -- two distinct wiring
+    // facts sharing one C++ type.
     //
     // This retires the old generic hal::Dmm placeholder the same way
     // hal::N6701A/hal::Ac6677A retired the old generic PowerSupply: once the
@@ -127,8 +128,9 @@ namespace hal
             //
             // Written out as an explicit empty body rather than left off
             // and detected as absent, on purpose. safeRig() calls safe()
-            // on every instrument in hal/instrument.inc unconditionally,
-            // so a driver that lacks it fails to compile -- see
+            // on every instrument in the rig's instrument.inc
+            // unconditionally, so a driver that lacks it fails to compile
+            // -- see
             // hal::SafeableInstrument in hal/instrument.hpp. Had safing
             // instead been opt-in (an ADL customization point in the shape
             // of applyDriver/connectDriver, say, defaulting to a no-op for

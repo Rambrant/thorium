@@ -1,6 +1,6 @@
 #include "hal/apply.hpp"
 
-#include "hal/active_instruments.hpp"
+#include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/wiring.hpp"
 
 //
@@ -8,8 +8,13 @@
 // this inline-defined table is fine (and required, since each is a separate
 // translation unit that needs its own declaration of it); see wiring.inc's
 // own comment and hal/measure.cpp for why this isn't duplicated data.
+// THORIUM_WIRING_TABLE is the linking rig's wiring.inc (rig/wiring.inc in
+// this repo) -- see hal/instrument.hpp's own comment on
+// THORIUM_INSTRUMENT_IDS for why this indirection exists at all: this file
+// is generic hal code, shared by every rig, so it cannot name any one
+// rig's wiring.inc directly.
 //
-#include "libs/hal/wiring.inc"
+#include THORIUM_WIRING_TABLE
 
 ApplyEngine      Apply{};
 RemoveEngine     Remove{};

@@ -1,11 +1,23 @@
-# hal/ -- rig hardware facts, Measure, and Apply/Remove
+# hal/ -- generic instrument drivers, switching fabric, Measure, and Apply/Remove
 
-This directory holds everything about the physical rig itself: the
-instruments it has, the VPC90 connector array's coordinate system, the
-matrix/mux switching fabric, this rig's fixed wiring, and the `Measure` and
-`Apply`/`Remove` objects every test script calls through. None of it knows
-what "Device X" is -- DUT-specific data lives under `libs/dut/` instead (see
-its README).
+This directory holds the mechanism, not any one rig's facts: the instrument
+driver classes (`N6701A`, `Ac6677A`, `L4411A`, `DSO8064`), the VPC90
+connector array's coordinate system, the matrix/mux switching fabric, the
+`InstrumentWiring`/`ConnectorWiring` machinery, and the `Measure` and
+`Apply`/`Remove` objects every test script calls through. Meant to be
+linked by many rigs testing many DUTs, not just this repo's -- so nothing
+here knows what "Device X" is (DUT-specific data lives under `libs/dut/`,
+see its README) or what instruments a given rig actually has, how they're
+wired, or what to call them (that's `rig/`, see its own README). A rig
+supplies those as four file paths at configure time -- see
+`THORIUM_INSTRUMENT_IDS`/`THORIUM_ACTIVE_INSTRUMENTS`/
+`THORIUM_INSTRUMENT_TABLE`/`THORIUM_WIRING_TABLE` in this directory's
+`CMakeLists.txt` -- the same compile-definition-swap mechanism
+`core/active_criteria.hpp` already uses for `THORIUM_ACTIVE_CRITERIA`. This
+repo's own top-level `CMakeLists.txt` sets those four to point at `rig/`,
+since this repo is (for now) both the library and its one rig; a separate
+rig repo pulling this library in later would set the same four variables
+pointing at its own `rig/`-equivalent instead.
 
 ## Layout
 
@@ -14,18 +26,21 @@ libs/hal/
     include/hal/
         vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
         switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
-        instrument.hpp     # InstrumentId (measuring side)
-        l4411a.hpp          # hal::L4411A -- Dmm1/Dmm2's concrete type
-        dso8064.hpp         # hal::DSO8064 -- Osc1's concrete type
+        instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_IDS
+        l4411a.hpp          # hal::L4411A -- a generic DMM driver
+        dso8064.hpp         # hal::DSO8064 -- a generic scope driver
         n6701a.hpp          # hal::N6701A/N6701ABuilder -- one N6701A channel
         ac6677a.hpp          # hal::Ac6677A/Ac6677ABuilder, phase()/ThreePhaseWyePoints
-        active_instruments.hpp # Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/fabric -- this rig's instances
         wiring.hpp         # InstrumentWiring/ConnectorWiring + WIRE macros
         adapter.hpp        # ADAPTER/POINT/END_ADAPTER macros
         measure.hpp        # MeasureEngine alias + extern Measure
         apply.hpp           # ApplyEngine/RemoveEngine aliases + extern Apply/Remove
-    wiring.inc             # this rig's fixed instrument/connector wiring
 ```
+
+A rig's own instrument list, wiring data, and concrete instrument
+identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP4`/`AcP1`/`fabric` in
+this repo's case) live in `rig/` at the repo root, not here -- see
+`rig/README.md`.
 
 ## Two static wiring facts, composed at measurement (or sourcing) time
 
@@ -41,8 +56,10 @@ physical facts are only per instrument and per pin. Both
 compose the two into one crosspoint command at the moment a measurement or
 a sourcing call is actually made.
 
-`wiring.inc` -- at this directory's top level, the same convention
-`libs/dut/*.inc` uses -- holds the actual data, built via
+A rig's own `wiring.inc` (`rig/wiring.inc` in this repo, reached from
+`hal/measure.cpp`/`hal/apply.cpp` via `THORIUM_WIRING_TABLE` rather than a
+hardcoded path -- see this directory's own `CMakeLists.txt`) holds the
+actual data, built via
 `INSTRUMENT_WIRING`/`WIRE_INSTRUMENT`/`END_INSTRUMENT_WIRING` and
 `CONNECTOR_WIRING`/`WIRE_CONNECTOR`/`END_CONNECTOR_WIRING` (see
 `wiring.hpp`'s own comment). Each rig has exactly one instance of each
@@ -113,7 +130,11 @@ on `hal::` at all.
 
 ## Instrument identity (DcP1..DcP4/AcP1) vs. instrument class (N6701A/Ac6677A)
 
-Two different naming axes, on purpose:
+`InstrumentId`'s enumerators are rig data, not hal data -- generated from
+`THORIUM_INSTRUMENT_IDS` (`rig/instrument_id.inc` in this repo's case), not
+listed in `instrument.hpp` itself; see this directory's `CMakeLists.txt`.
+Two different naming axes, on purpose, for whatever names a rig actually
+picks:
 
 - **`InstrumentId`/the global names** (`DcP1`, `DcP2`, ..., `AcP1`) name the
   *role* this rig uses the instrument for ("DC power, channel N"), the same

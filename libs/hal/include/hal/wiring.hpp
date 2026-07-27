@@ -189,8 +189,9 @@ namespace hal
 // INSTRUMENT_WIRING / WIRE_INSTRUMENT / WIRE_INSTRUMENT_SENSE /
 // END_INSTRUMENT_WIRING and CONNECTOR_WIRING / WIRE_CONNECTOR /
 // WIRE_CONNECTOR_SENSE / END_CONNECTOR_WIRING: declarative wiring tables,
-// mirroring CRITERIA/CRIT and ADAPTER/POINT -- see hal/wiring.inc. Each rig
-// has exactly one of each table (unlike ADAPTER, which is named per DUT
+// mirroring CRITERIA/CRIT and ADAPTER/POINT -- see a rig's own wiring.inc
+// (rig/wiring.inc in this repo). Each rig has exactly one of each table
+// (unlike ADAPTER, which is named per DUT
 // profile, or CRITERIA, which has several groups per file), so these
 // macros build one fixed, namespaced global apiece rather than taking a
 // name argument.

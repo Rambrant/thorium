@@ -97,8 +97,8 @@ namespace hal
     // threePhaseWye() below takes no points -- connectDriver/
     // disconnectDriver close/open all four of this instrument's fixed
     // channels together (see hal::InstrumentWiring::findAll()), phases and
-    // ground alike, each its own hal/wiring.inc entry under the same
-    // InstrumentId.
+    // ground alike, each its own entry in the rig's wiring.inc under the
+    // same InstrumentId.
     //
     class Ac6677A
     {

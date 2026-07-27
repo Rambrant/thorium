@@ -264,14 +264,15 @@ namespace hal
     };
 
     //
-    // hal/instrument.inc names instruments by these aliases, not by
-    // N6701A<...> directly -- partly readability, partly mechanical: the
-    // INSTRUMENT(type, name, id, ...) macro in hal/active_instruments.hpp
-    // splits its arguments on top-level commas, and N6701A<RelayIsolated>
-    // would be split at the angle brackets' own comma-free content just
-    // fine here, but a bare comma inside a template argument list (as a
-    // future Isolation-like parameter might need) would not be. Plain
-    // identifiers sidestep the question entirely.
+    // A rig's instrument.inc (rig/instrument.inc in this repo) names
+    // instruments by these aliases, not by N6701A<...> directly -- partly
+    // readability, partly mechanical: the INSTRUMENT(type, name, id, ...)
+    // macro in the rig's active_instruments.hpp splits its arguments on
+    // top-level commas, and N6701A<RelayIsolated> would be split at the
+    // angle brackets' own comma-free content just fine here, but a bare
+    // comma inside a template argument list (as a future Isolation-like
+    // parameter might need) would not be. Plain identifiers sidestep the
+    // question entirely.
     //
     using N6701ADirect = N6701A<DirectWiring>;
     using N6701ARelay  = N6701A<RelayIsolated>;
@@ -308,9 +309,9 @@ namespace hal
     // why force and any sense leads are meant to move as one unit here,
     // unlike a DMM's per-measurement sense choice). For most N6701A
     // instances that's just the one force channel -- findAll() over a
-    // single entry behaves identically to find() -- but if this rig ever
+    // single entry behaves identically to find() -- but if a rig ever
     // wires remote-sense leads for a given DcP instance (WIRE_INSTRUMENT_SENSE
-    // in hal/wiring.inc), they close and open right along with it, no
+    // in its wiring.inc), they close and open right along with it, no
     // driver change needed. No connector-side hop: there is no connector
     // path to look up any more (see N6701AConfig's own comment), so
     // connectorWiring is accepted (for signature symmetry with every other

@@ -10,7 +10,7 @@
 //
 // INSTRUMENTS / INSTRUMENT / END_INSTRUMENTS: declarative instrument list,
 // mirroring INSTRUMENT_WIRING/WIRE_INSTRUMENT/END_INSTRUMENT_WIRING in
-// hal/wiring.hpp -- see hal/instrument.inc. Unlike wiring's table (a
+// hal/wiring.hpp -- see rig/instrument.inc. Unlike wiring's table (a
 // single InstrumentWiring object accumulated one addWire() at a time),
 // each INSTRUMENT here declares its own independent global -- Dmm1 IS the
 // DMM plugged into the rig, addressed directly by name, no factory
@@ -27,6 +27,12 @@
 //       INSTRUMENT( N6701A, DcP1, DcP1, 1)
 //   END_INSTRUMENTS
 //
+// This file, together with instrument.inc/wiring.inc/instrument_id.inc
+// right alongside it, is this rig's entire contribution to what would
+// otherwise be a generic hal:: library with no instruments plugged into
+// it at all -- see rig/README.md and hal/README.md for the split this
+// directory boundary is drawing.
+//
 #define INSTRUMENTS
 
 #define INSTRUMENT( type, name, id, ...) \
@@ -34,8 +40,8 @@
 
 #define END_INSTRUMENTS
 
-// This rig's actual instruments -- see hal/instrument.inc's own comment.
-#include "libs/hal/instrument.inc"
+// This rig's actual instruments -- see rig/instrument.inc's own comment.
+#include THORIUM_INSTRUMENT_TABLE
 
 namespace hal
 {
@@ -48,7 +54,7 @@ namespace hal
     // namespaced rather than joining the unqualified globals.
     //
     // The fixed wiring data itself (which channel each instrument/connector
-    // pin is on) lives in hal/wiring.inc, not here -- see hal/wiring.hpp.
+    // pin is on) lives in rig/wiring.inc, not here -- see hal/wiring.hpp.
     //
     inline SwitchFabric fabric;
 } // namespace hal
