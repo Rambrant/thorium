@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <exception>
 #include <iostream>
 #include <string_view>
 #include <vector>
@@ -37,6 +38,14 @@
 // --safe is what you pass when something has already gone wrong, so
 // combining it with a run would mean choosing whether to safe before or
 // after testing -- neither of which is what the flag means.
+//
+// A normal run (no flag, or --select) safes the rig too, on every way out
+// of runTests() below -- completing, or a script throwing -- via
+// hal::RigSafingGuard (see hal/safing.hpp). That's a different situation
+// from --safe's: this process is still alive and its stack is still
+// intact, so there's a scope for a guard to run at the end of, rather
+// than a dead process a supervisor has to clean up after from the
+// outside.
 //
 namespace
 {
@@ -151,7 +160,31 @@ int main( int argc, char ** argv)
         return 0;
     }
 
-    bool allPassed = runTests( selection);
+    bool allPassed;
+
+    {
+        // Guard's scope wraps the run and nothing else -- --list-tests and
+        // --safe above have already returned, and neither one touches an
+        // instrument or the fabric, so there is nothing for this run to
+        // safe on their behalf.
+        hal::RigSafingGuard safeOnExit;
+
+        try
+        {
+            allPassed = runTests( selection);
+        }
+        catch ( const std::exception & e)
+        {
+            // Caught here, not left to escape main(): whether the stack
+            // unwinds for an exception nobody catches is unspecified, and
+            // safeOnExit's destructor running is the entire point of this
+            // block. Reported and turned into a failing exit instead --
+            // same non-zero result a caller already gets from allPassed
+            // being false.
+            std::cerr << "Uncaught exception during test run: " << e.what() << '\n';
+            return 1;
+        }
+    }
 
     std::cout << "\n=== " << (allPassed ? "ALL SCRIPTS PASSED" : "SOME SCRIPTS FAILED") << " ===\n";
 

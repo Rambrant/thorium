@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 
+#include <stdexcept>
+
 using namespace core::literals;
 
 namespace
@@ -219,6 +221,42 @@ TEST( Safing, SourceSafeIsIndependentOfRemoveAndNeedsNoFabricOrWiring)
 
     EXPECT_FALSE( dcP3.isEnabled());
     EXPECT_DOUBLE_EQ( dcP3.outputVoltage().value(), 0.0);
+}
+
+TEST_F( SafingFixture, RigSafingGuardSafesOnNormalScopeExit)
+{
+    {
+        hal::RigSafingGuard safeOnExit;
+
+        energiseEverything();
+        ASSERT_TRUE( DcP1.isEnabled());
+    }
+
+    EXPECT_FALSE( DcP1.isEnabled());
+    EXPECT_FALSE( hal::fabric.isClosed( someElement));
+}
+
+TEST_F( SafingFixture, RigSafingGuardSafesWhenUnwoundByAnException)
+{
+    // The case the guard exists for: a script throwing partway through,
+    // same as core::asQuantity does on a kind mismatch (see
+    // core/quantity_kind.hpp). The guard's destructor has to run during
+    // that unwind, not only on the return path energiseEverything() itself
+    // takes.
+    energiseEverything();
+    ASSERT_TRUE( DcP1.isEnabled());
+
+    try
+    {
+        hal::RigSafingGuard safeOnExit;
+        throw std::runtime_error( "script blew up mid-measurement");
+    }
+    catch ( const std::runtime_error &)
+    {
+    }
+
+    EXPECT_FALSE( DcP1.isEnabled());
+    EXPECT_FALSE( hal::fabric.isClosed( someElement));
 }
 
 TEST( Safing, DirectWiredSupplySafesTheSameWayARelayIsolatedOneDoes)

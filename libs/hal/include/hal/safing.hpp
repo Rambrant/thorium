@@ -59,4 +59,32 @@ namespace hal
     // more.
     //
     auto safeRig() -> void;
+
+    //
+    // RAII counterpart to safeRig(), for the *normal* ways a suite run
+    // ends -- falling off the end of main, an early return, or an
+    // exception propagating out of a test script (core::asQuantity throws
+    // on a kind mismatch; see core/quantity_kind.hpp) -- as opposed to the
+    // abnormal one safeRig() itself exists for: a supervising process
+    // re-invoking this binary with --safe after the previous one is
+    // already dead and can't be unwound at all (see app/src/main.cpp).
+    //
+    // A destructor rather than a call at every return point: main() has
+    // several (--list-tests, --safe, an unselected --select, allPassed/
+    // !allPassed, a caught exception), and safeRig() at each one is the
+    // kind of list that silently falls behind the next exit added to
+    // main() later. A guard runs on all of them by construction, the same
+    // argument safeRig() itself makes for reading instrument.inc instead
+    // of a hand-maintained instrument list.
+    //
+    // No deleted copy/move, deliberately -- not an oversight. A guard that
+    // gets copied or destroyed more than once just calls safeRig() more
+    // than once, which is exactly as harmless as calling it once; see
+    // safeRig()'s own comment on idempotency above.
+    //
+    class RigSafingGuard
+    {
+    public:
+        ~RigSafingGuard() { safeRig(); }
+    };
 } // namespace hal
