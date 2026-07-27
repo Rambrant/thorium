@@ -51,10 +51,24 @@ add_library(hal STATIC
 )
 
 target_include_directories(hal PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 target_link_libraries(hal PUBLIC core)
+
+# Thorium::hal -- see libs/core/CMakeLists.txt's own comment on Thorium::core
+# for why this alias exists alongside the plain "hal" target name.
+add_library(Thorium::hal ALIAS hal)
+
+install(TARGETS hal
+    EXPORT ThoriumTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # PUBLIC: hal/instrument.hpp (a public header) expands THORIUM_INSTRUMENT_IDS
 # itself, and rig/active_instruments.hpp -- reached through

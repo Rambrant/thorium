@@ -57,6 +57,32 @@ target_compile_definitions(scripts PUBLIC
 add_executable(run_scripts src/main.cpp)
 target_link_libraries(run_scripts PRIVATE scripts)
 
+install(TARGETS run_scripts RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# --- manifest.json, for a web server discovering installed suite binaries ---
+# The web server that supervises test runs picks which suite to run, which
+# tests within it, and which criteria variant, by scanning an install prefix
+# for run_scripts binaries and reading a manifest next to each one -- rather
+# than parsing this build's C++ or knowing anything about THORIUM_CRITERIA_
+# VARIANT/suite/test_catalog.inc itself. Generated at install time, not
+# build time or configure time: it has to reflect the actual installed
+# binary (--list-tests is the catalog's own source of truth -- see
+# app/src/main.cpp's listTests()), and install is the first point a fully
+# linked run_scripts exists to ask.
+#
+# install(CODE ...) here only sets variables (note the generator expression
+# $<TARGET_FILE:run_scripts> -- CMAKE_INSTALL_PREFIX below is intentionally
+# left as the literal string \${CMAKE_INSTALL_PREFIX}, evaluated when
+# cmake_install.cmake actually runs rather than at configure time, since
+# --prefix can override it at install time); the actual work is
+# cmake/GenerateManifest.cmake, run via install(SCRIPT ...) right after --
+# both calls share cmake_install.cmake's variable scope, the ordinary way to
+# hand values into an install-time script.
+install(CODE "set(THORIUM_RUN_SCRIPTS_EXE \"$<TARGET_FILE:run_scripts>\")")
+install(CODE "set(THORIUM_CRITERIA_VARIANT \"${THORIUM_CRITERIA_VARIANT}\")")
+install(CODE "set(THORIUM_MANIFEST_OUTPUT \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/manifest.json\")")
+install(SCRIPT "${CMAKE_SOURCE_DIR}/cmake/GenerateManifest.cmake")
+
 if(BUILD_TESTING_LAYERS)
     # These test suite/scripts/*.cpp and suite/criteria_*.inc -- suite
     # content, not this runner -- so their sources live in suite/tests/,

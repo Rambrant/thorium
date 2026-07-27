@@ -9,7 +9,7 @@ if(NOT CMAKE_CXX_COMPILER)
     set(CMAKE_CXX_COMPILER "/opt/homebrew/bin/g++-16")
 endif()
 
-project(TestFramework LANGUAGES CXX)
+project(Thorium LANGUAGES CXX VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,6 +32,15 @@ add_compile_options(-Wall -Wextra -Wpedantic -Werror -fcontracts -freflection)
 add_link_options(-fcontracts)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
+# GNUInstallDirs: standard, override-able CMAKE_INSTALL_{BINDIR,LIBDIR,
+# INCLUDEDIR} for everything installed below (libs/core, libs/hal, app's
+# run_scripts). CMakePackageConfigHelpers: configure_package_config_file()/
+# write_basic_package_version_file(), used once below to generate the
+# Thorium CMake package a separate rig repo would find_package()/
+# FetchContent this framework through.
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 # --- Criteria/tolerance variant selection ---
 # Which tolerance table the scripts layer's CRIT/CRITERIA checks are built
@@ -107,6 +116,48 @@ set(THORIUM_WIRING_TABLE "${CMAKE_SOURCE_DIR}/rig/wiring.inc" CACHE FILEPATH "" 
 
 add_subdirectory(libs/core)
 add_subdirectory(libs/hal)
+
+# --- Package export: core + hal as the reusable "Thorium" framework ---
+# core and hal register themselves into the ThoriumTargets export set via
+# their own install(TARGETS ... EXPORT ThoriumTargets ...) calls (see
+# libs/core/CMakeLists.txt, libs/hal/CMakeLists.txt) -- this is what turns
+# that into an actual find_package()-able CMake package: ThoriumTargets.cmake
+# (the compiled targets, namespaced Thorium::core/Thorium::hal) plus
+# ThoriumConfig.cmake/ThoriumConfigVersion.cmake (what find_package(Thorium)
+# actually looks for).
+#
+# One thing this does NOT give a consumer: a hal that works for their rig
+# out of the box. hal's THORIUM_INSTRUMENT_IDS/THORIUM_ACTIVE_INSTRUMENTS/
+# THORIUM_INSTRUMENT_TABLE/THORIUM_WIRING_TABLE (see libs/hal/CMakeLists.txt)
+# are baked in via #include at hal's OWN compile time, so an installed
+# libhal.a is only ever built for the one rig that supplied those four paths
+# when IT was configured -- this repo's rig/, in this build. A different rig
+# consuming this package needs to build hal from source against its own
+# rig/-equivalent (FetchContent/add_subdirectory, setting those same four
+# variables before hal configures), not link against a prebuilt hal from
+# somewhere else's install -- see libs/hal/README.md.
+install(EXPORT ThoriumTargets
+    FILE ThoriumTargets.cmake
+    NAMESPACE Thorium::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Thorium
+)
+
+configure_package_config_file(
+    cmake/ThoriumConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/ThoriumConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Thorium
+)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/ThoriumConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/ThoriumConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/ThoriumConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Thorium
+)
+
 add_subdirectory(dut)
 #add_subdirectory(dsl)
 add_subdirectory(app)

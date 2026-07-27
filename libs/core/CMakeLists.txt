@@ -19,8 +19,25 @@ add_library(core STATIC
 )
 
 target_include_directories(core PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+
+# Thorium::core -- usable under this name whether core is consumed in-tree
+# (this repo's own dut/dsl/hal) or by a separate rig repo pulling this
+# package in via add_subdirectory/FetchContent, which gets no automatic
+# namespacing the way find_package(Thorium) + ThoriumTargets.cmake does; see
+# the top-level CMakeLists.txt's own comment on the Thorium package export.
+add_library(Thorium::core ALIAS core)
+
+install(TARGETS core
+    EXPORT ThoriumTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(BUILD_TESTING_LAYERS)
     add_layer_tests(core core
