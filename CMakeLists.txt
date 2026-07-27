@@ -58,6 +58,40 @@ if(BUILD_TESTING_LAYERS)
     include(cmake/FetchGTest.cmake)
 endif()
 
+# --- Layers ---
+# Two different things share this tree: a portable, rig-and-DUT-agnostic
+# framework (libs/), and this one deployment's content -- one rig testing
+# one DUT (rig/, dut/, dsl/, suite/, app/, all at the top level rather than
+# under libs/). A separate rig -- its own repo, its own bench, its own
+# DUT -- would reuse libs/core and libs/hal unchanged and write its own
+# rig/dut/dsl/suite/app instead; nothing here should ever make libs/
+# content depend on anything outside it.
+#
+# core  : foundational utilities, no dependencies on other layers
+# hal   : generic hardware abstraction layer (instrument drivers, switching
+#         fabric, wiring/measure/apply/safing mechanism) -- depends on core,
+#         and on this rig's data below, but knows nothing rig-specific
+#         itself; see libs/hal/README.md
+# rig   : this rig's data only (which instruments it has, how they're
+#         wired, what to call them) -- content only, no library of its own,
+#         the same shape dut/ uses for DUT-specific data; see rig/README.md.
+#         No add_subdirectory: nothing here has a build target yet (no
+#         rig-level tests), only the files pointed at below.
+# dut   : DUT-specific data only (adapter profile + criteria variants, both
+#         flat macro-driven .inc files -- see dut/README.md) -- no library
+#         of its own, just tests over that data linked against hal
+# dsl   : this DUT's test vocabulary -- methods named after the test
+#         description document's own terms, for traceability between the
+#         requirement/test/development disciplines -- depends on dut + hal
+#         + core, the same reason it lives alongside them rather than under
+#         libs/
+# app   : the runner (main.cpp) plus the "scripts" library it runs -- the
+#         scripts themselves, the test catalog, and scripts.hpp live under
+#         suite/ rather than in app/, which holds no DUT-specific content at
+#         all; the criteria/tolerance variants live under dut/ instead,
+#         since tolerances are a property of the DUT being tested (see
+#         dut/README.md)
+
 # --- This rig's data for the generic hal library ---
 # libs/hal is a generic instrument-driver + switching-fabric library with no
 # instruments plugged into it at all -- it needs a rig to supply which
@@ -71,29 +105,8 @@ set(THORIUM_ACTIVE_INSTRUMENTS "${CMAKE_SOURCE_DIR}/rig/active_instruments.hpp" 
 set(THORIUM_INSTRUMENT_TABLE "${CMAKE_SOURCE_DIR}/rig/instrument.inc" CACHE FILEPATH "" FORCE)
 set(THORIUM_WIRING_TABLE "${CMAKE_SOURCE_DIR}/rig/wiring.inc" CACHE FILEPATH "" FORCE)
 
-# --- Layers, in dependency order ---
-# core  : foundational utilities, no dependencies on other layers
-# hal   : generic hardware abstraction layer (instrument drivers, switching
-#         fabric, wiring/measure/apply/safing mechanism) -- depends on core,
-#         and on this rig's data above, but knows nothing rig-specific
-#         itself; see libs/hal/README.md
-# rig   : this rig's data only (which instruments it has, how they're
-#         wired, what to call them) -- content only, no library of its own,
-#         the same shape libs/dut/ already uses for DUT-specific data; see
-#         rig/README.md. No add_subdirectory: nothing here has a build
-#         target yet (no rig-level tests), only the files pointed at above.
-# dut   : DUT-specific data only (adapter profile + criteria variants, both
-#         flat macro-driven .inc files -- see libs/dut/README.md) -- no
-#         library of its own, just tests over that data linked against hal
-# dsl   : domain-specific language for writing tests, depends on dut + hal + core
-# app   : the runner (main.cpp) plus the "scripts" library it runs -- the
-#         scripts themselves, the test catalog, and scripts.hpp live under
-#         suite/ rather than in app/, which holds no DUT-specific content at
-#         all; the criteria/tolerance variants live under libs/dut/ instead,
-#         since tolerances are a property of the DUT being tested (see
-#         libs/dut/README.md)
 add_subdirectory(libs/core)
 add_subdirectory(libs/hal)
-add_subdirectory(libs/dut)
-#add_subdirectory(libs/dsl)
+add_subdirectory(dut)
+#add_subdirectory(dsl)
 add_subdirectory(app)

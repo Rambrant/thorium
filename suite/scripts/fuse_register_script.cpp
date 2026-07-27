@@ -8,7 +8,7 @@
 
 #include "core/active_criteria.hpp"
 
-#include "libs/dut/device_x_profile.inc"
+#include "dut/device_x_profile.inc"
 
 using namespace core::literals;
 using namespace core::quantities;

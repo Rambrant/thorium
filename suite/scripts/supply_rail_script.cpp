@@ -5,7 +5,7 @@
 
 #include "core/active_criteria.hpp"
 
-#include "libs/dut/device_x_profile.inc"
+#include "dut/device_x_profile.inc"
 
 auto supplyRailScript(  std::string_view, std::string_view) -> bool
 {

@@ -2,7 +2,7 @@
 
 This directory holds *only* facts specific to this one physical rig -- which
 instruments it has, how they're wired to the VPC90 connector array and to
-each other, and what to call them -- expressed the same way `libs/dut/`
+each other, and what to call them -- expressed the same way `dut/`
 expresses DUT-specific data: flat, macro-driven `.inc` files (plus one
 concrete header) with no library of its own. The mechanism that makes sense
 of this data (`hal::InstrumentWiring`, `hal::SwitchFabric`, the driver

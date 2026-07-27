@@ -6,7 +6,7 @@ connector array's coordinate system, the matrix/mux switching fabric, the
 `InstrumentWiring`/`ConnectorWiring` machinery, and the `Measure` and
 `Apply`/`Remove` objects every test script calls through. Meant to be
 linked by many rigs testing many DUTs, not just this repo's -- so nothing
-here knows what "Device X" is (DUT-specific data lives under `libs/dut/`,
+here knows what "Device X" is (DUT-specific data lives under `dut/`,
 see its README) or what instruments a given rig actually has, how they're
 wired, or what to call them (that's `rig/`, see its own README). A rig
 supplies those as four file paths at configure time -- see
@@ -79,7 +79,7 @@ quantity kind as template parameters on `core::AdapterPointTag<Loc, Kind>`
 (see `libs/core/include/core/adapter.hpp`) rather than as runtime data.
 That is what makes a misspelled point name a "no such member" compile
 error, and a quantity mismatch an overload-resolution failure -- see
-`libs/dut/README.md` for the concrete examples, since the actual DUT
+`dut/README.md` for the concrete examples, since the actual DUT
 profile data lives there, not here.
 
 `Measure`/`Apply`/`Remove` all take a point wrapped in `core::at(...)`
@@ -172,7 +172,7 @@ This rig's AC neutral is hard-wired to ground rather than routed through
 the switching fabric, so `ThreePhaseWyePoints` is just `{ a, b, c }` --
 `Apply`/`Remove` never route or source a neutral connection. `AcInput_N`
 still exists as an ordinary DUT adapter point (see
-`libs/dut/device_x_profile.inc`) for diagnostic `Measure(...)` calls (e.g.
+`dut/device_x_profile.inc`) for diagnostic `Measure(...)` calls (e.g.
 verifying it actually reads as ground) -- it's simply never part of a
 `ThreePhaseWyePoints`, and `hal::ac6677a.hpp` has no `.n` field to put it in.
 

@@ -5,13 +5,16 @@ Device X on its standard adapter -- expressed as flat, macro-driven `.inc`
 files with no C++ logic of their own. There is deliberately no library here
 (no `add_library(dut ...)`): the mechanisms that make sense of this data
 (`core::AdapterPointTag`, `core::MeasureEngine`, the `CRITERIA`/`ADAPTER`
-macros themselves) all live in hal/core -- see below for why that split is
-possible.
+macros themselves) all live in `libs/hal`/`libs/core` -- the portable,
+DUT-agnostic framework -- not here, since this directory (like `rig/` and
+`suite/` alongside it) is this one deployment's content, not part of that
+framework; see the top-level `CMakeLists.txt`'s own comment on that split,
+and below for why the hal/core split specifically is possible.
 
 ## Layout
 
 ```
-libs/dut/
+dut/
     tests/
         test_device_x_profile.cpp
     device_x_profile.inc

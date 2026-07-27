@@ -3,7 +3,7 @@
 This directory holds the test scripts themselves and the catalog listing
 them -- the "what to run" side of the test suite. DUT-specific data (the
 adapter wiring, tolerance variants, the Measure singleton) lives under
-`libs/dut/` instead -- see `libs/dut/README.md` -- since it's a property of
+`dut/` instead -- see `dut/README.md` -- since it's a property of
 the device being tested, not of how tests are organized.
 
 `test_catalog.inc` -- the `GROUP`/`TEST`/`END_GROUP` test catalog (see
@@ -23,9 +23,9 @@ its own (this directory has none, deliberately), but discovered by
 
 `tests/` holds the tests *of* this suite's content -- the scripts -- plus
 `test_criteria_variants_compile.cpp`, which tests the criteria data that
-actually lives in `libs/dut/` (kept here rather than there since it's a
+actually lives in `dut/` (kept here rather than there since it's a
 test, following the same "content in one place, tests alongside the rest
-of the test-script tests" split `libs/dut/README.md` also describes).
+of the test-script tests" split `dut/README.md` also describes).
 There is no runner-specific test; `app/` just has the one executable.
 
 ## Layout
@@ -46,5 +46,5 @@ suite/
 Related: `app/` (not this directory) is the runner -- `main.cpp` plus the
 two build targets (`scripts`, `run_scripts`) it needs -- kept free of any
 DUT-specific content, the same way this directory is kept free of build
-files. `libs/dut/` holds the DUT-specific data itself -- see
-`libs/dut/README.md`.
+files. `dut/` holds the DUT-specific data itself -- see
+`dut/README.md`.

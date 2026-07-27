@@ -31,12 +31,12 @@ target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 # a second, fixed path -- always criteria_production.inc -- so other variants
 # can reference "the same value as production" via CRIT_FROM_PRODUCTION
 # without retyping it. Absolute paths, so no extra include-directory
-# wrangling. These live under libs/dut, not here, because the tolerances
+# wrangling. These live under dut/, not here, because the tolerances
 # they hold are a property of the DUT being tested (the same reasoning that
-# put device_x_profile.hpp there) -- see libs/dut/README.md.
+# put device_x_profile.hpp there) -- see dut/README.md.
 target_compile_definitions(scripts PRIVATE
-    THORIUM_PRODUCTION_CRITERIA="${CMAKE_SOURCE_DIR}/libs/dut/criteria_production.inc"
-    THORIUM_ACTIVE_CRITERIA="${CMAKE_SOURCE_DIR}/libs/dut/criteria_${THORIUM_CRITERIA_VARIANT}.inc"
+    THORIUM_PRODUCTION_CRITERIA="${CMAKE_SOURCE_DIR}/dut/criteria_production.inc"
+    THORIUM_ACTIVE_CRITERIA="${CMAKE_SOURCE_DIR}/dut/criteria_${THORIUM_CRITERIA_VARIANT}.inc"
 )
 
 # --- Test catalog ---

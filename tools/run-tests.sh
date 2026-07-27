@@ -33,8 +33,8 @@ path_for()
     case "$1" in
         core_tests)    echo "libs/core/core_tests" ;;
         hal_tests)     echo "libs/hal/hal_tests" ;;
-        dut_tests)     echo "libs/dut/dut_tests" ;;
-        dsl_tests)     echo "libs/dsl/dsl_tests" ;;
+        dut_tests)     echo "dut/dut_tests" ;;
+        dsl_tests)     echo "dsl/dsl_tests" ;;
         scripts_tests) echo "app/scripts_tests" ;;
         run_scripts)   echo "app/run_scripts" ;;
         *)             echo "" ;;
