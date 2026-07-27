@@ -41,4 +41,35 @@ namespace hal
 
     [[nodiscard]]
     auto to_string( InstrumentId id) -> std::string_view;
+
+    //
+    // Every instrument in this rig can be dropped to a known idle state
+    // without being told anything about what was running -- no config, no
+    // builder chain, no point, no return value. hal::safeRig() (see
+    // hal/safing.hpp) is the only caller.
+    //
+    // Deliberately a plain member rather than an ADL customization point
+    // in the shape of applyDriver/connectDriver: those are addressed
+    // through a config type precisely because Apply/Connect need to know
+    // *what* to apply, and there is a builder chain to carry it. Safing
+    // has no such argument to carry by construction -- it is the operation
+    // you invoke when nobody knows what state the rig reached.
+    //
+    // This concept exists for two things, neither of which is dispatch.
+    // First, so hal::safeRig()'s per-instrument expansion can
+    // static_assert it and produce a one-line message naming the offending
+    // instrument, rather than a page of overload-resolution output.
+    // Second, so the guarantee can be tested in both directions -- see
+    // hal/tests/test_safing.cpp, which asserts that a driver *without*
+    // safe() fails the concept, the only way to demonstrate that the
+    // compile-time half of the safing contract is real without breaking
+    // the build. Note it is not used to *skip* instruments that don't
+    // satisfy it: see hal::L4411A::safe() for why opt-in safing is the
+    // wrong shape here.
+    //
+    template<typename InstrumentT>
+    concept SafeableInstrument = requires( InstrumentT & instrument)
+    {
+        instrument.safe();
+    };
 } // namespace hal

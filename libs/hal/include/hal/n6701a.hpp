@@ -192,6 +192,38 @@ namespace hal
                 return N6701ABuilder<Isolation>{ *this };
             }
 
+            //
+            // Drop this supply to a known idle state, unconditionally --
+            // see hal::safeRig() in hal/safing.hpp for who calls this and
+            // why it takes no arguments and reads no state. Not
+            // Remove(DcP1.dc()) under another name: Remove is a test-script
+            // step, addressed through a config and a builder chain, and
+            // reaching it requires knowing which supply a script was in the
+            // middle of driving. safe() is the opposite -- it is called
+            // when nobody knows what was running, so there is nothing to
+            // consult and nothing that can be too late to matter.
+            //
+            // Zeroes the programmed setpoint as well as disabling the
+            // output, deliberately. On the real instrument OUTP OFF leaves
+            // the voltage setpoint where a test left it, so a supply safed
+            // at 24 V comes back at 24 V the instant anything enables the
+            // output again -- a front-panel press, a half-initialised
+            // driver, a reconnecting console. Safing is meant to survive
+            // exactly that kind of unattended re-enable, so it clears the
+            // setpoint too.
+            //
+            // mCurrentLimit is deliberately left as-is rather than
+            // cleared: with the output off and the setpoint at zero it has
+            // nothing to limit, and an accidental re-enable is safer
+            // finding a stale limit still in place than finding none at
+            // all.
+            //
+            auto safe() -> void
+            {
+                mEnabled       = false;
+                mOutputVoltage = core::quantities::Voltage{};
+            }
+
             // Test/simulation hooks -- real hardware has no such setters.
             auto applyOutput( const core::quantities::Voltage v, const std::optional<core::quantities::Current> currentLimit) -> void
             {

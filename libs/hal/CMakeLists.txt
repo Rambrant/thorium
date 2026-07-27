@@ -5,6 +5,7 @@ add_library(hal STATIC
     src/wiring.cpp
     src/measure.cpp
     src/apply.cpp
+    src/safing.cpp
     include/hal/vpc_location.hpp   # header-only
     include/hal/switch_fabric.hpp  # header-only
     include/hal/instrument.hpp     # header-only
@@ -13,6 +14,7 @@ add_library(hal STATIC
     include/hal/adapter.hpp        # header-only
     include/hal/measure.hpp        # header-only
     include/hal/apply.hpp          # header-only
+    include/hal/safing.hpp         # header-only
     include/hal/n6701a.hpp         # header-only
     include/hal/ac6677a.hpp        # header-only
     include/hal/l4411a.hpp         # header-only
@@ -31,6 +33,8 @@ target_link_libraries(hal PUBLIC core)
 # data), and include/hal/active_instruments.hpp #includes instrument.inc (this
 # rig's fixed instrument list), via a repo-root-relative path, the same
 # convention libs/dut/*.inc already use -- see wiring.inc's own comment.
+# src/safing.cpp #includes instrument.inc a second time, with INSTRUMENT
+# redefined to safe each instance rather than declare it -- see that file.
 target_include_directories(hal PRIVATE ${CMAKE_SOURCE_DIR})
 
 if(BUILD_TESTING_LAYERS)
@@ -41,5 +45,16 @@ if(BUILD_TESTING_LAYERS)
         tests/test_wiring.cpp
         tests/test_source_instruments.cpp
         tests/test_call_syntax.cpp
+        tests/test_safing.cpp
     )
+
+    # tests/test_safing.cpp is the first hal test to drive this rig's actual
+    # global instruments rather than locals of its own -- hal::safeRig()
+    # takes no arguments, so there is no substitute rig to hand it (see
+    # hal/safing.hpp). That means including hal/active_instruments.hpp,
+    # which reaches instrument.inc by a repo-root-relative path, so this
+    # test executable needs the same include directory the hal library
+    # itself does above. Same reason scripts_tests takes it in
+    # app/CMakeLists.txt.
+    target_include_directories(hal_tests PRIVATE ${CMAKE_SOURCE_DIR})
 endif()

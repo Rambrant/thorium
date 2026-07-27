@@ -117,6 +117,20 @@ namespace hal
                 return Ac6677ABuilder{ *this };
             }
 
+            //
+            // Drop this source to a known idle state, unconditionally --
+            // same contract, and the same reasoning for zeroing the
+            // setpoint rather than only disabling the output, as
+            // hal::N6701A::safe(); see that function's own comment.
+            // mFrequency/mCurrentLimit are left as-is for the same reason
+            // its mCurrentLimit is.
+            //
+            auto safe() -> void
+            {
+                mEnabled      = false;
+                mPhaseVoltage = core::quantities::Voltage{};
+            }
+
             // Test/simulation hooks -- real hardware has no such setters.
             auto applyOutput( const core::quantities::Voltage phaseVoltage, const std::optional<core::quantities::Frequency> frequency, const std::optional<core::quantities::Current> currentLimit) -> void
             {

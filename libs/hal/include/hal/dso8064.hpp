@@ -183,6 +183,24 @@ namespace hal
                 return mChannel;
             }
 
+            //
+            // Nothing to do -- a scope is passive, exactly as hal::L4411A
+            // is; see that class's safe() for why this is written out as an
+            // explicit empty body rather than simply left absent.
+            //
+            // Note this deliberately does not reset mMode/mChannel. They
+            // are instrument state a script set (see this class's own
+            // comment on the mode-switch-on-the-instrument pattern), not
+            // anything that can energise the DUT -- and safing runs when a
+            // script has already died, so there is nobody left to surprise
+            // with a mode change. Resetting them would only discard the
+            // last thing the scope was told to look at, which is the one
+            // piece of state worth still being able to read afterwards.
+            //
+            auto safe() -> void
+            {
+            }
+
             // Switches the instrument's current measurement mode/channel --
             // called by DSO8064Channel's builder methods (vpp()/vmax()/.../
             // riseTime()/...), never by a script directly.

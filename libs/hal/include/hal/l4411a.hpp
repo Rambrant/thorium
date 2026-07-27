@@ -116,6 +116,33 @@ namespace hal
                 return mMode;
             }
 
+            //
+            // Nothing to do, and that is a hardware fact rather than an
+            // unfinished implementation: a DMM is a passive instrument --
+            // it sources nothing into the DUT, so there is no output for
+            // hal::safeRig() (see hal/safing.hpp) to drop. Its leads are
+            // taken off the DUT by the fabric's own openAll(), which
+            // safeRig() does after this, not by anything this instrument
+            // is asked to do.
+            //
+            // Written out as an explicit empty body rather than left off
+            // and detected as absent, on purpose. safeRig() calls safe()
+            // on every instrument in hal/instrument.inc unconditionally,
+            // so a driver that lacks it fails to compile -- see
+            // hal::SafeableInstrument in hal/instrument.hpp. Had safing
+            // instead been opt-in (an ADL customization point in the shape
+            // of applyDriver/connectDriver, say, defaulting to a no-op for
+            // anything that doesn't provide one), a *source* instrument
+            // whose author forgot to write safe() would silently never be
+            // safed. A silent omission on the safing path is the one
+            // failure mode this whole mechanism exists to rule out, so the
+            // cost is paid here instead: two passive drivers each carry
+            // one deliberately empty function.
+            //
+            auto safe() -> void
+            {
+            }
+
             [[nodiscard]]
             auto resistanceMode() const -> ResistanceMode
             {

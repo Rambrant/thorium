@@ -4,9 +4,10 @@
 #include <vector>
 
 #include "core/active_test_catalog.hpp"
+#include "hal/safing.hpp"
 
 //
-// Runner for the test-script catalog (core/active_test_catalog.hpp). Three
+// Runner for the test-script catalog (core/active_test_catalog.hpp). Four
 // modes, matching what tools/run-tests.sh expects:
 //
 //   run_scripts                    run every test in the catalog
@@ -14,10 +15,28 @@
 //                                  test, then exit -- nothing is run
 //   run_scripts --select=a,b,c     run only the named test ids (from any
 //                                  group), in catalog order
+//   run_scripts --safe             drop the rig to a known idle state and
+//                                  exit -- no test is run, nothing is
+//                                  measured, nothing is reported
 //
 // ids are only ever compared for a match against what's already in the
 // catalog -- never parsed into anything -- so a typo in --select just
 // means that test doesn't run, not a crash or an unintended one.
+//
+// --safe exists for a caller outside this process. The rig console
+// supervises a run as a child process, and on an abnormal exit it cannot
+// reach into the dead process's hal::fabric to open anything -- so it
+// re-invokes this same binary with --safe instead, which is why the mode
+// lives here rather than in a separate tool. Using the suite binary itself
+// matters: it was built against this rig's exact hal (see
+// hal/instrument.inc), so it needs no independent description of what
+// instruments exist to safe, and cannot disagree with the run it is
+// cleaning up after.
+//
+// Deliberately exclusive with the other three, and checked before them:
+// --safe is what you pass when something has already gone wrong, so
+// combining it with a run would mean choosing whether to safe before or
+// after testing -- neither of which is what the flag means.
 //
 namespace
 {
@@ -87,6 +106,7 @@ int main( int argc, char ** argv)
 {
     std::vector<std::string_view> selection; // empty => run everything
     bool                          listOnly = false;
+    bool                          safeOnly = false;
 
     for ( int i = 1; i < argc; ++i)
     {
@@ -95,6 +115,10 @@ int main( int argc, char ** argv)
         if ( arg == "--list-tests")
         {
             listOnly = true;
+        }
+        else if ( arg == "--safe")
+        {
+            safeOnly = true;
         }
         else if ( arg.starts_with( "--select="))
         {
@@ -105,6 +129,20 @@ int main( int argc, char ** argv)
             std::cerr << "Unknown argument: " << arg << '\n';
             return 1;
         }
+    }
+
+    //
+    // Checked before --list-tests, and before any script runs -- see this
+    // file's own comment on why --safe is exclusive with the other modes.
+    // Always exits 0: safing is unconditional and has nothing to report a
+    // failure about, and a console invoking this after a child crash has
+    // no useful way to act on a non-zero exit here anyway.
+    //
+    if ( safeOnly)
+    {
+        hal::safeRig();
+        std::cout << "Rig safed: all outputs off, all relays open.\n";
+        return 0;
     }
 
     if ( listOnly)
