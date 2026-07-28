@@ -64,3 +64,48 @@ TEST( CoreCriterion, MakeCriterionBuildsByHand)
 //
 //   auto oops = TestGroup::SomeRegisterChekc;
 //
+
+//
+// core::meta::all<Group>(): every CRIT in the group as a tuple, in
+// declaration order -- proven at compile time, the same way the macro's own
+// output is proven above.
+//
+static_assert( std::tuple_size_v<decltype( core::meta::all<TestGroup>())> == 2);
+static_assert( std::get<0>( core::meta::all<TestGroup>()).id == "SomeRegisterCheck");
+static_assert( std::get<1>( core::meta::all<TestGroup>()).id == "ExactValueCheck");
+
+//
+// core::meta::get<Group, "id">(): the one criterion named "id", looked up by
+// reflecting over Group's members rather than spelled as Group::id directly
+// -- for callers that only have the name as a string at the call site (e.g.
+// built by another macro), not as a literal identifier to write by hand.
+//
+static_assert( core::meta::get<TestGroup, "ExactValueCheck">().id == "ExactValueCheck");
+static_assert( core::meta::get<TestGroup, "ExactValueCheck">().predicate( 0xF5u));
+static_assert( ! core::meta::get<TestGroup, "SomeRegisterCheck">().predicate( 0xF6u));
+
+TEST( CoreCriterionMeta, AllReturnsEveryCriterionInDeclarationOrder)
+{
+    constexpr auto criteria = core::meta::all<TestGroup>();
+
+    EXPECT_EQ( std::get<0>( criteria).id, "SomeRegisterCheck");
+    EXPECT_EQ( std::get<1>( criteria).id, "ExactValueCheck");
+}
+
+TEST( CoreCriterionMeta, GetFindsCriterionByName)
+{
+    constexpr auto crit = core::meta::get<TestGroup, "ExactValueCheck">();
+
+    EXPECT_EQ( crit.description, "Register must read 0xF5");
+    EXPECT_TRUE( crit.predicate( 0xF5u));
+    EXPECT_FALSE( crit.predicate( 0xF6u));
+}
+
+//
+// COMPILE-TIME TYPO CHECK, reflection version: a misspelled name given to
+// get<>() is a hard compile error (a failed static_assert inside get()),
+// not a runtime failure -- there is no fallback path. Uncommenting the next
+// line fails to compile with "no criterion with that id in this group":
+//
+//   constexpr auto oops = core::meta::get<TestGroup, "SomeRegisterChekc">();
+//
