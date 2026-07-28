@@ -6,9 +6,11 @@
 if(BUILD_TESTING_LAYERS)
     add_layer_tests(dut hal
         tests/test_device_x_profile.cpp
+        tests/test_wiring_coverage.cpp
     )
 
     # test_device_x_profile.cpp reaches dut/device_x_profile.inc by a plain
-    # quoted #include, repo-root-relative.
+    # quoted #include, repo-root-relative -- test_wiring_coverage.cpp reaches
+    # rig/wiring.inc the same way, alongside it.
     target_include_directories(dut_tests PRIVATE ${CMAKE_SOURCE_DIR})
 endif()

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <meta>
 #include <vector>
 
 #include "hal/instrument.hpp"
@@ -27,17 +28,45 @@ namespace hal
     // take one or more hops either way) -- both are just a longer Path to
     // close or open together, not a different kind of fact.
     //
-    // TODO(reflection): find() below is a runtime linear search over a
-    // constexpr-eligible table -- the *data* is a fixed wiring fact decided
-    // once by whoever wired the bench, but the lookup itself is still a
-    // runtime operation, because it's keyed by an InstrumentId that only the
-    // running program knows (two Dmms, same C++ type, different runtime id).
-    // ConnectorWiring::find() below is keyed by a VpcLocation that IS known
-    // at compile time at every real call site (it's a template parameter on
-    // the AdapterPointTag being measured -- see core/adapter.hpp) if this
-    // engine chooses to look it up as one; today it stays a runtime lookup
-    // like InstrumentWiring's, deferred as a documented next step now that
-    // Loc is available to do so with.
+    // InstrumentWiring::find() below is a runtime linear search over a
+    // constexpr-eligible table, and stays one: the *data* is a fixed wiring
+    // fact decided once by whoever wired the bench, but the lookup itself is
+    // keyed by an InstrumentId that only the running program knows (two
+    // Dmms, same C++ type, different runtime id) -- there is no compile-time
+    // value to check it against.
+    //
+    // ConnectorWiring::find() is keyed by a VpcLocation that IS known at
+    // compile time at every real call site (it's a template parameter on the
+    // AdapterPointTag being measured -- see core/adapter.hpp), which looked
+    // like a straightforward reflection upgrade: give ConnectorWiring a
+    // find<Loc>() so a missing wiring entry is a compile error wherever
+    // Measure() is actually called, not just when that one test happens to
+    // run. It isn't that simple: core::MeasureEngine (core/measure.hpp) is
+    // instantiated in whichever script calls Measure() -- e.g.
+    // suite/scripts/fuse_register_script.cpp -- and those files never
+    // #include this rig's wiring.inc, on purpose (see this file's own
+    // comment on CONNECTOR_WIRING below, and core/measure.hpp's own comment
+    // on why ConnectorWiringT's concrete type is only ever named in
+    // hal/measure.cpp). A consteval check needs the wiring *data* itself
+    // visible as a compile-time constant in the very translation unit
+    // performing the check -- unlike an ordinary runtime call, constant
+    // evaluation can't reach across translation units the way linking can --
+    // so find<Loc>() could only ever fire where wiring.inc is already
+    // visible (hal/measure.cpp, hal/apply.cpp), never at the actual script
+    // call sites where a typo would matter. Threading it through anyway
+    // would mean exposing this rig's wiring table through a header
+    // everywhere Measure()/Connect() are called, undoing that isolation on
+    // purpose.
+    //
+    // isWired() below is the alternative that actually fits: a compile-time
+    // predicate usable from anywhere this rig's own CONNECTOR_WIRING has
+    // already run (which is exactly the file that also has the DUT's
+    // ADAPTER/POINT data to check it against -- see
+    // dut/tests/test_wiring_coverage.cpp), rather than something
+    // core::MeasureEngine calls generically. It checks once, for every
+    // declared point, not per Measure() call -- catching a forgotten wiring
+    // entry the moment anyone builds that check, whether or not any script
+    // currently exercises that point.
     //
     // Every entry also carries a WireRole -- Force (the default, and what
     // find()/WIRE_INSTRUMENT/WIRE_CONNECTOR always mean) or Sense. Two
@@ -183,6 +212,57 @@ namespace hal
         private:
             std::vector<ConnectorWiringEntry> mEntries;
     };
+
+    //
+    // True if this rig's CONNECTOR_WIRING table (see rig/wiring.inc) has a
+    // fixed path for this location/role -- see this file's own comment
+    // above for why this is a standalone predicate rather than a
+    // ConnectorWiring::find<Loc>() member. Declared here so the signature
+    // is visible without rig/wiring.inc; DEFINED by the CONNECTOR_WIRING/
+    // END_CONNECTOR_WIRING macro pair below, since the rig-specific key
+    // table it checks against only exists once that macro has actually run.
+    // Calling it from a translation unit that never included rig/wiring.inc
+    // itself fails to compile -- the same way calling any other function
+    // whose definition isn't visible would.
+    //
+    [[nodiscard]]
+    consteval auto isWired( VpcLocation location, WireRole role = WireRole::Force) -> bool;
+
+    namespace detail
+    {
+        //
+        // location + role only -- deliberately not the full
+        // ConnectorWiringEntry (location + role + Path): SwitchElementId's
+        // std::string_view device member isn't a structural type on this
+        // standard library (its data members are private), so a
+        // std::vector<ConnectorWiringEntry> can't be promoted to a genuine
+        // compile-time array the way std::define_static_array() needs --
+        // see isWired()'s own use of this below. A location/role pair is
+        // all isWired() needs to answer "does a fixed path exist", so that's
+        // all this keeps; the actual Path still only ever lives in the
+        // ordinary runtime hal::connectorWiring above.
+        //
+        struct ConnectorWiringKey
+        {
+            VpcLocation location;
+            WireRole    role;
+
+            friend constexpr auto operator==( ConnectorWiringKey, ConnectorWiringKey) -> bool = default;
+        };
+
+        [[nodiscard]]
+        consteval auto keysOf( const std::vector<ConnectorWiringEntry> & entries) -> std::vector<ConnectorWiringKey>
+        {
+            std::vector<ConnectorWiringKey> keys;
+
+            for( const auto & entry : entries)
+            {
+                keys.push_back( { entry.location, entry.role });
+            }
+
+            return keys;
+        }
+    } // namespace detail
 } // namespace hal
 
 //
@@ -239,17 +319,62 @@ namespace hal
         return w;              \
     }(); }
 
-#define CONNECTOR_WIRING                                 \
-    namespace hal { inline const ConnectorWiring connectorWiring = [] \
-    {                                                      \
-        ConnectorWiring w;
+//
+// CONNECTOR_WIRING's expansion builds three things from the one set of
+// WIRE_CONNECTOR/WIRE_CONNECTOR_SENSE lines below, not two: the ordinary
+// runtime hal::connectorWiring (unchanged from before), a compile-time
+// location/role key table, and isWired() itself -- see this file's own
+// comment on WireRole/isWired above for why the key table needs its own
+// builder rather than reusing hal::connectorWiring's storage.
+// buildConnectorWiringEntries() is the one place __VA_ARGS__ (the HOP(...)
+// chain) is actually spelled out; both hal::connectorWiring and
+// detail::connectorWiringKeys are derived from calling it, not from
+// separately re-stating each WIRE_CONNECTOR line. It's constexpr rather than
+// consteval on purpose: hal::connectorWiring's own IIFE below calls it at
+// ordinary runtime (building a std::vector<ConnectorWiringEntry> ready for
+// ConnectorWiring::addWire(), an ordinary non-constexpr call) -- a consteval
+// builder would force that whole IIFE to become an immediate function too
+// (calling a consteval function anywhere in a function body promotes it),
+// which then fails to compile since addWire() itself isn't constexpr.
+// connectorWiringKeys below still gets it evaluated at compile time, the
+// same as any constexpr function used to initialize a constexpr variable.
+//
+#define CONNECTOR_WIRING                                                            \
+    namespace hal { namespace detail {                                              \
+    constexpr auto buildConnectorWiringEntries() -> std::vector<ConnectorWiringEntry> \
+    {                                                                                \
+        std::vector<ConnectorWiringEntry> entries;
 
 #define WIRE_CONNECTOR( rack, connector, pin, ...) \
-        w.addWire( VpcLocation{ VpcRack::rack, connector, pin }, Path{ __VA_ARGS__ });
+        entries.push_back( ConnectorWiringEntry{ VpcLocation{ VpcRack::rack, connector, pin }, WireRole::Force, Path{ __VA_ARGS__ } });
 
 #define WIRE_CONNECTOR_SENSE( rack, connector, pin, ...) \
-        w.addWire( VpcLocation{ VpcRack::rack, connector, pin }, Path{ __VA_ARGS__ }, WireRole::Sense);
+        entries.push_back( ConnectorWiringEntry{ VpcLocation{ VpcRack::rack, connector, pin }, WireRole::Sense, Path{ __VA_ARGS__ } });
 
-#define END_CONNECTOR_WIRING \
-        return w;              \
-    }(); }
+#define END_CONNECTOR_WIRING                                                        \
+        return entries;                                                            \
+    }                                                                               \
+    inline constexpr auto connectorWiringKeys =                                     \
+        std::define_static_array( keysOf( buildConnectorWiringEntries()));          \
+    } /* namespace detail */                                                        \
+    inline const ConnectorWiring connectorWiring = []                               \
+    {                                                                                \
+        ConnectorWiring w;                                                          \
+        for( const auto & entry : detail::buildConnectorWiringEntries())            \
+        {                                                                           \
+            w.addWire( entry.location, entry.path, entry.role);                     \
+        }                                                                           \
+        return w;                                                                   \
+    }();                                                                            \
+    inline consteval auto isWired( VpcLocation location, WireRole role) -> bool      \
+    {                                                                                \
+        for( const auto & key : detail::connectorWiringKeys)                        \
+        {                                                                           \
+            if( key.location == location && key.role == role)                       \
+            {                                                                       \
+                return true;                                                        \
+            }                                                                       \
+        }                                                                           \
+        return false;                                                              \
+    }                                                                               \
+    }

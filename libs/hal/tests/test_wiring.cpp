@@ -203,10 +203,19 @@ TEST( HalConnectorWiring, FindSenseThrowsWhenNoSenseEntryIsRegistered)
 
 TEST( HalConnectorWiring, WireConnectorSenseMacroTagsTheEntryAsSense)
 {
-    using namespace hal; // WIRE_CONNECTOR_SENSE expands to unqualified VpcRack/Path/WireRole, as it does inside CONNECTOR_WIRING's own namespace hal {} block
+    using namespace hal; // WIRE_CONNECTOR_SENSE expands to unqualified VpcLocation/VpcRack/Path/WireRole/ConnectorWiringEntry, as it does inside CONNECTOR_WIRING's own namespace hal {} block
+
+    // WIRE_CONNECTOR_SENSE builds a ConnectorWiringEntry (see CONNECTOR_WIRING's
+    // own comment in hal/wiring.hpp on why -- it also feeds a compile-time
+    // key table END_CONNECTOR_WIRING derives from these entries, which a
+    // ConnectorWiring instance's own runtime storage can't be promoted to),
+    // not a ConnectorWiring directly -- addWire() below is the one-line
+    // bridge back to a queryable instance, same as END_CONNECTOR_WIRING's.
+    std::vector<ConnectorWiringEntry> entries;
+    WIRE_CONNECTOR_SENSE( A, 1, 3, HOP( Mux, "Mux1", 4));
 
     hal::ConnectorWiring w;
-    WIRE_CONNECTOR_SENSE( A, 1, 3, HOP( Mux, "Mux1", 4));
+    for( const auto & entry : entries) w.addWire( entry.location, entry.path, entry.role);
 
     EXPECT_EQ( w.findSense( ( hal::VpcLocation{ hal::VpcRack::A, 1, 3 })),
                (hal::Path{ { hal::SwitchDeviceKind::Mux, "Mux1", 4 } }));
