@@ -26,21 +26,31 @@ This rig's fixed, concrete instrument list -- one `INSTRUMENT(type, id,
 ...)` per instrument, naming its C++ driver type, the global it's addressed
 by (id doubles as both the global's name and its `hal::InstrumentId` --
 there is no rig where those differ, so there's no separate parameter for
-it), and any constructor arguments (e.g. `hal::N6701A`'s slot number). Read
-three times over, with `INSTRUMENT` redefined between reads -- the same
-one-list-many-meanings X-macro idiom `CRITERIA`/`CRIT` and `ADAPTER`/`POINT`
-use, applied across files instead of within one:
+it), and any constructor arguments (e.g. `hal::N6701A`'s slot number).
+Included from two different places, each with `INSTRUMENT` defined for its
+own purpose:
 
 - `active_instruments.hpp` below declares each id as an actual global
 - `hal/instrument.hpp` keeps only each id, to generate `hal::InstrumentId`'s
   enumerators (see that header's own comment)
-- `hal/src/safing.cpp` calls `.safe()` on each global instead -- see
-  `hal/safing.hpp`'s own comment on why a hand-maintained second list of
-  instruments to safe would be the wrong shape
 
-All three expansions read this exact list, so an instrument added here can
-never desync from its own identity enumerator, or get safed without ever
-being declared, or vice versa.
+Both reads see this exact list, so an instrument added here can never
+desync from its own identity enumerator -- there's nothing left to desync
+from.
+
+Only one of those two is a macro-redefinition-and-re-`#include` this
+codebase couldn't replace with reflection -- see `hal/instrument.hpp`'s own
+comment for why generating `hal::InstrumentId` has to work this way
+(reflection needs the enum to already exist; generating it is the whole
+point of that read, so it can't run after the fact). `hal/src/safing.cpp`
+used to read this file a third time for the same *kind* of reason
+(`INSTRUMENT` redefined again, to call `.safe()` on each global) but
+without the same *necessity* -- `InstrumentId` already existed by the time
+it ran, so nothing stopped it from reflecting over `hal::InstrumentTag`-
+derived globals instead (see that struct's own comment in
+`hal/instrument.hpp`), which is what it does now. Every concrete driver
+type inherits `InstrumentTag`, so safing doesn't need this file, or a
+hand-maintained second list, at all.
 
 ## wiring.inc
 

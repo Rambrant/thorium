@@ -139,7 +139,7 @@ namespace hal
     //     DSO8064, not on DSO8064Channel.
     //   - Pulse width and duty cycle -- see DSO8064Channel's own comment.
     //
-    class DSO8064
+    class DSO8064 : public InstrumentTag
     {
         public:
             static constexpr unsigned channel_count = 4;

@@ -4,6 +4,10 @@
 
 #include <gtest/gtest.h>
 
+#include <meta>
+#include <string_view>
+#include <vector>
+
 //
 // This file has no runtime assertions -- like test_static_constraints.cpp
 // in libs/core, the entire point is that it compiles. Every criteria
@@ -47,81 +51,130 @@ namespace thorium_criteria_compile_check
     // Bare compilation only proves a variant's CRITERIA/CRIT block is
     // *syntactically* valid C++ -- it does NOT prove a CRIT id wasn't
     // silently renamed or dropped (a struct with a renamed/missing member
-    // still compiles fine). This section generates the actual cross-
-    // variant check, automatically, from the same three .inc files above
-    // -- no hand-written concept/static_assert per CRITERIA group. That
-    // matters here specifically: with dozens (eventually up to ~100)
-    // groups, a hand-written check per group would itself become a
-    // maintenance burden and a place for a missed check to hide the exact
-    // bug this file exists to catch.
+    // still compiles fine). This section generates the actual cross-variant
+    // check, automatically, from the three namespaces above -- no hand-
+    // written concept/static_assert per CRITERIA group. That matters here
+    // specifically: with dozens (eventually up to ~100) groups, a hand-
+    // written check per group would itself become a maintenance burden and
+    // a place for a missed check to hide the exact bug this file exists to
+    // catch.
     //
-    // The technique: redefine CRITERIA/CRIT/CRIT_FROM_PRODUCTION/
-    // END_CRITERIA (push_macro/pop_macro-scoped, so the redefinition
-    // doesn't leak) so that instead of building a Criterion table, each
-    // CRIT/CRIT_FROM_PRODUCTION emits a concept + static_assert checking
-    // that the exact same id exists in production, stress, AND aged.
-    // Re-including each variant's .inc file under these definitions -- once
-    // per variant, as the "driver" of which groups/ids get checked -- means
-    // an id present in any ONE variant but missing (or renamed) from
-    // another is caught, regardless of which variant happens to drift.
-    // Driving from all three (not just production) is what also catches a
-    // stray/extra group or id that exists in only one non-production
-    // variant.
+    // The technique used to be the same redefine-the-macro-and-re-#include
+    // trick CRIT_FROM_PRODUCTION and hal::safeRig() also use -- re-reading
+    // each variant's .inc file a second time with CRITERIA/CRIT redefined
+    // to emit a concept+static_assert instead of building a Criterion
+    // table. Reflection replaces that here: production::/stress::/aged::
+    // above already ARE real, declared C++ entities after the first (and
+    // only) read, so there's no need to re-parse anything -- just reflect
+    // over what's already there. See core/criterion.hpp's own comment on
+    // core::meta::all()/get() for the same shift, applied to a single
+    // group rather than three namespaces side by side.
     //
-    // CRITERIA (redefined) opens a namespace named after the group,
-    // aliasing each variant's version of it as G_production/G_stress/
-    // G_aged -- the same role core/criterion.hpp's real CRITERIA macro
-    // gives "Name" (a fixed identifier CRIT can refer to without needing
-    // the group name passed to it directly, since a CRIT/CRIT_FROM_PRODUCTION
-    // invocation only ever receives an id, never its enclosing group's
-    // name as a token).
-    //
-    #pragma push_macro("CRITERIA")
-    #pragma push_macro("CRIT")
-    #pragma push_macro("CRIT_FROM_PRODUCTION")
-    #pragma push_macro("END_CRITERIA")
-    #undef CRITERIA
-    #undef CRIT
-    #undef CRIT_FROM_PRODUCTION
-    #undef END_CRITERIA
-
-    #define CRITERIA( groupName, desc)                                                              \
-        namespace check_##groupName                                                                 \
-        {                                                                                           \
-            using G_production = production::groupName;                                             \
-            using G_stress     = stress::groupName;                                                 \
-            using G_aged       = aged::groupName;
-
-    #define THORIUM_CHECK_ID( id)                                                                   \
-            template<typename G> concept Has_##id = requires { G::id; };                            \
-            static_assert( Has_##id<G_production>, #id " missing/renamed in variant production");   \
-            static_assert( Has_##id<G_stress>,     #id " missing/renamed in variant stress");       \
-            static_assert( Has_##id<G_aged>,       #id " missing/renamed in variant aged");
-
-    #define CRIT( id, pred, desc)              THORIUM_CHECK_ID( id)
-    #define CRIT_FROM_PRODUCTION( group, id)   THORIUM_CHECK_ID( id)
-    #define END_CRITERIA }
-
-    namespace verify_from_production
+    namespace meta
     {
-        #include "dut/criteria_production.inc"
-    }
+        consteval auto membersOfInfo( std::meta::info scope) -> std::vector<std::meta::info>
+        {
+            return std::meta::members_of( scope, std::meta::access_context::current());
+        }
 
-    namespace verify_from_stress
-    {
-        #include "dut/criteria_stress.inc"
-    }
+        //
+        // Every member of a namespace or struct reflection, promoted to
+        // static storage -- see core/criterion.hpp's own comment on
+        // std::meta::info being fine to promote (unlike a type with a
+        // std::string_view member) for why this doesn't need the
+        // key-only workaround hal/wiring.hpp's connectorWiringKeys does.
+        //
+        template<std::meta::info Scope>
+        constexpr auto members = std::define_static_array( membersOfInfo( Scope));
 
-    namespace verify_from_aged
-    {
-        #include "dut/criteria_aged.inc"
-    }
+        template<typename> constexpr bool dependentFalse = false;
 
-    #undef THORIUM_CHECK_ID
-    #pragma pop_macro("END_CRITERIA")
-    #pragma pop_macro("CRIT_FROM_PRODUCTION")
-    #pragma pop_macro("CRIT")
-    #pragma pop_macro("CRITERIA")
+        // The type member of Other (a namespace) named `wanted`, or
+        // std::meta::info{} if Other has no such member -- i.e. "does this
+        // variant have a CRITERIA group with this name at all".
+        template<std::meta::info Other>
+        consteval auto findGroupByName( std::string_view wanted) -> std::meta::info
+        {
+            for( auto member : members<Other>)
+            {
+                if( std::meta::is_type( member) && std::meta::identifier_of( member) == wanted)
+                {
+                    return member;
+                }
+            }
+
+            return {};
+        }
+
+        // Does the group reflection Group declare a CRIT (a data member)
+        // named `wanted`?
+        template<std::meta::info Group>
+        consteval auto hasCrit( std::string_view wanted) -> bool
+        {
+            for( auto member : members<Group>)
+            {
+                if( std::meta::is_variable( member) && std::meta::identifier_of( member) == wanted)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        //
+        // For every CRITERIA group declared in Reference, and every CRIT in
+        // it, static_assert that Other has a same-named group with a same-
+        // named CRIT too. One direction only catches an id/group *missing*
+        // from Other; everyVariantMatches below runs this both ways between
+        // every pair, which is what also catches a stray/extra group or id
+        // that exists in only one non-reference variant -- the same
+        // coverage driving the old mechanism from all three variants (not
+        // just production) gave.
+        //
+        template<std::meta::info Reference, std::meta::info Other>
+        consteval auto checkParity() -> bool
+        {
+            template for( constexpr auto group : members<Reference>)
+            {
+                if constexpr( std::meta::is_type( group))
+                {
+                    constexpr auto groupName  = std::meta::identifier_of( group);
+                    constexpr auto otherGroup = findGroupByName<Other>( groupName);
+
+                    if constexpr( otherGroup == std::meta::info{})
+                    {
+                        static_assert( dependentFalse<std::integral_constant<int, 0>>,
+                                      "a CRITERIA group exists in one variant but not another -- see "
+                                      "the failing template arguments above for which group/variant");
+                    }
+                    else
+                    {
+                        template for( constexpr auto member : members<group>)
+                        {
+                            if constexpr( std::meta::is_variable( member))
+                            {
+                                constexpr auto critName = std::meta::identifier_of( member);
+
+                                static_assert( hasCrit<otherGroup>( critName),
+                                              "a CRIT id exists in one variant's group but not the "
+                                              "same-named group in another -- see the failing template "
+                                              "arguments above for which id/group/variant");
+                            }
+                        }
+                    }
+                }
+            }
+
+            return true;
+        }
+    } // namespace meta
+
+    constexpr bool everyVariantMatches =
+        meta::checkParity<^^production, ^^stress>() &&
+        meta::checkParity<^^stress, ^^production>() &&
+        meta::checkParity<^^production, ^^aged>()   &&
+        meta::checkParity<^^aged, ^^production>();
 
 } // namespace thorium_criteria_compile_check
 

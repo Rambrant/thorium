@@ -41,7 +41,7 @@ namespace hal
     // handle was created -- but that never matters for real usage, since
     // Measure(port, at(...)) reads a port immediately and discards it.
     //
-    class L4411A
+    class L4411A : public InstrumentTag
     {
         public:
             enum class Mode           { Dc, Ac };

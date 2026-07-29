@@ -166,7 +166,7 @@ namespace hal
     // there.
     //
     template<typename Isolation>
-    class N6701A
+    class N6701A : public InstrumentTag
     {
         public:
             N6701A( const InstrumentId id, const int channel) : mId( id), mChannel( channel) {}

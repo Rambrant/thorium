@@ -10,6 +10,7 @@
 
 #include <gtest/gtest.h>
 
+#include <concepts>
 #include <stdexcept>
 
 using namespace core::literals;
@@ -20,16 +21,37 @@ namespace
     // The compile-time half of the safing contract: every driver in this
     // rig satisfies hal::SafeableInstrument, sources and passive
     // instruments alike. hal::safeRig() already static_asserts this per
-    // instance in hal/src/safing.cpp, so a driver missing safe() can't
-    // reach a test run at all -- these repeat it per *type* so the
-    // requirement is visible where the rest of the safing behaviour is
-    // documented, rather than only inside a macro expansion.
+    // instance it actually finds in hal/src/safing.cpp, so a driver missing
+    // safe() can't reach a test run at all -- these repeat it per *type* so
+    // the requirement is visible where the rest of the safing behaviour is
+    // documented, rather than only inside safeRig()'s own reflection loop.
     //
     static_assert( hal::SafeableInstrument< hal::N6701ADirect> );
     static_assert( hal::SafeableInstrument< hal::N6701ARelay> );
     static_assert( hal::SafeableInstrument< hal::Ac6677A> );
     static_assert( hal::SafeableInstrument< hal::L4411A> );
     static_assert( hal::SafeableInstrument< hal::DSO8064> );
+
+    //
+    // The other compile-time half, specific to reflecting over InstrumentTag
+    // rather than a hand-written list: safeRig() only ever *finds* an
+    // instrument to safe by reflecting over global variables whose type
+    // derives from hal::InstrumentTag (see that struct's own comment in
+    // hal/instrument.hpp) -- a type satisfying SafeableInstrument without
+    // also deriving from InstrumentTag would not fail any static_assert at
+    // all, because safeRig()'s loop would simply never reach it; there is
+    // no case to fall into, the same silent-skip shape hal::L4411A::safe()'s
+    // own comment warns an opt-in mechanism would have. These static_asserts
+    // are what actually closes that gap: every real driver type is checked
+    // against both requirements independently here, so a future driver
+    // missing either one is caught at this line, not discovered only when
+    // it silently never gets safed on the bench.
+    //
+    static_assert( std::derived_from< hal::N6701ADirect, hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::N6701ARelay,  hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::Ac6677A,      hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::L4411A,       hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::DSO8064,      hal::InstrumentTag> );
 
     //
     // The other direction, which is the half that actually demonstrates

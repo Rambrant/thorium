@@ -1,16 +1,24 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// This rig's fixed, concrete instrument list -- read three times over, with
-// INSTRUMENT redefined each time (the same one-list-many-meanings X-macro
-// idiom CRITERIA/CRIT and ADAPTER/POINT use, applied across files instead
-// of within one): rig/active_instruments.hpp declares each id below as an
-// actual global, hal/instrument.hpp keeps only each id to generate
-// hal::InstrumentId's enumerators, and hal/src/safing.cpp calls .safe() on
-// each global instead. All three read this exact list, so an instrument
-// added here can never desync from its own identity enumerator -- there is
-// nothing left to desync from, since the enumerator comes from this file
-// too now (see hal/instrument.hpp's own comment).
+// This rig's fixed, concrete instrument list -- included from two
+// different places, each with INSTRUMENT defined for its own purpose:
+// rig/active_instruments.hpp declares each id below as an actual global,
+// and hal/instrument.hpp keeps only each id to generate
+// hal::InstrumentId's enumerators. Both read this exact list, so an
+// instrument added here can never desync from its own identity enumerator
+// -- there is nothing left to desync from, since the enumerator comes from
+// this file too now.
+//
+// hal/instrument.hpp's own comment explains why THAT read can't be
+// replaced by reflection the way the rest of this codebase's macro-
+// redefinition-and-re-#include spots were: reflection needs the enum to
+// already exist, and generating it is this read's entire job. Contrast
+// hal/src/safing.cpp, which used to read this file a third time
+// (INSTRUMENT redefined again, to call .safe() on each) -- it no longer
+// needs this file at all, reflecting over hal::InstrumentTag-derived
+// globals instead (see that struct's own comment in hal/instrument.hpp),
+// because InstrumentId already existed by the time IT ran.
 //
 // See rig/active_instruments.hpp's own comment for the INSTRUMENTS/
 // INSTRUMENT/END_INSTRUMENTS macros this expands through, and rig/wiring.inc

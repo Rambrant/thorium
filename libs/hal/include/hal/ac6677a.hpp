@@ -100,7 +100,7 @@ namespace hal
     // ground alike, each its own entry in the rig's wiring.inc under the
     // same InstrumentId.
     //
-    class Ac6677A
+    class Ac6677A : public InstrumentTag
     {
         public:
             explicit Ac6677A( const InstrumentId id) : mId( id) {}
