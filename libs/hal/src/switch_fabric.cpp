@@ -1,33 +1,19 @@
 #include "hal/switch_fabric.hpp"
 
+#include "core/meta.hpp"
+
 namespace hal
 {
-    namespace
-    {
-        [[nodiscard]]
-        auto deviceKindName( const SwitchDeviceKind kind) -> std::string_view
-        {
-            //
-            // No default case -- adding a fourth SwitchDeviceKind without
-            // updating this switch is a -Wswitch warning, promoted to a
-            // build failure by -Werror, rather than a silent mislabel the
-            // way the two-kind ternary this replaced would have produced
-            // for a third kind.
-            //
-            switch( kind)
-            {
-                case SwitchDeviceKind::Matrix: return "Matrix";
-                case SwitchDeviceKind::Mux:    return "Mux";
-                case SwitchDeviceKind::RfMux:  return "RfMux";
-            }
-
-            return "Unknown"; // unreachable given the switch above; silences -Wreturn-type
-        }
-    } // namespace
-
     auto to_string( const SwitchElementId id) -> std::string
     {
-        return std::string( deviceKindName( id.kind)) + " " +
+        //
+        // core::meta::to_string() (core/meta.hpp) reflects over
+        // SwitchDeviceKind's own enumerators -- what used to be a
+        // hand-written switch here (see this file's own history) replacing
+        // an even older two-kind ternary. Adding a fourth SwitchDeviceKind
+        // needs no matching update here at all now, unlike either of those.
+        //
+        return std::string( core::meta::to_string( id.kind)) + " " +
                std::string( id.device) + " channel " + std::to_string( id.channel);
     }
 } // namespace hal

@@ -1,5 +1,7 @@
 #include "core/quantity_kind.hpp"
 
+#include "core/meta.hpp"
+
 namespace core
 {
     namespace
@@ -51,37 +53,24 @@ namespace core
         throw std::runtime_error( "quantityVariantFromKind: unknown QuantityKind");
     }
 
+    //
+    // Reflects over QuantityKind's own enumerators (core::meta::to_string(),
+    // core/meta.hpp) rather than restating each one's name a second time --
+    // see that header's own comment on why this is a clean fit (the
+    // enumerator's spelling IS the string every caller here wants) where
+    // core::to_string(LogLevel) is deliberately not.
+    //
     auto to_string( const QuantityKind kind) -> std::string_view
     {
-        switch( kind)
-        {
-            case QuantityKind::Voltage:       return "Voltage";
-            case QuantityKind::Current:       return "Current";
-            case QuantityKind::Power:         return "Power";
-            case QuantityKind::ApparentPower: return "ApparentPower";
-            case QuantityKind::Resistance:    return "Resistance";
-            case QuantityKind::Time:          return "Time";
-            case QuantityKind::Decibel:       return "Decibel";
-            case QuantityKind::Frequency:     return "Frequency";
-            case QuantityKind::PowerFactor:   return "PowerFactor";
-            case QuantityKind::ReactivePower: return "ReactivePower";
-        }
-
-        return "Unknown";
+        return meta::to_string( kind);
     }
 
     auto quantityKindFromString( const std::string_view text) -> QuantityKind
     {
-        if( text == "Voltage")       return QuantityKind::Voltage;
-        if( text == "Current")       return QuantityKind::Current;
-        if( text == "Power")         return QuantityKind::Power;
-        if( text == "ApparentPower") return QuantityKind::ApparentPower;
-        if( text == "Resistance")    return QuantityKind::Resistance;
-        if( text == "Time")          return QuantityKind::Time;
-        if( text == "Decibel")       return QuantityKind::Decibel;
-        if( text == "Frequency")     return QuantityKind::Frequency;
-        if( text == "PowerFactor")   return QuantityKind::PowerFactor;
-        if( text == "ReactivePower") return QuantityKind::ReactivePower;
+        if( const auto kind = meta::fromString<QuantityKind>( text))
+        {
+            return *kind;
+        }
 
         throw std::runtime_error( "quantityKindFromString: unknown kind '" + std::string( text) + "'");
     }

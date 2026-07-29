@@ -8,7 +8,7 @@
 // A plain #include: ADAPTER/POINT (see hal/adapter.hpp) expand fully
 // qualified, so nothing else needs to be brought into scope first.
 //
-#include "dut/device_x_profile.inc"
+#include "dut/adapter.inc"
 
 //
 // Location and quantity are compile-time values now (baked into each

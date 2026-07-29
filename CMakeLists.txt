@@ -104,12 +104,11 @@ endif()
 # --- This rig's data for the generic hal library ---
 # libs/hal is a generic instrument-driver + switching-fabric library with no
 # instruments plugged into it at all -- it needs a rig to supply which
-# instruments exist, how they're wired, and what to call them, as four file
+# instruments exist, how they're wired, and what to call them, as three file
 # paths (see libs/hal/CMakeLists.txt's own comment). This repo IS that one
 # rig for now, so it points them at ./rig/ here; a separate rig repo pulling
-# hal in later would set these same four variables pointing at its own
+# hal in later would set these same three variables pointing at its own
 # rig/-equivalent instead -- see rig/README.md.
-set(THORIUM_INSTRUMENT_IDS "${CMAKE_SOURCE_DIR}/rig/instrument_id.inc" CACHE FILEPATH "" FORCE)
 set(THORIUM_ACTIVE_INSTRUMENTS "${CMAKE_SOURCE_DIR}/rig/active_instruments.hpp" CACHE FILEPATH "" FORCE)
 set(THORIUM_INSTRUMENT_TABLE "${CMAKE_SOURCE_DIR}/rig/instrument.inc" CACHE FILEPATH "" FORCE)
 set(THORIUM_WIRING_TABLE "${CMAKE_SOURCE_DIR}/rig/wiring.inc" CACHE FILEPATH "" FORCE)
@@ -127,13 +126,13 @@ add_subdirectory(libs/hal)
 # actually looks for).
 #
 # One thing this does NOT give a consumer: a hal that works for their rig
-# out of the box. hal's THORIUM_INSTRUMENT_IDS/THORIUM_ACTIVE_INSTRUMENTS/
-# THORIUM_INSTRUMENT_TABLE/THORIUM_WIRING_TABLE (see libs/hal/CMakeLists.txt)
-# are baked in via #include at hal's OWN compile time, so an installed
-# libhal.a is only ever built for the one rig that supplied those four paths
-# when IT was configured -- this repo's rig/, in this build. A different rig
-# consuming this package needs to build hal from source against its own
-# rig/-equivalent (FetchContent/add_subdirectory, setting those same four
+# out of the box. hal's THORIUM_ACTIVE_INSTRUMENTS/THORIUM_INSTRUMENT_TABLE/
+# THORIUM_WIRING_TABLE (see libs/hal/CMakeLists.txt) are baked in via
+# #include at hal's OWN compile time, so an installed libhal.a is only ever
+# built for the one rig that supplied those three paths when IT was
+# configured -- this repo's rig/, in this build. A different rig consuming
+# this package needs to build hal from source against its own rig/-
+# equivalent (FetchContent/add_subdirectory, setting those same three
 # variables before hal configures), not link against a prebuilt hal from
 # somewhere else's install -- see libs/hal/README.md.
 install(EXPORT ThoriumTargets

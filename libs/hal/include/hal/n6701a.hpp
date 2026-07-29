@@ -135,7 +135,7 @@ namespace hal
     // channel-plus-connector-channel pair a routed instrument like
     // hal::DSO8064 has. Which DUT point that fixed channel corresponds to
     // (e.g. "Output5V") is a fact the DUT adapter documents about itself
-    // (see e.g. dut/device_x_profile.inc), never something hal::
+    // (see e.g. dut/adapter.inc), never something hal::
     // names -- this header has no idea DcP1 has anything to do with any
     // point called Output5V, only that it may or may not have one fixed
     // relay.

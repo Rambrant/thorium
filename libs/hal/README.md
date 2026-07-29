@@ -9,15 +9,15 @@ linked by many rigs testing many DUTs, not just this repo's -- so nothing
 here knows what "Device X" is (DUT-specific data lives under `dut/`,
 see its README) or what instruments a given rig actually has, how they're
 wired, or what to call them (that's `rig/`, see its own README). A rig
-supplies those as four file paths at configure time -- see
-`THORIUM_INSTRUMENT_IDS`/`THORIUM_ACTIVE_INSTRUMENTS`/
-`THORIUM_INSTRUMENT_TABLE`/`THORIUM_WIRING_TABLE` in this directory's
-`CMakeLists.txt` -- the same compile-definition-swap mechanism
-`core/active_criteria.hpp` already uses for `THORIUM_ACTIVE_CRITERIA`. This
-repo's own top-level `CMakeLists.txt` sets those four to point at `rig/`,
-since this repo is (for now) both the library and its one rig; a separate
-rig repo pulling this library in later would set the same four variables
-pointing at its own `rig/`-equivalent instead.
+supplies those as three file paths at configure time -- see
+`THORIUM_ACTIVE_INSTRUMENTS`/`THORIUM_INSTRUMENT_TABLE`/
+`THORIUM_WIRING_TABLE` in this directory's `CMakeLists.txt` -- the same
+compile-definition-swap mechanism `core/active_criteria.hpp` already uses
+for `THORIUM_ACTIVE_CRITERIA`. This repo's own top-level `CMakeLists.txt`
+sets those three to point at `rig/`, since this repo is (for now) both the
+library and its one rig; a separate rig repo pulling this library in later
+would set the same three variables pointing at its own `rig/`-equivalent
+instead.
 
 ## Layout
 
@@ -26,7 +26,7 @@ libs/hal/
     include/hal/
         vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
         switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
-        instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_IDS
+        instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_TABLE
         l4411a.hpp          # hal::L4411A -- a generic DMM driver
         dso8064.hpp         # hal::DSO8064 -- a generic scope driver
         n6701a.hpp          # hal::N6701A/N6701ABuilder -- one N6701A channel
@@ -131,7 +131,7 @@ on `hal::` at all.
 ## Instrument identity (DcP1..DcP4/AcP1) vs. instrument class (N6701A/Ac6677A)
 
 `InstrumentId`'s enumerators are rig data, not hal data -- generated from
-`THORIUM_INSTRUMENT_IDS` (`rig/instrument_id.inc` in this repo's case), not
+`THORIUM_INSTRUMENT_TABLE` (`rig/instrument.inc` in this repo's case), not
 listed in `instrument.hpp` itself; see this directory's `CMakeLists.txt`.
 Two different naming axes, on purpose, for whatever names a rig actually
 picks:
@@ -172,7 +172,7 @@ This rig's AC neutral is hard-wired to ground rather than routed through
 the switching fabric, so `ThreePhaseWyePoints` is just `{ a, b, c }` --
 `Apply`/`Remove` never route or source a neutral connection. `AcInput_N`
 still exists as an ordinary DUT adapter point (see
-`dut/device_x_profile.inc`) for diagnostic `Measure(...)` calls (e.g.
+`dut/adapter.inc`) for diagnostic `Measure(...)` calls (e.g.
 verifying it actually reads as ground) -- it's simply never part of a
 `ThreePhaseWyePoints`, and `hal::ac6677a.hpp` has no `.n` field to put it in.
 

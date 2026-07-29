@@ -8,51 +8,39 @@ concrete header) with no library of its own. The mechanism that makes sense
 of this data (`hal::InstrumentWiring`, `hal::SwitchFabric`, the driver
 classes themselves, the `INSTRUMENTS`/`INSTRUMENT_WIRING`/etc macros) all
 lives in `libs/hal/` -- see its README for why that split is possible, and
-for the four `THORIUM_*` compile definitions (declared and validated in
+for the three `THORIUM_*` compile definitions (declared and validated in
 `libs/hal/CMakeLists.txt`) this directory's files are handed to hal through.
 
 ## Layout
 
 ```
 rig/
-    instrument_id.inc      # THORIUM_INSTRUMENT_IDS -- hal::InstrumentId's enumerators
-    instrument.inc         # THORIUM_INSTRUMENT_TABLE -- this rig's fixed instrument list
+    instrument.inc         # THORIUM_INSTRUMENT_TABLE -- this rig's fixed instrument list, and hal::InstrumentId's enumerators
     wiring.inc              # THORIUM_WIRING_TABLE -- this rig's fixed instrument/connector wiring
     active_instruments.hpp # THORIUM_ACTIVE_INSTRUMENTS -- Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/fabric
 ```
 
-## Why four files for three facts
-
-`instrument_id.inc` is split out from `instrument.inc` rather than folded
-into it, even though every rig will always change them together: adding an
-instrument means adding a name to both. The reason is which header needs
-which. `hal/instrument.hpp` -- generic, shared by every rig that links
-hal -- only ever needs the bare list of names, to generate
-`hal::InstrumentId`'s enumerators; it must not also see each name's
-concrete driver type or constructor arguments, which is exactly what
-`instrument.inc` adds. `active_instruments.hpp` below needs both, so it
-`#include`s both, in order.
-
-## instrument_id.inc
-
-One `INSTRUMENT_ID(name)` per instrument this rig has, nothing else. Read
-twice, with `INSTRUMENT_ID` redefined between reads -- the same
-two-meanings-of-one-X-macro pattern `instrument.inc` itself gets from
-`hal/src/safing.cpp` (see that file's own comment): once by
-`hal/instrument.hpp` to declare `enum class InstrumentId`'s actual
-enumerators, once by `hal/src/instrument.cpp` to build `to_string()`'s
-switch. Both expansions read this exact list, so a name added here can
-never desync between the enum and its string form.
-
 ## instrument.inc
 
-This rig's fixed, concrete instrument list -- one `INSTRUMENT(type, name,
-id, ...)` per instrument, naming its C++ driver type, the global it's
-addressed by, and any constructor arguments (e.g. `hal::N6701A`'s slot
-number). Read twice as well, by `active_instruments.hpp` below (declaring
-each as an actual global) and by `hal/src/safing.cpp` (calling `.safe()` on
-each instead) -- see `hal/safing.hpp`'s own comment on why a hand-maintained
-second list of instruments to safe would be the wrong shape.
+This rig's fixed, concrete instrument list -- one `INSTRUMENT(type, id,
+...)` per instrument, naming its C++ driver type, the global it's addressed
+by (id doubles as both the global's name and its `hal::InstrumentId` --
+there is no rig where those differ, so there's no separate parameter for
+it), and any constructor arguments (e.g. `hal::N6701A`'s slot number). Read
+three times over, with `INSTRUMENT` redefined between reads -- the same
+one-list-many-meanings X-macro idiom `CRITERIA`/`CRIT` and `ADAPTER`/`POINT`
+use, applied across files instead of within one:
+
+- `active_instruments.hpp` below declares each id as an actual global
+- `hal/instrument.hpp` keeps only each id, to generate `hal::InstrumentId`'s
+  enumerators (see that header's own comment)
+- `hal/src/safing.cpp` calls `.safe()` on each global instead -- see
+  `hal/safing.hpp`'s own comment on why a hand-maintained second list of
+  instruments to safe would be the wrong shape
+
+All three expansions read this exact list, so an instrument added here can
+never desync from its own identity enumerator, or get safed without ever
+being declared, or vice versa.
 
 ## wiring.inc
 
@@ -78,7 +66,7 @@ plugged into it at all.
 A separate rig -- its own repo, its own bench, its own instruments -- reuses
 `libs/core/` and `libs/hal/` as-is (via `find_package`/`FetchContent`/
 `add_subdirectory`, whichever that repo's own build prefers) and supplies
-its own four files in this same shape, pointed at by the same four
+its own three files in this same shape, pointed at by the same three
 `THORIUM_*` variables `libs/hal/CMakeLists.txt` requires. Nothing under
 `libs/hal/` needs to change for that to work -- that's the point of the
 split this directory draws.

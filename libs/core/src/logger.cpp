@@ -1,5 +1,7 @@
 #include "core/logger.hpp"
 
+#include "core/meta.hpp"
+
 #include <iostream>
 
 namespace core
@@ -13,15 +15,14 @@ namespace core
         std::cout << "[" << to_string(level) << "] " << mName << ": " << message << "\n";
     }
 
+    //
+    // core::meta::to_string_upper() (core/meta.hpp) reflects over LogLevel's
+    // own enumerators and uppercases each one at compile time (Debug ->
+    // "DEBUG") -- see that function's own comment for why to_string()
+    // (verbatim spelling) isn't the right fit here.
+    //
     auto to_string( LogLevel level) -> std::string_view
     {
-        switch( level)
-        {
-            case LogLevel::Debug : return "DEBUG";
-            case LogLevel::Info  : return "INFO";
-            case LogLevel::Warn  : return "WARN";
-            case LogLevel::Error : return "ERROR";
-        }
-        return "UNKNOWN";
+        return meta::to_string_upper( level);
     }
 } // namespace core

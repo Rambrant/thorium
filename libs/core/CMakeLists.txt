@@ -16,6 +16,7 @@ add_library(core STATIC
         include/core/predicates.hpp      # header-only
         include/core/criterion.hpp       # header-only
         include/core/active_criteria.hpp # header-only
+        include/core/meta.hpp            # header-only
 )
 
 target_include_directories(core PUBLIC
@@ -51,6 +52,7 @@ if(BUILD_TESTING_LAYERS)
             tests/test_predicates.cpp
             tests/test_criterion.cpp
             tests/test_verify.cpp
+            tests/test_meta.cpp
             tests/test_static_constraints.cpp
     )
 endif()

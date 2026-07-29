@@ -1,12 +1,21 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// This rig's fixed, concrete instrument list -- see rig/active_instruments.hpp's
-// own comment for the INSTRUMENTS/INSTRUMENT/END_INSTRUMENTS macros this
-// expands through, and rig/wiring.inc for the sibling fact (which channel
-// each of these instruments is wired to). rig/instrument_id.inc is the
-// third sibling -- the identities (Osc1, Dmm1, ...) themselves, generated
-// into hal::InstrumentId rather than declared here.
+// This rig's fixed, concrete instrument list -- read three times over, with
+// INSTRUMENT redefined each time (the same one-list-many-meanings X-macro
+// idiom CRITERIA/CRIT and ADAPTER/POINT use, applied across files instead
+// of within one): rig/active_instruments.hpp declares each id below as an
+// actual global, hal/instrument.hpp keeps only each id to generate
+// hal::InstrumentId's enumerators, and hal/src/safing.cpp calls .safe() on
+// each global instead. All three read this exact list, so an instrument
+// added here can never desync from its own identity enumerator -- there is
+// nothing left to desync from, since the enumerator comes from this file
+// too now (see hal/instrument.hpp's own comment).
+//
+// See rig/active_instruments.hpp's own comment for the INSTRUMENTS/
+// INSTRUMENT/END_INSTRUMENTS macros this expands through, and rig/wiring.inc
+// for the sibling fact (which channel each of these instruments is wired
+// to).
 //
 // DcP1..DcP4 are the N6701A mainframe's four module slots, each its own
 // hal::N6701A instance -- see that class's own comment in hal/n6701a.hpp
@@ -21,12 +30,12 @@
 // same instrument type either way.
 //
 INSTRUMENTS
-    INSTRUMENT( L4411A,      Dmm1, Dmm1)
-    INSTRUMENT( L4411A,      Dmm2, Dmm2)
-    INSTRUMENT( DSO8064,     Osc1, Osc1)
-    INSTRUMENT( N6701ADirect, DcP1, DcP1, 1)
-    INSTRUMENT( N6701ADirect, DcP2, DcP2, 2)
-    INSTRUMENT( N6701ARelay,  DcP3, DcP3, 3)
-    INSTRUMENT( N6701ARelay,  DcP4, DcP4, 4)
-    INSTRUMENT( Ac6677A,     AcP1, AcP1)
+    INSTRUMENT( L4411A,       Dmm1)
+    INSTRUMENT( L4411A,       Dmm2)
+    INSTRUMENT( DSO8064,      Osc1)
+    INSTRUMENT( N6701ADirect, DcP1, 1)
+    INSTRUMENT( N6701ADirect, DcP2, 2)
+    INSTRUMENT( N6701ARelay,  DcP3, 3)
+    INSTRUMENT( N6701ARelay,  DcP4, 4)
+    INSTRUMENT( Ac6677A,      AcP1)
 END_INSTRUMENTS

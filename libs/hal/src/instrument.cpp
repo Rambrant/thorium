@@ -1,26 +1,20 @@
 #include "hal/instrument.hpp"
 
+#include "core/meta.hpp"
+
 namespace hal
 {
     //
-    // Same THORIUM_INSTRUMENT_IDS content hal/instrument.hpp already
-    // expanded once, to declare InstrumentId's enumerators -- re-expanded
-    // here with INSTRUMENT_ID redefined to build a switch case per name
-    // instead, the same two-meanings-of-one-X-macro pattern
-    // hal/src/safing.cpp uses on instrument.inc. Every enumerator gets a
-    // case this way, so -Wswitch would catch a name added to
-    // instrument_id.inc without a matching driver, or vice versa -- see
-    // that file's own comment.
+    // Used to re-expand instrument.inc a second time (with INSTRUMENT
+    // redefined to build a switch case per id, the same two-meanings-of-
+    // one-X-macro pattern hal/src/safing.cpp still uses on it). core::meta::
+    // to_string() (core/meta.hpp) replaces that: it reflects over
+    // InstrumentId's own enumerators, so there is no separate name list here
+    // to keep in sync with instrument.inc at all, rather than one -Wswitch
+    // already caught if it drifted.
     //
     auto to_string( const InstrumentId id) -> std::string_view
     {
-        switch( id)
-        {
-#define INSTRUMENT_ID( name) case InstrumentId::name: return #name;
-#include THORIUM_INSTRUMENT_IDS
-#undef INSTRUMENT_ID
-        }
-
-        return "UnknownInstrument";
+        return core::meta::to_string( id);
     }
 } // namespace hal

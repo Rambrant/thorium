@@ -9,18 +9,19 @@ namespace hal
     // The safing pass itself. The instrument list is not written out here
     // -- it is the linking rig's instrument.inc (rig/instrument.inc in this
     // repo, reached via THORIUM_INSTRUMENT_TABLE -- see
-    // hal/instrument.hpp's own comment on THORIUM_INSTRUMENT_IDS for why
+    // hal/instrument.hpp's own comment on THORIUM_INSTRUMENT_TABLE for why
     // this file, being generic hal code shared by every rig, can't name any
     // one rig's instrument.inc directly), re-expanded a second time with
     // INSTRUMENT redefined to call safe() instead of declaring a global.
     // rig/active_instruments.hpp already expanded the same file once, with
-    // the declaring definition; this is the same X-macro-with-two-meanings
-    // pattern the criteria variants use for their parity checks, and for
-    // the same reason: a hand-maintained list of instruments to safe would
-    // be a second copy of instrument.inc, and the failure mode of a second
-    // copy is that it silently falls behind the first. An instrument added
-    // to the rig is safed because it was added to the rig, not because
-    // somebody also remembered to add it here.
+    // the declaring definition, and hal/instrument.hpp a third time, to
+    // generate InstrumentId's enumerators; this is the same X-macro-with-
+    // multiple-meanings pattern the criteria variants use for their parity
+    // checks, and for the same reason: a hand-maintained list of
+    // instruments to safe would be a second copy of instrument.inc, and the
+    // failure mode of a second copy is that it silently falls behind the
+    // first. An instrument added to the rig is safed because it was added
+    // to the rig, not because somebody also remembered to add it here.
     //
     // push_macro/pop_macro rather than a bare #undef: INSTRUMENT is left
     // defined by hal/active_instruments.hpp (it's a name test scripts and
@@ -36,20 +37,22 @@ namespace hal
     // hal/instrument.hpp, and hal::L4411A::safe() for why every driver
     // must have one rather than only the sources that need a real body.
     //
-    // type/id/__VA_ARGS__ are accepted and ignored: this expansion needs
-    // only the instance name. The signature has to match the declaring
-    // definition regardless, since the same .inc feeds both.
+    // type/__VA_ARGS__ are accepted and ignored: this expansion needs only
+    // id, which doubles as the instance name (see rig/active_instruments.hpp's
+    // own comment on why INSTRUMENT takes one token for both). The
+    // signature has to match the declaring definition regardless, since the
+    // same .inc feeds both.
     //
     auto safeRig() -> void
     {
 #pragma push_macro( "INSTRUMENT")
 #undef INSTRUMENT
 
-#define INSTRUMENT( type, name, id, ...)                                        \
-        static_assert( SafeableInstrument< decltype( name)>,                     \
+#define INSTRUMENT( type, id, ...)                                              \
+        static_assert( SafeableInstrument< decltype( id)>,                       \
             "every instrument in hal/instrument.inc needs a safe() member --"    \
             " see hal::SafeableInstrument in hal/instrument.hpp");               \
-        name.safe();
+        id.safe();
 
         //
         // Sources first, relays after -- and note that this ordering needs

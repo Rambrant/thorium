@@ -10,7 +10,7 @@
 // own comment and hal/measure.cpp for why this isn't duplicated data.
 // THORIUM_WIRING_TABLE is the linking rig's wiring.inc (rig/wiring.inc in
 // this repo) -- see hal/instrument.hpp's own comment on
-// THORIUM_INSTRUMENT_IDS for why this indirection exists at all: this file
+// THORIUM_INSTRUMENT_TABLE for why this indirection exists at all: this file
 // is generic hal code, shared by every rig, so it cannot name any one
 // rig's wiring.inc directly.
 //

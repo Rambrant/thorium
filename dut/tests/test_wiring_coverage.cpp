@@ -15,7 +15,7 @@
 // isWired() for why the check below can't live inside core::MeasureEngine
 // itself.
 //
-#include "dut/device_x_profile.inc"
+#include "dut/adapter.inc"
 #include "rig/wiring.inc"
 
 //

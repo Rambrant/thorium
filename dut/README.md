@@ -16,14 +16,14 @@ and below for why the hal/core split specifically is possible.
 ```
 dut/
     tests/
-        test_device_x_profile.cpp
-    device_x_profile.inc
+        test_adapter.cpp
+    adapter.inc
     criteria_production.inc
     criteria_stress.inc
     criteria_aged.inc
 ```
 
-## device_x_profile.inc
+## adapter.inc
 
 `ADAPTER`/`POINT`/`END_ADAPTER` (see `libs/hal/include/hal/adapter.hpp`) --
 mirroring `CRITERIA`/`CRIT`/`END_CRITERIA` below -- expand into the one
@@ -78,7 +78,7 @@ The tolerance tables (`CRITERIA`/`CRIT` blocks, see
 set of numbers: production hardware fresh off the line, a stress-chamber
 run, equipment that's been in service for years, etc. They live here, not
 in `suite/`, because a tolerance is a property of the DUT being tested --
-the same reasoning that puts `device_x_profile.inc` here.
+the same reasoning that puts `adapter.inc` here.
 
 One flat `.inc` file per variant. Each file holds every script's `CRITERIA`
 side by side (currently `FS_Fuse_6` for fuse-register checks and
@@ -161,8 +161,8 @@ the moment anyone builds the `scripts_tests` target -- not the day someone
 finally targets aged equipment for real. It lives under `suite/tests/`
 rather than here because it's a test *of* this data, following the same
 "content in one place, its tests alongside the rest of the test-script
-tests" split this whole directory uses -- `test_device_x_profile.cpp`
-above is the same idea, for `device_x_profile.inc`.
+tests" split this whole directory uses -- `test_adapter.cpp`
+above is the same idea, for `adapter.inc`.
 
 That file also `static_assert`s that each variant defines the exact
 expected `CRIT` names for both `FS_Fuse_6` and `FS_Supply_1` (not just that

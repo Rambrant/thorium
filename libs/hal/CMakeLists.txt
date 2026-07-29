@@ -3,23 +3,21 @@
 # be linked by many rigs testing many DUTs, not just this repo's (see
 # README.md) -- so it cannot hardcode which instruments a given rig has,
 # how they're wired, or what to call them. Whoever configures a build that
-# includes this directory supplies that as four file paths: this repo's own
+# includes this directory supplies that as three file paths: this repo's own
 # top-level CMakeLists.txt does it below (pointing at ./rig/), the same way
 # a separate rig's own top-level CMakeLists.txt would after pulling this
 # library in via add_subdirectory/FetchContent. Same compile-definition-
 # swap mechanism core/active_criteria.hpp already uses for
 # THORIUM_ACTIVE_CRITERIA/THORIUM_TEST_CATALOG -- see rig/README.md for
-# what each of these four files actually contains.
-set(THORIUM_INSTRUMENT_IDS "" CACHE FILEPATH
-    "Path to the linking rig's instrument_id.inc (hal::InstrumentId's enumerators)")
+# what each of these three files actually contains.
 set(THORIUM_ACTIVE_INSTRUMENTS "" CACHE FILEPATH
     "Path to the linking rig's active_instruments.hpp (its concrete instrument globals + fabric)")
 set(THORIUM_INSTRUMENT_TABLE "" CACHE FILEPATH
-    "Path to the linking rig's instrument.inc (its fixed instrument list)")
+    "Path to the linking rig's instrument.inc (its fixed instrument list, and hal::InstrumentId's enumerators)")
 set(THORIUM_WIRING_TABLE "" CACHE FILEPATH
     "Path to the linking rig's wiring.inc (its fixed instrument/connector wiring)")
 
-foreach(_thorium_rig_var THORIUM_INSTRUMENT_IDS THORIUM_ACTIVE_INSTRUMENTS THORIUM_INSTRUMENT_TABLE THORIUM_WIRING_TABLE)
+foreach(_thorium_rig_var THORIUM_ACTIVE_INSTRUMENTS THORIUM_INSTRUMENT_TABLE THORIUM_WIRING_TABLE)
     if(NOT ${_thorium_rig_var} OR NOT EXISTS "${${_thorium_rig_var}}")
         message(FATAL_ERROR
             "${_thorium_rig_var} must point at an existing file -- hal is a generic "
@@ -70,17 +68,17 @@ install(TARGETS hal
 )
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-# PUBLIC: hal/instrument.hpp (a public header) expands THORIUM_INSTRUMENT_IDS
-# itself, and rig/active_instruments.hpp -- reached through
+# PUBLIC: hal/instrument.hpp (a public header) expands THORIUM_INSTRUMENT_TABLE
+# itself (to generate hal::InstrumentId's enumerators -- see that header's
+# own comment), and rig/active_instruments.hpp -- reached through
 # THORIUM_ACTIVE_INSTRUMENTS by hal's own src/apply.cpp, src/measure.cpp,
 # src/safing.cpp -- is also #included directly by consumers outside this
-# library (suite/scripts.hpp, hal_tests' test_safing.cpp). All four need to
+# library (suite/scripts.hpp, hal_tests' test_safing.cpp). All three need to
 # reach anyone linking hal, transitively, the same reason
 # THORIUM_TEST_CATALOG/THORIUM_TEST_SCRIPTS are PUBLIC on app/'s scripts
 # target rather than PRIVATE like THORIUM_ACTIVE_CRITERIA (whose only
 # consumer is scripts' own .cpp files).
 target_compile_definitions(hal PUBLIC
-    THORIUM_INSTRUMENT_IDS="${THORIUM_INSTRUMENT_IDS}"
     THORIUM_ACTIVE_INSTRUMENTS="${THORIUM_ACTIVE_INSTRUMENTS}"
     THORIUM_INSTRUMENT_TABLE="${THORIUM_INSTRUMENT_TABLE}"
     THORIUM_WIRING_TABLE="${THORIUM_WIRING_TABLE}"

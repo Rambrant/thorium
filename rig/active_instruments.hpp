@@ -23,20 +23,27 @@
 // script writes directly, not hal-internal plumbing.
 //
 //   INSTRUMENTS
-//       INSTRUMENT( L4411A, Dmm1, Dmm1)
-//       INSTRUMENT( N6701A, DcP1, DcP1, 1)
+//       INSTRUMENT( L4411A, Dmm1)
+//       INSTRUMENT( N6701A, DcP1, 1)
 //   END_INSTRUMENTS
 //
-// This file, together with instrument.inc/wiring.inc/instrument_id.inc
-// right alongside it, is this rig's entire contribution to what would
-// otherwise be a generic hal:: library with no instruments plugged into
-// it at all -- see rig/README.md and hal/README.md for the split this
-// directory boundary is drawing.
+// INSTRUMENT takes the global's name and its InstrumentId as one token
+// (id), not two -- there is no rig where a script-facing global is named
+// anything other than the identity it addresses, so a separate name
+// parameter would just be the same word written twice at every call site
+// (see hal/instrument.hpp's own comment on the same token feeding its
+// enum's enumerators from this exact file).
+//
+// This file, together with instrument.inc/wiring.inc right alongside it,
+// is this rig's entire contribution to what would otherwise be a generic
+// hal:: library with no instruments plugged into it at all -- see
+// rig/README.md and hal/README.md for the split this directory boundary is
+// drawing.
 //
 #define INSTRUMENTS
 
-#define INSTRUMENT( type, name, id, ...) \
-    inline hal::type name{ hal::InstrumentId::id __VA_OPT__(,) __VA_ARGS__ };
+#define INSTRUMENT( type, id, ...) \
+    inline hal::type id{ hal::InstrumentId::id __VA_OPT__(,) __VA_ARGS__ };
 
 #define END_INSTRUMENTS
 
@@ -48,7 +55,7 @@ namespace hal
     //
     // The switching fabric itself: rig-hardware state, not DUT-specific, so
     // it lives here rather than alongside whichever DUT/adapter happens to
-    // be under test (see dut/device_x_profile.inc). Unlike Dmm1 etc above,
+    // be under test (see dut/adapter.inc). Unlike Dmm1 etc above,
     // nothing outside of assembling the Measure object (see
     // hal/measure.cpp) needs to name this directly, so it stays properly
     // namespaced rather than joining the unqualified globals.

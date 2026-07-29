@@ -15,23 +15,53 @@ namespace hal
     //
     // This header is generic -- shared by every rig that links hal -- so
     // the actual enumerators (Dmm1, DcP1, AcP1, ...) are not listed here at
-    // all. They come from THORIUM_INSTRUMENT_IDS, a compile definition
-    // pointing at the linking rig's own instrument_id.inc (see
-    // rig/instrument_id.inc for this repo's), the same compile-definition-
+    // all. They're generated from THORIUM_INSTRUMENT_TABLE, a compile
+    // definition pointing at the linking rig's own instrument.inc (see
+    // rig/instrument.inc for this repo's) -- the same compile-definition-
     // swap mechanism core/active_criteria.hpp already uses for
     // THORIUM_ACTIVE_CRITERIA. A driver still names the *role* it plays
     // ("DC power, channel N"), not the model, the same reasoning that keeps
     // hal::N6701A's own class name (not this enum) tied to the physical
     // instrument model -- see hal::N6701A's own comment in hal/n6701a.hpp.
     //
-#define INSTRUMENT_ID( name) name,
+    // instrument.inc is read here with INSTRUMENT redefined to keep only
+    // the id token -- the same file rig/active_instruments.hpp declares the
+    // real instrument globals from (INSTRUMENT(type, id, ...), one token
+    // for both the global's name and its identity -- see that file's own
+    // comment on why there's no separate name parameter to ignore here) and
+    // hal/src/safing.cpp calls safe() on each from. There used to be a
+    // separate rig/instrument_id.inc for just this list; folding it into
+    // this one expansion instead means an instrument added to instrument.inc
+    // can never desync from its own InstrumentId enumerator -- there's
+    // nothing left to desync from.
+    //
+    // push_macro/pop_macro rather than a bare #define/#undef: instrument.inc
+    // starts with INSTRUMENTS and ends with END_INSTRUMENTS (see
+    // rig/active_instruments.hpp), so both need to be defined here too,
+    // regardless of whether this header is the first to touch them in a
+    // given translation unit or active_instruments.hpp already has --
+    // exactly the guard hal/src/safing.cpp already needs around its own
+    // second read of instrument.inc, for the same reason.
+    //
+#pragma push_macro( "INSTRUMENTS")
+#pragma push_macro( "INSTRUMENT")
+#pragma push_macro( "END_INSTRUMENTS")
+#undef INSTRUMENTS
+#undef INSTRUMENT
+#undef END_INSTRUMENTS
+
+#define INSTRUMENTS
+#define INSTRUMENT( type, id, ...) id,
+#define END_INSTRUMENTS
 
     enum class InstrumentId
     {
-        #include THORIUM_INSTRUMENT_IDS
+        #include THORIUM_INSTRUMENT_TABLE
     };
 
-#undef INSTRUMENT_ID
+#pragma pop_macro( "END_INSTRUMENTS")
+#pragma pop_macro( "INSTRUMENT")
+#pragma pop_macro( "INSTRUMENTS")
 
     [[nodiscard]]
     auto to_string( InstrumentId id) -> std::string_view;

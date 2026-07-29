@@ -8,7 +8,7 @@
 // on) -- see the linking rig's wiring.inc (rig/wiring.inc in this repo),
 // reached via THORIUM_WIRING_TABLE rather than a hardcoded path since this
 // file is generic hal code, shared by every rig -- see hal/instrument.hpp's
-// own comment on THORIUM_INSTRUMENT_IDS for the same reasoning. This is the
+// own comment on THORIUM_INSTRUMENT_TABLE for the same reasoning. This is the
 // only place instrumentWiring/connectorWiring need to be populated;
 // MeasureEngine itself no longer needs any DUT-specific data at all (unlike
 // before AdapterPointTag baked a point's location/quantity into its type --
