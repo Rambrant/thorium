@@ -1,9 +1,12 @@
 #pragma once
 
 #include <optional>
+#include <string>
 
+#include "core/apply.hpp"
 #include "core/quantity.hpp"
 
+#include "hal/describe.hpp"
 #include "hal/instrument.hpp"
 #include "hal/switch_fabric.hpp"
 #include "hal/wiring.hpp"
@@ -191,6 +194,27 @@ namespace hal
     inline auto removeDriver( const Ac6677AConfig & config) -> void
     {
         config.Instrument.removeOutput();
+    }
+
+    //
+    // ADL target for the run journal -- see hal/n6701a.hpp's describeConfig for
+    // the same mechanism and hal/describe.hpp for the helpers. "3-phase wye" is
+    // stated rather than implied: this instrument has only one connection mode
+    // today (see this class's own comment on why a delta variant would be a
+    // second builder method), and a log that says which one was used stays
+    // correct rather than becoming ambiguous the moment a second one exists.
+    //
+    inline auto describeConfig( const Ac6677AConfig & config) -> core::SourceDescription
+    {
+        return core::SourceDescription{
+            std::string( to_string( config.Instrument.id())),
+            describeSettings( {
+                "3-phase wye",
+                describeSetting( "phaseVoltage", config.PhaseVoltage),
+                describeSetting( "frequency",    config.Frequency),
+                describeSetting( "currentLimit", config.CurrentLimit)
+            })
+        };
     }
 
     //

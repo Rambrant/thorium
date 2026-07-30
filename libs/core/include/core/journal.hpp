@@ -1,0 +1,295 @@
+#pragma once
+
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace core
+{
+    //
+    // The run journal: one ordered stream of everything the framework's verbs
+    // did, fanned out to any number of sinks that each render it their own way.
+    //
+    // Two sinks exist today and they want very different things from the same
+    // run, which is the whole reason this is an event stream rather than each
+    // verb formatting its own log line:
+    //
+    //   - core::SarifSink -- every verb, machine-consumable, for a tool or a
+    //     server to ingest (core/sarif_sink.hpp)
+    //   - core::RtfSink / core::ConsoleSink -- Measure and Verify only,
+    //     colour-coded, for a person (core/rtf_sink.hpp, core/console_sink.hpp)
+    //
+    // Neither filtering nor formatting lives at the call site, so adding a
+    // third stream later (JUnit XML, a live socket, whatever) needs no change
+    // to Measure/Apply/Verify at all -- which matters because those call sites
+    // are spread across core/measure.hpp, core/apply.hpp, core/verify.cpp and
+    // hal/src/safing.cpp, and a per-sink `if` in each of them is exactly the
+    // list that falls behind the next sink added.
+    //
+    // Deliberately reached through a single process-wide journal() below rather
+    // than passed into each verb. That isn't convenience: a catalog-registered
+    // test script's signature is fixed to (group, test) -> bool with no room
+    // for a logger parameter (see core/test_catalog.hpp on why), and the verbs
+    // a script calls -- Measure, Apply, Verify -- are themselves globals for
+    // the same reason (see hal/src/measure.cpp, hal/src/apply.cpp). A journal
+    // threaded by parameter would have to stop somewhere, and the place it
+    // would stop is precisely the layer that needs it.
+    //
+
+    //
+    // Which framework verb produced an event. Named for the verbs a test
+    // script actually writes (Measure/Apply/Verify/...) rather than for
+    // severity or category: the machine log's consumers ask "what did the run
+    // do", and the answer is a sequence of these.
+    //
+    // Safe is the one that no script calls -- hal::safeRig() posts it, from a
+    // guard destructor or a --safe re-invocation (see hal/safing.hpp). It is
+    // in the same enum rather than a separate notion because "the rig was
+    // dropped to idle here" is exactly as much a part of what a run did as
+    // any Apply, and a reader reconstructing the run needs it in order.
+    //
+    enum class Verb
+    {
+        Measure,
+        Apply,
+        Remove,
+        Connect,
+        Disconnect,
+        Verify,
+        Safe,
+        Note
+    };
+
+    [[nodiscard]]
+    auto to_string( Verb verb) -> std::string_view;
+
+    //
+    // Everything a log needs to say about *which* run this is, as opposed to
+    // what happened during it -- the traceability header both streams carry.
+    //
+    // Split by where each field can honestly come from, because that decides
+    // whether it can be trusted:
+    //   - baked in at build time (framework version, criteria variant, DUT
+    //     name, rig name) -- see defaultRunInfo() below and
+    //     libs/core/CMakeLists.txt. These cannot be wrong about the binary
+    //     doing the testing, because they *are* the binary.
+    //   - observed at run time (started-at, command line, host, operator)
+    //   - knowable only from outside (DutSerial -- which physical unit is in
+    //     the fixture right now), so it is empty unless a caller supplies it
+    //
+    struct RunInfo
+    {
+        std::string FrameworkName;
+        std::string FrameworkVersion;
+        std::string CriteriaVariant;
+        std::string DutName;
+        std::string DutSerial;
+        std::string RigName;
+        std::string Operator;
+        std::string HostName;
+        std::string CommandLine;
+        std::string StartedUtc;    // ISO-8601, e.g. 2026-07-30T09:14:02.371Z
+    };
+
+    //
+    // RunInfo with everything this build knows about itself already filled in:
+    // framework name/version, criteria variant, DUT and rig name from the
+    // compile definitions libs/core/CMakeLists.txt sets, plus the current UTC
+    // time. Operator/HostName come from the environment (USER/LOGNAME and
+    // HOSTNAME/HOST) -- a convenience, not a claim, which is why both are
+    // overridable; DutSerial and CommandLine are left empty for the caller
+    // (see app/src/main.cpp) to fill in, since neither is derivable here.
+    //
+    [[nodiscard]]
+    auto defaultRunInfo() -> RunInfo;
+
+    //
+    // What a call site knows about one event. Everything a call site cannot
+    // know -- when it happened, what order it happened in, which test was
+    // running -- is stamped on by the journal (see JournalEvent below), so no
+    // verb has to reach for a clock or thread a test name through.
+    //
+    // Value/Numeric/Unit are three renderings of one thing and every one of
+    // them is optional: Value is the printable form a human log shows, Numeric
+    // and Unit are what a machine consumer compares against a limit without
+    // re-parsing text. A Connect event has none of the three; a Measure has
+    // all three; a Verify against an integer register has Value and Numeric
+    // but no Unit. See core/format.hpp for what produces them.
+    //
+    struct JournalRecord
+    {
+        Verb                   Method{ Verb::Note };
+
+        //
+        // What the event is about, in the terms the reader of the log thinks
+        // in: a DUT point name for Measure, a criterion id for Verify, an
+        // instrument id for Apply/Connect, the rig for Safe.
+        //
+        std::string            Subject{};
+
+        //
+        // The grouping Subject itself belongs to, which is NOT the running
+        // test's group. For a Verify this is the CRITERIA group name a CRIT
+        // entry declares (FS_Supply_1), while the journal's own Group is the
+        // catalog test group that happened to reach it (OutputVoltage) -- two
+        // genuinely different facts about the same event, and the criteria one
+        // is what a test spec traces to. Empty where Subject has no such
+        // grouping (a DUT point, an instrument).
+        //
+        std::string            SubjectGroup{};
+
+        // The traceable prose behind Subject -- a point's or criterion's
+        // description, straight from dut/adapter.inc or a CRIT entry.
+        std::string            Detail{};
+
+        // Which instrument was involved, where that is a distinct fact from
+        // Subject (a Measure's point is not its DMM); empty otherwise.
+        std::string            Instrument{};
+
+        std::string            Value{};
+        std::optional<double>  Numeric{};
+        std::string            Unit{};
+
+        //
+        // Set for Verify and nothing else. std::optional rather than a bool
+        // defaulting to true: "this event has no pass/fail notion" and "this
+        // event passed" are different things, and a sink that renders the
+        // second for the first is how an Apply ends up looking like a passing
+        // check in a report.
+        //
+        std::optional<bool>    Passed{};
+    };
+
+    //
+    // What a sink receives: the call site's record plus the journal's own
+    // stamps. Inheritance rather than a nested member so a sink writes
+    // event.Subject and event.Sequence the same way, and so a call site can
+    // still brace-initialise a JournalRecord with designated initialisers
+    // naming only the fields it has.
+    //
+    struct JournalEvent : JournalRecord
+    {
+        std::uint64_t  Sequence{ 0 };
+        std::int64_t   WallClockUnixMillis{ 0 };
+        std::string    TimeUtc{};
+
+        // The catalog group/test that was running, or empty outside any test
+        // -- a Safe posted from a guard destructor after the last test ended
+        // belongs to the run, not to a test.
+        std::string    Group{};
+        std::string    Test{};
+    };
+
+    //
+    // A log stream. Every hook has an empty default body rather than being
+    // pure: ConsoleSink and RtfSink ignore nothing, but SarifSink has no use
+    // for onTestEnd (it derives per-test results from the events themselves),
+    // and a future sink that only wants failures should not have to write four
+    // empty overrides to say so.
+    //
+    class IJournalSink
+    {
+        public:
+            virtual ~IJournalSink() = default;
+
+            virtual auto onRunStart( const RunInfo &) -> void {}
+            virtual auto onTestStart( std::string_view, std::string_view, std::string_view) -> void {}
+            virtual auto onEvent( const JournalEvent &) -> void {}
+            virtual auto onTestEnd( std::string_view, std::string_view, bool) -> void {}
+            virtual auto onRunEnd( bool) -> void {}
+    };
+
+    class Journal
+    {
+        public:
+            //
+            // Sinks are referenced, never owned -- they outlive the journal's
+            // use of them because the caller holds them (see app/src/main.cpp,
+            // where both file sinks are locals whose scope encloses the run).
+            // That ordering matters: a sink's destructor is what closes its
+            // file, and a journal that owned them would decide when that
+            // happened relative to the last event posted.
+            //
+            auto add( IJournalSink & sink) -> void;
+
+            // Drops every registered sink. Exists for tests, which register
+            // recording sinks on the one process-wide journal and must not
+            // leak them into the next test case.
+            auto clearSinks() -> void;
+
+            //
+            // Run boundaries. begin() takes the RunInfo by value and keeps
+            // it: sinks are handed a reference to the journal's copy, so a
+            // sink that wants the traceability header at close time (SarifSink
+            // writes it into its tool/invocation blocks) can hold on to what
+            // it was given.
+            //
+            auto begin( RunInfo info) -> void;
+            auto end( bool allPassed) -> void;
+
+            //
+            // Test boundaries. Everything posted between beginTest() and
+            // endTest() is stamped with that group/test, which is what lets a
+            // Measure inside a script be attributed to the test that caused
+            // it without the script (or Measure) knowing its own name.
+            //
+            auto beginTest( std::string_view group, std::string_view test, std::string_view description) -> void;
+            auto endTest( bool passed) -> void;
+
+            //
+            // Post one event. Stamps sequence, wall clock, and the current
+            // group/test, then fans out. Safe to call with no sinks
+            // registered -- that is the normal state in a unit test binary,
+            // and a verb that had to check would be a verb that could get it
+            // wrong.
+            //
+            auto post( JournalRecord record) -> void;
+
+            [[nodiscard]]
+            auto runInfo() const -> const RunInfo &
+            {
+                return mRunInfo;
+            }
+
+            [[nodiscard]]
+            auto currentGroup() const -> std::string_view
+            {
+                return mGroup;
+            }
+
+            [[nodiscard]]
+            auto currentTest() const -> std::string_view
+            {
+                return mTest;
+            }
+
+        private:
+            std::vector<IJournalSink *>  mSinks;
+            RunInfo                      mRunInfo;
+            std::string                  mGroup;
+            std::string                  mTest;
+            std::uint64_t                mNextSequence{ 0 };
+    };
+
+    //
+    // The one journal a run posts to -- see this header's own comment on why
+    // this is process-wide rather than passed in.
+    //
+    [[nodiscard]]
+    auto journal() -> Journal &;
+
+    //
+    // ISO-8601 UTC, millisecond precision, from a Unix-epoch millisecond
+    // count. Exposed (rather than kept in journal.cpp) because both file sinks
+    // stamp their own close time, and a log whose events and whose trailer
+    // disagree about how to spell a timestamp is a log somebody has to write
+    // two parsers for.
+    //
+    [[nodiscard]]
+    auto isoUtcFromUnixMillis( std::int64_t millis) -> std::string;
+
+    [[nodiscard]]
+    auto unixMillisNow() -> std::int64_t;
+} // namespace core

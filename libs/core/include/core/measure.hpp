@@ -7,6 +7,8 @@
 
 #include "core/adapter.hpp"
 #include "core/at.hpp"
+#include "core/format.hpp"
+#include "core/journal.hpp"
 #include "core/port.hpp"
 #include "core/quantity_kind.hpp"
 #include "core/recording.hpp"
@@ -144,7 +146,35 @@ namespace core
                     return value;
                 };
 
-                auto value = activeSession().fetch( point.Name, to_string( instrumentId), Kind, liveRead);
+                const auto instrumentName = std::string( to_string( instrumentId));
+
+                auto value = activeSession().fetch( point.Name, instrumentName, Kind, liveRead);
+
+                //
+                // Logged here, after the session has produced the value and
+                // before it is unwrapped -- so one Measure() call is one journal
+                // event whether the value came from real hardware, an injected
+                // constant, or a replayed recording. That is deliberate: a
+                // script's log should say what the script measured, and which
+                // session answered is a property of how the run was set up, not
+                // of what the test did.
+                //
+                // Note this is a different artifact from core::RecordingSession
+                // (core/session.hpp), which also captures every fetch. That one
+                // exists to be *replayed* -- a strict, ordered value sequence,
+                // deliberately carrying nothing a human wants and nothing a
+                // report needs. This carries the point's description, its unit,
+                // and which instrument was used, and is never read back in.
+                //
+                journal().post( JournalRecord{
+                    .Method     = Verb::Measure,
+                    .Subject    = std::string( point.Name),
+                    .Detail     = std::string( point.Description),
+                    .Instrument = instrumentName,
+                    .Value      = formatQuantity( value),
+                    .Numeric    = rawValue( value),
+                    .Unit       = std::string( unitSymbol( Kind))
+                });
 
                 return asQuantity<QuantityFor<Kind>>( value);
             }

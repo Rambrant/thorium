@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "core/criterion.hpp"
+#include "core/format.hpp"
 #include "core/quantity.hpp"
 
 namespace core
@@ -14,13 +15,25 @@ namespace core
     {
         //
         // Non-template, so it can live in verify.cpp rather than being header-only.
-        // Logs one criterion's result; the two Verify() overloads below both funnel
+        // Logs one criterion's result; the three Verify() overloads below all funnel
         // into this.
         //
-        void reportResult( std::string_view group,
-                            std::string_view id,
-                            std::string_view description,
-                            bool             passed );
+        // The value that was checked is passed in three renderings -- printable,
+        // numeric, and unit -- rather than one, because the two log streams want
+        // different ones: the human log prints valueText, the machine log wants
+        // the bare number to compare against a limit without re-parsing it (see
+        // core/journal.hpp's JournalRecord). All three are produced by
+        // core/format.hpp from whatever type T the criterion's predicate
+        // accepted, which is why they are strings and an optional<double> here
+        // rather than a template parameter reaching into verify.cpp.
+        //
+        void reportResult( std::string_view      group,
+                            std::string_view      id,
+                            std::string_view      description,
+                            std::string_view      valueText,
+                            std::optional<double> numericValue,
+                            std::string_view      unit,
+                            bool                  passed );
     } // namespace detail
 
     //
@@ -33,7 +46,8 @@ namespace core
     {
         const bool passed = criterion.predicate( value);
 
-        core::detail::reportResult( criterion.group, criterion.id, criterion.description, passed);
+        core::detail::reportResult( criterion.group, criterion.id, criterion.description,
+                                    describeValue( value), numericOf( value), unitOf<T>(), passed);
 
         return passed;
     }
@@ -74,7 +88,17 @@ namespace core
     {
         if( ! reading)
         {
-            core::detail::reportResult( criterion.group, criterion.id, criterion.description, false);
+            //
+            // Logged with an explicit "no reading" in the value column rather
+            // than an empty one: a log line showing a failed check with nothing
+            // where the measurement should be reads like a formatting bug, when
+            // in fact the absent reading IS the finding -- see this overload's
+            // own comment above on why a missing reading fails rather than
+            // skips. The unit is still reported, since the criterion says what
+            // was expected even though nothing arrived; there is no number.
+            //
+            core::detail::reportResult( criterion.group, criterion.id, criterion.description,
+                                        "<no reading>", std::nullopt, unitOf<Quantity<Unit>>(), false);
 
             return false;
         }

@@ -39,6 +39,7 @@ add_library(hal STATIC
     include/hal/instrument.hpp     # header-only
     include/hal/wiring.hpp         # header-only
     include/hal/adapter.hpp        # header-only
+    include/hal/describe.hpp       # header-only
     include/hal/measure.hpp        # header-only
     include/hal/apply.hpp          # header-only
     include/hal/safing.hpp         # header-only
@@ -93,5 +94,6 @@ if(BUILD_TESTING_LAYERS)
         tests/test_source_instruments.cpp
         tests/test_call_syntax.cpp
         tests/test_safing.cpp
+        tests/test_describe.cpp
     )
 endif()

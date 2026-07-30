@@ -7,6 +7,8 @@
 #include <meta>
 #include <vector>
 
+#include "core/journal.hpp"
+
 namespace hal
 {
     namespace detail
@@ -52,6 +54,27 @@ namespace hal
     //
     auto safeRig() -> void
     {
+        //
+        // Posted before the work, not after -- the opposite of every other verb
+        // (see core::ApplyEngine on why those log after their driver call), and
+        // deliberately so. Safing runs when something has already gone wrong,
+        // and the run it is being recorded into may not survive to the next
+        // statement; "safing started here" reaching the log is worth more than
+        // the certainty that it finished, which no reader was going to get from
+        // a process that died mid-way regardless.
+        //
+        // Reaches the machine log only. The human stream carries Measure and
+        // Verify (see core::isHumanRelevant), and this is neither -- it is what
+        // the framework did to the rig around the test, which is exactly the
+        // kind of context a tool reconstructing a run needs and a person
+        // checking a rail does not.
+        //
+        core::journal().post( core::JournalRecord{
+            .Method  = core::Verb::Safe,
+            .Subject = "rig",
+            .Detail  = "all instrument outputs off and zeroed, all relays opened"
+        });
+
         //
         // Sources first, relays after -- and note that this ordering needs
         // no table and no sort, because it isn't an ordering *within* this

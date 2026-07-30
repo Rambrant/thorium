@@ -1,9 +1,12 @@
 #pragma once
 
 #include <optional>
+#include <string>
 
+#include "core/apply.hpp"
 #include "core/quantity.hpp"
 
+#include "hal/describe.hpp"
 #include "hal/instrument.hpp"
 #include "hal/switch_fabric.hpp"
 #include "hal/wiring.hpp"
@@ -298,6 +301,32 @@ namespace hal
     auto removeDriver( const N6701AConfig<Isolation> & config) -> void
     {
         config.Instrument.removeOutput();
+    }
+
+    //
+    // ADL target for the run journal -- see core/apply.hpp's own comment on the
+    // describeConfig customization point, and hal::describeSetting in
+    // hal/describe.hpp for the optional-field helper. Found the same way
+    // applyDriver above is, and required for the same reason: only this config's
+    // own type knows which fields it has, so only code alongside it can say what
+    // an Apply of it actually did.
+    //
+    // The mainframe slot is included, because it is the difference between two
+    // DcP instances that share this class (see this file's own comment on
+    // mChannel) and a log naming only "DcP2" tells a reader nothing about which
+    // physical module was programmed.
+    //
+    template<typename Isolation>
+    auto describeConfig( const N6701AConfig<Isolation> & config) -> core::SourceDescription
+    {
+        return core::SourceDescription{
+            std::string( to_string( config.Instrument.id())),
+            describeSettings( {
+                describeSetting( "voltage",      config.Voltage),
+                describeSetting( "currentLimit", config.CurrentLimit),
+                "slot " + std::to_string( config.Instrument.channel())
+            })
+        };
     }
 
     //
