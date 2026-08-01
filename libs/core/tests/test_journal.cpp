@@ -213,13 +213,13 @@ TEST_F( JournalTest, PostingWithNoSinksIsHarmless)
 TEST_F( JournalTest, RunInfoIsKeptForSinksThatNeedItAtCloseTime)
 {
     core::RunInfo info;
-    info.DutName  = "DeviceX_StdAdapter";
+    info.DutName  = "DeviceX";
     info.RigName  = "bench-7";
 
     core::journal().begin( info);
 
     // SarifSink reads this back when it writes its tool/invocation blocks.
-    EXPECT_EQ( core::journal().runInfo().DutName, "DeviceX_StdAdapter");
+    EXPECT_EQ( core::journal().runInfo().DutName, "DeviceX");
     EXPECT_EQ( mSink.Started.RigName,             "bench-7");
 }
 

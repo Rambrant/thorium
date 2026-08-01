@@ -51,16 +51,38 @@ target_include_directories(core PUBLIC
 # builds standalone -- see its own comment on why an obviously-absent value
 # beats a plausible wrong one.
 #
-# THORIUM_DUT_NAME / THORIUM_RIG_NAME are cache variables rather than being
-# derived from dut/adapter.inc's ADAPTER name or rig/: neither of those is
-# reachable from here (libs/ knows nothing about this deployment's content --
-# see the top-level CMakeLists.txt's own comment on that split), and the DUT
-# a rig tests is exactly the kind of fact a separate rig repo consuming this
-# framework needs to set for itself.
-set(THORIUM_DUT_NAME "DeviceX_StdAdapter" CACHE STRING
-    "Name of the DUT this build tests, as it appears in both run logs")
-set(THORIUM_RIG_NAME "thorium-rig-1" CACHE STRING
-    "Name of the physical rig this build runs on, as it appears in both run logs")
+# THORIUM_DUT_NAME / THORIUM_RIG_NAME are set here rather than derived from
+# dut/adapter.inc's ADAPTER name or rig/: neither of those is reachable from
+# here (libs/ knows nothing about this deployment's content -- see the top-level
+# CMakeLists.txt's own comment on that split), and the DUT a rig tests is
+# exactly the kind of fact a separate rig repo consuming this framework needs to
+# set for itself.
+#
+# Deliberately NOT `set(... CACHE STRING ...)`, which is what these were first
+# written as and which is a trap for exactly this kind of value. A cache
+# variable's default is consulted only when the entry does not already exist, so
+# renaming the DUT here had no effect at all on an already-configured build
+# directory: the cached old name stayed, the compile definition kept it, and both
+# logs went on reporting the previous DUT. A stale name in a traceability field
+# is the worst possible failure mode -- it is wrong, it is plausible, and nothing
+# about the log says so.
+#
+# This form makes the repository the source of the default (edit it, reconfigure,
+# done) while still letting a caller override per build:
+#
+#     cmake -B <build-dir> -DTHORIUM_DUT_NAME=DeviceY
+#
+# -D creates a real cache entry, which `DEFINED` sees, so an explicit override
+# still wins and still persists across reconfigures.
+if(NOT DEFINED THORIUM_DUT_NAME)
+    set(THORIUM_DUT_NAME "DeviceX")
+endif()
+
+if(NOT DEFINED THORIUM_RIG_NAME)
+    set(THORIUM_RIG_NAME "thorium-rig-1")
+endif()
+
+message(STATUS "DUT: ${THORIUM_DUT_NAME} on rig: ${THORIUM_RIG_NAME}")
 
 # THORIUM_SUITE_VERSION / THORIUM_DUT_VERSION / THORIUM_RIG_VERSION are set by
 # the top-level CMakeLists.txt (derived from git -- see its own comment on why

@@ -484,7 +484,7 @@ TEST_F( AcceptanceHumanLog, ConsoleCarriesTheHeaderTestNamesAndVerdicts)
     // under it are the report's fixed schedule -- serial, operator, criteria,
     // framework, content revision, UTC instant, command line.
     //
-    EXPECT_TRUE( containsText( outPath(), mOut, "DeviceX_StdAdapter -- "));
+    EXPECT_TRUE( containsText( outPath(), mOut, "DeviceX -- "));
     EXPECT_TRUE( containsText( outPath(), mOut, "DUT serial        SN-000123"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Operator          acceptance"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Criteria"));
@@ -574,7 +574,7 @@ TEST_F( AcceptanceMachineLog, SarifCarriesThisRunsTraceabilityFacts)
     EXPECT_TRUE( containsText( sarif, log, R"("commandLine")"));
 
     // What makes two runs comparable: same DUT, same tolerance table.
-    EXPECT_TRUE( containsText( sarif, log, R"("id": "thorium/DeviceX_StdAdapter/)"));
+    EXPECT_TRUE( containsText( sarif, log, R"("id": "thorium/DeviceX/)"));
 }
 
 TEST_F( AcceptanceMachineLog, SarifCarriesEveryVerbAndKeysCriteriaByGroupAndId)

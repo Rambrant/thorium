@@ -105,12 +105,31 @@ endif()
 # the log then reports three different revisions -- which is exactly when the
 # distinction earns its keep. The human log collapses them back into one row
 # whenever they agree, so the common case costs no extra lines.
-set(THORIUM_SUITE_VERSION "${THORIUM_CONTENT_REVISION}" CACHE STRING
-    "Revision of the test suite (suite/) this build was made from, as it appears in both run logs")
-set(THORIUM_DUT_VERSION "${THORIUM_CONTENT_REVISION}" CACHE STRING
-    "Revision of the DUT profile and criteria (dut/) this build was made from")
-set(THORIUM_RIG_VERSION "${THORIUM_CONTENT_REVISION}" CACHE STRING
-    "Revision of the rig description (rig/) this build was made from")
+#
+# Deliberately NOT cache variables, and here that is not merely a convenience:
+# caching a *computed* default freezes it permanently. A cache entry's default is
+# only consulted when the entry doesn't exist, so the revision recorded at the
+# first configure of a build directory would be the revision reported by every
+# report that build directory ever produced -- through every commit afterwards,
+# silently. For a field whose entire purpose is to say which content was tested,
+# that is worse than not having the field.
+#
+# As plain variables they are recomputed on every reconfigure, while an explicit
+# override still wins (a -D creates a cache entry, which `DEFINED` sees):
+#
+#     cmake -B <build-dir> -DTHORIUM_RIG_VERSION=bench7-2026-08
+#
+if(NOT DEFINED THORIUM_SUITE_VERSION)
+    set(THORIUM_SUITE_VERSION "${THORIUM_CONTENT_REVISION}")
+endif()
+
+if(NOT DEFINED THORIUM_DUT_VERSION)
+    set(THORIUM_DUT_VERSION "${THORIUM_CONTENT_REVISION}")
+endif()
+
+if(NOT DEFINED THORIUM_RIG_VERSION)
+    set(THORIUM_RIG_VERSION "${THORIUM_CONTENT_REVISION}")
+endif()
 
 message(STATUS "Content revision: suite=${THORIUM_SUITE_VERSION} dut=${THORIUM_DUT_VERSION} rig=${THORIUM_RIG_VERSION}")
 

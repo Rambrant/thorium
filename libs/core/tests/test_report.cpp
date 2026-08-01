@@ -334,7 +334,7 @@ namespace
         info.FrameworkName    = "Thorium";
         info.FrameworkVersion = "0.1.0";
         info.CriteriaVariant  = "stress";
-        info.DutName          = "DeviceX_StdAdapter";
+        info.DutName          = "DeviceX";
         info.DutSerial        = "SN-000123";
         info.RigName          = "bench-7";
         info.Operator         = "thomas";
@@ -360,7 +360,7 @@ TEST( CoreReport, TitleIsTheDeviceFollowedByTheLocalTime)
 
     ASSERT_FALSE( lines.empty());
     EXPECT_EQ( styleOfFirst( lines), core::Emphasis::Heading);
-    EXPECT_EQ( core::plainText( lines[ 0]), "DeviceX_StdAdapter -- Sat 01 Aug 2026 11:14:02 CEST");
+    EXPECT_EQ( core::plainText( lines[ 0]), "DeviceX -- Sat 01 Aug 2026 11:14:02 CEST");
 }
 
 TEST( CoreReport, HeaderCarriesTheFullTraceabilityBag)

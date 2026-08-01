@@ -11,7 +11,7 @@
 // dependency, textual or otherwise, on anything named dut:: -- unlike
 // before AdapterPointTag existed, there is no DUT-specific *type* for
 // MeasureEngine to be instantiated with any more, only the point values
-// themselves (e.g. dut::DeviceX_StdAdapter::Output5V), which are passed at
+// themselves (e.g. dut::DeviceX::Output5V), which are passed at
 // each Measure() call site, not baked into this alias.
 //
 using MeasureEngine = core::MeasureEngine<hal::SwitchFabric, hal::InstrumentWiring, hal::ConnectorWiring>;
@@ -19,7 +19,7 @@ using MeasureEngine = core::MeasureEngine<hal::SwitchFabric, hal::InstrumentWiri
 //
 // The single point every script measures through:
 //
-//   Measure( Dmm1.voltage(), DeviceX_StdAdapter::Output5V);
+//   Measure( Dmm1.voltage(), DeviceX::Output5V);
 //
 // Injection, recording, and playback are methods on this same object --
 // Measure.inject(...), Measure.useLive(),

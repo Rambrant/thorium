@@ -93,12 +93,12 @@ cases above.
 ## Measure
 
 `measure.hpp`/`measure.cpp` assemble the one `Measure` object every test
-script measures through (`Measure( Dmm1.voltage(), at( DeviceX_StdAdapter::Output5V))`):
+script measures through (`Measure( Dmm1.voltage(), at( DeviceX::Output5V))`):
 `core::MeasureEngine` instantiated with `hal::SwitchFabric`,
 `hal::InstrumentWiring`, and `hal::ConnectorWiring`. This has no dependency
 on anything under `dut/` at all -- not even a textual `#include` -- since an
 `AdapterPointTag` carries everything `Measure` needs to know about a point
-in its own type; the DUT profile (`dut::DeviceX_StdAdapter`) is only ever
+in its own type; the DUT profile (`dut::DeviceX`) is only ever
 named at each individual `Measure(...)` call site in a script, not baked
 into this instantiation.
 

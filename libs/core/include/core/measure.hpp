@@ -19,7 +19,7 @@ namespace core
     //
     // The mechanism behind a single callable Measure object:
     //
-    //   Measure( Dmm1.voltage(), DeviceX_StdAdapter::Output5V);
+    //   Measure( Dmm1.voltage(), DeviceX::Output5V);
     //
     // Generic over three externally-supplied types, each a "build stage"
     // concern this header knows nothing about:

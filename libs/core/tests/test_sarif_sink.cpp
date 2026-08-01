@@ -108,7 +108,7 @@ namespace
                 info.FrameworkName    = "Thorium";
                 info.FrameworkVersion = "0.1.0";
                 info.CriteriaVariant  = "stress";
-                info.DutName          = "DeviceX_StdAdapter";
+                info.DutName          = "DeviceX";
                 info.DutSerial        = "SN-000123";
                 info.RigName          = "bench-7";
                 info.Operator         = "thomas";
@@ -250,13 +250,13 @@ TEST_F( SarifSinkTest, TraceabilityBagCarriesEveryRunInfoField)
     EXPECT_TRUE( contains( text, "\"account\": \"thomas\""));
 
     // run.properties: the facts SARIF has no standard slot for.
-    EXPECT_TRUE( contains( text, "\"dutName\": \"DeviceX_StdAdapter\""));
+    EXPECT_TRUE( contains( text, "\"dutName\": \"DeviceX\""));
     EXPECT_TRUE( contains( text, "\"dutSerial\": \"SN-000123\""));
     EXPECT_TRUE( contains( text, "\"rigName\": \"bench-7\""));
     EXPECT_TRUE( contains( text, "\"criteriaVariant\": \"stress\""));
 
     // automationDetails: what makes two runs comparable.
-    EXPECT_TRUE( contains( text, "thorium/DeviceX_StdAdapter/stress/"));
+    EXPECT_TRUE( contains( text, "thorium/DeviceX/stress/"));
 }
 
 //

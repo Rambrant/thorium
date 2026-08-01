@@ -23,7 +23,7 @@
 // a digit (C++ identifiers can't start with a digit) -- Output5V/Output3V3
 // stand in for the spec's "5VOutput"/"3V3Output".
 //
-ADAPTER( DeviceX_StdAdapter, "Device X on standard adapter")
+ADAPTER( DeviceX, "Device X on standard adapter")
     POINT( Output5V,   A, 1, 3, Voltage, "5Vdc supply port")
     POINT( Output3V3,  A, 1, 6, Voltage, "3.3Vdc supply port")
     POINT( ClkProbe,   A, 1, 2, Voltage, "Config clock probe")

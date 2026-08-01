@@ -86,7 +86,7 @@ namespace
                 core::RunInfo info;
                 info.FrameworkName    = "Thorium";
                 info.FrameworkVersion = "0.1.0";
-                info.DutName          = "DeviceX_StdAdapter";
+                info.DutName          = "DeviceX";
                 info.CriteriaVariant  = "production";
                 info.StartedUtc       = "2026-07-30T09:14:02.371Z";
                 return info;

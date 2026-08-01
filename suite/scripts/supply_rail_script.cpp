@@ -13,12 +13,12 @@ auto supplyRailScript(  std::string_view, std::string_view) -> bool
 
     //
     // Reads like the test spec: check this requirement at this port. No
-    // instrument, switch path, or rig detail is visible here. DeviceX_StdAdapter::Output5V
+    // instrument, switch path, or rig detail is visible here. DeviceX::Output5V
     // etc are compile-time-checked -- a typo here is "no such member", not
     // a runtime error.
     //
-    const auto dc5Voltage = Measure( Dmm1.voltage(), at( DeviceX_StdAdapter::Output5V));
-    const auto dc3Voltage = Measure( Dmm1.voltage(), at( DeviceX_StdAdapter::Output3V3));
+    const auto dc5Voltage = Measure( Dmm1.voltage(), at( DeviceX::Output5V));
+    const auto dc3Voltage = Measure( Dmm1.voltage(), at( DeviceX::Output3V3));
 
     allPassed &= core::Verify( FS_Supply_1::FS_Supply_5V0, dc5Voltage);
     allPassed &= core::Verify( FS_Supply_1::FS_Supply_3V3, dc3Voltage);

@@ -20,11 +20,11 @@
 // digit (e.g. "5VOutput"): C++ identifiers can't start with a digit. Use a
 // legal rearrangement instead (Output5V) -- see dut/adapter.inc.
 //
-//   ADAPTER( DeviceX_StdAdapter, "Device X on standard adapter")
+//   ADAPTER( DeviceX, "Device X on standard adapter")
 //       POINT( Output5V, A, 1, 3, Voltage, "5Vdc supply port")
 //   END_ADAPTER
 //
-//   Measure( Dmm1.voltage(), DeviceX_StdAdapter::Output5V);
+//   Measure( Dmm1.voltage(), DeviceX::Output5V);
 //
 #define ADAPTER( groupName, desc)                                      \
     struct groupName                                                   \
