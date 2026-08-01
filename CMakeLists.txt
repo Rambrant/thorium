@@ -60,6 +60,60 @@ if(NOT THORIUM_CRITERIA_VARIANT IN_LIST THORIUM_KNOWN_CRITERIA_VARIANTS)
 endif()
 message(STATUS "Criteria variant: ${THORIUM_CRITERIA_VARIANT}")
 
+# --- Content revision, for the run logs' traceability header ---
+# Both log streams record which revision of this deployment's *content* -- the
+# test scripts, the DUT profile and criteria, the rig's wiring -- a run was
+# performed against (see core::RunInfo in libs/core/include/core/journal.hpp).
+# That is a different question from THORIUM_FRAMEWORK_VERSION, which versions
+# libs/: this versions what is being tested and how, which is the half that
+# usually differs between two runs that disagree with each other.
+#
+# Derived from git, with --dirty, and that flag is the important part. This runs
+# at *configure* time, so editing a criteria table and rebuilding (which
+# recompiles, but does not reconfigure) would otherwise leave the logs claiming
+# a revision that no longer describes what was built. "--dirty" means an edited
+# working tree is visibly marked as such in every report it produces, so a
+# reader is never handed a clean-looking sha for content that wasn't clean.
+# Re-run cmake to refresh it after committing.
+#
+# --always so a repository with no tags still yields the short sha rather than
+# failing; "unknown" if there is no git, or no repository, at all -- an
+# obviously-absent value rather than a plausible wrong one, the same choice
+# libs/core/src/journal.cpp makes for the rest of the header.
+find_package(Git QUIET)
+
+set(THORIUM_CONTENT_REVISION "unknown")
+
+if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND "${GIT_EXECUTABLE}" describe --always --dirty --tags
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        OUTPUT_VARIABLE THORIUM_GIT_DESCRIBE
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+
+    if(THORIUM_GIT_DESCRIBE)
+        set(THORIUM_CONTENT_REVISION "${THORIUM_GIT_DESCRIBE}")
+    endif()
+endif()
+
+# Three variables, not one: suite/, dut/ and rig/ all come from this repository
+# today and so share a revision, but they are separable by design (see the layer
+# comment below, and rig/README.md). A rig repo consuming this framework sets
+# its own THORIUM_RIG_VERSION while pulling suite/ and dut/ from elsewhere, and
+# the log then reports three different revisions -- which is exactly when the
+# distinction earns its keep. The human log collapses them back into one row
+# whenever they agree, so the common case costs no extra lines.
+set(THORIUM_SUITE_VERSION "${THORIUM_CONTENT_REVISION}" CACHE STRING
+    "Revision of the test suite (suite/) this build was made from, as it appears in both run logs")
+set(THORIUM_DUT_VERSION "${THORIUM_CONTENT_REVISION}" CACHE STRING
+    "Revision of the DUT profile and criteria (dut/) this build was made from")
+set(THORIUM_RIG_VERSION "${THORIUM_CONTENT_REVISION}" CACHE STRING
+    "Revision of the rig description (rig/) this build was made from")
+
+message(STATUS "Content revision: suite=${THORIUM_SUITE_VERSION} dut=${THORIUM_DUT_VERSION} rig=${THORIUM_RIG_VERSION}")
+
 # --- Testing setup (GoogleTest, fetched once, shared by every layer) ---
 option(BUILD_TESTING_LAYERS "Build unit tests for each layer" ON)
 if(BUILD_TESTING_LAYERS)

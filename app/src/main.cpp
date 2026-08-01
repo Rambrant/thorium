@@ -242,12 +242,30 @@ namespace
         return stamp;
     }
 
+    // Whether any of this group's tests are in the selection at all -- see
+    // runTests below on why a group has to be asked before it is opened.
+    auto anySelected( const core::TestGroup & group, const std::vector<std::string_view> & selection) -> bool
+    {
+        for ( const auto & test : group.tests)
+            if ( isSelected( test.id, selection))
+                return true;
+
+        return false;
+    }
+
     //
-    // Runs the selected tests, bracketing each one with the journal's test
-    // boundaries. Those two calls are what make the logs test-aware: everything
-    // a script posts between them is attributed to that test, so neither
-    // Measure nor Verify has to know its own test's name (they can't -- see
-    // core/test_catalog.hpp on the fixed script signature).
+    // Runs the selected tests, bracketing each group and each test with the
+    // journal's own boundaries. Those calls are what make the logs
+    // catalog-aware: everything a script posts inside them is attributed to
+    // that group and test, so neither Measure nor Verify has to know its own
+    // test's name (they can't -- see core/test_catalog.hpp on the fixed script
+    // signature), and the human log can state each group once with its
+    // description and nest its tests under it.
+    //
+    // The group is opened only if something in it is actually going to run.
+    // This is the one place that can know: the selection lives here, and a
+    // --select naming one test would otherwise produce a log full of headings
+    // for groups that contributed nothing.
     //
     auto runTests( const std::vector<std::string_view> & selection) -> bool
     {
@@ -256,6 +274,11 @@ namespace
 
         for ( const auto & group : core::catalog::Catalog)
         {
+            if ( !anySelected( group, selection))
+                continue;
+
+            core::journal().beginGroup( group.name, group.description);
+
             for ( const auto & test : group.tests)
             {
                 if ( !isSelected( test.id, selection))
@@ -263,7 +286,7 @@ namespace
 
                 ranAny = true;
 
-                core::journal().beginTest( group.name, test.id, test.description);
+                core::journal().beginTest( test.id, test.description);
 
                 //
                 // endTest is reached on the normal path only. A script that
@@ -280,6 +303,8 @@ namespace
 
                 core::journal().endTest( passed);
             }
+
+            core::journal().endGroup();
         }
 
         if ( !ranAny)

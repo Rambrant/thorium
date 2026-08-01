@@ -95,6 +95,45 @@ if(BUILD_TESTING_LAYERS)
         ${CMAKE_SOURCE_DIR}/suite/tests/test_criteria_variants_compile.cpp
     )
 
+    # --- Acceptance tests: the run_scripts binary, driven as a subprocess ---
+    # Runs the built run_scripts the way a rig console or a CI job does -- real
+    # flags, real log files, exit statuses -- and asserts on what comes back
+    # out. That's a different question from anything core_tests/hal_tests can
+    # ask: they exercise the sinks and the verbs with hand-built inputs, which
+    # proves each piece works but not that the *command* wires them together.
+    #
+    # Defined here rather than through add_layer_tests() because it is unlike
+    # every other test target in this tree: it links no Thorium library at all
+    # (it is strictly black-box -- the binary's stdout and its log files are the
+    # entire interface under test), and it needs two paths baked in that only
+    # this scope knows.
+    add_executable(acceptance_tests tests/test_acceptance.cpp)
+    target_link_libraries(acceptance_tests PRIVATE GTest::gtest_main)
+
+    # THORIUM_RUN_SCRIPTS_EXE: a $<TARGET_FILE:...> generator expression rather
+    # than a constructed path, so this keeps working under any generator or
+    # build layout.
+    #
+    # THORIUM_ACCEPTANCE_OUTPUT_DIR: where each scenario's artifacts are kept --
+    # its exact invocation, the console transcript, and both log files it
+    # produced. Inside the build tree on purpose, and deliberately not cleaned
+    # up afterwards: a failing assertion names the file to go and read, and a
+    # passing run still leaves real specimens of both log formats to look at.
+    # See the test file's own header comment for the per-scenario layout.
+    target_compile_definitions(acceptance_tests PRIVATE
+        THORIUM_RUN_SCRIPTS_EXE="$<TARGET_FILE:run_scripts>"
+        THORIUM_ACCEPTANCE_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/acceptance"
+    )
+
+    # Nothing links run_scripts, so without this the acceptance binary could be
+    # built (and run) before the thing it tests exists.
+    add_dependencies(acceptance_tests run_scripts)
+
+    # Labelled so a developer can run or skip this group as a whole --
+    # `ctest -L acceptance` / `ctest -LE acceptance` -- since these are the only
+    # tests here that shell out and touch the filesystem.
+    gtest_discover_tests(acceptance_tests PROPERTIES LABELS acceptance)
+
     # test_criteria_variants_compile.cpp #includes every variant .inc file
     # directly (not through core/active_criteria.hpp, which only ever sees
     # the one active variant) -- it needs core::criterion machinery but not

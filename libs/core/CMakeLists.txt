@@ -24,6 +24,7 @@ add_library(core STATIC
         include/core/active_criteria.hpp # header-only
         include/core/meta.hpp            # header-only
         include/core/format.hpp          # header-only apart from src/format.cpp
+        include/core/predicate_text.hpp  # header-only
         include/core/journal.hpp
         include/core/report.hpp
         include/core/console_sink.hpp
@@ -61,11 +62,19 @@ set(THORIUM_DUT_NAME "DeviceX_StdAdapter" CACHE STRING
 set(THORIUM_RIG_NAME "thorium-rig-1" CACHE STRING
     "Name of the physical rig this build runs on, as it appears in both run logs")
 
+# THORIUM_SUITE_VERSION / THORIUM_DUT_VERSION / THORIUM_RIG_VERSION are set by
+# the top-level CMakeLists.txt (derived from git -- see its own comment on why
+# they live there rather than here: detecting the *enclosing deployment's*
+# revision is not something the framework can sensibly do for itself). Empty
+# when core is configured standalone, which journal.cpp reports as "unknown".
 target_compile_definitions(core PRIVATE
         THORIUM_FRAMEWORK_VERSION="${PROJECT_VERSION}"
         THORIUM_CRITERIA_VARIANT_NAME="${THORIUM_CRITERIA_VARIANT}"
         THORIUM_DUT_NAME="${THORIUM_DUT_NAME}"
         THORIUM_RIG_NAME="${THORIUM_RIG_NAME}"
+        THORIUM_SUITE_VERSION="${THORIUM_SUITE_VERSION}"
+        THORIUM_DUT_VERSION="${THORIUM_DUT_VERSION}"
+        THORIUM_RIG_VERSION="${THORIUM_RIG_VERSION}"
 )
 
 # Thorium::core -- usable under this name whether core is consumed in-tree
@@ -99,6 +108,7 @@ if(BUILD_TESTING_LAYERS)
             tests/test_meta.cpp
             tests/test_static_constraints.cpp
             tests/test_format.cpp
+            tests/test_predicate_text.cpp
             tests/test_journal.cpp
             tests/test_report.cpp
             tests/test_rtf_sink.cpp

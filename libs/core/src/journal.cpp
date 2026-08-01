@@ -34,6 +34,24 @@
     #define THORIUM_RIG_NAME "unknown"
 #endif
 
+//
+// Content revisions -- see RunInfo::SuiteVersion. Supplied by the top-level
+// CMakeLists.txt, which derives them from the deployment's git revision; each
+// is separately overridable, since suite/, dut/ and rig/ need not come from one
+// repository.
+//
+#ifndef THORIUM_SUITE_VERSION
+    #define THORIUM_SUITE_VERSION "unknown"
+#endif
+
+#ifndef THORIUM_DUT_VERSION
+    #define THORIUM_DUT_VERSION "unknown"
+#endif
+
+#ifndef THORIUM_RIG_VERSION
+    #define THORIUM_RIG_VERSION "unknown"
+#endif
+
 namespace core
 {
     namespace
@@ -114,8 +132,42 @@ namespace core
         return ( written > 0) ? std::string( stamp.data(), static_cast<std::size_t>( written)) : std::string{};
     }
 
+    //
+    // strftime again, with localtime rather than gmtime -- see
+    // isoUtcFromUnixMillis above on why strftime and not std::format, and on
+    // the shared-static-buffer question. No sub-second precision here on
+    // purpose: this field is for a person placing the run in their day, and
+    // milliseconds are noise for that. The UTC field keeps them.
+    //
+    auto localTimeFromUnixMillis( const std::int64_t millis) -> std::string
+    {
+        const auto seconds = static_cast<std::time_t>( ( millis >= 0) ? millis / 1000 : ( millis - 999) / 1000);
+
+        const std::tm * local = std::localtime( &seconds);
+
+        if( local == nullptr)
+        {
+            return "unknown";
+        }
+
+        std::array<char, 64> stamp{};
+
+        // %Z is the zone abbreviation -- see this function's declaration on why
+        // a local time without one is not much use once the log travels.
+        const auto written = std::strftime( stamp.data(), stamp.size(), "%a %d %b %Y %H:%M:%S %Z", local);
+
+        return ( written > 0) ? std::string( stamp.data(), written) : std::string{};
+    }
+
     auto defaultRunInfo() -> RunInfo
     {
+        //
+        // One clock reading for both spellings -- see RunInfo's own comment on
+        // why a report must not be able to disagree with itself about when it
+        // started.
+        //
+        const auto startedAt = unixMillisNow();
+
         return RunInfo{
             .FrameworkName    = "Thorium",
             .FrameworkVersion = THORIUM_FRAMEWORK_VERSION,
@@ -126,7 +178,11 @@ namespace core
             .Operator         = firstEnv( { "THORIUM_OPERATOR", "USER", "LOGNAME", "USERNAME" }),
             .HostName         = firstEnv( { "THORIUM_HOST", "HOSTNAME", "HOST", "COMPUTERNAME" }),
             .CommandLine      = {},
-            .StartedUtc       = isoUtcFromUnixMillis( unixMillisNow())
+            .SuiteVersion     = THORIUM_SUITE_VERSION,
+            .DutVersion       = THORIUM_DUT_VERSION,
+            .RigVersion       = THORIUM_RIG_VERSION,
+            .StartedUtc       = isoUtcFromUnixMillis( startedAt),
+            .StartedLocal     = localTimeFromUnixMillis( startedAt)
         };
     }
 
@@ -161,14 +217,34 @@ namespace core
         }
     }
 
-    auto Journal::beginTest( const std::string_view group, const std::string_view test, const std::string_view description) -> void
+    auto Journal::beginGroup( const std::string_view group, const std::string_view description) -> void
     {
         mGroup = group;
-        mTest  = test;
 
         for( auto * sink : mSinks)
         {
-            sink->onTestStart( group, test, description);
+            sink->onGroupStart( group, description);
+        }
+    }
+
+    auto Journal::endGroup() -> void
+    {
+        for( auto * sink : mSinks)
+        {
+            sink->onGroupEnd( mGroup);
+        }
+
+        // Cleared after the sinks are told, same as endTest below.
+        mGroup.clear();
+    }
+
+    auto Journal::beginTest( const std::string_view test, const std::string_view description) -> void
+    {
+        mTest = test;
+
+        for( auto * sink : mSinks)
+        {
+            sink->onTestStart( test, description);
         }
     }
 
@@ -183,9 +259,9 @@ namespace core
         // Cleared after the sinks are told, not before: onTestEnd is handed
         // the group/test it is closing, and anything posted afterwards (a
         // Safe from a guard destructor, say) belongs to the run rather than
-        // to the test that just finished.
+        // to the test that just finished. The group is left alone -- it is
+        // still open until endGroup(), and a further test may follow.
         //
-        mGroup.clear();
         mTest.clear();
     }
 

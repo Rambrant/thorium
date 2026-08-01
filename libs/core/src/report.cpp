@@ -8,22 +8,60 @@ namespace core
     namespace
     {
         //
-        // Column widths for the human log's fixed layout. A test log is read by
-        // scanning a column, not by reading prose -- the value a reader wants
-        // ("did this pass") should be in the same place on every line, so
-        // padding is deliberate rather than cosmetic.
+        // The body's one level of nesting -- a literal tab, see
+        // core/report.hpp on why a tab rather than spaces.
         //
+        constexpr std::string_view kIndent = "\t";
+
         //
-        // Wide enough for the longest label plus a separating space --
-        // "Criteria variant" is 16 characters, so 16 would butt the value
-        // straight up against it.
+        // Column widths for the fixed layout *inside* a line. A test log is read
+        // by scanning a column, not by reading prose -- the value a reader wants
+        // ("did this pass", "what was required") should be in the same place on
+        // every line, so padding is deliberate rather than cosmetic.
         //
-        constexpr std::size_t kLabelWidth   = 18;   // metadata label column in the header
-        constexpr std::size_t kVerbWidth    = 8;    // "measure" / "verify"
-        constexpr std::size_t kSubjectWidth = 22;   // point name / criterion id
-        constexpr std::size_t kValueWidth   = 14;   // "5.021 V"
+        // kSubjectWidth fits a fully qualified criterion ("FS_Supply_1::
+        // FS_Supply_5V0") without pushing every measurement line out to match a
+        // width only the checks need.
+        //
+        constexpr std::size_t kLabelWidth    = 18;   // metadata label column in the header
+        constexpr std::size_t kVerbWidth     = 8;    // "measure" / "verify"
+        constexpr std::size_t kSubjectWidth  = 28;   // point name / group::criterion
+        constexpr std::size_t kValueWidth    = 12;   // "5.021 V"
+        constexpr std::size_t kRequiredWidth = 24;   // "= 5 V +/-0.05 V"
 
         constexpr std::string_view kRule = "--------------------------------------------------------------------------";
+
+        //
+        // A whole line in one emphasis -- most lines are still this shape.
+        //
+        auto line( const Emphasis style, std::string text) -> ReportLine
+        {
+            return ReportLine{ { ReportSpan{ style, std::move( text) } } };
+        }
+
+        //
+        // A line whose trailing description is rendered quietly -- see
+        // ReportSpan's own comment in core/report.hpp. The description span is
+        // omitted entirely when there is none, rather than added empty, so a
+        // sink never emits a colour change for nothing.
+        //
+        auto describedLine( const Emphasis style, std::string text, const std::string_view description) -> ReportLine
+        {
+            if( description.empty())
+            {
+                return line( style, std::move( text));
+            }
+
+            return ReportLine{ {
+                ReportSpan{ style,             std::move( text) },
+                ReportSpan{ Emphasis::Detail,  std::string( description) }
+            } };
+        }
+
+        auto blankLine() -> ReportLine
+        {
+            return ReportLine{};
+        }
 
         auto padded( const std::string_view text, const std::size_t width) -> std::string
         {
@@ -38,20 +76,59 @@ namespace core
         }
 
         //
-        // A header row, or nothing at all for a field this run has no value
-        // for. Skipping rather than printing an empty value is the point: an
-        // absent DutSerial means nobody told this run which unit was in the
-        // fixture, and a row reading "Serial:" with nothing after it invites a
-        // reader to assume the value was blank rather than never supplied.
+        // "<name> <description>" as a heading plus a quiet description. Shared by
+        // the group and test headings, so the two levels are spelled the same way
+        // and can't drift apart.
         //
-        auto metadataLine( const std::string_view label, const std::string_view value) -> std::vector<ReportLine>
+        auto titleLine( const std::string_view indent, const std::string_view name, const std::string_view description) -> ReportLine
         {
-            if( value.empty())
+            const auto separator = description.empty() ? "" : " ";
+
+            return describedLine( Emphasis::Heading,
+                                  std::string( indent) + std::string( name) + separator,
+                                  description);
+        }
+
+        //
+        // A header row, always emitted -- including with nothing after the
+        // label when the run has no value for it.
+        //
+        // This reverses an earlier choice here (skip the row entirely) on
+        // purpose. The header is a report form, not a summary: its rows are the
+        // set of facts a test record is required to carry, and a form with a
+        // field left blank says "nobody filled this in", which is itself the
+        // finding. An omitted row says nothing at all, and leaves two runs of
+        // the same suite with different-shaped headers -- which is exactly what
+        // makes two reports awkward to compare side by side.
+        //
+        auto metadataLine( const std::string_view label, const std::string_view value) -> ReportLine
+        {
+            return line( Emphasis::Detail, padded( label, kLabelWidth) + std::string( value));
+        }
+
+        //
+        // The content revisions, as one row when suite/, dut/ and rig/ agree and
+        // three when they don't.
+        //
+        // They agree whenever all three come from one repository, which is the
+        // normal case (and this repo's) -- printing the same revision three
+        // times there would be three lines of noise for one fact. They diverge
+        // once a rig repo pulls this framework in with its own dut/ or suite/,
+        // and then each one matters separately, which is why the collapse is
+        // conditional rather than a single field.
+        //
+        auto versionLines( const RunInfo & info) -> std::vector<ReportLine>
+        {
+            if( info.SuiteVersion == info.DutVersion && info.DutVersion == info.RigVersion)
             {
-                return {};
+                return { metadataLine( "Suite/DUT/rig", info.SuiteVersion) };
             }
 
-            return { ReportLine{ Emphasis::Detail, padded( label, kLabelWidth) + std::string( value) } };
+            return {
+                metadataLine( "Suite version", info.SuiteVersion),
+                metadataLine( "DUT version",   info.DutVersion),
+                metadataLine( "Rig version",   info.RigVersion)
+            };
         }
 
         auto append( std::vector<ReportLine> & into, std::vector<ReportLine> lines) -> void
@@ -59,11 +136,35 @@ namespace core
             into.insert( into.end(), std::make_move_iterator( lines.begin()), std::make_move_iterator( lines.end()));
         }
 
-        auto testTitle( const std::string_view group, const std::string_view test) -> std::string
+        //
+        // A criterion as the log names it: its CRITERIA group and its CRIT id,
+        // qualified. Both, not just the id, because the id alone is only unique
+        // within its group -- and because "FS_Supply_1::FS_Supply_5V0" is the
+        // spelling a test spec traces to and the one a reader can search a
+        // criteria file for.
+        //
+        auto qualifiedSubject( const JournalEvent & event) -> std::string
         {
-            return std::string( group) + "::" + std::string( test);
+            if( event.SubjectGroup.empty())
+            {
+                return event.Subject;
+            }
+
+            return event.SubjectGroup + "::" + event.Subject;
         }
     } // namespace
+
+    auto plainText( const ReportLine & reportLine) -> std::string
+    {
+        std::string result;
+
+        for( const auto & span : reportLine.Spans)
+        {
+            result += span.Text;
+        }
+
+        return result;
+    }
 
     auto isHumanRelevant( const JournalEvent & event) -> bool
     {
@@ -81,37 +182,40 @@ namespace core
     {
         std::vector<ReportLine> lines;
 
-        lines.push_back( ReportLine{ Emphasis::Heading,
-            info.FrameworkName + " " + info.FrameworkVersion + " -- test run log" });
+        //
+        // The title says which unit was tested and when, in that order, because
+        // those are the two things somebody holding a stack of reports is
+        // looking for. Local time here rather than UTC: this line is read by
+        // the person who was in the room. The UTC instant is a row below, for
+        // whoever is comparing runs across benches or time zones -- both are
+        // the same reading (see RunInfo).
+        //
+        lines.push_back( line( Emphasis::Heading,
+            info.DutName + " -- " + info.StartedLocal));
 
-        append( lines, metadataLine( "DUT",              info.DutName));
-        append( lines, metadataLine( "DUT serial",       info.DutSerial));
-        append( lines, metadataLine( "Rig",              info.RigName));
-        append( lines, metadataLine( "Criteria variant", info.CriteriaVariant));
-        append( lines, metadataLine( "Operator",         info.Operator));
-        append( lines, metadataLine( "Host",             info.HostName));
-        append( lines, metadataLine( "Started (UTC)",    info.StartedUtc));
-        append( lines, metadataLine( "Command line",     info.CommandLine));
+        append( lines, { metadataLine( "DUT serial", info.DutSerial) });
+        append( lines, { metadataLine( "Operator",   info.Operator) });
+        append( lines, { metadataLine( "Criteria",   info.CriteriaVariant) });
+        append( lines, { metadataLine( "Framework",  info.FrameworkName + " " + info.FrameworkVersion) });
+        append( lines, versionLines( info));
+        append( lines, { metadataLine( "Started (UTC)", info.StartedUtc) });
+        append( lines, { metadataLine( "Command line",  info.CommandLine) });
 
-        lines.push_back( ReportLine{ Emphasis::Detail, std::string( kRule) });
+        lines.push_back( line( Emphasis::Detail, std::string( kRule)));
+        lines.push_back( blankLine());
 
         return lines;
     }
 
-    auto humanTestHeadingLines( const std::string_view group, const std::string_view test, const std::string_view description) -> std::vector<ReportLine>
+    auto humanGroupHeadingLines( const std::string_view group, const std::string_view description) -> std::vector<ReportLine>
     {
-        std::vector<ReportLine> lines;
+        // Unindented -- the outer level of the body's two.
+        return { titleLine( {}, group, description) };
+    }
 
-        // Blank line first, so consecutive tests don't run together.
-        lines.push_back( ReportLine{ Emphasis::Plain, {} });
-        lines.push_back( ReportLine{ Emphasis::Heading, "TEST  " + testTitle( group, test) });
-
-        if( !description.empty())
-        {
-            lines.push_back( ReportLine{ Emphasis::Detail, "      " + std::string( description) });
-        }
-
-        return lines;
+    auto humanTestHeadingLines( const std::string_view test, const std::string_view description) -> std::vector<ReportLine>
+    {
+        return { titleLine( kIndent, test, description) };
     }
 
     auto humanEventLines( const JournalEvent & event) -> std::vector<ReportLine>
@@ -124,10 +228,14 @@ namespace core
         if( event.Method == Verb::Measure)
         {
             //
-            // "measure  Output5V  5.021 V  (Dmm1)  5Vdc supply port" -- the
+            // "measure Output5V  5.021 V  (Dmm1)  5Vdc supply port" -- the
             // reading first, since that is what a reader is checking, and the
-            // instrument and the point's own description after it as
-            // supporting context.
+            // instrument and the point's own description after it as supporting
+            // context.
+            //
+            // Padded to the same verb/subject/value columns a verify line uses,
+            // so a reading and the check against it line up rather than
+            // staggering.
             //
             auto text = padded( "measure", kVerbWidth)
                       + padded( event.Subject, kSubjectWidth)
@@ -140,48 +248,65 @@ namespace core
 
             if( !event.Detail.empty())
             {
-                text += "  " + event.Detail;
+                text += "  ";
             }
 
-            return { ReportLine{ Emphasis::Plain, "  " + text } };
+            return { describedLine( Emphasis::Plain, std::string( kIndent) + text, event.Detail) };
         }
 
         //
-        // A Verify line ends in its verdict, in the verdict's own colour --
-        // both, not either: colour alone is lost the moment the log is printed
-        // in black and white or read by somebody who can't distinguish red
-        // from green, and the bracketed word alone is what a reader has to
-        // hunt for down a long column.
+        // A check states four things, in this order: which criterion, what was
+        // measured, what was required, and the verdict.
+        //
+        // "What was required" is the criterion's own predicate, rendered (see
+        // core/predicate_text.hpp) -- not its description. That distinction is
+        // the point: the description is prose somebody wrote, and nothing checks
+        // it against the tolerance actually enforced, so a log carrying only the
+        // description cannot be used to confirm the judgement. With both, a
+        // reader sees "measured 0 V, required = 5 V +/-0.05 V" and needs no
+        // second file open to agree with the [FAIL].
+        //
+        // The verdict is stated in words as well as in colour: colour alone is
+        // lost the moment the log is printed in black and white or read by
+        // somebody who can't distinguish red from green, and the bracketed word
+        // alone is what a reader has to hunt for down a long column.
         //
         const bool passed = event.Passed.value_or( false);
 
         auto text = padded( "verify", kVerbWidth)
-                  + padded( event.Subject, kSubjectWidth)
+                  + padded( qualifiedSubject( event), kSubjectWidth)
                   + padded( event.Value, kValueWidth)
+                  + padded( event.CriterionText, kRequiredWidth)
                   + ( passed ? "[PASS]" : "[FAIL]");
 
         if( !event.Detail.empty())
         {
-            text += "  " + event.Detail;
+            text += "  ";
         }
 
-        return { ReportLine{ passed ? Emphasis::Pass : Emphasis::Fail, "  " + text } };
+        return { describedLine( passed ? Emphasis::Pass : Emphasis::Fail, std::string( kIndent) + text, event.Detail) };
     }
 
-    auto humanTestResultLines( const std::string_view group, const std::string_view test, const bool passed) -> std::vector<ReportLine>
+    auto humanTestResultLines( const std::string_view test, const bool passed) -> std::vector<ReportLine>
     {
-        return { ReportLine{ passed ? Emphasis::Pass : Emphasis::Fail,
-            "  " + padded( "RESULT", kVerbWidth) + padded( testTitle( group, test), kSubjectWidth + kValueWidth)
-                 + ( passed ? "[PASS]" : "[FAIL]") } };
+        return {
+            line( passed ? Emphasis::Pass : Emphasis::Fail,
+                std::string( kIndent) + padded( "RESULT", kVerbWidth)
+                                      + padded( test, kSubjectWidth + kValueWidth + kRequiredWidth)
+                                      + ( passed ? "[PASS]" : "[FAIL]")),
+
+            // Closes this test's block -- see core/report.hpp on why the blank
+            // trails rather than leads.
+            blankLine()
+        };
     }
 
     auto humanSummaryLines( const bool allPassed) -> std::vector<ReportLine>
     {
         return {
-            ReportLine{ Emphasis::Plain, {} },
-            ReportLine{ Emphasis::Detail, std::string( kRule) },
-            ReportLine{ allPassed ? Emphasis::Pass : Emphasis::Fail,
-                allPassed ? "ALL SCRIPTS PASSED" : "SOME SCRIPTS FAILED" }
+            line( Emphasis::Detail, std::string( kRule)),
+            line( allPassed ? Emphasis::Pass : Emphasis::Fail,
+                  allPassed ? "ALL SCRIPTS PASSED" : "SOME SCRIPTS FAILED")
         };
     }
 } // namespace core

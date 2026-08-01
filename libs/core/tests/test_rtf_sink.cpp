@@ -122,7 +122,8 @@ TEST_F( RtfSinkTest, FileIsACompleteDocumentAfterEveryEvent)
     sink.onRunStart( runInfo());
     EXPECT_TRUE( isCompleteRtfDocument( readFile( mPath)));
 
-    sink.onTestStart( "OutputVoltage", "SupplyRail", "Verify supply rails");
+    sink.onGroupStart( "OutputVoltage", "Output rail tests");
+    sink.onTestStart( "SupplyRail", "Verify supply rails");
     EXPECT_TRUE( isCompleteRtfDocument( readFile( mPath)));
 
     sink.onEvent( measureEvent());
@@ -223,10 +224,55 @@ TEST( CoreRtfEscape, RtfSyntaxCharactersAreEscaped)
     EXPECT_EQ( core::RtfSink::escape( "plain"),  "plain");
 }
 
-TEST( CoreRtfEscape, NonAsciiBytesAreGivenInAnsiHexForm)
+//
+// Non-ASCII text has to survive as the character it is. Escaping each byte of a
+// UTF-8 sequence separately -- which this sink originally did -- produces
+// mojibake rather than an approximation: the preamble declares codepage 1252, so
+// "å" (C3 A5) would render as "Ã¥". An operator name out of the environment, or
+// a description written on a Swedish keyboard, is enough to hit this.
+//
+TEST( CoreRtfEscape, Utf8IsDecodedIntoRtfUnicodeEscapes)
 {
-    // \ansi is declared in the preamble, so a byte above ASCII needs \'hh form.
-    EXPECT_EQ( core::RtfSink::escape( "\xB5V"), "\\'b5V");
+    // U+00E5 LATIN SMALL LETTER A WITH RING ABOVE, as UTF-8.
+    EXPECT_EQ( core::RtfSink::escape( "\xC3\xA5"), "\\u229?");
+
+    // U+00B5 MICRO SIGN -- a plausible unit prefix.
+    EXPECT_EQ( core::RtfSink::escape( "\xC2\xB5V"), "\\u181?V");
+
+    // U+03A9 GREEK CAPITAL LETTER OMEGA, three-byte territory nearby.
+    EXPECT_EQ( core::RtfSink::escape( "\xE2\x84\xA6"), "\\u8486?");
+}
+
+//
+// \uN is a *signed* 16-bit value, so anything from 0x8000 up must be written
+// negative -- a positive value there is out of range and some readers reject the
+// document outright rather than just the character.
+//
+TEST( CoreRtfEscape, HighCodePointsAreWrittenAsSignedUnits)
+{
+    // U+FFFD REPLACEMENT CHARACTER = 65533, which is -3 as a signed 16-bit unit.
+    EXPECT_EQ( core::RtfSink::escape( "\xEF\xBF\xBD"), "\\u-3?");
+}
+
+//
+// Outside the BMP, one code point needs two \u escapes -- RTF's \u is a UTF-16
+// code unit, not a code point.
+//
+TEST( CoreRtfEscape, AstralCodePointsBecomeASurrogatePair)
+{
+    // U+1F600 GRINNING FACE -> D83D DE00 -> -10179, -8704 signed.
+    EXPECT_EQ( core::RtfSink::escape( "\xF0\x9F\x98\x80"), "\\u-10179?\\u-8704?");
+}
+
+//
+// A byte that isn't valid UTF-8 at all still has to produce a document. One
+// undecodable byte in a description must not cost the whole log.
+//
+TEST( CoreRtfEscape, InvalidUtf8FallsBackToASingleByteEscape)
+{
+    EXPECT_EQ( core::RtfSink::escape( "\xB5V"),     "\\'b5V");   // stray continuation byte
+    EXPECT_EQ( core::RtfSink::escape( "\xC3"),      "\\'c3");    // truncated sequence
+    EXPECT_EQ( core::RtfSink::escape( "\xC3\x41"),  "\\'c3A");   // bad continuation
 }
 
 TEST( CoreRtfEscape, EmbeddedNewlinesStayVisible)

@@ -36,18 +36,44 @@ namespace core
     enum class Emphasis
     {
         Plain,      // ordinary body text -- a measurement
-        Heading,    // a run or test title
-        Detail,     // supporting metadata, deliberately quieter than Plain
+        Heading,    // a group or test title
+        Detail,     // supporting prose, deliberately quieter than Plain
         Pass,
         Fail,
         Warning     // something a reader must notice that is not a failed check
     };
 
-    struct ReportLine
+    //
+    // A run of text with one emphasis. A line is a sequence of these rather than
+    // a single styled string, because the two things on most lines want
+    // different weight: the fact (a reading, a verdict, a name) and the prose
+    // that explains it (a point's or criterion's description).
+    //
+    // Those descriptions are the bulk of the characters on a line and the least
+    // of its information -- they are fixed text from dut/adapter.inc and the
+    // criteria tables, identical on every run. Rendering them as quietly as the
+    // header metadata (Emphasis::Detail) is what lets a reader's eye travel down
+    // the values and verdicts without the descriptions competing, while still
+    // having them there to read when a line needs explaining.
+    //
+    struct ReportSpan
     {
         Emphasis     Style{ Emphasis::Plain };
         std::string  Text;
     };
+
+    struct ReportLine
+    {
+        std::vector<ReportSpan> Spans;
+    };
+
+    //
+    // The line's text with its styling dropped -- what it reads as. For anything
+    // that wants the content rather than the presentation: an assertion, a
+    // plain-text sink, a grep.
+    //
+    [[nodiscard]]
+    auto plainText( const ReportLine & line) -> std::string;
 
     //
     // The traceability header -- framework version, DUT, rig, criteria
@@ -60,12 +86,37 @@ namespace core
     auto humanHeaderLines( const RunInfo & info) -> std::vector<ReportLine>;
 
     //
-    // The test name, marked out as a heading on its own rather than folded
-    // into the first measurement's line: a reader scanning a multi-test log
-    // for the one that failed is looking for exactly this.
+    // The log's body is two levels deep, matching the catalog's own shape:
+    //
+    //     <group name> <group description>
+    //         <test name> <test description>
+    //         <log output>
+    //
+    //         <test name> <test description>
+    //         <log output>
+    //
+    // The group states itself once and its tests nest under it, rather than
+    // every test line repeating "Group::Test" -- which is what a reader
+    // scanning a multi-group run actually wants, and what makes the group's
+    // own description (straight from its GROUP entry, see
+    // core/test_catalog.hpp) have somewhere to appear at all.
+    //
+    // The indent is a literal tab, so the nesting survives whatever the
+    // reader's medium does with it -- an RTF tab stop, a terminal's tab width,
+    // a paste into a report. Column alignment *within* a line is still spaces
+    // (see report.cpp's width constants); a tab can't align a column.
     //
     [[nodiscard]]
-    auto humanTestHeadingLines( std::string_view group, std::string_view test, std::string_view description) -> std::vector<ReportLine>;
+    auto humanGroupHeadingLines( std::string_view group, std::string_view description) -> std::vector<ReportLine>;
+
+    //
+    // The test name, marked out as a heading on its own rather than folded
+    // into the first measurement's line: a reader scanning for the test that
+    // failed is looking for exactly this. Takes no group -- the enclosing
+    // group heading has already named it.
+    //
+    [[nodiscard]]
+    auto humanTestHeadingLines( std::string_view test, std::string_view description) -> std::vector<ReportLine>;
 
     //
     // One event's lines, or empty for an event the human stream doesn't carry
@@ -76,10 +127,16 @@ namespace core
     [[nodiscard]]
     auto humanEventLines( const JournalEvent & event) -> std::vector<ReportLine>;
 
+    //
     // The test's own verdict, restated after its checks -- Pass or Fail
-    // emphasis, so it is findable by colour as well as by text.
+    // emphasis, so it is findable by colour as well as by text -- followed by
+    // the blank line that closes the test's block. That blank belongs here
+    // rather than at the front of the next test's heading: a run's last test
+    // has no next heading, and a log whose final block runs straight into the
+    // summary reads as though something was cut off.
+    //
     [[nodiscard]]
-    auto humanTestResultLines( std::string_view group, std::string_view test, bool passed) -> std::vector<ReportLine>;
+    auto humanTestResultLines( std::string_view test, bool passed) -> std::vector<ReportLine>;
 
     [[nodiscard]]
     auto humanSummaryLines( bool allPassed) -> std::vector<ReportLine>;

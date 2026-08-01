@@ -28,9 +28,20 @@ namespace
                 ++RunStarts;
             }
 
-            auto onTestStart( const std::string_view group, const std::string_view test, const std::string_view description) -> void override
+            auto onGroupStart( const std::string_view group, const std::string_view description) -> void override
             {
-                TestStarts.push_back( Boundary{ std::string( group), std::string( test), false });
+                GroupStarts.push_back( Boundary{ std::string( group), {}, false });
+                Descriptions.emplace_back( description);
+            }
+
+            auto onGroupEnd( const std::string_view group) -> void override
+            {
+                GroupEnds.emplace_back( group);
+            }
+
+            auto onTestStart( const std::string_view test, const std::string_view description) -> void override
+            {
+                TestStarts.push_back( Boundary{ {}, std::string( test), false });
                 Descriptions.emplace_back( description);
             }
 
@@ -51,6 +62,8 @@ namespace
 
             core::RunInfo                  Started;
             int                            RunStarts{ 0 };
+            std::vector<Boundary>          GroupStarts;
+            std::vector<std::string>       GroupEnds;
             std::vector<Boundary>          TestStarts;
             std::vector<std::string>       Descriptions;
             std::vector<core::JournalEvent> Events;
@@ -105,7 +118,8 @@ TEST_F( JournalTest, EventsAreSequencedFromZeroPerRun)
 TEST_F( JournalTest, EventsAreStampedWithTheRunningTest)
 {
     core::journal().begin( core::RunInfo{});
-    core::journal().beginTest( "OutputVoltage", "SupplyRail", "Verify supply rails");
+    core::journal().beginGroup( "OutputVoltage", "Output rail tests");
+    core::journal().beginTest( "SupplyRail", "Verify supply rails");
 
     core::journal().post( core::JournalRecord{ .Method = core::Verb::Measure, .Subject = "Output5V" });
 
@@ -113,30 +127,56 @@ TEST_F( JournalTest, EventsAreStampedWithTheRunningTest)
     EXPECT_EQ( mSink.Events[ 0].Group, "OutputVoltage");
     EXPECT_EQ( mSink.Events[ 0].Test,  "SupplyRail");
 
+    ASSERT_EQ( mSink.GroupStarts.size(), 1u);
+    EXPECT_EQ( mSink.GroupStarts[ 0].Group, "OutputVoltage");
+
     ASSERT_EQ( mSink.TestStarts.size(), 1u);
-    EXPECT_EQ( mSink.Descriptions[ 0], "Verify supply rails");
+    EXPECT_EQ( mSink.TestStarts[ 0].Test, "SupplyRail");
+
+    // Group description, then test description -- in boundary order.
+    ASSERT_EQ( mSink.Descriptions.size(), 2u);
+    EXPECT_EQ( mSink.Descriptions[ 0], "Output rail tests");
+    EXPECT_EQ( mSink.Descriptions[ 1], "Verify supply rails");
 }
 
 //
-// This is what makes hal::RigSafingGuard's Safe event belong to the run rather
-// than to whichever test happened to finish last -- see Journal::endTest.
+// The two boundaries close independently, and the difference matters: between
+// endTest and endGroup a further test may still follow, so an event there
+// belongs to the group but to no test. This is what keeps hal::RigSafingGuard's
+// Safe event -- posted from a destructor after everything has finished, see
+// app/src/main.cpp -- attributed to the run rather than to whichever test
+// happened to be last.
 //
-TEST_F( JournalTest, EventsPostedAfterATestEndsBelongToNoTest)
+TEST_F( JournalTest, EventAttributionFollowsWhicheverBoundariesAreStillOpen)
 {
     core::journal().begin( core::RunInfo{});
-    core::journal().beginTest( "OutputVoltage", "SupplyRail", {});
+    core::journal().beginGroup( "OutputVoltage", {});
+    core::journal().beginTest( "SupplyRail", {});
     core::journal().endTest( true);
 
+    // Inside the group, outside any test.
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Note, .Subject = "between tests" });
+
+    core::journal().endGroup();
+
+    // Outside both -- where a safing pass lands.
     core::journal().post( core::JournalRecord{ .Method = core::Verb::Safe, .Subject = "rig" });
 
-    ASSERT_EQ( mSink.Events.size(), 1u);
-    EXPECT_TRUE( mSink.Events[ 0].Group.empty());
+    ASSERT_EQ( mSink.Events.size(), 2u);
+
+    EXPECT_EQ( mSink.Events[ 0].Group, "OutputVoltage");
     EXPECT_TRUE( mSink.Events[ 0].Test.empty());
 
-    // onTestEnd still names the test it is closing.
+    EXPECT_TRUE( mSink.Events[ 1].Group.empty());
+    EXPECT_TRUE( mSink.Events[ 1].Test.empty());
+
+    // Each boundary still names what it is closing.
     ASSERT_EQ( mSink.TestEnds.size(), 1u);
     EXPECT_EQ( mSink.TestEnds[ 0].Test, "SupplyRail");
     EXPECT_TRUE( mSink.TestEnds[ 0].Passed);
+
+    ASSERT_EQ( mSink.GroupEnds.size(), 1u);
+    EXPECT_EQ( mSink.GroupEnds[ 0], "OutputVoltage");
 }
 
 TEST_F( JournalTest, EveryRegisteredSinkSeesEveryEvent)

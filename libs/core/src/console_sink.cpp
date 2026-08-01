@@ -44,21 +44,32 @@ namespace core
 
         for( const auto & line : lines)
         {
-            const auto colour = mColour ? ansiFor( line.Style) : std::string_view{};
+            //
+            // Per span, not per line, so one line can carry more than one
+            // emphasis -- see core::ReportSpan. Each span sets its own colour
+            // and resets after, which is also what stops a span's colour
+            // bleeding into the rest of the line.
+            //
+            for( const auto & span : line.Spans)
+            {
+                const auto colour = mColour ? ansiFor( span.Style) : std::string_view{};
 
-            //
-            // The reset is emitted only when something was actually set, so a
-            // --no-color run's output is byte-for-byte plain text rather than
-            // plain text sprinkled with bare resets.
-            //
-            if( colour.empty())
-            {
-                *mOut << line.Text << '\n';
+                //
+                // The reset is emitted only when something was actually set, so
+                // a --no-color run's output is byte-for-byte plain text rather
+                // than plain text sprinkled with bare resets.
+                //
+                if( colour.empty())
+                {
+                    *mOut << span.Text;
+                }
+                else
+                {
+                    *mOut << colour << span.Text << kReset;
+                }
             }
-            else
-            {
-                *mOut << colour << line.Text << kReset << '\n';
-            }
+
+            *mOut << '\n';
         }
 
         //
@@ -74,9 +85,14 @@ namespace core
         writeAll( humanHeaderLines( info));
     }
 
-    auto ConsoleSink::onTestStart( const std::string_view group, const std::string_view test, const std::string_view description) -> void
+    auto ConsoleSink::onGroupStart( const std::string_view group, const std::string_view description) -> void
     {
-        writeAll( humanTestHeadingLines( group, test, description));
+        writeAll( humanGroupHeadingLines( group, description));
+    }
+
+    auto ConsoleSink::onTestStart( const std::string_view test, const std::string_view description) -> void
+    {
+        writeAll( humanTestHeadingLines( test, description));
     }
 
     auto ConsoleSink::onEvent( const JournalEvent & event) -> void
@@ -84,9 +100,9 @@ namespace core
         writeAll( humanEventLines( event));
     }
 
-    auto ConsoleSink::onTestEnd( const std::string_view group, const std::string_view test, const bool passed) -> void
+    auto ConsoleSink::onTestEnd( std::string_view, const std::string_view test, const bool passed) -> void
     {
-        writeAll( humanTestResultLines( group, test, passed));
+        writeAll( humanTestResultLines( test, passed));
     }
 
     auto ConsoleSink::onRunEnd( const bool allPassed) -> void

@@ -404,7 +404,20 @@ namespace core
             optionalProperty( out, kI4, "operator",         mRunInfo.Operator,         first);
             optionalProperty( out, kI4, "hostName",         mRunInfo.HostName,         first);
             optionalProperty( out, kI4, "commandLine",      mRunInfo.CommandLine,      first);
+
+            //
+            // Which revision of the tested content produced this -- see
+            // RunInfo::SuiteVersion. Three separate properties even where they
+            // currently agree: a consumer correlating runs needs to be able to
+            // ask "same rig wiring, different criteria?" without splitting a
+            // combined string back apart.
+            //
+            optionalProperty( out, kI4, "suiteVersion",     mRunInfo.SuiteVersion,     first);
+            optionalProperty( out, kI4, "dutVersion",       mRunInfo.DutVersion,       first);
+            optionalProperty( out, kI4, "rigVersion",       mRunInfo.RigVersion,       first);
+
             property(         out, kI4, "startedUtc",       mRunInfo.StartedUtc,       first);
+            optionalProperty( out, kI4, "startedLocal",     mRunInfo.StartedLocal,     first);
             property(         out, kI4, "endedUtc",         endedUtc,                  first);
 
             out << ",\n" << kI4 << quoted( "allPassed") << ": " << ( allPassed ? "true" : "false") << "\n";
@@ -457,6 +470,16 @@ namespace core
                 optionalProperty( out, kI6, "instrument",    event.Instrument,         first);
                 optionalProperty( out, kI6, "value",         event.Value,              first);
                 optionalProperty( out, kI6, "unit",          event.Unit,               first);
+
+                //
+                // The tolerance the run actually enforced, as text -- so a
+                // consumer reading a failure can report what was required
+                // without resolving the ruleId back to a criteria file it may
+                // not have. Deliberately alongside the rule's shortDescription
+                // rather than instead of it: that is the criterion's prose, this
+                // is its predicate, and they are different claims.
+                //
+                optionalProperty( out, kI6, "criterion",     event.CriterionText,      first);
                 optionalProperty( out, kI6, "timeUtc",       event.TimeUtc,            first);
 
                 //

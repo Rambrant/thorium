@@ -78,6 +78,7 @@ namespace
         event.Value        = "5.021 V";
         event.Numeric      = 5.021;
         event.Unit         = "V";
+        event.CriterionText = "= 5 V +/-0.05 V";
         event.Passed       = passed;
         event.Group        = "OutputVoltage";
         event.Test         = "SupplyRail";
@@ -306,6 +307,13 @@ TEST_F( SarifSinkTest, ValueIsCarriedBothAsTextAndAsANumber)
     EXPECT_TRUE( contains( text, "\"value\": \"5.021 V\""));
     EXPECT_TRUE( contains( text, "\"unit\": \"V\""));
     EXPECT_TRUE( contains( text, "\"numericValue\": 5.021"));
+
+    //
+    // And the tolerance the run actually enforced, so a consumer reporting a
+    // failure can say what was required without resolving the ruleId back to a
+    // criteria file it may not have.
+    //
+    EXPECT_TRUE( contains( text, "\"criterion\": \"= 5 V +/-0.05 V\""));
 }
 
 //

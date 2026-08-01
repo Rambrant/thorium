@@ -5,6 +5,7 @@
 
 #include "core/criterion.hpp"
 #include "core/format.hpp"
+#include "core/predicate_text.hpp"
 #include "core/quantity.hpp"
 
 namespace core
@@ -33,6 +34,7 @@ namespace core
                             std::string_view      valueText,
                             std::optional<double> numericValue,
                             std::string_view      unit,
+                            std::string_view      criterionText,
                             bool                  passed );
     } // namespace detail
 
@@ -47,7 +49,8 @@ namespace core
         const bool passed = criterion.predicate( value);
 
         core::detail::reportResult( criterion.group, criterion.id, criterion.description,
-                                    describeValue( value), numericOf( value), unitOf<T>(), passed);
+                                    describeValue( value), numericOf( value), unitOf<T>(),
+                                    describeCriterion( criterion.predicate), passed);
 
         return passed;
     }
@@ -98,7 +101,8 @@ namespace core
             // was expected even though nothing arrived; there is no number.
             //
             core::detail::reportResult( criterion.group, criterion.id, criterion.description,
-                                        "<no reading>", std::nullopt, unitOf<Quantity<Unit>>(), false);
+                                        "<no reading>", std::nullopt, unitOf<Quantity<Unit>>(),
+                                        describeCriterion( criterion.predicate), false);
 
             return false;
         }

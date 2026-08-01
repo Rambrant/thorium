@@ -67,7 +67,8 @@ namespace core
             auto operator=( const RtfSink &) -> RtfSink & = delete;
 
             auto onRunStart( const RunInfo & info) -> void override;
-            auto onTestStart( std::string_view group, std::string_view test, std::string_view description) -> void override;
+            auto onGroupStart( std::string_view group, std::string_view description) -> void override;
+            auto onTestStart( std::string_view test, std::string_view description) -> void override;
             auto onEvent( const JournalEvent & event) -> void override;
             auto onTestEnd( std::string_view group, std::string_view test, bool passed) -> void override;
             auto onRunEnd( bool allPassed) -> void override;
@@ -75,8 +76,11 @@ namespace core
             //
             // RTF escaping, exposed for its own test: '\', '{' and '}' are
             // RTF's own syntax and a criterion description containing one
-            // would otherwise corrupt the document, and any byte above ASCII
-            // needs \'hh form since the header declares \ansi.
+            // would otherwise corrupt the document. Text above ASCII is
+            // decoded as UTF-8 and re-emitted as RTF's \uN escape -- see
+            // appendUtf8Sequence in rtf_sink.cpp on why escaping those bytes
+            // one at a time (as this originally did) actively corrupts them
+            // rather than merely being imprecise.
             //
             [[nodiscard]]
             static auto escape( std::string_view text) -> std::string;

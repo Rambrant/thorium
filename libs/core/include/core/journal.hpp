@@ -90,7 +90,33 @@ namespace core
         std::string Operator;
         std::string HostName;
         std::string CommandLine;
-        std::string StartedUtc;    // ISO-8601, e.g. 2026-07-30T09:14:02.371Z
+
+        //
+        // What revision of this deployment's *content* the binary was built
+        // against -- the test scripts, the DUT profile and criteria, the rig's
+        // wiring. Three fields rather than one because suite/, dut/ and rig/
+        // are separable: they all come from this repo today (and so carry the
+        // same revision), but a rig repo consuming this framework would have
+        // its own, and a DUT profile shared between benches its own again.
+        //
+        // Distinct from FrameworkVersion, which versions libs/ -- the code that
+        // runs a test. These version what is being tested and how, which is the
+        // half that actually changes between two runs that disagree.
+        //
+        std::string SuiteVersion;
+        std::string DutVersion;
+        std::string RigVersion;
+
+        //
+        // The same instant, twice. StartedUtc is what the machine log records
+        // and what two runs are compared by; StartedLocal is what the operator
+        // who was standing there recognises, and is what the human log's title
+        // carries. Both are produced from one clock reading (see
+        // defaultRunInfo) -- deriving them separately would let a report
+        // disagree with itself across a second boundary.
+        //
+        std::string StartedUtc;      // ISO-8601, e.g. 2026-08-01T08:56:02.371Z
+        std::string StartedLocal;    // e.g. Sat 01 Aug 2026 10:56:02 CEST
     };
 
     //
@@ -153,6 +179,18 @@ namespace core
         std::string            Unit{};
 
         //
+        // For a Verify: the criterion's own tolerance, spelled out ("= 5 V
+        // +/-0.05 V") -- see core/predicate_text.hpp. Distinct from Detail,
+        // which is the prose a CRIT entry's author wrote: nothing checks that
+        // prose against the predicate beside it, so a log carrying only the
+        // description cannot actually state the limit the run enforced.
+        //
+        // Empty where there is nothing to say -- every non-Verify event, and a
+        // Verify against a predicate that can't describe itself (a lambda).
+        //
+        std::string            CriterionText{};
+
+        //
         // Set for Verify and nothing else. std::optional rather than a bool
         // defaulting to true: "this event has no pass/fail notion" and "this
         // event passed" are different things, and a sink that renders the
@@ -195,7 +233,23 @@ namespace core
             virtual ~IJournalSink() = default;
 
             virtual auto onRunStart( const RunInfo &) -> void {}
-            virtual auto onTestStart( std::string_view, std::string_view, std::string_view) -> void {}
+
+            //
+            // A catalog group's own boundary, distinct from its tests'. This
+            // exists because the human log states a group once and nests its
+            // tests under it -- so the group's name and description have to
+            // arrive on their own, not repeated on every test that happens to
+            // belong to it.
+            //
+            // Only groups with at least one test actually running get these:
+            // see app/src/main.cpp, which is where the selection is known.
+            //
+            virtual auto onGroupStart( std::string_view, std::string_view) -> void {}
+            virtual auto onGroupEnd( std::string_view) -> void {}
+
+            // The test's own id and description -- the group is whichever
+            // onGroupStart is currently open.
+            virtual auto onTestStart( std::string_view, std::string_view) -> void {}
             virtual auto onEvent( const JournalEvent &) -> void {}
             virtual auto onTestEnd( std::string_view, std::string_view, bool) -> void {}
             virtual auto onRunEnd( bool) -> void {}
@@ -230,12 +284,20 @@ namespace core
             auto end( bool allPassed) -> void;
 
             //
-            // Test boundaries. Everything posted between beginTest() and
-            // endTest() is stamped with that group/test, which is what lets a
-            // Measure inside a script be attributed to the test that caused
-            // it without the script (or Measure) knowing its own name.
+            // Group and test boundaries. Everything posted inside them is
+            // stamped with that group/test, which is what lets a Measure inside
+            // a script be attributed to the test that caused it without the
+            // script (or Measure) knowing its own name.
             //
-            auto beginTest( std::string_view group, std::string_view test, std::string_view description) -> void;
+            // The group is set by beginGroup rather than passed to beginTest:
+            // a test's group is the one enclosing it, and having each test
+            // restate it would be two sources for one fact -- with the usual
+            // consequence that they can disagree.
+            //
+            auto beginGroup( std::string_view group, std::string_view description) -> void;
+            auto endGroup() -> void;
+
+            auto beginTest( std::string_view test, std::string_view description) -> void;
             auto endTest( bool passed) -> void;
 
             //
@@ -289,6 +351,16 @@ namespace core
     //
     [[nodiscard]]
     auto isoUtcFromUnixMillis( std::int64_t millis) -> std::string;
+
+    //
+    // The same instant in the machine's local zone, spelled for a person
+    // ("Sat 01 Aug 2026 10:56:02 CEST") rather than for a parser. The zone
+    // abbreviation is not decoration: a local time without one is ambiguous the
+    // moment the log leaves the bench it was written on, and this is the field
+    // an operator will use to say "that was the run before lunch".
+    //
+    [[nodiscard]]
+    auto localTimeFromUnixMillis( std::int64_t millis) -> std::string;
 
     [[nodiscard]]
     auto unixMillisNow() -> std::int64_t;

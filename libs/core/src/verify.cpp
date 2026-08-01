@@ -27,6 +27,7 @@ namespace core::detail
                         const std::string_view      valueText,
                         const std::optional<double> numericValue,
                         const std::string_view      unit,
+                        const std::string_view      criterionText,
                         const bool                  passed )
     {
         //
@@ -39,14 +40,15 @@ namespace core::detail
         // the journal stamps on separately; see JournalRecord::SubjectGroup.
         //
         journal().post( JournalRecord{
-            .Method       = Verb::Verify,
-            .Subject      = std::string( id),
-            .SubjectGroup = std::string( group),
-            .Detail       = std::string( description),
-            .Value        = std::string( valueText),
-            .Numeric      = numericValue,
-            .Unit         = std::string( unit),
-            .Passed       = passed
+            .Method        = Verb::Verify,
+            .Subject       = std::string( id),
+            .SubjectGroup  = std::string( group),
+            .Detail        = std::string( description),
+            .Value         = std::string( valueText),
+            .Numeric       = numericValue,
+            .Unit          = std::string( unit),
+            .CriterionText = std::string( criterionText),
+            .Passed        = passed
         });
     }
 } // namespace core::detail
