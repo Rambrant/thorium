@@ -6,3 +6,7 @@ cmake-build-*/
 .DS_Store
 compile_commands.json
 CMakeUserPresets.json
+
+# docs/ deck render products (regenerate with docs/src/render.sh)
+docs/src/single/
+docs/src/shots/
