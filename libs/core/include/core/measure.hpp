@@ -148,7 +148,25 @@ namespace core
 
                 const auto instrumentName = std::string( to_string( instrumentId));
 
-                auto value = activeSession().fetch( point.Name, instrumentName, Kind, liveRead);
+                //
+                // Unwrapped to the concrete Quantity<Unit> before anything else
+                // looks at it. The session seam has to hand back a type-erased
+                // QuantityVariant (ISession::fetch is virtual -- see
+                // core/session.hpp), but that erasure ends here: Kind is a
+                // template parameter of this function, so everything downstream,
+                // the log included, can work with the real type.
+                //
+                // This used to log from the variant -- formatQuantity( value),
+                // rawValue( value), unitSymbol( Kind) -- which dragged the whole
+                // runtime kind-to-symbol machinery into the reporting path for no
+                // reason, and was quietly inconsistent: the unit came from the
+                // *declared* Kind while the value was formatted from whichever
+                // alternative the variant actually held, so a session returning
+                // the wrong unit produced an event reading "5.02 A" with its unit
+                // recorded as "V".
+                //
+                const auto value = asQuantity<QuantityFor<Kind>>(
+                    activeSession().fetch( point.Name, instrumentName, Kind, liveRead));
 
                 //
                 // Logged here, after the session has produced the value and
@@ -166,17 +184,23 @@ namespace core
                 // report needs. This carries the point's description, its unit,
                 // and which instrument was used, and is never read back in.
                 //
+                //
+                // Formatted from the value's own type, exactly the way
+                // core::Verify does it (see core/format.hpp) -- one code path for
+                // "how a reading is written down", whether it is being reported
+                // or checked.
+                //
                 journal().post( JournalRecord{
                     .Method     = Verb::Measure,
                     .Subject    = std::string( point.Name),
                     .Detail     = std::string( point.Description),
                     .Instrument = instrumentName,
-                    .Value      = formatQuantity( value),
-                    .Numeric    = rawValue( value),
-                    .Unit       = std::string( unitSymbol( Kind))
+                    .Value      = describeValue( value),
+                    .Numeric    = value.value(),
+                    .Unit       = std::string( value.symbol())
                 });
 
-                return asQuantity<QuantityFor<Kind>>( value);
+                return value;
             }
 
             //

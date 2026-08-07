@@ -21,7 +21,7 @@ namespace core
     // "how do I set X here" reads the same way whether X is being sourced
     // or sensed.
     //
-    template<quantities::QuantityType QuantityT>
+    template<typename QuantityT> requires quantities::QuantityType<QuantityT>
     struct MeasureSetup
     {
         //

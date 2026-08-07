@@ -4,6 +4,10 @@
 
 #include "core/quantity.hpp"
 
+// Explicit: core/format.hpp no longer includes this. Reporting a value is a
+// compile-time job; the type-erased side is a separate concern.
+#include "core/quantity_kind.hpp"
+
 using namespace core::literals;
 using namespace core::quantities;
 
@@ -19,17 +23,21 @@ TEST( CoreFormat, NumberIsTrimmedToSixSignificantDigits)
     EXPECT_EQ( core::formatNumber( -0.05),        "-0.05");
 }
 
-TEST( CoreFormat, UnitSymbolCoversEveryQuantityKind)
+//
+// Every unit states its own symbol, on its unit tag -- these are compile-time
+// constants, not a table this file has to be kept in step with.
+//
+TEST( CoreFormat, EveryUnitCarriesItsOwnSymbol)
 {
-    EXPECT_EQ( core::unitSymbol( core::QuantityKind::Voltage),       "V");
-    EXPECT_EQ( core::unitSymbol( core::QuantityKind::Current),       "A");
-    EXPECT_EQ( core::unitSymbol( core::QuantityKind::Power),         "W");
-    EXPECT_EQ( core::unitSymbol( core::QuantityKind::ApparentPower), "VA");
-    EXPECT_EQ( core::unitSymbol( core::QuantityKind::Resistance),    "Ohm");
-    EXPECT_EQ( core::unitSymbol( core::QuantityKind::Time),          "s");
-    EXPECT_EQ( core::unitSymbol( core::QuantityKind::Decibel),       "dB");
-    EXPECT_EQ( core::unitSymbol( core::QuantityKind::Frequency),     "Hz");
-    EXPECT_EQ( core::unitSymbol( core::QuantityKind::ReactivePower), "var");
+    static_assert( Voltage::symbol()       == "V");
+    static_assert( Current::symbol()       == "A");
+    static_assert( Power::symbol()         == "W");
+    static_assert( ApparentPower::symbol() == "VA");
+    static_assert( Resistance::symbol()    == "Ohm");
+    static_assert( Time::symbol()          == "s");
+    static_assert( Decibel::symbol()       == "dB");
+    static_assert( Frequency::symbol()     == "Hz");
+    static_assert( ReactivePower::symbol() == "var");
 }
 
 //
@@ -39,7 +47,7 @@ TEST( CoreFormat, UnitSymbolCoversEveryQuantityKind)
 //
 TEST( CoreFormat, PowerFactorHasNoUnitSymbol)
 {
-    EXPECT_TRUE( core::unitSymbol( core::QuantityKind::PowerFactor).empty());
+    static_assert( PowerFactor::symbol().empty());
     EXPECT_EQ( core::describeValue( PowerFactor{ 0.95}), "0.95");
 }
 
@@ -91,8 +99,15 @@ TEST( CoreFormat, BoolHasTextButNoNumber)
     EXPECT_FALSE( core::numericOf( true).has_value());
 }
 
-TEST( CoreFormat, VariantIsFormattedWithTheUnitItCurrentlyHolds)
+//
+// A value that arrives type-erased (out of a session, or a recording) is
+// unwrapped to its concrete type before anything formats it -- see
+// core::MeasureEngine. So this is the same one code path, reached from the
+// runtime side.
+//
+TEST( CoreFormat, AnUnwrappedVariantFormatsTheSameWay)
 {
-    EXPECT_EQ( core::formatQuantity( core::QuantityVariant{ 12.0_V}),  "12 V");
-    EXPECT_EQ( core::formatQuantity( core::QuantityVariant{ 1.5_mA}), "0.0015 A");
+    const core::QuantityVariant erased = 1.5_mA;
+
+    EXPECT_EQ( core::describeValue( core::asQuantity<Current>( erased)), "0.0015 A");
 }

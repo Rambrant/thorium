@@ -8,7 +8,6 @@
 #include <type_traits>
 
 #include "core/quantity.hpp"
-#include "core/quantity_kind.hpp"
 
 namespace core
 {
@@ -20,12 +19,13 @@ namespace core
     // are guaranteed to be describing the same reading rather than two
     // independently-formatted approximations of it.
     //
-    // Split from core/quantity_kind.hpp on purpose, even though unitSymbol()
-    // is arguably a fact about a QuantityKind: that header is what the session
-    // seam (core/session.hpp) and the recording format are built on, and
-    // neither has any business growing a dependency on how a human wants a
-    // number spelled. Nothing here is needed to *take* a measurement, only to
-    // report one.
+    // Note what this file does NOT depend on: core/quantity_kind.hpp. Reporting
+    // a value is a compile-time job -- every call site (core::Verify, and
+    // core::MeasureEngine once it has unwrapped the session's answer) knows the
+    // concrete Quantity<Unit>, and a Quantity knows its own symbol. QuantityKind
+    // and QuantityVariant exist for the seams that genuinely cannot be templated
+    // (a virtual session, a value read back out of a text file); routing the log
+    // through them as well was machinery for a question that was never runtime.
     //
 
     //
@@ -38,34 +38,6 @@ namespace core
     //
     [[nodiscard]]
     auto formatNumber( double value) -> std::string;
-
-    //
-    // The unit's printed symbol, per QuantityKind. Deliberately NOT derived by
-    // reflecting over the Unit tag type's own name the way core::meta::
-    // to_string() derives enumerator names elsewhere in this codebase: that
-    // mapping isn't mechanical (time_Type -> "s", PF_Type -> nothing at all),
-    // so a reflected version would need a correction table for most of the
-    // list, which is strictly worse than just being the table.
-    //
-    // "Ohm" rather than the Greek symbol, matching the _Ohm literal's own
-    // spelling in core::literals -- these strings reach an RTF file, where a
-    // non-ASCII byte needs escaping, for no gain over the spelling the
-    // criteria files already use.
-    //
-    // PowerFactor returns an empty string: it is dimensionless (see
-    // core::quantities' own comment on why it is still its own Quantity), and
-    // "0.95" with nothing after it is the correct rendering.
-    //
-    [[nodiscard]]
-    auto unitSymbol( QuantityKind kind) -> std::string_view;
-
-    //
-    // A QuantityVariant as "<number> <unit>" -- the runtime-kind counterpart
-    // to describeValue() below, for the one seam that carries a value without
-    // its concrete type (core::MeasureEngine, via ISession::fetch).
-    //
-    [[nodiscard]]
-    auto formatQuantity( const QuantityVariant & value) -> std::string;
 
     //
     // Hex rendering for integral values, minimum width, uppercase digits
@@ -84,14 +56,21 @@ namespace core
     // without a value) rather than failing to compile.
     //
 
+    //
     // The unit symbol for T, or empty for anything that isn't a Quantity<Unit>.
+    //
+    // Asks the type, because the type knows: a unit tag carries its own symbol
+    // (see core::quantities::Quantity::symbol in core/quantity.hpp). This used to
+    // go through unitSymbol( quantityKindOf<T>()) -- an enum round-trip and an
+    // array lookup to reach a value that was a compile-time constant all along.
+    //
     template<typename T>
     [[nodiscard]]
-    auto unitOf() -> std::string_view
+    constexpr auto unitOf() -> std::string_view
     {
         if constexpr( quantities::QuantityType<T>)
         {
-            return unitSymbol( quantityKindOf<T>());
+            return T::symbol();
         }
         else
         {
@@ -141,7 +120,7 @@ namespace core
     {
         if constexpr( quantities::QuantityType<T>)
         {
-            const auto unit = unitSymbol( quantityKindOf<T>());
+            const auto unit = T::symbol();
 
             return unit.empty() ? formatNumber( value.value())
                                 : formatNumber( value.value()) + ' ' + std::string( unit);

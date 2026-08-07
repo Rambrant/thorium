@@ -3,6 +3,7 @@
 #include <cmath>
 #include <compare>
 #include <concepts>
+#include <string_view>
 #include <type_traits>
 
 namespace core
@@ -28,19 +29,37 @@ namespace core
     namespace quantities
     {
         //
-        // Unit types. These exist only to make Quantity<Type> a distinct type per unit,
-        // so e.g. a Voltage can never be silently compared against a Current.
+        // Unit types. These exist to make Quantity<Type> a distinct type per
+        // unit, so e.g. a Voltage can never be silently compared against a
+        // Current -- and to be the one place a unit's printed symbol is
+        // written down.
         //
-        struct V_Type {};
-        struct A_Type {};
-        struct VA_Type {};
-        struct W_Type {};
-        struct Ohm_Type {};
-        struct dB_Type {};
-        struct Hz_Type {};
-        struct time_Type {};
-        struct PF_Type {};
-        struct var_Type {};
+        // Symbol used to live in a switch over QuantityKind in
+        // core/src/format.cpp, which made it the ninth per-unit list in this
+        // library that had to be kept in step with the other eight. It belongs
+        // here because the unit tag IS the unit: everything else that needs the
+        // symbol (a runtime table keyed by QuantityKind, a compile-time lookup
+        // from a concrete Quantity) is now derived from these declarations
+        // rather than restating them -- see core/quantity_kind.hpp.
+        //
+        // Note the mapping is deliberately NOT mechanical from the tag's own
+        // name -- time_Type is "s", PF_Type has no symbol at all -- which is
+        // exactly why stating it here beats reflecting over the type name.
+        //
+        // PowerFactor's empty symbol is a real value, not an oversight: it is
+        // dimensionless (see the algebra below), and "0.95" with nothing after
+        // it is the correct rendering.
+        //
+        struct V_Type    { static constexpr std::string_view Symbol = "V";   };
+        struct A_Type    { static constexpr std::string_view Symbol = "A";   };
+        struct VA_Type   { static constexpr std::string_view Symbol = "VA";  };
+        struct W_Type    { static constexpr std::string_view Symbol = "W";   };
+        struct Ohm_Type  { static constexpr std::string_view Symbol = "Ohm"; };
+        struct dB_Type   { static constexpr std::string_view Symbol = "dB";  };
+        struct Hz_Type   { static constexpr std::string_view Symbol = "Hz";  };
+        struct time_Type { static constexpr std::string_view Symbol = "s";   };
+        struct PF_Type   { static constexpr std::string_view Symbol = "";    };
+        struct var_Type  { static constexpr std::string_view Symbol = "var"; };
 
         template< typename Unit>
         class Quantity
@@ -57,6 +76,19 @@ namespace core
                 constexpr auto value() const -> double
                 {
                     return mValue;
+                }
+
+                //
+                // This quantity's unit symbol, straight from its unit tag. A
+                // static member rather than something a formatter looks up:
+                // asking a Voltage what it is called needs no table, no
+                // QuantityKind round-trip, and no runtime dispatch (see
+                // core::unitOf in core/format.hpp).
+                //
+                [[nodiscard]]
+                static constexpr auto symbol() -> std::string_view
+                {
+                    return Unit::Symbol;
                 }
 
                 //

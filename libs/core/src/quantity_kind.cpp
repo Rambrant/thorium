@@ -1,5 +1,8 @@
 #include "core/quantity_kind.hpp"
 
+#include <array>
+#include <utility>
+
 #include "core/meta.hpp"
 
 namespace core
@@ -7,26 +10,39 @@ namespace core
     namespace
     {
         //
-        // QuantityVariant's alternatives are declared in the same order as
-        // the QuantityKind enumerators, so that a variant's index() can be
-        // cast straight back to a QuantityKind (used in asQuantity's error
-        // message, and available to any other caller that only has an index).
-        // This keeps that assumption from silently rotting if either list is
-        // reordered without the other.
+        // Rebuilds alternative I of QuantityVariant from a raw double. One
+        // function template instead of a ten-case switch: the alternative's own
+        // type is what says which unit to construct, so there is nothing here to
+        // keep in step with the enum.
         //
-        static_assert( std::variant_size_v<QuantityVariant> == 10,
-            "QuantityVariant's alternative count must match QuantityKind's enumerator count");
+        template<std::size_t I>
+        auto variantAlternativeFrom( const double value) -> QuantityVariant
+        {
+            return QuantityVariant{ std::in_place_index<I>, std::variant_alternative_t<I, QuantityVariant>{ value } };
+        }
 
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::Voltage),       QuantityVariant>, quantities::Voltage>);
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::Current),       QuantityVariant>, quantities::Current>);
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::Power),         QuantityVariant>, quantities::Power>);
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::ApparentPower), QuantityVariant>, quantities::ApparentPower>);
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::Resistance),    QuantityVariant>, quantities::Resistance>);
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::Time),         QuantityVariant>, quantities::Time>);
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::Decibel),      QuantityVariant>, quantities::Decibel>);
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::Frequency),    QuantityVariant>, quantities::Frequency>);
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::PowerFactor),  QuantityVariant>, quantities::PowerFactor>);
-        static_assert( std::is_same_v< std::variant_alternative_t<static_cast<std::size_t>( QuantityKind::ReactivePower),QuantityVariant>, quantities::ReactivePower>);
+        //
+        // A jump table over the variant's alternatives, indexed by
+        // QuantityKind's underlying value. This replaces
+        // quantityVariantFromKind's switch, and with it the last per-unit list
+        // in this file -- see core/quantity_kind.hpp on why the enum is now the
+        // only one.
+        //
+        // -Wswitch used to be what caught a forgotten case here. The equivalent
+        // guarantee is now structural rather than diagnostic: the table has
+        // exactly one entry per alternative because it is built from
+        // make_index_sequence over the alternatives, so a new kind is wired up
+        // by existing.
+        //
+        using FromDouble = QuantityVariant ( *)( double);
+
+        template<std::size_t... I>
+        constexpr auto makeFromDoubleTable( std::index_sequence<I...>) -> std::array<FromDouble, sizeof...( I)>
+        {
+            return { &variantAlternativeFrom<I>... };
+        }
+
+        constexpr auto kFromDouble = makeFromDoubleTable( std::make_index_sequence<std::variant_size_v<QuantityVariant>>{});
     } // namespace
 
     auto rawValue( const QuantityVariant & value) -> double
@@ -36,21 +52,21 @@ namespace core
 
     auto quantityVariantFromKind( const QuantityKind kind, const double value) -> QuantityVariant
     {
-        switch( kind)
+        const auto index = static_cast<std::size_t>( kind);
+
+        if( index >= kFromDouble.size())
         {
-            case QuantityKind::Voltage:       return quantities::Voltage{ value };
-            case QuantityKind::Current:       return quantities::Current{ value };
-            case QuantityKind::Power:         return quantities::Power{ value };
-            case QuantityKind::ApparentPower: return quantities::ApparentPower{ value };
-            case QuantityKind::Resistance:    return quantities::Resistance{ value };
-            case QuantityKind::Time:          return quantities::Time{ value };
-            case QuantityKind::Decibel:       return quantities::Decibel{ value };
-            case QuantityKind::Frequency:     return quantities::Frequency{ value };
-            case QuantityKind::PowerFactor:   return quantities::PowerFactor{ value };
-            case QuantityKind::ReactivePower: return quantities::ReactivePower{ value };
+            //
+            // Only reachable from a cast of an out-of-range integer -- a
+            // corrupt recording row, say, since quantityKindFromString already
+            // rejects an unknown name. Kept as a throw rather than a contract
+            // violation for the same reason readRecording throws on a malformed
+            // row: it is bad input, not a bug in the caller.
+            //
+            throw std::runtime_error( "quantityVariantFromKind: unknown QuantityKind");
         }
 
-        throw std::runtime_error( "quantityVariantFromKind: unknown QuantityKind");
+        return kFromDouble[ index]( value);
     }
 
     //
