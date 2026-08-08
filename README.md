@@ -37,10 +37,11 @@ wrong.
 
 ### What is a compile error today
 
+Fourteen classes of mistake, none of which can reach the bench:
+
 | Mistake | What happens |
 |---|---|
 | Misspelled DUT point — `DeviceX::Output5Vx` | no such member |
-| Wrong quantity — `Measure( Dmm1.current(), at( DeviceX::Output5V))` on a voltage point | no matching overload |
 | Forgotten `at(...)` — `Measure( Dmm1.voltage(), DeviceX::Output5V)` | no matching overload |
 | Misspelled criterion — `FS_Supply_1::FS_Supply_5V0x` | no such member |
 | Unit mismatch in a criterion — `EQ( 5.0_A)` against a voltage reading | no viable predicate |
@@ -128,10 +129,11 @@ from":
   A test script                                     suite/scripts/*.cpp
   Measure( Dmm1.voltage(), at( DeviceX::Output5V))
            │                    │
-           │                    └── the POINT: VPC location + expected unit,
-           │                        baked into its TYPE          dut/adapter.inc
+           │                    └── the POINT: which VPC pin, baked into
+           │                        its TYPE                     dut/adapter.inc
            │
-           └── the instrument handle                     rig/instrument.inc
+           └── the port: which instrument, and which
+               quantity to read                          rig/instrument.inc
                                                          (also generates
                                                           hal::InstrumentId)
                             ▼
@@ -166,9 +168,16 @@ Three ideas carry most of the weight:
 
 **Points and criteria are types, not strings.** `POINT` and `CRIT` expand into
 `static constexpr` members of a struct, so every reference to one is name-checked
-by ordinary C++ lookup. A point's VPC location and expected unit are *template
-parameters* of its type, which is why a wrong-unit measurement fails to compile
-rather than failing to route.
+by ordinary C++ lookup. A point's VPC location is a *template parameter* of its
+type, which is what makes a misspelled point a "no such member" error rather
+than a route that silently goes nowhere.
+
+**A point is a place; the quantity is the port's.** `POINT` says which pin, and
+nothing else. What you measure there is whatever instrument port you aim at it,
+so voltage, inrush current and ripple frequency at the same pin are three
+ordinary calls and not three declarations. Unit safety is unaffected: `Measure`
+returns the port's own `Quantity<Unit>`, so a criterion in the wrong unit still
+fails to compile at the `Verify` call site.
 
 **A route is composed, not stored.** An instrument's channel and a connector
 pin's channel are two independent wiring facts. `Measure` concatenates them at
@@ -231,12 +240,21 @@ WIRE_CONNECTOR( A, 1, 7, HOP( Mux, "Mux1", 7))
 
 ### Add a DUT test point
 
-`dut/adapter.inc` — `POINT( id, rack, connector, pin, kind, description)`:
+`dut/adapter.inc` — `POINT( id, rack, connector, pin, description)`:
 
 ```cpp
 ADAPTER( DeviceX, "Device X on standard adapter")
-    POINT( Output12V, A, 1, 7, Voltage, "12Vdc supply port")
+    POINT( Output12V, A, 1, 7, "12Vdc supply port")
 END_ADAPTER
+```
+
+A point declares *where*, not *what*. The same pin can then be read for any
+quantity, chosen by the port at the call site:
+
+```cpp
+Measure( Dmm1.voltage(),                at( DeviceX::Output12V));   // the rail
+Measure( Dmm1.current(),                at( DeviceX::Output12V));   // inrush
+Measure( Osc1.channel<1>().frequency(), at( DeviceX::Output12V));   // ripple
 ```
 
 The identifier cannot start with a digit, so a spec label like "12VOutput"

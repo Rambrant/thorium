@@ -19,7 +19,7 @@ namespace core
     //
     // The mechanism behind a single callable Measure object:
     //
-    //   Measure( Dmm1.voltage(), DeviceX::Output5V);
+    //   Measure( Dmm1.voltage(), at( DeviceX::Output5V));
     //
     // Generic over three externally-supplied types, each a "build stage"
     // concern this header knows nothing about:
@@ -33,11 +33,10 @@ namespace core
     //                        hal::ConnectorWiring
     //
     // There is no AdapterT any more: since an AdapterPointTag now carries its
-    // location and quantity kind as compile-time values (see core/adapter.hpp),
-    // there is nothing left to look up by name at runtime -- the point IS the
-    // lookup result. That is also why what used to be one combined RouteTable
-    // (keyed by (location, instrument, kind)) has become two independent
-    // tables here: an instrument's matrix/mux channel and a connector pin's
+    // location as a compile-time value (see core/adapter.hpp), there is
+    // nothing left to look up by name at runtime -- the point IS the lookup
+    // result. That is also why what used to be one combined RouteTable (keyed
+    // by (location, instrument, kind)) has become two independent tables here: an instrument's matrix/mux channel and a connector pin's
     // channel are each fixed, static wiring facts on their own, so a route is
     // just their composition at the moment a measurement is taken, not a
     // fact that needs storing per (instrument, pin) pair.
@@ -69,12 +68,18 @@ namespace core
             {}
 
             //
-            // point's Loc/Kind are compile-time template parameters (see
-            // core/adapter.hpp), so a mismatch between the port's quantity
-            // and the point's declared quantity is an ordinary overload-
-            // resolution failure -- Port<QuantityFor<Kind>, InstrumentT> is
-            // the parameter type, so calling with e.g. dmm1.current() against
-            // a Voltage-tagged point simply doesn't match, at compile time.
+            // The point supplies *where* (Loc, a compile-time template
+            // parameter -- see core/adapter.hpp); the port supplies *what*
+            // (QuantityT). They are independent by design: any instrument port
+            // can be pointed at any pin, so measuring current or frequency at a
+            // pin whose description calls it a supply rail is an ordinary thing
+            // to write. See AdapterPointTag's own comment for why a point used
+            // to constrain the quantity and no longer does.
+            //
+            // The return type is the port's own QuantityT, so unit safety is
+            // undiminished: what comes back is exactly the quantity that was
+            // asked for, and a criterion in the wrong unit still fails to
+            // compile at the Verify() call site.
             //
             // Reachability -- whether InstrumentWiringT/ConnectorWiringT
             // actually have an entry for this instrument/location -- is still
@@ -82,9 +87,9 @@ namespace core
             // and for the compile-time upgrade path now that Loc is known at
             // compile time here too.
             //
-            template<auto Loc, QuantityKind Kind, typename InstrumentT>
+            template<auto Loc, quantities::QuantityType QuantityT, typename InstrumentT>
             [[nodiscard]]
-            auto operator()( Port<QuantityFor<Kind>, InstrumentT> port, const At<AdapterPointTag<Loc, Kind>> & wrapped) -> QuantityFor<Kind>
+            auto operator()( Port<QuantityT, InstrumentT> port, const At<AdapterPointTag<Loc>> & wrapped) -> QuantityT
             {
                 const auto & point        = wrapped.point;
                 const auto   instrumentId = port.instrumentId();
@@ -165,8 +170,14 @@ namespace core
                 // the wrong unit produced an event reading "5.02 A" with its unit
                 // recorded as "V".
                 //
-                const auto value = asQuantity<QuantityFor<Kind>>(
-                    activeSession().fetch( point.Name, instrumentName, Kind, liveRead));
+                // The session seam is not a template (ISession::fetch is
+                // virtual), so it needs the quantity as a runtime tag -- taken
+                // from the port's type rather than from the point, which no
+                // longer declares one.
+                constexpr auto kind = quantityKindOf<QuantityT>();
+
+                const auto value = asQuantity<QuantityT>(
+                    activeSession().fetch( point.Name, instrumentName, kind, liveRead));
 
                 //
                 // Logged here, after the session has produced the value and

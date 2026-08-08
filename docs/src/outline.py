@@ -114,7 +114,7 @@ DECK = [
     # 8 -------------------------------------------------- divider
     (6, {
         'kicker': "The payoff",
-        'title':  "Fifteen mistakes that now fail the build",
+        'title':  "Fourteen mistakes that now fail the build",
     }),
 
     # 9 -------------------------------------------------- the list
@@ -123,7 +123,6 @@ DECK = [
         'title':  "What the compiler now refuses",
         'left': [
             p("A misspelled test point"),
-            p("Current measured on a voltage point"),
             p("A misspelled criterion"),
             p("A criterion in the wrong unit"),
             p("A test point nobody wired up"),

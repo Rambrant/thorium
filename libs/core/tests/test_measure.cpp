@@ -140,7 +140,7 @@ namespace
 {
     constexpr mock::Location kLoc{ 3 };
 
-    constexpr core::AdapterPointTag<kLoc, core::QuantityKind::Voltage> Output5V{ "Output5V", "5Vdc supply port" };
+    constexpr core::AdapterPointTag<kLoc> Output5V{ "Output5V", "5Vdc supply port" };
 
     struct MeasureEngineFixture : ::testing::Test
     {

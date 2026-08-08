@@ -16,12 +16,11 @@ namespace
     };
 } // namespace
 
-TEST( CoreAdapterPointTag, CarriesLocationAndKindAsCompileTimeValues)
+TEST( CoreAdapterPointTag, CarriesItsLocationAsACompileTimeValue)
 {
-    constexpr core::AdapterPointTag<MockLocation{ 3 }, core::QuantityKind::Voltage> point{ "Output5V", "5Vdc supply port" };
+    constexpr core::AdapterPointTag<MockLocation{ 3 }> point{ "Output5V", "5Vdc supply port" };
 
     static_assert( point.LocationValue == MockLocation{ 3 });
-    static_assert( point.KindValue == core::QuantityKind::Voltage);
 
     EXPECT_EQ( point.Name, "Output5V");
     EXPECT_EQ( point.Description, "5Vdc supply port");
@@ -29,16 +28,21 @@ TEST( CoreAdapterPointTag, CarriesLocationAndKindAsCompileTimeValues)
 
 TEST( CoreAdapterPointTag, DifferentLocationsAreDifferentTypes)
 {
-    using PointA = core::AdapterPointTag<MockLocation{ 3 }, core::QuantityKind::Voltage>;
-    using PointB = core::AdapterPointTag<MockLocation{ 4 }, core::QuantityKind::Voltage>;
+    using PointA = core::AdapterPointTag<MockLocation{ 3 }>;
+    using PointB = core::AdapterPointTag<MockLocation{ 4 }>;
 
     static_assert( !std::is_same_v<PointA, PointB>);
 }
 
-TEST( CoreAdapterPointTag, DifferentKindsAreDifferentTypes)
+//
+// A point is a place, so two points at the same location are the same type
+// whatever is measured at either -- the quantity lives on the instrument port
+// (see core::AdapterPointTag). This used to be the opposite assertion.
+//
+TEST( CoreAdapterPointTag, SameLocationIsTheSameTypeWhateverIsMeasuredThere)
 {
-    using VoltagePoint = core::AdapterPointTag<MockLocation{ 3 }, core::QuantityKind::Voltage>;
-    using CurrentPoint = core::AdapterPointTag<MockLocation{ 3 }, core::QuantityKind::Current>;
+    using PointAsSeenByAVoltmeter = core::AdapterPointTag<MockLocation{ 3 }>;
+    using PointAsSeenByAnAmmeter  = core::AdapterPointTag<MockLocation{ 3 }>;
 
-    static_assert( !std::is_same_v<VoltagePoint, CurrentPoint>);
+    static_assert( std::is_same_v<PointAsSeenByAVoltmeter, PointAsSeenByAnAmmeter>);
 }

@@ -28,19 +28,16 @@ dut/
 `ADAPTER`/`POINT`/`END_ADAPTER` (see `libs/hal/include/hal/adapter.hpp`) --
 mirroring `CRITERIA`/`CRIT`/`END_CRITERIA` below -- expand into the one
 `DeviceX` struct: a fixed set of named points (e.g. `Output5V`),
-each carrying its VPC90 location and expected quantity kind baked into its
-own *type* (`core::AdapterPointTag<Loc, Kind>`), not stored as runtime data.
-That is what makes both of the following genuine compile errors, exactly
-like `CRIT`'s protection against a misspelled criterion id:
+each carrying its VPC90 location baked into its own *type*
+(`core::AdapterPointTag<Loc>`), not stored as runtime data. That is what makes
+both of the following genuine compile errors, exactly like `CRIT`'s protection
+against a misspelled criterion id:
 
 - **A misspelled point name** -- `DeviceX::Output5Vx` is "no such
   member", the same way `FS_Fuse_6::FS_Fuse_01x` already is.
-- **A quantity mismatch** -- `Measure( Dmm1.current(), at( DeviceX::Output5V))`
-  fails to find a matching `operator()` overload, since `Output5V` is
-  `Voltage`-tagged and `Dmm1.current()` is a `Port<Current, ...>`.
 - **A missing `at()`** -- `Measure( Dmm1.voltage(), DeviceX::Output5V)`,
   with the point passed bare, also fails to find a matching overload:
-  `MeasureEngine::operator()` takes `core::At<AdapterPointTag<Loc, Kind>>`,
+  `MeasureEngine::operator()` takes `core::At<AdapterPointTag<Loc>>`,
   not an `AdapterPointTag` directly -- see `core/at.hpp`'s own comment for
   why `at(...)` exists as a call-site marker rather than an implicit
   conversion.

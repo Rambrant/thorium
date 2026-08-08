@@ -43,9 +43,9 @@ namespace
     // Output5V/ClockOut are only ever named on the Measure() side below --
     // DcP3 reaches the same physical Output5V pin too, but as a fixed wire,
     // not as an at(...) argument (see hal::N6701A's own comment).
-    constexpr core::AdapterPointTag<kOutput5V, core::QuantityKind::Voltage>    Output5V{ "Output5V", "5Vdc supply port" };
-    constexpr core::AdapterPointTag<kClockOut, core::QuantityKind::Time>      ClockOut{ "ClockOut", "clock edge test point" };
-    constexpr core::AdapterPointTag<kResistancePoint, core::QuantityKind::Resistance> ResistancePoint{ "ResistancePoint", "4-wire Kelvin test point" };
+    constexpr core::AdapterPointTag<kOutput5V>        Output5V{ "Output5V", "5Vdc supply port" };
+    constexpr core::AdapterPointTag<kClockOut>        ClockOut{ "ClockOut", "clock edge test point" };
+    constexpr core::AdapterPointTag<kResistancePoint> ResistancePoint{ "ResistancePoint", "4-wire Kelvin test point" };
 
     struct CallSyntaxFixture : ::testing::Test
     {

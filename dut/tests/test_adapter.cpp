@@ -11,13 +11,15 @@
 #include "dut/adapter.inc"
 
 //
-// Location and quantity are compile-time values now (baked into each
-// point's type), so the natural check is static_assert, not a runtime
-// EXPECT -- a wrong value here would already be a compile error before
-// these tests ever ran.
+// A point's location is a compile-time value (baked into its type), so the
+// natural check is static_assert, not a runtime EXPECT -- a wrong value here
+// would already be a compile error before these tests ever ran.
+//
+// There is no quantity to assert: a point names a pin, and what is measured
+// there is chosen by whichever instrument port is pointed at it (see
+// core::AdapterPointTag).
 //
 static_assert( DeviceX::Output5V.LocationValue == hal::VpcLocation{ hal::VpcRack::A, 1, 3 });
-static_assert( DeviceX::Output5V.KindValue     == core::QuantityKind::Voltage);
 
 static_assert( DeviceX::Output3V3.LocationValue == hal::VpcLocation{ hal::VpcRack::A, 1, 6 });
 static_assert( DeviceX::Vout.LocationValue      == hal::VpcLocation{ hal::VpcRack::A, 1, 4 });

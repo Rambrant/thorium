@@ -74,13 +74,17 @@ see `wiring.inc`'s own comment.
 
 `ADAPTER`/`POINT`/`END_ADAPTER` (see `adapter.hpp`) mirror
 `CRITERIA`/`CRIT`/`END_CRITERIA`: each `POINT` becomes a genuine
-`static constexpr` member of the group struct, carrying its location and
-quantity kind as template parameters on `core::AdapterPointTag<Loc, Kind>`
+`static constexpr` member of the group struct, carrying its location as a
+template parameter on `core::AdapterPointTag<Loc>`
 (see `libs/core/include/core/adapter.hpp`) rather than as runtime data.
 That is what makes a misspelled point name a "no such member" compile
-error, and a quantity mismatch an overload-resolution failure -- see
-`dut/README.md` for the concrete examples, since the actual DUT
-profile data lives there, not here.
+error -- see `dut/README.md` for the concrete examples, since the actual
+DUT profile data lives there, not here.
+
+A point deliberately carries no quantity: it names a pin, and what gets
+measured there is decided by whichever `core::Port` is aimed at it, so the
+same pin can be read for voltage, current or frequency without being
+redeclared.
 
 `Measure`/`Apply`/`Remove` all take a point wrapped in `core::at(...)`
 (see `libs/core/include/core/at.hpp`), not an `AdapterPointTag` directly --

@@ -30,7 +30,7 @@ namespace thorium_wiring_coverage_check
 {
     //
     // Every POINT in Group, as its VpcLocation -- reflects over Group's
-    // static AdapterPointTag<Loc, Kind> members and pulls each one's Loc
+    // static AdapterPointTag<Loc> members and pulls each one's Loc
     // straight out of the template argument, without needing to splice the
     // point object itself. Homogeneous (every point in one ADAPTER shares
     // Loc's type -- hal::VpcLocation here), unlike core::meta::all<Group>()
