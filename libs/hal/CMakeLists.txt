@@ -95,5 +95,6 @@ if(BUILD_TESTING_LAYERS)
         tests/test_call_syntax.cpp
         tests/test_safing.cpp
         tests/test_describe.cpp
+        tests/test_source_readback.cpp
     )
 endif()

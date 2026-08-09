@@ -2,8 +2,10 @@
 
 #include <optional>
 #include <string>
+#include <type_traits>
 
 #include "core/apply.hpp"
+#include "core/port.hpp"
 #include "core/quantity.hpp"
 
 #include "hal/describe.hpp"
@@ -121,6 +123,48 @@ namespace hal
             }
 
             //
+            // What this source reports about its own output, over its own
+            // interface -- see hal::N6701A::measuredVoltage() for the reasoning,
+            // which is the same here and matters more: 115 V at 5 A is not a
+            // signal, so there is no version of this reading that travels
+            // through the switching matrix.
+            //
+            // Per phase, not summed: measuredVoltage() is the phase voltage
+            // (matching the phaseVoltage() setpoint), and measuredCurrent() the
+            // per-phase current. A three-phase total would be a different
+            // quantity with a different name, not this one under-specified.
+            //
+            [[nodiscard]]
+            auto measuredVoltage() -> core::Port<core::quantities::Voltage, Ac6677A>
+            {
+                return core::Port<core::quantities::Voltage, Ac6677A>{ *this };
+            }
+
+            [[nodiscard]]
+            auto measuredCurrent() -> core::Port<core::quantities::Current, Ac6677A>
+            {
+                return core::Port<core::quantities::Current, Ac6677A>{ *this };
+            }
+
+            template<core::quantities::QuantityType QuantityT>
+            [[nodiscard]]
+            auto rawMeasure( const core::MeasureSetup<QuantityT> &) -> QuantityT
+            {
+                if constexpr( std::is_same_v<QuantityT, core::quantities::Voltage>)
+                {
+                    return mEnabled ? mPhaseVoltage : core::quantities::Voltage{};
+                }
+                else if constexpr( std::is_same_v<QuantityT, core::quantities::Current>)
+                {
+                    return mEnabled ? mSimOutputCurrent : core::quantities::Current{};
+                }
+                else
+                {
+                    static_assert( !sizeof( QuantityT), "Ac6677A reports only its output voltage and current");
+                }
+            }
+
+            //
             // Drop this source to a known idle state, unconditionally --
             // same contract, and the same reasoning for zeroing the
             // setpoint rather than only disabling the output, as
@@ -146,6 +190,13 @@ namespace hal
             auto removeOutput() -> void
             {
                 mEnabled = false;
+            }
+
+            // Per-phase current the simulated source is delivering -- what a
+            // real instrument reports back, which no setpoint determines.
+            auto setSimulatedOutputCurrent( const core::quantities::Current c) -> void
+            {
+                mSimOutputCurrent = c;
             }
 
             [[nodiscard]]
@@ -175,6 +226,7 @@ namespace hal
         private:
             InstrumentId                                 mId;
             core::quantities::Voltage                    mPhaseVoltage{};
+            core::quantities::Current                    mSimOutputCurrent{};
             std::optional<core::quantities::Frequency>   mFrequency;
             std::optional<core::quantities::Current>     mCurrentLimit;
             bool                                          mEnabled{ false };

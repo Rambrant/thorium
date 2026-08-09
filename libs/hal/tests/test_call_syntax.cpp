@@ -79,7 +79,7 @@ namespace
 
             // Dmm1's sense terminals and ResistancePoint's own sense mux
             // channel -- only ever touched by a 4-wire reading (see
-            // core::MeasureEngine's own comment on RequiresSensePath);
+            // core::MeasureEngine's own comment on the sense path);
             // a plain 2-wire resistance() call never looks these up.
             instrumentWiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 15 }, hal::WireRole::Sense);
             connectorWiring.addWire( kResistancePoint, { hal::SwitchDeviceKind::Mux, "Mux1", 7 }, hal::WireRole::Sense);
@@ -190,7 +190,7 @@ TEST_F( CallSyntaxFixture, TwoWireResistanceNeverTouchesTheSenseChannels)
 
     EXPECT_DOUBLE_EQ( reading.value(), 100.0);
     // Sense channels were never closed at all -- not even briefly -- since
-    // a plain 2-wire reading's Port never sets RequiresSensePath.
+    // a plain 2-wire reading's Port is typed core::SensePath::NotUsed.
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 15 }));
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    7 }));
 }

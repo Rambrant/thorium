@@ -21,6 +21,13 @@ namespace core
     // "how do I set X here" reads the same way whether X is being sourced
     // or sensed.
     //
+    // Everything here is instrument configuration -- what to send the meter
+    // before it reads. Deliberately nothing about *routing*: whether a reading
+    // needs its sense leads wired alongside the force path used to live here as
+    // a runtime bool, and is now a template parameter of Port below, because it
+    // is a fixed property of the kind of measurement rather than a per-call
+    // setting.
+    //
     template<typename QuantityT> requires quantities::QuantityType<QuantityT>
     struct MeasureSetup
     {
@@ -57,20 +64,6 @@ namespace core
         std::optional<double>  LowThreshold;
         std::optional<double>  HighThreshold;
 
-        //
-        // Whether this one reading needs its sense leads routed alongside
-        // the force path -- a 4-wire (Kelvin) resistance measurement, most
-        // often. Plain bool rather than std::optional<bool>: there's no
-        // meaningful "unset" state the way Range/Nplc have (no configured
-        // range yet) -- a reading either needs sense wired in addition to
-        // force, or it doesn't, and false is the correct default for
-        // every instrument that never uses this field at all. See
-        // core::MeasureEngine's own comment for what reading it true
-        // actually does, and hal::InstrumentWiring::findSense()/
-        // hal::ConnectorWiring::findSense() for where the sense Path
-        // itself comes from.
-        //
-        bool  RequiresSensePath{ false };
     };
 
     //
@@ -93,10 +86,22 @@ namespace core
     // hal/l4411a.hpp, hal/dso8064.hpp) are simply concrete instrument types
     // that happen to satisfy this shape, not something this type depends on.
     //
-    template<quantities::QuantityType QuantityT, typename InstrumentT>
+    // Whether a reading needs its sense leads routed alongside the force path.
+    // A named type rather than a bare bool template argument, so
+    // Port<Voltage, L4411A, SensePath::Required> says what it means at every
+    // spelling and a stray `true` cannot mean something else.
+    enum class SensePath
+    {
+        NotUsed,
+        Required
+    };
+
+    template<quantities::QuantityType QuantityT, typename InstrumentT, SensePath Sense = SensePath::NotUsed>
     class Port
     {
         public:
+            static constexpr SensePath SenseUse = Sense;
+
             explicit Port( InstrumentT & instrument) : mInstrument( instrument) {}
 
             //
@@ -145,22 +150,37 @@ namespace core
             }
 
             //
-            // Marks this one reading as needing its sense leads routed
-            // too -- see MeasureSetup::RequiresSensePath's own comment.
-            // Always true when called (there's no argument -- a reading
-            // either wants its sense path or it doesn't, and not calling
-            // this at all is how "doesn't" is spelled), so an instrument's
-            // 4-wire-style builder method (e.g. hal::L4411A::
-            // fourWireResistance()) just chains it on unconditionally,
-            // the same way riseTime()/fallTime() chain lowThreshold()/
-            // highThreshold() on unconditionally.
+            // Marks this reading as needing its sense leads routed too -- a
+            // 4-wire (Kelvin) measurement, most often. Always "on" when called
+            // (there is no argument: a reading either wants its sense path or
+            // it doesn't, and not calling this at all is how "doesn't" is
+            // spelled), so an instrument's 4-wire builder method -- e.g.
+            // hal::L4411A::fourWireResistance() -- chains it on
+            // unconditionally, the same way riseTime()/fallTime() chain
+            // lowThreshold()/highThreshold().
+            //
+            // Unlike every other builder here this changes the port's *type*
+            // rather than its setup, which is the whole point: whether the
+            // sense leads get routed is decided when the code is compiled, not
+            // when the reading is taken. core::MeasureEngine branches on it
+            // with if constexpr, so a 2-wire reading carries no trace of the
+            // 4-wire path at all -- and the requirement is visible in the
+            // port's type to anything that wants to reason about it, which a
+            // bool buried in a runtime struct never was.
             //
             [[nodiscard]]
-            auto requiresSensePath() const -> Port
+            auto requiresSensePath() const -> Port<QuantityT, InstrumentT, SensePath::Required>
             {
-                auto copy = *this;
-                copy.mSetup.RequiresSensePath = true;
+                Port<QuantityT, InstrumentT, SensePath::Required> copy{ mInstrument };
+                copy.setup( mSetup);
                 return copy;
+            }
+
+            // Used only by requiresSensePath() above, to carry an already-built
+            // setup across the type change.
+            auto setup( const MeasureSetup<QuantityT> & setup) -> void
+            {
+                mSetup = setup;
             }
 
             [[nodiscard]]

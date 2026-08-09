@@ -148,3 +148,28 @@ TEST( CoreQuantity, ScalarDivisionScalesInUnit)
 //                                               // realPower()/apparentPower() instead
 // }
 //
+
+//
+// Ohm's law, in units. The shunt case is the reason it exists: a current too
+// large to route through a switching matrix is measured as a voltage across a
+// known resistance, and the conversion has to stay in the type system or the
+// unit is lost exactly where it matters most.
+//
+TEST( CoreQuantity, OhmsLawConvertsBetweenUnitsWithoutLeavingTheTypeSystem)
+{
+    constexpr auto shunt = 10.0_mOhm;
+    constexpr auto drop  = 50.0_mV;
+
+    constexpr auto load = drop / shunt;
+
+    static_assert( std::is_same_v<decltype( load), const Current>);
+    EXPECT_DOUBLE_EQ( load.value(), 5.0);
+
+    // and back, both ways round
+    static_assert( std::is_same_v<decltype( load * shunt), Voltage>);
+    static_assert( std::is_same_v<decltype( shunt * load), Voltage>);
+    static_assert( std::is_same_v<decltype( drop / load),  Resistance>);
+
+    EXPECT_DOUBLE_EQ( ( load * shunt).value(), drop.value());
+    EXPECT_DOUBLE_EQ( ( drop / load).value(),  shunt.value());
+}

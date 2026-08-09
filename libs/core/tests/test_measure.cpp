@@ -81,7 +81,7 @@ namespace mock
             // findSense() would for an instrument nobody wired sense
             // leads for. Exists purely to satisfy core::MeasureEngine's
             // structural requirement (see that class's own comment on
-            // RequiresSensePath) -- this file has no 4-wire-style test.
+            // core::SensePath::Required) -- this file has no 4-wire-style test.
             //
             [[nodiscard]] auto findSense( InstrumentId ) const -> Path
             {

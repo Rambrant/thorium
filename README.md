@@ -37,7 +37,7 @@ wrong.
 
 ### What is a compile error today
 
-Fourteen classes of mistake, none of which can reach the bench:
+Fifteen classes of mistake, none of which can reach the bench:
 
 | Mistake | What happens |
 |---|---|
@@ -54,6 +54,7 @@ Fourteen classes of mistake, none of which can reach the bench:
 | An instrument driver with no `safe()` | `static_assert` naming the type |
 | A new `QuantityKind` with no matching `Quantity` alias | `static_assert` with the fix |
 | A new source instrument with no `describeConfig` | no matching function |
+| Sense leads wired without the matching force leads | `dut_tests` fails to build |
 | `.epsilon()` on a type a tolerance is meaningless for | constraint not satisfied |
 
 Two of those deserve a second look, because they are the interesting ones.
@@ -86,6 +87,13 @@ Being honest about the edges matters more than the table above:
   that far, but a hand-typed flag has no such help.
 - **Instrument I/O.** Real instruments are absent, mis-addressed or lying. That
   is what the runtime is for.
+- **Electrical safety of a route.** `SwitchFabric::connect()` is additive and
+  reference-counted, and it refuses nothing. Two instruments sharing a pin is
+  the intended behaviour — that is how a rail is measured while a supply holds
+  it — so connect/disconnect symmetry does *not* mean only one thing is ever on
+  a node. Nothing today prevents closing a path that would be electrically
+  wrong (an ammeter across a driven rail, or opening a relay under load). That
+  is a runtime interlock the fabric does not yet have.
 
 ---
 
@@ -236,7 +244,15 @@ Same file, `CONNECTOR_WIRING` block — `rack, connector, pin` then the hop:
 WIRE_CONNECTOR( A, 1, 7, HOP( Mux, "Mux1", 7))
 ```
 
-`WIRE_CONNECTOR_SENSE` for the sense side.
+`WIRE_CONNECTOR_SENSE` for the sense side. **Wire sense without force and
+`dut_tests` will not build** — sense leads measure across the connection the
+force leads make, so half a route is always a mistake.
+
+Whether a reading uses the sense path is not a wiring question at all: it is a
+property of the port's *type* (`core::SensePath::Required`), so
+`fourWireResistance()` and `resistance()` are different types and `MeasureEngine`
+picks the route with `if constexpr` — a two-wire reading never compiles the sense
+lookups at all.
 
 ### Add a DUT test point
 
@@ -336,6 +352,58 @@ Three files, in this order:
 A script's signature is fixed to `(group, test) -> bool`. It takes no rig or
 device handle: routing is resolved statically inside it, and the log gets its
 group and test from the runner's journal boundaries rather than from the script.
+
+### Measure something that isn't routed
+
+Not every reading travels through the switching fabric. A supply reports the
+voltage it is holding and the current it is delivering over its own interface,
+and on a rig whose matrix carries signals only, that is the *only* way to read
+rail current — a rail at several amps is not a signal, and its output is
+hard-wired for exactly that reason.
+
+Such a reading takes no `at(...)`, because there is no pin to route it to:
+
+```cpp
+Apply( DcP1.dc().voltage( 24.0_V).currentLimit( 7.0_A));
+
+const auto rail   = Measure( DcP1.measuredVoltage());
+const auto inrush = Measure( DcP1.measuredCurrent());
+```
+
+It touches the fabric not at all, so it cannot disturb — or be disturbed by —
+whatever else is currently routed. It still goes through the session seam, so it
+injects and replays like any other reading; the key is
+`"<instrument>.<quantity>"`:
+
+```cpp
+Measure.inject( "DcP1.Current", core::quantities::Current{ 6.4 });
+```
+
+`measuredVoltage()`/`measuredCurrent()` rather than `voltage()`/`current()`
+deliberately: a supply has both a setpoint and a reading for each of those, and
+`dc().voltage( 24_V)` sets while `measuredVoltage()` reads.
+
+### Measure a current the matrix cannot carry
+
+Two ways, depending on the bench:
+
+**The source's own readback**, as above — no wiring, no routing.
+
+**A shunt**, which is a voltage measurement at a pin plus Ohm's law. Declare the
+sense pin as an ordinary `POINT` and convert in units, so the result is a
+`Current` a criterion in amps can check:
+
+```cpp
+const auto drop = Measure( Dmm1.voltage(), at( DeviceX::ShuntSense));
+const auto load = drop / 10.0_mOhm;          // a Current, not a double
+
+allPassed &= Verify( FS_Supply_1::FS_Load_Max, load);
+```
+
+What you should *not* do is route a DMM's current terminals through the matrix.
+Signal relays are not rated for load current, and an ammeter closed onto a pin a
+supply is driving is a short across that supply — see §1 on what the fabric does
+and does not protect you from.
 
 ### Add a unit of measurement
 

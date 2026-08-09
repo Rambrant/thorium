@@ -114,7 +114,7 @@ DECK = [
     # 8 -------------------------------------------------- divider
     (6, {
         'kicker': "The payoff",
-        'title':  "Fourteen mistakes that now fail the build",
+        'title':  "Fifteen mistakes that now fail the build",
     }),
 
     # 9 -------------------------------------------------- the list
@@ -134,6 +134,7 @@ DECK = [
             p("Channel 5 on a 4-channel scope"),
             p("A driver with no safe state"),
             p("A half-declared unit"),
+            p("Sense leads wired without force leads"),
             p("…and four more"),
             p(""),
             note("Seconds, on a laptop — not hours, on the bench.", accent=True),

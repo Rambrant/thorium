@@ -251,12 +251,24 @@ TEST( HalInstrument, L4411AResistanceAfterFourWireResistanceSwitchesBackToTwoWir
     EXPECT_DOUBLE_EQ( dmm1.resistance().rawMeasure().value(), 100.0);
 }
 
+//
+// The sense requirement is in the port's *type*, not in its runtime setup, so
+// this is a static_assert rather than an EXPECT -- a two-wire reading and a
+// four-wire one are now different types, and core::MeasureEngine branches on
+// that with if constexpr.
+//
 TEST( HalInstrument, L4411AFourWireResistanceRequiresTheSensePathButTwoWireDoesNot)
 {
     hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
 
-    EXPECT_FALSE( dmm1.resistance().setup().RequiresSensePath);
-    EXPECT_TRUE(  dmm1.fourWireResistance().setup().RequiresSensePath);
+    static_assert( decltype( dmm1.resistance())::SenseUse         == core::SensePath::NotUsed);
+    static_assert( decltype( dmm1.fourWireResistance())::SenseUse == core::SensePath::Required);
+
+    // The chained setup builders preserve it -- .nplc() on a four-wire port
+    // must not quietly hand back a two-wire one.
+    static_assert( decltype( dmm1.fourWireResistance().nplc( 10))::SenseUse == core::SensePath::Required);
+
+    (void) dmm1;
 }
 
 TEST( HalInstrument, PortRangeNplcAndFrequencyChainWithoutAffectingTheReading)

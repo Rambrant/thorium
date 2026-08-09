@@ -105,7 +105,7 @@ namespace hal
             // on this same instrument never touches sense at all.
             //
             [[nodiscard]]
-            auto fourWireResistance() -> core::Port<core::quantities::Resistance, L4411A>
+            auto fourWireResistance() -> core::Port<core::quantities::Resistance, L4411A, core::SensePath::Required>
             {
                 mResistanceMode = ResistanceMode::FourWire;
                 return core::Port<core::quantities::Resistance, L4411A>{ *this }.requiresSensePath();

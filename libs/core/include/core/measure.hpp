@@ -87,9 +87,9 @@ namespace core
             // and for the compile-time upgrade path now that Loc is known at
             // compile time here too.
             //
-            template<auto Loc, quantities::QuantityType QuantityT, typename InstrumentT>
+            template<auto Loc, quantities::QuantityType QuantityT, typename InstrumentT, SensePath Sense>
             [[nodiscard]]
-            auto operator()( Port<QuantityT, InstrumentT> port, const At<AdapterPointTag<Loc>> & wrapped) -> QuantityT
+            auto operator()( Port<QuantityT, InstrumentT, Sense> port, const At<AdapterPointTag<Loc>> & wrapped) -> QuantityT
             {
                 const auto & point        = wrapped.point;
                 const auto   instrumentId = port.instrumentId();
@@ -113,15 +113,18 @@ namespace core
                     //
                     // A 4-wire (Kelvin) reading additionally needs its
                     // sense leads routed, on both sides -- see
-                    // core::MeasureSetup::RequiresSensePath's own comment
-                    // for why this is a per-reading flag rather than
-                    // something InstrumentWiring/ConnectorWiring decide on
-                    // their own. Deliberately separate find()/findSense()
-                    // calls, not one combined lookup: a plain 2-wire
-                    // reading on the very same instrument must never touch
-                    // the sense channels at all.
+                    // core::Port::requiresSensePath() for why this is a
+                    // property of the port's type rather than something
+                    // InstrumentWiring/ConnectorWiring decide on their own.
+                    // Deliberately separate find()/findSense() calls, not one
+                    // combined lookup: a plain 2-wire reading on the very same
+                    // instrument must never touch the sense channels at all.
                     //
-                    if( port.setup().RequiresSensePath)
+                    // if constexpr, not if: a 2-wire reading does not compile
+                    // the sense lookups at all, so it cannot pay for them and
+                    // cannot fail on a rig that never wired sense leads.
+                    //
+                    if constexpr( Sense == SensePath::Required)
                     {
                         const auto instrumentSense = mInstrumentWiring.findSense( instrumentId);
                         const auto connectorSense  = mConnectorWiring.findSense( Loc);
@@ -205,6 +208,68 @@ namespace core
                     .Method     = Verb::Measure,
                     .Subject    = std::string( point.Name),
                     .Detail     = std::string( point.Description),
+                    .Instrument = instrumentName,
+                    .Value      = describeValue( value),
+                    .Numeric    = value.value(),
+                    .Unit       = std::string( value.symbol())
+                });
+
+                return value;
+            }
+
+            //
+            // A reading that needs no routing at all: an instrument measuring
+            // its own output, over its own interface.
+            //
+            // Note what is missing -- there is no at(...), and the fabric is
+            // never touched. That is the whole point of the overload rather
+            // than a shortcut: a supply reporting the current it is delivering
+            // is not a signal that travels through the switching matrix to get
+            // anywhere, so there is no path to compose, no relay to close, and
+            // nothing that could collide with whatever else is currently
+            // routed. Asking for at(...) here would be asking which pin to
+            // route a measurement that never leaves the instrument.
+            //
+            // This is how current is actually read on a rig whose matrix
+            // carries signals only: a supply's own readback measures its rail
+            // at full load, where routing that current through signal relays
+            // would be neither possible nor safe (see hal::N6701A's own comment
+            // on why its output is hard-wired in the first place).
+            //
+            // Still goes through the session seam, so injection and replay work
+            // exactly as they do for a routed reading -- see the key's own
+            // comment below for what to inject against.
+            //
+            template<quantities::QuantityType QuantityT, typename InstrumentT, SensePath Sense>
+            [[nodiscard]]
+            auto operator()( Port<QuantityT, InstrumentT, Sense> port) -> QuantityT
+            {
+                const auto instrumentName = std::string( to_string( port.instrumentId()));
+
+                constexpr auto kind = quantityKindOf<QuantityT>();
+
+                //
+                // Sessions key by name, and an instrument readback has no point
+                // name to key by -- so it gets "<instrument>.<quantity>", e.g.
+                // "DcP1.Current". Qualified by the quantity because one
+                // instrument can report several (a supply reports both the
+                // voltage it is holding and the current it is delivering), and
+                // keying on the instrument alone would make those two the same
+                // recording slot.
+                //
+                const auto key = instrumentName + "." + std::string( to_string( kind));
+
+                auto liveRead = [&]() -> QuantityVariant
+                {
+                    return QuantityVariant{ port.rawMeasure() };
+                };
+
+                const auto value = asQuantity<QuantityT>( activeSession().fetch( key, instrumentName, kind, liveRead));
+
+                journal().post( JournalRecord{
+                    .Method     = Verb::Measure,
+                    .Subject    = key,
+                    .Detail     = "instrument readback",
                     .Instrument = instrumentName,
                     .Value      = describeValue( value),
                     .Numeric    = value.value(),

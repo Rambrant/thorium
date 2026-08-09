@@ -76,7 +76,7 @@ namespace hal
     //     *in addition to* force, but only for that one measurement -- a
     //     plain 2-wire resistance() call on the same hal::L4411A must not
     //     touch sense at all. That's a per-measurement, per-call choice
-    //     (see core::MeasureSetup::RequiresSensePath in core/port.hpp and
+    //     (see core::Port::requiresSensePath in core/port.hpp and
     //     core::MeasureEngine's own comment in core/measure.hpp), so
     //     force and sense need to be looked up independently and combined
     //     only when asked for -- findSense() below exists for exactly
@@ -228,6 +228,22 @@ namespace hal
     [[nodiscard]]
     consteval auto isWired( VpcLocation location, WireRole role = WireRole::Force) -> bool;
 
+    //
+    // The same question for the instrument side: does this rig give this
+    // instrument a fixed path for this role at all?
+    //
+    // Exists for the same reason isWired() does -- so a rig's own wiring can be
+    // checked once, at build time, rather than discovered by a script throwing
+    // three hours into a run. What it is NOT is a per-measurement check:
+    // whether a given reading needs the sense role is a property of the port's
+    // type (see core::Port::requiresSensePath), while this is a property of the
+    // rig, and core::MeasureEngine is generic code that can see neither rig nor
+    // wiring table. The two facts can only be brought together where both are
+    // visible, which is a rig-side check -- see dut/tests/test_wiring_coverage.cpp.
+    //
+    [[nodiscard]]
+    consteval auto isInstrumentWired( InstrumentId instrument, WireRole role = WireRole::Force) -> bool;
+
     namespace detail
     {
         //
@@ -249,6 +265,34 @@ namespace hal
 
             friend constexpr auto operator==( ConnectorWiringKey, ConnectorWiringKey) -> bool = default;
         };
+
+        //
+        // The instrument-side counterpart of ConnectorWiringKey above.
+        // Simpler, because both members are enums: an InstrumentId/WireRole
+        // pair is a structural type outright, so it needs none of the care
+        // that keeps a Path (with its std::string_view device names) out of
+        // the connector key.
+        //
+        struct InstrumentWiringKey
+        {
+            InstrumentId instrument;
+            WireRole     role;
+
+            friend constexpr auto operator==( InstrumentWiringKey, InstrumentWiringKey) -> bool = default;
+        };
+
+        [[nodiscard]]
+        consteval auto keysOf( const std::vector<InstrumentWiringEntry> & entries) -> std::vector<InstrumentWiringKey>
+        {
+            std::vector<InstrumentWiringKey> keys;
+
+            for( const auto & entry : entries)
+            {
+                keys.push_back( { entry.instrument, entry.role });
+            }
+
+            return keys;
+        }
 
         [[nodiscard]]
         consteval auto keysOf( const std::vector<ConnectorWiringEntry> & entries) -> std::vector<ConnectorWiringKey>
@@ -304,20 +348,53 @@ namespace hal
 #define HOP( deviceKind, device, channel) \
     hal::SwitchElementId{ hal::SwitchDeviceKind::deviceKind, device, channel }
 
-#define INSTRUMENT_WIRING                                  \
-    namespace hal { inline const InstrumentWiring instrumentWiring = [] \
-    {                                                       \
-        InstrumentWiring w;
+//
+// INSTRUMENT_WIRING's expansion builds three things from the one set of
+// WIRE_INSTRUMENT/WIRE_INSTRUMENT_SENSE lines, not one -- the same shape
+// CONNECTOR_WIRING uses below, and for the same reasons: the ordinary runtime
+// hal::instrumentWiring, a compile-time instrument/role key table, and
+// isInstrumentWired() itself. One list of rows, three readers, so no rig can
+// wire a lead for the runtime table and not for the check.
+//
+#define INSTRUMENT_WIRING                                                              \
+    namespace hal { namespace detail {                                                  \
+    constexpr auto buildInstrumentWiringEntries() -> std::vector<InstrumentWiringEntry> \
+    {                                                                                   \
+        std::vector<InstrumentWiringEntry> entries;
 
 #define WIRE_INSTRUMENT( instrument, ...) \
-        w.addWire( InstrumentId::instrument, Path{ __VA_ARGS__ });
+        entries.push_back( InstrumentWiringEntry{ InstrumentId::instrument, WireRole::Force, Path{ __VA_ARGS__ } });
 
 #define WIRE_INSTRUMENT_SENSE( instrument, ...) \
-        w.addWire( InstrumentId::instrument, Path{ __VA_ARGS__ }, WireRole::Sense);
+        entries.push_back( InstrumentWiringEntry{ InstrumentId::instrument, WireRole::Sense, Path{ __VA_ARGS__ } });
 
-#define END_INSTRUMENT_WIRING \
-        return w;              \
-    }(); }
+#define END_INSTRUMENT_WIRING                                                          \
+        return entries;                                                                \
+    }                                                                                   \
+    inline constexpr auto instrumentWiringKeys =                                       \
+        std::define_static_array( keysOf( buildInstrumentWiringEntries()));            \
+    } /* namespace detail */                                                            \
+    inline const InstrumentWiring instrumentWiring = []                                 \
+    {                                                                                   \
+        InstrumentWiring w;                                                            \
+        for( const auto & entry : detail::buildInstrumentWiringEntries())              \
+        {                                                                               \
+            w.addWire( entry.instrument, entry.path, entry.role);                       \
+        }                                                                               \
+        return w;                                                                       \
+    }();                                                                                \
+    inline consteval auto isInstrumentWired( InstrumentId instrument, WireRole role) -> bool \
+    {                                                                                   \
+        for( const auto & key : detail::instrumentWiringKeys)                          \
+        {                                                                               \
+            if( key.instrument == instrument && key.role == role)                       \
+            {                                                                           \
+                return true;                                                            \
+            }                                                                           \
+        }                                                                               \
+        return false;                                                                   \
+    }                                                                                   \
+    }
 
 //
 // CONNECTOR_WIRING's expansion builds three things from the one set of

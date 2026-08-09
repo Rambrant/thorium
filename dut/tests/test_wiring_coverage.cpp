@@ -104,3 +104,85 @@ TEST( WiringCoverage, EveryDeviceXPointHasAConnectorWiringEntry)
     //
     SUCCEED();
 }
+
+//
+// ---------------------------------------------------------------------------
+// Sense-lead consistency, both sides of the route
+// ---------------------------------------------------------------------------
+// A sense entry with no matching force entry is always a wiring mistake: sense
+// leads measure across a connection the force leads make, so a rig that wires
+// one without the other has described half a route. Cheap to state, and like
+// the point coverage above it costs nothing at runtime -- these are consteval
+// predicates over the rig's own tables (hal::isInstrumentWired,
+// hal::isWired), so a mismatch fails this build rather than a run.
+//
+// Note what is deliberately NOT asserted: that every 4-wire-capable instrument
+// has sense wiring. Whether a rig routes an instrument's sense leads is its
+// own choice -- a bench may own a DMM whose 4-wire mode it never uses -- and
+// demanding it would repeat exactly the over-constraint that binding a quantity
+// to a DUT point turned out to be (see core::AdapterPointTag). What a rig
+// cannot sensibly do is wire sense *and not* force, and that is what this
+// checks.
+//
+namespace thorium_sense_consistency_check
+{
+    constexpr auto instrumentIds = std::define_static_array( std::meta::enumerators_of( ^^hal::InstrumentId));
+
+    consteval auto checkInstrumentSenseConsistency() -> bool
+    {
+        template for( constexpr auto enumerator : instrumentIds)
+        {
+            constexpr auto id = [: enumerator :];
+
+            if constexpr( hal::isInstrumentWired( id, hal::WireRole::Sense))
+            {
+                static_assert( hal::isInstrumentWired( id, hal::WireRole::Force),
+                              "an instrument has WIRE_INSTRUMENT_SENSE but no WIRE_INSTRUMENT in "
+                              "rig/wiring.inc -- sense leads measure across the connection the "
+                              "force leads make, so half a route is always a mistake");
+            }
+        }
+
+        return true;
+    }
+
+    constexpr bool instrumentSenseConsistent = checkInstrumentSenseConsistency();
+
+    //
+    // The connector side of the same rule, over the DUT's declared points --
+    // the only locations this rig has any reason to wire at all.
+    //
+    template<typename Group>
+    consteval auto checkConnectorSenseConsistency() -> bool
+    {
+        template for( constexpr auto locationRef : thorium_wiring_coverage_check::adapterPointLocationRefs<Group>)
+        {
+            constexpr auto location = [: locationRef :];
+
+            if constexpr( hal::isWired( location, hal::WireRole::Sense))
+            {
+                static_assert( hal::isWired( location, hal::WireRole::Force),
+                              "a DeviceX POINT has WIRE_CONNECTOR_SENSE but no WIRE_CONNECTOR in "
+                              "rig/wiring.inc -- see above");
+            }
+        }
+
+        return true;
+    }
+
+    constexpr bool connectorSenseConsistent = checkConnectorSenseConsistency<DeviceX>();
+} // namespace thorium_sense_consistency_check
+
+
+TEST( WiringCoverage, SenseWiringAlwaysHasMatchingForceWiring)
+{
+    //
+    // Nothing to run, same as above: the static_asserts have already held by
+    // the time this compiles. Present so the guarantee appears in the test
+    // list rather than being an invisible property of the build.
+    //
+    static_assert( thorium_sense_consistency_check::instrumentSenseConsistent);
+    static_assert( thorium_sense_consistency_check::connectorSenseConsistent);
+
+    SUCCEED();
+}

@@ -81,6 +81,13 @@ That is what makes a misspelled point name a "no such member" compile
 error -- see `dut/README.md` for the concrete examples, since the actual
 DUT profile data lives there, not here.
 
+`WireRole` (force/sense) is the wiring table's axis; the matching axis on the
+measurement side is `core::SensePath`, a template parameter of `core::Port`. A
+four-wire reading is therefore a *different type* from a two-wire one, not the
+same type carrying a runtime flag -- `core::MeasureEngine` branches on it with
+`if constexpr`, and `hal::isInstrumentWired()` lets a rig-side check confirm at
+build time that a rig which wires sense also wires force.
+
 A point deliberately carries no quantity: it names a pin, and what gets
 measured there is decided by whichever `core::Port` is aimed at it, so the
 same pin can be read for voltage, current or frequency without being

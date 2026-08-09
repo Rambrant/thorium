@@ -2,8 +2,10 @@
 
 #include <optional>
 #include <string>
+#include <type_traits>
 
 #include "core/apply.hpp"
+#include "core/port.hpp"
 #include "core/quantity.hpp"
 
 #include "hal/describe.hpp"
@@ -196,6 +198,64 @@ namespace hal
             }
 
             //
+            // What this supply reports about its own output, over its own
+            // interface -- not a routed measurement.
+            //
+            // A real N6701A measures the voltage it is holding and the current
+            // it is delivering; that is how rail current is read on this rig,
+            // since the switching matrix carries signals and a rail at several
+            // amps is not a signal (see this class's own comment on why the
+            // output is hard-wired). There is no at(...) at the call site and
+            // the fabric is never touched -- see core::MeasureEngine's
+            // point-free operator().
+            //
+            //     Apply( DcP1.dc().voltage( 24_V).currentLimit( 7_A));
+            //     const auto inrush = Measure( DcP1.measuredCurrent());
+            //
+            // Named "measured..." rather than voltage()/current() deliberately:
+            // this instrument has both a setpoint and a reading for each of
+            // those quantities (dc().voltage( 24_V) sets, measuredVoltage()
+            // reads), and on a supply that distinction is worth spelling out at
+            // every call site rather than leaving to be inferred from which
+            // verb it was passed to.
+            //
+            [[nodiscard]]
+            auto measuredVoltage() -> core::Port<core::quantities::Voltage, N6701A>
+            {
+                return core::Port<core::quantities::Voltage, N6701A>{ *this };
+            }
+
+            [[nodiscard]]
+            auto measuredCurrent() -> core::Port<core::quantities::Current, N6701A>
+            {
+                return core::Port<core::quantities::Current, N6701A>{ *this };
+            }
+
+            //
+            // The read core::Port performs. A disabled output reads zero for
+            // both quantities rather than reporting the last setpoint: that is
+            // what the instrument actually does, and it is the reading a script
+            // checking "is this rail really off" depends on.
+            //
+            template<core::quantities::QuantityType QuantityT>
+            [[nodiscard]]
+            auto rawMeasure( const core::MeasureSetup<QuantityT> &) -> QuantityT
+            {
+                if constexpr( std::is_same_v<QuantityT, core::quantities::Voltage>)
+                {
+                    return mEnabled ? mOutputVoltage : core::quantities::Voltage{};
+                }
+                else if constexpr( std::is_same_v<QuantityT, core::quantities::Current>)
+                {
+                    return mEnabled ? mSimOutputCurrent : core::quantities::Current{};
+                }
+                else
+                {
+                    static_assert( !sizeof( QuantityT), "N6701A reports only its output voltage and current");
+                }
+            }
+
+            //
             // Drop this supply to a known idle state, unconditionally --
             // see hal::safeRig() in hal/safing.hpp for who calls this and
             // why it takes no arguments and reads no state. Not
@@ -240,6 +300,13 @@ namespace hal
                 mEnabled = false;
             }
 
+            // What the simulated output is delivering -- the current a real
+            // instrument would report back, which no setpoint determines.
+            auto setSimulatedOutputCurrent( const core::quantities::Current c) -> void
+            {
+                mSimOutputCurrent = c;
+            }
+
             [[nodiscard]]
             auto isEnabled() const -> bool
             {
@@ -262,6 +329,7 @@ namespace hal
             InstrumentId                              mId;
             int                                        mChannel;
             core::quantities::Voltage                 mOutputVoltage{};
+            core::quantities::Current                 mSimOutputCurrent{};
             std::optional<core::quantities::Current>  mCurrentLimit;
             bool                                       mEnabled{ false };
     };

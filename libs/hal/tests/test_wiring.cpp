@@ -169,13 +169,27 @@ TEST( HalInstrumentWiring, FindAllIgnoresRoleAndReturnsForceAndSenseTogether)
 
 TEST( HalInstrumentWiring, WireInstrumentSenseMacroTagsTheEntryAsSense)
 {
-    using namespace hal; // WIRE_INSTRUMENT_SENSE expands to unqualified InstrumentId/Path/WireRole, as it does inside INSTRUMENT_WIRING's own namespace hal {} block
+    using namespace hal; // the macros expand to unqualified InstrumentId/Path/WireRole, as they do inside INSTRUMENT_WIRING's own namespace hal {} block
 
-    hal::InstrumentWiring w;
+    // WIRE_INSTRUMENT/WIRE_INSTRUMENT_SENSE push into an `entries` vector --
+    // the same shape the connector-side macros use, and for the same reason
+    // (see hal/wiring.hpp): those entries feed both the runtime
+    // hal::instrumentWiring and the compile-time key table isInstrumentWired()
+    // reads, so they can no longer write straight into an InstrumentWiring.
+    std::vector<InstrumentWiringEntry> entries;
+
+    WIRE_INSTRUMENT(       Dmm1, HOP( Matrix, "Matrix2", 14));
     WIRE_INSTRUMENT_SENSE( Dmm1, HOP( Matrix, "Matrix2", 15));
 
+    ASSERT_EQ( entries.size(), 2u);
+    EXPECT_EQ( entries[ 0].role, WireRole::Force);
+    EXPECT_EQ( entries[ 1].role, WireRole::Sense);
+
+    hal::InstrumentWiring w;
+    for( const auto & entry : entries) w.addWire( entry.instrument, entry.path, entry.role);
+
+    EXPECT_EQ( w.find( hal::InstrumentId::Dmm1),      (hal::Path{ { hal::SwitchDeviceKind::Matrix, "Matrix2", 14 } }));
     EXPECT_EQ( w.findSense( hal::InstrumentId::Dmm1), (hal::Path{ { hal::SwitchDeviceKind::Matrix, "Matrix2", 15 } }));
-    EXPECT_THROW( (void)w.find( hal::InstrumentId::Dmm1), std::runtime_error);
 }
 
 TEST( HalConnectorWiring, FindSenseReturnsOnlyTheSenseRoleEntry)

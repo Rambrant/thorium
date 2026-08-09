@@ -221,6 +221,41 @@ namespace core
         }
 
         //
+        // Ohm's law, all three ways round. This is what lets a shunt reading be
+        // converted in units rather than in bare doubles: a shunt is measured as
+        // a voltage across a known resistance, so the current through it is
+        // V / R -- and writing it that way keeps the result a Current, which a
+        // criterion in amps can then check.
+        //
+        //     const auto drop  = Measure( Dmm1.voltage(), at( DeviceX::ShuntSense));
+        //     const auto load  = drop / 10.0_mOhm;      // a Current, not a double
+        //
+        // Deliberately all three rather than only the one with a caller today:
+        // unlike the power triangle below, these are not a choice of formula --
+        // they are one relation, and omitting two of its rearrangements would
+        // just mean the next caller reaches for .value() and loses the unit.
+        //
+        constexpr auto operator/( const Voltage v, const Resistance r ) -> Current
+        {
+            return Current{ v.value() / r.value() };
+        }
+
+        constexpr auto operator/( const Voltage v, const Current i ) -> Resistance
+        {
+            return Resistance{ v.value() / i.value() };
+        }
+
+        constexpr auto operator*( const Current i, const Resistance r ) -> Voltage
+        {
+            return Voltage{ i.value() * r.value() };
+        }
+
+        constexpr auto operator*( const Resistance r, const Current i ) -> Voltage
+        {
+            return Voltage{ r.value() * i.value() };
+        }
+
+        //
         // The rest of the power triangle: S^2 = P^2 + Q^2, connecting apparent,
         // real, and reactive power. This is deliberately NOT expressed as
         // operator+/operator- (e.g. "s - p" to mean Q), because that would look
@@ -345,6 +380,13 @@ namespace core
 
         constexpr quantities::Resistance operator""_Ohm( long double v ) { return quantities::Resistance{ static_cast<double>(v) }; }
         constexpr quantities::Resistance operator""_kOhm( long double v ) { return quantities::Resistance{ static_cast<double>(v) * 1000.0 }; }
+
+        //
+        // Milliohms, for shunts -- the scale a current-sense resistor is
+        // actually specified at, and the one that makes Ohm's law above read
+        // like the datasheet rather than like 0.01_Ohm.
+        //
+        constexpr quantities::Resistance operator""_mOhm( long double v ) { return quantities::Resistance{ static_cast<double>(v) / 1000.0 }; }
 
         constexpr quantities::Frequency operator""_Hz( long double v ) { return quantities::Frequency{ static_cast<double>(v) }; }
         constexpr quantities::Frequency operator""_kHz( long double v ) { return quantities::Frequency{ static_cast<double>(v) * 1000.0 }; }
