@@ -563,7 +563,8 @@ more times than the test authored values for it means the script diverged from
 what was expected, which is worth failing on — while a generator that never
 ends never runs out. Neither is privileged.
 
-`Measure.load( path)` replays a recording captured from a real run instead.
+`Measure.load( path)` replays a recording captured from a real run instead — the
+file `run_scripts --record=` writes, which is the same thing `--replay=` reads.
 `Measure.useLive()` goes back to hardware.
 
 ---
@@ -584,6 +585,8 @@ build/app/run_scripts --dut-serial=SN-000123
 | `--repeat=N` | run the selection N times over |
 | `--until-failure` | stop as soon as a pass fails |
 | `--safe` | drop the rig to idle and exit — no test, no log |
+| `--record=PATH` | write every reading the run took, in order |
+| `--replay=PATH` | take every reading from that file instead of the rig |
 | `--dut-serial=`, `--operator=` | traceability, into both logs |
 | `--log-dir=`, `--sarif=`, `--rtf=` | where the logs go |
 | `--quiet`, `--no-logs`, `--no-color` | suppress the console, the files, the colour |
@@ -606,6 +609,32 @@ survives is what such a run is trying to find out, so requiring the number up
 front would be requiring the answer. A repeated run is still **one** run — one
 report, one exit status, passes marked in the machine log, and any failing pass
 fails the whole thing.
+
+**Recording and replaying the readings.** A third artifact, and the only one
+that is an input as well as an output:
+
+```bash
+build/app/run_scripts --record=readings.tsv      # capture what the rig read
+build/app/run_scripts --replay=readings.tsv      # run again off the file, no rig
+```
+
+Where the two logs describe a run, this is the readings themselves, in order
+(see `core/recording.hpp` for the format — flat TSV, one row per reading). It is
+what reproduces a bench failure at a desk: the replayed run takes its verdict
+from the file, so it passes or fails exactly as the recorded one did, with no
+instrument attached.
+
+Opt-in, unlike the logs, and for the opposite reason: a log is evidence that a
+run happened and every run should leave one, while a recording is a tool for a
+particular investigation and is as long as the run is — a fifty-pass soak
+records fifty passes, and replaying it needs `--repeat=50` to match.
+
+The two are exclusive. Recording a replay would faithfully write out the values
+it had just been fed, handing back a file that looks like a fresh capture and is
+a copy of its input. Both are also fatal if the path cannot be opened, checked
+before anything is measured — a caller who asked to record a run and silently
+got none, or asked to replay one and silently got live hardware, has been told
+the run did something it did not.
 
 `tools/run-tests.sh [build-dir]` is the tester-facing picker: choose a group, then
 one, several or all of its tests. It offers the catalog and nothing else — unit
@@ -647,6 +676,13 @@ across runs and DUTs. Values carry both formatted text and a bare number.
 
 The live console view renders the same content as the RTF from the same events, so
 what an operator watched and what the report says cannot disagree.
+
+**`--record=` writes a third file, and it is not a log.** Flat TSV, one row per
+reading — `sequence, wallClockMillis, point, instrument, kind, value` — carrying
+nothing a person wants and nothing a report needs, because its only reader is
+`--replay=`. Neither log can serve that purpose: they describe a run, in formats
+built for a person and for a SARIF server, while a replay needs the values
+themselves in the order they were taken and nothing else.
 
 ---
 

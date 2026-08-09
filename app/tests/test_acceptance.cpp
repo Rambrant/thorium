@@ -411,6 +411,7 @@ namespace
     struct AcceptanceLogFiles  : Acceptance {};
     struct AcceptanceRepeat    : Acceptance {};
     struct AcceptanceHooks     : Acceptance {};
+    struct AcceptanceRecording : Acceptance {};
 
     //
     // The test ids the console reported a verdict for, in the order it
@@ -981,4 +982,111 @@ TEST_F( AcceptanceHooks, ASelectionMatchingNothingNeverReachesTheHooks)
 
     EXPECT_TRUE( hookOrder().empty());
     EXPECT_TRUE( containsText( errPath(), mErr, "No catalog test matched"));
+}
+
+// ---------------------------------------------------------------------------
+// The replayable value stream: --record / --replay
+// ---------------------------------------------------------------------------
+//
+// A third artifact, and unlike the two logs it is an input as well as an
+// output: --record writes the readings a run took, --replay feeds them back to
+// a later run with no rig attached. See core/recording.hpp for the format.
+//
+
+TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
+{
+    EXPECT_EQ( run( { "--record=readings.tsv", "--quiet", "--no-logs" }), 1);
+
+    const auto tsv = readFile( mDir / "readings.tsv");
+
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Vout\tDmm2\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output5V\tDmm1\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output3V3\tDmm1\tVoltage"));
+
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 3);
+}
+
+//
+// The point of the whole thing: with a recording behind it, a run's verdict
+// comes from the file rather than from the rig. These values are inside every
+// criterion the two scripts check, so this run PASSES -- where the identical
+// invocation against the (unseeded, zero-reading) simulated rig fails. Nothing
+// else in this file can assert a passing run.
+//
+TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
+{
+    writeFile( mDir / "passing.tsv",
+        "0\t0\tVout\tDmm2\tVoltage\t12.0\n"
+        "1\t0\tOutput5V\tDmm1\tVoltage\t5.0\n"
+        "2\t0\tOutput3V3\tDmm1\tVoltage\t3.3\n");
+
+    EXPECT_EQ( run( { "--replay=passing.tsv", "--quiet" }), 0);
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    const auto log = readFile( sarif);
+
+    EXPECT_TRUE( containsText( sarif, log, "12 V"));
+    EXPECT_TRUE( containsText( sarif, log, "5 V"));
+    EXPECT_TRUE( containsText( sarif, log, "3.3 V"));
+}
+
+//
+// Record then replay: the second run must read back exactly what the first one
+// measured, which is the property that makes a recording worth keeping.
+//
+TEST_F( AcceptanceRecording, ARecordingReplaysToTheSameVerdict)
+{
+    const int recorded = run( { "--record=readings.tsv", "--quiet", "--no-logs" });
+    const int replayed = run( { "--replay=readings.tsv", "--quiet", "--no-logs" });
+
+    EXPECT_EQ( recorded, replayed);
+}
+
+//
+// A repeated run records every pass, so replaying it needs the same pass count
+// -- the file is a value stream, not a per-test snapshot.
+//
+TEST_F( AcceptanceRecording, EachRepeatPassIsRecorded)
+{
+    EXPECT_EQ( run( { "--repeat=3", "--record=readings.tsv", "--quiet", "--no-logs" }), 1);
+
+    const auto tsv = readFile( mDir / "readings.tsv");
+
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 9);   // three readings, three passes
+}
+
+//
+// Recording a replay would faithfully write out what it was just fed, handing
+// back something that looks like a fresh capture and is a copy of the input.
+//
+TEST_F( AcceptanceRecording, RecordAndReplayAreExclusive)
+{
+    EXPECT_EQ( run( { "--record=out.tsv", "--replay=in.tsv" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "exclusive"));
+    EXPECT_FALSE( std::filesystem::exists( mDir / "out.tsv"));
+}
+
+//
+// Both failures are fatal before the rig is touched: a caller who asked to
+// record a run and silently got none, or asked to replay one and silently got
+// live hardware, has been told the run did something it did not.
+//
+TEST_F( AcceptanceRecording, AReplayFileThatCannotBeReadIsFatalAndRunsNothing)
+{
+    EXPECT_EQ( run( { "--replay=no-such-file.tsv", "--no-logs" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "Could not load the recording"));
+    EXPECT_TRUE( omitsText( outPath(), mOut, "RESULT"));
+}
+
+TEST_F( AcceptanceRecording, ARecordingPathThatCannotBeWrittenIsFatalAndRunsNothing)
+{
+    EXPECT_EQ( run( { "--record=/nonexistent-root-dir/readings.tsv", "--no-logs" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "Could not open the recording"));
+    EXPECT_TRUE( omitsText( outPath(), mOut, "RESULT"));
 }

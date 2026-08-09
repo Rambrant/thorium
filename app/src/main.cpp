@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <optional>
@@ -16,6 +17,7 @@
 #include "core/journal.hpp"
 #include "core/rtf_sink.hpp"
 #include "core/sarif_sink.hpp"
+#include "hal/measure.hpp"
 #include "hal/safing.hpp"
 
 //
@@ -111,6 +113,32 @@
 // time. That is deliberate rather than opt-in: a test run whose record depends
 // on somebody having remembered a flag is a test run with no record.
 //
+// ---------------------------------------------------------------------------
+// Recording and replaying the readings
+// ---------------------------------------------------------------------------
+//   --record=PATH   write every reading the run took, in order
+//   --replay=PATH   take every reading from that file instead of the rig
+//
+// A third artifact, and the only one that is an input as well as an output (see
+// core/recording.hpp for the format). Where the two logs above describe a run --
+// for a person, and for a server -- this is the readings themselves, so the same
+// run can be played back afterwards with no rig attached: to reproduce a failure
+// at a desk, to step through what a script actually saw, or to re-run a suite
+// against readings captured from hardware that is no longer on the bench.
+//
+// Opt-in, unlike the logs, and for the opposite reason to theirs. A log is
+// evidence that a run happened and every run should leave one; a recording is a
+// tool for a particular investigation, is as long as the run is (a fifty-pass
+// soak writes fifty passes' worth), and says nothing a report needs.
+//
+// Exclusive with each other: recording a replay would faithfully write out the
+// values it had just been fed, handing back a file that looks like a fresh
+// capture and is a copy of its input.
+//
+// Both are set up before the journal opens and before anything is measured, and
+// both are fatal if they cannot be -- see main() below on why that beats
+// discovering an unwritable path once the readings are already taken.
+//
 namespace
 {
     //
@@ -133,6 +161,15 @@ namespace
         //
         std::optional<std::uint64_t>   Repeat;
         bool                           UntilFailure{ false };
+
+        //
+        // The replayable value stream (core/recording.hpp), separate from the
+        // two report logs below: those describe a run for a person and for a
+        // server, this one is the readings themselves, in order, so the same
+        // run can be played back with no rig attached.
+        //
+        std::optional<std::string>     RecordPath;
+        std::optional<std::string>     ReplayPath;
 
         std::string                    LogDir{ "logs" };
         std::optional<std::string>     SarifPath;      // unset => derived from LogDir
@@ -242,6 +279,10 @@ namespace
                 options.SarifPath = std::string( valueOf( arg, "--sarif="));
             else if ( arg.starts_with( "--rtf="))
                 options.RtfPath = std::string( valueOf( arg, "--rtf="));
+            else if ( arg.starts_with( "--record="))
+                options.RecordPath = std::string( valueOf( arg, "--record="));
+            else if ( arg.starts_with( "--replay="))
+                options.ReplayPath = std::string( valueOf( arg, "--replay="));
             else if ( arg.starts_with( "--dut-serial="))
                 options.DutSerial = std::string( valueOf( arg, "--dut-serial="));
             else if ( arg.starts_with( "--operator="))
@@ -251,6 +292,19 @@ namespace
                 std::cerr << "Unknown argument: " << arg << '\n';
                 return std::nullopt;
             }
+        }
+
+        //
+        // Rejected rather than allowed to mean something surprising. Recording
+        // a replay would faithfully write out the values it was just fed, so
+        // the run would succeed and produce a file that looks like a fresh
+        // capture and is a copy of the input -- which is exactly the kind of
+        // quietly-wrong artifact a bench run must not hand back.
+        //
+        if ( options.RecordPath && options.ReplayPath)
+        {
+            std::cerr << "--record= and --replay= are exclusive: recording a replay would just copy its input.\n";
+            return std::nullopt;
         }
 
         return options;
@@ -687,6 +741,65 @@ int main( int argc, char ** argv)
         }
     }
 
+    //
+    // --- The replayable value stream ---
+    // Both set up here, before the journal opens and before anything is
+    // measured, and both fatal if they cannot be: a caller that asked to record
+    // a run and silently got no recording, or asked to replay one and silently
+    // got live hardware instead, has been told the run did something it didn't.
+    // Nothing has touched the rig at this point, so refusing costs nothing --
+    // the same reasoning the log files above are opened on.
+    //
+    // The record file is opened now and written at the end, rather than opened
+    // at the end: discovering an unwritable path after a fifty-pass soak run
+    // would mean discovering it exactly when the data is most expensive to have
+    // lost.
+    //
+    std::ofstream recording;
+
+    if ( options.RecordPath)
+    {
+        try
+        {
+            const auto path = std::filesystem::path( *options.RecordPath);
+
+            ensureParentDirectory( path);
+
+            recording.open( path, std::ios::out | std::ios::trunc);
+
+            if ( !recording)
+            {
+                throw std::runtime_error( "could not open '" + path.string() + "' for writing");
+            }
+        }
+        catch ( const std::exception & e)
+        {
+            std::cerr << "Could not open the recording: " << e.what() << '\n';
+            return 1;
+        }
+
+        Measure.startRecording();
+    }
+
+    if ( options.ReplayPath)
+    {
+        try
+        {
+            //
+            // Every reading now comes from the file, and nothing reaches an
+            // instrument or the fabric. The rig is still safed on the way out
+            // regardless -- a replay run has nothing to safe, and safing
+            // something already idle is what hal::safeRig() is built for.
+            //
+            Measure.load( *options.ReplayPath);
+        }
+        catch ( const std::exception & e)
+        {
+            std::cerr << "Could not load the recording to replay: " << e.what() << '\n';
+            return 1;
+        }
+    }
+
     core::journal().begin( runInfo);
 
     bool allPassed = false;
@@ -726,6 +839,40 @@ int main( int argc, char ** argv)
                 .Method  = core::Verb::Note,
                 .Subject = "run",
                 .Detail  = std::string( "uncaught exception during test run: ") + e.what()
+            });
+
+            allPassed = false;
+        }
+    }
+
+    //
+    // Written after the run block above has closed, so the file holds every
+    // reading the run took -- including any a TEARDOWN made on its way out.
+    //
+    // Deliberately outside the try/catch: a run that ended by throwing is the
+    // one whose readings are most worth having, so the recording is written
+    // for a failed run exactly as for a passing one.
+    //
+    // A recording that could not be written fails the run. The scripts may
+    // well all have passed, but the caller asked for an artifact and hasn't
+    // got one -- the same stance --sarif=/--rtf= take on a log that could not
+    // be opened.
+    //
+    if ( options.RecordPath)
+    {
+        Measure.stopRecording();
+        Measure.dump( recording);
+
+        recording.flush();
+
+        if ( !recording)
+        {
+            std::cerr << "Could not write the recording to " << *options.RecordPath << '\n';
+
+            core::journal().post( core::JournalRecord{
+                .Method  = core::Verb::Note,
+                .Subject = "run",
+                .Detail  = "could not write the recording to " + *options.RecordPath
             });
 
             allPassed = false;
