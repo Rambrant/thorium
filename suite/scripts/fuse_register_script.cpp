@@ -15,7 +15,7 @@ using namespace core::quantities;
 using core::Verify;
 
 
-auto fuseRegisterScript( std::string_view, std::string_view) -> bool
+auto fuseRegisterScript() -> bool
 {
     bool allPassed = true;
 

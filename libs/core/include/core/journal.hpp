@@ -30,8 +30,8 @@ namespace core
     //
     // Deliberately reached through a single process-wide journal() below rather
     // than passed into each verb. That isn't convenience: a catalog-registered
-    // test script's signature is fixed to (group, test) -> bool with no room
-    // for a logger parameter (see core/test_catalog.hpp on why), and the verbs
+    // test script takes no parameters at all, so there is no room for a
+    // logger one (see core/test_catalog.hpp on why), and the verbs
     // a script calls -- Measure, Apply, Verify -- are themselves globals for
     // the same reason (see hal/src/measure.cpp, hal/src/apply.cpp). A journal
     // threaded by parameter would have to stop somewhere, and the place it

@@ -7,7 +7,7 @@
 
 #include "dut/adapter.inc"
 
-auto supplyRailScript(  std::string_view, std::string_view) -> bool
+auto supplyRailScript() -> bool
 {
     bool allPassed = true;
 

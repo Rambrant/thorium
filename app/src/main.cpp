@@ -257,10 +257,10 @@ namespace
     // Runs the selected tests, bracketing each group and each test with the
     // journal's own boundaries. Those calls are what make the logs
     // catalog-aware: everything a script posts inside them is attributed to
-    // that group and test, so neither Measure nor Verify has to know its own
-    // test's name (they can't -- see core/test_catalog.hpp on the fixed script
-    // signature), and the human log can state each group once with its
-    // description and nest its tests under it.
+    // that group and test, so neither the script nor Measure nor Verify has to
+    // know its own test's name (they can't -- a script takes no parameters at
+    // all, see core/test_catalog.hpp on why), and the human log can state each
+    // group once with its description and nest its tests under it.
     //
     // The group is opened only if something in it is actually going to run.
     // This is the one place that can know: the selection lives here, and a
@@ -297,7 +297,7 @@ namespace
                 // an unknown state, which is precisely what hal::RigSafingGuard
                 // and the --safe path exist for.
                 //
-                const bool passed = test.script( group.name, test.id);
+                const bool passed = test.script();
 
                 allPassed &= passed;
 

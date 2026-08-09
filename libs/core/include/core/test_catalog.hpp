@@ -7,16 +7,56 @@
 namespace core
 {
     //
-    // The one signature every catalog-registered test script has:
-    // (group, test) -- both compile-time-known strings straight out of the
-    // catalog -- and nothing else. No device/rig/crosspoint handle is
-    // passed in: that routing is resolved statically inside the script, the
-    // same way GROUP/CRIT/MATRIX/POINT already are. Because every script
-    // shares this one signature, TestCase/TestGroup need no Script template
-    // parameter -- unlike Criterion's predicate, there's only one shape
-    // here to support.
+    // The one signature every catalog-registered test script has: no
+    // parameters at all. No device/rig/crosspoint handle is passed in --
+    // that routing is resolved statically inside the script, the same way
+    // GROUP/CRIT/MATRIX/POINT already are -- and no group/test name either.
+    // The runner brackets every script with the journal's own group/test
+    // boundaries (see app/src/main.cpp), and each criterion already carries
+    // its group name into the log on its own (CRIT stamps it, core::Verify
+    // posts it), so naming a script's own test to it would be a second
+    // source for a fact the log already has from the first -- with the usual
+    // consequence that the two can disagree.
     //
-    using TestScript = auto (*)( std::string_view group, std::string_view test) -> bool;
+    // Because every script shares this one signature, TestCase/TestGroup
+    // need no Script template parameter -- unlike Criterion's predicate,
+    // there's only one shape here to support.
+    //
+    // Taking no parameters does not stop one script body from serving
+    // several catalog entries. Make the script a template and let TEST name
+    // an instantiation -- that is an ordinary identifier like any other, so
+    // the macro needs no change:
+    //
+    //   template<typename Criteria>              // suite/scripts.hpp
+    //   auto supplyRailScript() -> bool;
+    //
+    //   GROUP( OutputVoltage, "...")             // suite/test_catalog.inc
+    //       TEST( SupplyRailA, supplyRailScript<FS_Supply_1>, "...")
+    //       TEST( SupplyRailB, supplyRailScript<FS_Supply_2>, "...")
+    //   END_GROUP
+    //
+    // One preprocessor wrinkle, since TEST is a macro: a template-id with
+    // more than one parameter contains a comma, so supplyRailScript<A, B>
+    // arrives as four macro arguments rather than three. Name it first (a
+    // using-alias) and pass the alias. One parameter, as above, is fine.
+    //
+    // What is stored is still an auto (*)() -> bool, so nothing here has to
+    // change: the signature stays uniform, Tests stays a homogeneous array,
+    // and a misspelled group is still a compile error rather than a runtime
+    // lookup miss. Note the limit -- the body still writes
+    // Criteria::FS_Supply_5V0, so this reaches only groups that differ in
+    // their criteria's *values*, not in which criteria they hold. That is
+    // the case worth having: it is the same code doing the checking either
+    // way. A group that differs in shape needs a different script, not a
+    // template parameter.
+    //
+    // Deliberately not the answer to build-wide tolerance variants: swapping
+    // production/stress/aged is already THORIUM_CRITERIA_VARIANT's job (see
+    // the top-level CMakeLists.txt), and no script or catalog entry changes
+    // for it. This is for the case where one run has to check two groups
+    // side by side.
+    //
+    using TestScript = auto (*)() -> bool;
 
     //
     // A single named, traceable test case: an id + description (matching a

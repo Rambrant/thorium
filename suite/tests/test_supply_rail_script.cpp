@@ -9,10 +9,9 @@ namespace
     //
     // Injects values into the shared global Measure before calling the
     // script, then restores live routing afterward -- Measure is a single
-    // rig-wide object (the catalog's fixed (group, test) -> bool script
-    // signature has no per-call device parameter to inject through instead;
-    // see hal/measure.hpp), so every test must clean up after itself or
-    // leak into the next one.
+    // rig-wide object (a catalog script takes no parameters at all, so there
+    // is no per-call device to inject through instead; see hal/measure.hpp),
+    // so every test must clean up after itself or leak into the next one.
     //
     struct SupplyRailFixture : ::testing::Test
     {
@@ -30,7 +29,7 @@ TEST_F( SupplyRailFixture, PassesWhenBothRailsInTolerance)
     Measure.inject( "Output5V", Voltage{ 5.02 });
     Measure.inject( "Output3V3", Voltage{ 3.29 });
 
-    EXPECT_TRUE(supplyRailScript("group", "test"));
+    EXPECT_TRUE(supplyRailScript());
 }
 
 TEST_F( SupplyRailFixture, FailsWhenARailIsOutOfTolerance)
@@ -38,7 +37,7 @@ TEST_F( SupplyRailFixture, FailsWhenARailIsOutOfTolerance)
     Measure.inject( "Output5V", Voltage{ 5.02 });
     Measure.inject( "Output3V3", Voltage{ 3.10 }); // outside +/-50mV
 
-    EXPECT_FALSE(supplyRailScript("group", "test"));
+    EXPECT_FALSE(supplyRailScript());
 }
 
 TEST_F(SupplyRailFixture, ThrowsWhenAPointIsMissing)
@@ -48,5 +47,5 @@ TEST_F(SupplyRailFixture, ThrowsWhenAPointIsMissing)
     // throws rather than silently treating the missing point as a failed
     // check.
 
-    EXPECT_THROW((void)supplyRailScript("group", "test"), std::runtime_error);
+    EXPECT_THROW((void)supplyRailScript(), std::runtime_error);
 }

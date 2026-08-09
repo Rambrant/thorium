@@ -169,7 +169,7 @@ from":
 
   app/run_scripts walks suite/test_catalog.inc (GROUP / TEST), bracketing each
   group and test with journal boundaries -- which is how the logs know the
-  names that a script's fixed (group, test) -> bool signature cannot carry.
+  names that a script, taking no parameters at all, cannot carry itself.
 ```
 
 Three ideas carry most of the weight:
@@ -309,7 +309,7 @@ Three files, in this order:
 1. **Declare** in `suite/scripts.hpp`:
    ```cpp
    [[nodiscard]]
-   auto thermalRampScript( std::string_view group, std::string_view test) -> bool;
+   auto thermalRampScript() -> bool;
    ```
 2. **Define** in `suite/scripts/thermal_ramp_script.cpp` — no `CMakeLists.txt`
    edit; `suite/scripts/*.cpp` is globbed with `CONFIGURE_DEPENDS`:
@@ -325,7 +325,7 @@ Three files, in this order:
 
    using namespace core::literals;   // 24.0_V, 2.0_A
 
-   auto thermalRampScript( std::string_view, std::string_view) -> bool
+   auto thermalRampScript() -> bool
    {
        bool allPassed = true;
 
@@ -349,9 +349,64 @@ Three files, in this order:
    END_GROUP
    ```
 
-A script's signature is fixed to `(group, test) -> bool`. It takes no rig or
-device handle: routing is resolved statically inside it, and the log gets its
-group and test from the runner's journal boundaries rather than from the script.
+A script's signature is fixed to `() -> bool` — it takes nothing at all. No rig
+or device handle, because routing is resolved statically inside it; and no group
+or test name either, because the log gets those from the runner's journal
+boundaries, and every criterion carries its own group into the log via `Verify`.
+Handing a script names it doesn't need would only create a second source for a
+fact the log already has.
+
+### Run one script against several criteria groups
+
+Taking no parameters doesn't stop one script body from serving several catalog
+entries. Make the script a template and let `TEST` name an instantiation — that
+is an ordinary identifier, so the macro needs no change:
+
+```cpp
+// suite/scripts.hpp
+template<typename Criteria>
+auto supplyRailScript() -> bool;
+
+// suite/scripts/supply_rail_script.cpp
+template<typename Criteria>
+auto supplyRailScript() -> bool
+{
+    bool allPassed = true;
+
+    allPassed &= core::Verify( Criteria::FS_Supply_5V0, Measure( Dmm1.voltage(), at( DeviceX::Output5V)));
+    allPassed &= core::Verify( Criteria::FS_Supply_3V3, Measure( Dmm1.voltage(), at( DeviceX::Output3V3)));
+
+    return allPassed;
+}
+
+// suite/test_catalog.inc
+GROUP( OutputVoltage, "Tests validating DUT output voltage rails")
+    TEST( SupplyRailA, supplyRailScript<FS_Supply_1>, "Rails on the A side")
+    TEST( SupplyRailB, supplyRailScript<FS_Supply_2>, "Rails on the B side")
+END_GROUP
+```
+
+What the catalog stores is still an `auto (*)() -> bool`, so nothing about the
+mechanism changes: the signature stays uniform, `Tests` stays a homogeneous
+array, and a misspelled group is still a compile error rather than a runtime
+lookup miss. Each `Verify` logs the group name its own criterion carries, so the
+two entries stay distinguishable in the report without the script being told
+which one it is.
+
+One preprocessor wrinkle: `TEST` takes three macro arguments, and a template-id
+with more than one parameter contains a comma, so `supplyRailScript<A, B>` is
+read as four. Give it a name first — `using RailsAB = ...;` or an alias template
+— and pass that. A single parameter, as above, has no comma and is fine.
+
+The limit is worth stating: the body still writes `Criteria::FS_Supply_5V0`, so
+this reaches only groups that differ in their criteria's **values**, not in which
+criteria they hold. That is the case worth having — it's the same code doing the
+checking either way. A group of a different shape needs its own script.
+
+This is not how tolerance variants work: swapping production/stress/aged is
+`THORIUM_CRITERIA_VARIANT`'s job (see **Build options**) and changes no script
+and no catalog entry. The template is for when one run has to check two groups
+side by side.
 
 ### Measure something that isn't routed
 

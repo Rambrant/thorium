@@ -65,9 +65,9 @@ namespace core
     //
     // A session that forwards to whichever other session it currently holds,
     // defaulting to the one it was constructed with. This is what lets a
-    // catalog script's Bench -- necessarily a global, since a TestScript's
-    // signature is fixed to (group, test) -> bool with no device parameter
-    // (see core/test_catalog.hpp) -- be pointed at a ScriptedSession for the
+    // catalog script's Bench -- necessarily a global, since a TestScript
+    // takes no parameters at all, and so no device one either (see
+    // core/test_catalog.hpp) -- be pointed at a ScriptedSession for the
     // duration of one test and back again, with no recompile and no change to
     // the script itself.
     //

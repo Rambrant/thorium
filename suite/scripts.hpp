@@ -26,7 +26,7 @@
 // as opposed to the fluent TestCase style used above.
 //
 [[nodiscard]]
-auto fuseRegisterScript( std::string_view group, std::string_view test) -> bool;
+auto fuseRegisterScript() -> bool;
 
 // Verifies supply rail voltages by measuring at named test points. This is
 // the instrument/matrix path: the script names *what* to check (a criterion)
@@ -34,4 +34,4 @@ auto fuseRegisterScript( std::string_view group, std::string_view test) -> bool;
 // select-instrument / route-matrix / fetch sequence entirely.
 //
 [[nodiscard]]
-auto supplyRailScript( std::string_view group, std::string_view test) -> bool;
+auto supplyRailScript() -> bool;

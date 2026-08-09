@@ -27,12 +27,12 @@ TEST_F(FuseRegisterFixture, PassesWhenVoltageIsWithinCriteria)
 {
     Measure.inject( "Vout", Voltage{ 12.01 });
 
-    EXPECT_TRUE(fuseRegisterScript("group", "test"));
+    EXPECT_TRUE(fuseRegisterScript());
 }
 
 TEST_F(FuseRegisterFixture, FailsWhenVoltageOutOfTolerance)
 {
     Measure.inject( "Vout", Voltage{ 12.50 }); // outside 12.0 +/- 0.05
 
-    EXPECT_FALSE(fuseRegisterScript("group", "test"));
+    EXPECT_FALSE(fuseRegisterScript());
 }
