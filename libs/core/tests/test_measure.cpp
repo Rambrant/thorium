@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <generator>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -180,6 +181,60 @@ TEST_F( MeasureEngineFixture, InjectBypassesTheFabricEntirely)
     EXPECT_DOUBLE_EQ( value.value(), 5.02);
     EXPECT_TRUE( fabric.lastConnected().empty());
     EXPECT_TRUE( fabric.lastDisconnected().empty());
+}
+
+//
+// The sequence overloads. What matters across these three is that they are one
+// mechanism: a braced list, an owned container and a coroutine all arrive as a
+// core::ValueSource, so a test can pick whichever way of describing the values
+// it wants without the engine offering a different behaviour for each.
+//
+TEST_F( MeasureEngineFixture, InjectServesABracedListOneValuePerMeasurement)
+{
+    Measure.inject( "Output5V", { 5.02_V, 5.03_V, 4.90_V });
+
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.02);
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.03);
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 4.90);
+}
+
+TEST_F( MeasureEngineFixture, InjectedSequenceThrowsRatherThanRepeatingItsLastValue)
+{
+    Measure.inject( "Output5V", std::vector{ 5.02_V });
+
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.02);
+    EXPECT_THROW( (void)Measure( dmm1.voltage(), at( Output5V)), std::runtime_error);
+}
+
+//
+// The case the whole seam exists for: the caller supplies the algorithm. This
+// one ramps until it walks out of tolerance, which is what a "repeat until it
+// fails" run needs to be testable without hardware.
+//
+namespace
+{
+    auto rampingRail( Voltage from, Voltage step) -> std::generator<Voltage>
+    {
+        for( auto value = from; ; value = Voltage{ value.value() + step.value() })
+        {
+            co_yield value;
+        }
+    }
+} // namespace
+
+TEST_F( MeasureEngineFixture, InjectServesAGeneratorAndAnInfiniteOneNeverRunsOut)
+{
+    Measure.inject( "Output5V", rampingRail( 5.00_V, 0.01_V));
+
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.00);
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.01);
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.02);
+
+    // Far past where any finite list would have ended.
+    for( int i = 0; i < 500; ++i)
+    {
+        EXPECT_NO_THROW( (void)Measure( dmm1.voltage(), at( Output5V)));
+    }
 }
 
 TEST_F( MeasureEngineFixture, UseLiveRestoresRealRoutingAfterAnInject)

@@ -356,6 +356,50 @@ boundaries, and every criterion carries its own group into the log via `Verify`.
 Handing a script names it doesn't need would only create a second source for a
 fact the log already has.
 
+### Bracket a run with setup and teardown
+
+Powering the rig up before the first script and back down after the last is a
+`SETUP`/`TEARDOWN` pair in the catalog, named as identifiers exactly the way
+`TEST` names a script:
+
+1. **Declare** them alongside the scripts in `suite/scripts.hpp`:
+   ```cpp
+   [[nodiscard]] auto rigPowerOn()  -> bool;
+   [[nodiscard]] auto rigPowerOff() -> bool;
+   ```
+2. **Define** them in `suite/scripts/` like any other script file.
+3. **Register** them in `suite/test_catalog.inc`:
+   ```cpp
+   SETUP(    rigPowerOn)
+   TEARDOWN( rigPowerOff)
+
+   GROUP( OutputVoltage, "Tests validating DUT output voltage rails")
+       TEST( SupplyRail, supplyRailScript, "Verify supply rail voltages via matrix")
+   END_GROUP
+   ```
+
+Both are optional and independent — declare one, both, or neither. A catalog
+with no `SETUP` line needs no placeholder for one; absence resolves to `nullptr`
+through ordinary name lookup (see `core/active_test_catalog.hpp`), so the
+shipped catalog, which declares neither, behaves exactly as it did before hooks
+existed.
+
+What they bracket is the **selection**, once — including every `--repeat` pass.
+`--repeat=50` powers the rig on once, runs the scripts fifty times, and powers
+it off once. A hook that should instead run per repetition would be a different
+hook, not a different meaning for this one.
+
+Three things worth knowing:
+
+- **`TEARDOWN` runs on every way out** — the selection finishing, `--until-failure`
+  stopping early, or a script throwing straight past everything. It is a guard
+  destructor for the same reason `hal::RigSafingGuard` is one.
+- **It runs before the unconditional safing**, so a teardown that expects the
+  fabric still wired up gets it. `hal::safeRig()` follows afterwards regardless.
+- **A failing hook fails the run.** Setup returning `false` means no test runs at
+  all; teardown returning `false` fails a run whose scripts all passed — a rig
+  that didn't shut down the way the suite says it should is not a clean run.
+
 ### Run one script against several criteria groups
 
 Taking no parameters doesn't stop one script body from serving several catalog
@@ -485,8 +529,39 @@ alias and a `static_assert` tells you exactly what is missing.
 ```cpp
 Measure.inject( "Output12V", core::quantities::Voltage{ 12.05});
 
-EXPECT_TRUE( thermalRampScript( "Thermal", "ThermalRamp"));
+EXPECT_TRUE( thermalRampScript());
 ```
+
+A single injected value is *sticky*: the point reads 12.05 V however many times
+the script measures it. To make a point read differently on each measurement,
+inject a sequence instead — which is what makes a repeated run testable without
+hardware:
+
+```cpp
+using namespace core::literals;
+
+Measure.inject( "Output12V", { 12.05_V, 12.06_V, 11.80_V });   // a braced list
+Measure.inject( "Output12V", std::move( capturedRail));        // any owned range
+Measure.inject( "Output12V", rampingRail( 12.0_V, 0.01_V));    // a std::generator
+```
+
+All three arrive as one `core::ValueSource` (see `core/session.hpp`), so the
+caller picks the algorithm rather than the framework offering a menu of them.
+A coroutine is the general case:
+
+```cpp
+auto rampingRail( Voltage from, Voltage step) -> std::generator<Voltage>
+{
+    for( auto v = from; ; v = Voltage{ v.value() + step.value() })
+        co_yield v;
+}
+```
+
+That also settles what happens when the values run out, without the framework
+deciding it: a finite sequence **throws** once exhausted — measuring a point
+more times than the test authored values for it means the script diverged from
+what was expected, which is worth failing on — while a generator that never
+ends never runs out. Neither is privileged.
 
 `Measure.load( path)` replays a recording captured from a real run instead.
 `Measure.useLive()` goes back to hardware.
@@ -506,12 +581,31 @@ build/app/run_scripts --dut-serial=SN-000123
 | *(none)* | run every test in the catalog |
 | `--list-tests` | print `group\|id\|description` per test, run nothing |
 | `--select=a,b` | run only these test ids, in catalog order |
+| `--repeat=N` | run the selection N times over |
+| `--until-failure` | stop as soon as a pass fails |
 | `--safe` | drop the rig to idle and exit — no test, no log |
 | `--dut-serial=`, `--operator=` | traceability, into both logs |
 | `--log-dir=`, `--sarif=`, `--rtf=` | where the logs go |
 | `--quiet`, `--no-logs`, `--no-color` | suppress the console, the files, the colour |
 
 Exit code is 0 only if every selected test passed.
+
+**Repeating a run.** What repeats is the *selection*, not each script:
+`--select=A,B --repeat=3` runs `A B A B A B`, never `A A A B B B`. That is the
+unit a soak run cares about — "the tests, again" — and it is also the unit
+`SETUP`/`TEARDOWN` bracket.
+
+```bash
+build/app/run_scripts --repeat=50                    # fifty passes
+build/app/run_scripts --until-failure                # until something breaks
+build/app/run_scripts --repeat=50 --until-failure    # at most fifty, stop on failure
+```
+
+`--until-failure` on its own has no bound, deliberately: how many passes a DUT
+survives is what such a run is trying to find out, so requiring the number up
+front would be requiring the answer. A repeated run is still **one** run — one
+report, one exit status, passes marked in the machine log, and any failing pass
+fails the whole thing.
 
 `tools/run-tests.sh [build-dir]` is the tester-facing picker: choose a group, then
 one, several or all of its tests. It offers the catalog and nothing else — unit

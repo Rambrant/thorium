@@ -1,8 +1,12 @@
 #pragma once
 
+#include <concepts>
+#include <initializer_list>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "core/adapter.hpp"
@@ -290,6 +294,55 @@ namespace core
             auto inject( std::string_view pointName, QuantityVariant value) -> void
             {
                 mScripted.program( pointName, std::move( value));
+                mSwitchable.use( mScripted);
+            }
+
+            //
+            // Feeds a *sequence* of canned values for a point, one per
+            // measurement, in order -- which is what lets one script be run
+            // repeatedly against changing readings, and so what makes a
+            // "repeat until it fails" run testable without hardware.
+            //
+            // Takes any input range of quantities, so the caller picks the
+            // algorithm rather than this header offering a fixed menu of them:
+            //
+            //   Measure.inject( "Output5V", std::vector{ 5.02_V, 5.03_V, 4.90_V });
+            //   Measure.inject( "Output5V", rampingRail( 5.0_V, 0.01_V));   // std::generator
+            //
+            // Running past the end of a finite sequence throws (see
+            // core::ScriptedSession::fetch); a generator that never ends never
+            // runs out. Both are the source's business, not this call's -- see
+            // core::ValueSource.
+            //
+            // By value, not by forwarding reference: a std::generator is
+            // move-only and must be moved in, and a caller wanting to keep its
+            // own container can pass a view of it instead.
+            //
+            template<std::ranges::input_range R>
+                requires std::constructible_from<QuantityVariant, std::ranges::range_reference_t<R>>
+            auto inject( std::string_view pointName, R values) -> void
+            {
+                inject( pointName, sourceOf( std::move( values)));
+            }
+
+            //
+            // The braced-list spelling -- Measure.inject( "Output5V", { 5.02_V,
+            // 5.03_V }) -- which needs an overload of its own because a
+            // braced-init-list deduces no range type for the template above.
+            //
+            template<quantities::QuantityType QuantityT>
+            auto inject( std::string_view pointName, std::initializer_list<QuantityT> values) -> void
+            {
+                inject( pointName, std::vector<QuantityT>( values));
+            }
+
+            //
+            // The seam itself, for a caller that has already built one (or
+            // wants a source that is not expressible as a range at all).
+            //
+            auto inject( std::string_view pointName, ValueSource source) -> void
+            {
+                mScripted.program( pointName, std::move( source));
                 mSwitchable.use( mScripted);
             }
 

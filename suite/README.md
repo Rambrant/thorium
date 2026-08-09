@@ -13,6 +13,13 @@ what to call them. Unlike the criteria variants, there's only one of these
 scenario, but always runs the same set of tests). See
 `core/active_test_catalog.hpp` for how it's consumed.
 
+The same file may declare `SETUP`/`TEARDOWN` -- the code bracketing the
+selected scripts, typically powering the rig up and back down. Both are
+optional, and this catalog declares neither, which is why nothing here
+mentions them beyond this paragraph: a catalog without them needs no
+placeholder. See the README's "Bracket a run with setup and teardown" for
+how to add a pair, and `core::RunHook` for what they promise.
+
 `scripts.hpp` holds the test scripts' declarations, at global scope
 deliberately (see the comment there) -- which is what lets
 `core/active_test_catalog.hpp` name one directly in a `TEST(...)` without

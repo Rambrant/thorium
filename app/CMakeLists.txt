@@ -120,14 +120,38 @@ if(BUILD_TESTING_LAYERS)
     # up afterwards: a failing assertion names the file to go and read, and a
     # passing run still leaves real specimens of both log formats to look at.
     # See the test file's own header comment for the per-scenario layout.
+    # --- A second runner, over a catalog that declares SETUP/TEARDOWN ---
+    # suite/test_catalog.inc declares neither hook, on purpose, so no ordinary
+    # run exercises the runner's hook path at all. This target is the same
+    # main.cpp over a fixture catalog that does declare them, which is what
+    # lets the acceptance tests assert the things only a real run can show:
+    # that SETUP precedes every script and TEARDOWN follows the last one, that
+    # both happen once around all of --repeat's passes rather than once per
+    # pass, and that TEARDOWN still runs when a script throws.
+    #
+    # Same main.cpp deliberately, not a stand-in: a test binary that reimplemented
+    # the run loop would be testing the reimplementation. The catalog is the only
+    # thing that differs, which is exactly the variable under test.
+    add_library(hooked_scripts STATIC tests/fixtures/hooked_scripts.cpp)
+    target_link_libraries(hooked_scripts PUBLIC hal core)
+    target_include_directories(hooked_scripts PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures)
+    target_compile_definitions(hooked_scripts PUBLIC
+        THORIUM_TEST_CATALOG="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/hooked_catalog.inc"
+        THORIUM_TEST_SCRIPTS="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/hooked_scripts.hpp"
+    )
+
+    add_executable(run_scripts_hooked src/main.cpp)
+    target_link_libraries(run_scripts_hooked PRIVATE hooked_scripts)
+
     target_compile_definitions(acceptance_tests PRIVATE
         THORIUM_RUN_SCRIPTS_EXE="$<TARGET_FILE:run_scripts>"
+        THORIUM_RUN_SCRIPTS_HOOKED_EXE="$<TARGET_FILE:run_scripts_hooked>"
         THORIUM_ACCEPTANCE_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/acceptance"
     )
 
-    # Nothing links run_scripts, so without this the acceptance binary could be
-    # built (and run) before the thing it tests exists.
-    add_dependencies(acceptance_tests run_scripts)
+    # Nothing links either runner, so without this the acceptance binary could
+    # be built (and run) before the things it tests exist.
+    add_dependencies(acceptance_tests run_scripts run_scripts_hooked)
 
     # Labelled so a developer can run or skip this group as a whole --
     # `ctest -L acceptance` / `ctest -LE acceptance` -- since these are the only

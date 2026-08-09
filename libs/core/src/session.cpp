@@ -20,10 +20,19 @@ namespace core
         }
     } // namespace
 
+    auto constantSource( QuantityVariant value) -> ValueSource
+    {
+        return [ value = std::move( value)]() -> std::optional<QuantityVariant> { return value; };
+    }
+
     auto ScriptedSession::program( const std::string_view name, QuantityVariant value) -> void
     {
-        mSticky.insert_or_assign( std::string( name), std::move( value));
-        mQueue.erase( std::string( name));
+        program( name, constantSource( std::move( value)));
+    }
+
+    auto ScriptedSession::program( const std::string_view name, ValueSource source) -> void
+    {
+        mSources.insert_or_assign( std::string( name), std::move( source));
     }
 
     auto ScriptedSession::loadFromFile( const std::string & path) -> ScriptedSession
@@ -35,11 +44,24 @@ namespace core
             throw std::runtime_error( "ScriptedSession::loadFromFile: could not open '" + path + "'");
         }
 
-        ScriptedSession session;
+        //
+        // Collected per point first, then turned into one source each. A
+        // recording interleaves points in the order they were measured, so the
+        // per-point sequence only exists once the whole file has been read --
+        // there is nothing to hand to sourceOf() until then.
+        //
+        std::unordered_map<std::string, std::vector<QuantityVariant>> samples;
 
         for( const auto & sample : readRecording( in))
         {
-            session.mQueue[ sample.mPointName].push_back( sample.mValue);
+            samples[ sample.mPointName].push_back( sample.mValue);
+        }
+
+        ScriptedSession session;
+
+        for( auto & [ pointName, values] : samples)
+        {
+            session.program( pointName, sourceOf( std::move( values)));
         }
 
         return session;
@@ -52,31 +74,34 @@ namespace core
         const std::function<QuantityVariant()> &) -> QuantityVariant
     {
         const auto key = std::string( name);
+        const auto entry = mSources.find( key);
 
-        if( const auto sticky = mSticky.find( key); sticky != mSticky.end())
+        if( entry == mSources.end())
         {
-            checkKind( name, sticky->second, kind);
-            return sticky->second;
+            throw std::runtime_error(
+                "ScriptedSession: nothing programmed for point '" + key +
+                "' -- program() it, or load a recording that covers it");
         }
 
-        if( const auto queued = mQueue.find( key); queued != mQueue.end() && !queued->second.empty())
+        //
+        // A source that has run out is a hard error rather than a silent repeat
+        // of its last value: a script measuring a point more times than the
+        // test authored values for it has diverged from what was expected, and
+        // that is precisely the thing worth failing on. A source that should
+        // never run out simply never returns nullopt -- see core::ValueSource.
+        //
+        const auto value = entry->second();
+
+        if( !value)
         {
-            auto value = queued->second.front();
-            queued->second.pop_front();
-
-            checkKind( name, value, kind);
-
-            if( queued->second.empty())
-            {
-                mQueue.erase( queued);
-            }
-
-            return value;
+            throw std::runtime_error(
+                "ScriptedSession: no programmed value left for point '" + key +
+                "' -- either program() more, load a longer recording, or the script is measuring it more times than expected");
         }
 
-        throw std::runtime_error(
-            "ScriptedSession: no programmed value left for point '" + key +
-            "' -- either program() it, load a longer recording, or the script is measuring it more times than expected");
+        checkKind( name, *value, kind);
+
+        return *value;
     }
 
     auto RecordingSession::fetch(

@@ -1,10 +1,14 @@
 #include <algorithm>
+#include <charconv>
+#include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "core/active_test_catalog.hpp"
@@ -26,6 +30,36 @@
 //   run_scripts --safe             drop the rig to a known idle state and
 //                                  exit -- no test is run, nothing is
 //                                  measured, nothing is reported
+//
+// ---------------------------------------------------------------------------
+// Repeating a run
+// ---------------------------------------------------------------------------
+//   --repeat=N        run the selection N times over
+//   --until-failure   stop as soon as a pass fails
+//
+// What repeats is the *selection*, not each script: --select=A,B --repeat=3
+// runs A B A B A B, never A A A B B B. That is the unit a soak run cares
+// about -- "the tests, again" -- and it is also the unit SETUP/TEARDOWN
+// bracket, which they could not be if each script repeated on its own.
+//
+// The two combine as a bound and a stopping condition. --until-failure alone
+// has no bound and runs until something fails, which is the point of it: how
+// many passes a DUT survives is what the run is trying to find out, so
+// requiring that number up front would be requiring the answer. With
+// --repeat=N it stops at N passes or at the first failure, whichever comes
+// first.
+//
+// A repeated run is one run, with one report and one exit status: the passes
+// are marked in the log (see runTests below) but they are not separate runs,
+// and any failing pass fails the whole thing.
+//
+// ---------------------------------------------------------------------------
+// Bracketing a run
+// ---------------------------------------------------------------------------
+// A catalog may declare SETUP and TEARDOWN (see core/test_catalog.hpp) --
+// typically powering the rig up and back down. They run once each, around
+// everything, including every repeat pass. Neither is required; a catalog
+// declaring neither behaves exactly as it did before they existed.
 //
 // ids are only ever compared for a match against what's already in the
 // catalog -- never parsed into anything -- so a typo in --select just
@@ -90,6 +124,15 @@ namespace
         std::vector<std::string_view>  Selection;      // empty => run everything
         bool                           ListOnly{ false };
         bool                           SafeOnly{ false };
+
+        //
+        // How many times to run the selection. Unset is not the same as 1: on
+        // its own it means once, but with UntilFailure it means "keep going",
+        // which is what lets --until-failure be useful without having to guess
+        // a pass count up front. See passCount() below.
+        //
+        std::optional<std::uint64_t>   Repeat;
+        bool                           UntilFailure{ false };
 
         std::string                    LogDir{ "logs" };
         std::optional<std::string>     SarifPath;      // unset => derived from LogDir
@@ -166,8 +209,33 @@ namespace
                 options.Quiet = true;
             else if ( arg == "--no-logs")
                 options.WriteLogs = false;
+            else if ( arg == "--until-failure")
+                options.UntilFailure = true;
             else if ( arg.starts_with( "--select="))
                 options.Selection = splitCommaList( valueOf( arg, "--select="));
+            else if ( arg.starts_with( "--repeat="))
+            {
+                const auto text = valueOf( arg, "--repeat=");
+
+                std::uint64_t count = 0;
+                const auto [ end, error] = std::from_chars( text.data(), text.data() + text.size(), count);
+
+                //
+                // Rejected rather than clamped, and rejected here rather than
+                // at first use: --repeat=0 (run nothing), --repeat=-1 and
+                // --repeat=ten are all a caller asking for something this
+                // cannot do, and a run that quietly reinterpreted the number
+                // would be a run that didn't do what was asked -- the same
+                // reason an unknown flag is fatal just below.
+                //
+                if ( error != std::errc{} || end != text.data() + text.size() || count == 0)
+                {
+                    std::cerr << "--repeat= needs a positive whole number of passes, got: " << text << '\n';
+                    return std::nullopt;
+                }
+
+                options.Repeat = count;
+            }
             else if ( arg.starts_with( "--log-dir="))
                 options.LogDir = std::string( valueOf( arg, "--log-dir="));
             else if ( arg.starts_with( "--sarif="))
@@ -254,23 +322,24 @@ namespace
     }
 
     //
-    // Runs the selected tests, bracketing each group and each test with the
-    // journal's own boundaries. Those calls are what make the logs
-    // catalog-aware: everything a script posts inside them is attributed to
-    // that group and test, so neither the script nor Measure nor Verify has to
-    // know its own test's name (they can't -- a script takes no parameters at
-    // all, see core/test_catalog.hpp on why), and the human log can state each
-    // group once with its description and nest its tests under it.
+    // One pass over the selection: every selected test, once, in catalog order.
+    //
+    // Bracketed with the journal's own group/test boundaries. Those calls are
+    // what make the logs catalog-aware: everything a script posts inside them
+    // is attributed to that group and test, so neither the script nor Measure
+    // nor Verify has to know its own test's name (they can't -- a script takes
+    // no parameters at all, see core/test_catalog.hpp on why), and the human
+    // log can state each group once with its description and nest its tests
+    // under it.
     //
     // The group is opened only if something in it is actually going to run.
     // This is the one place that can know: the selection lives here, and a
     // --select naming one test would otherwise produce a log full of headings
     // for groups that contributed nothing.
     //
-    auto runTests( const std::vector<std::string_view> & selection) -> bool
+    auto runOnePass( const std::vector<std::string_view> & selection) -> bool
     {
         bool allPassed = true;
-        bool ranAny    = false;
 
         for ( const auto & group : core::catalog::Catalog)
         {
@@ -283,8 +352,6 @@ namespace
             {
                 if ( !isSelected( test.id, selection))
                     continue;
-
-                ranAny = true;
 
                 core::journal().beginTest( test.id, test.description);
 
@@ -307,13 +374,220 @@ namespace
             core::journal().endGroup();
         }
 
-        if ( !ranAny)
+        return allPassed;
+    }
+
+    // Whether the selection names anything this catalog actually has.
+    auto anythingSelected( const std::vector<std::string_view> & selection) -> bool
+    {
+        for ( const auto & group : core::catalog::Catalog)
+            if ( anySelected( group, selection))
+                return true;
+
+        return false;
+    }
+
+    //
+    // How many passes to make over the selection. Unbounded is a real answer,
+    // not a fallback: --until-failure with no --repeat means "keep running this
+    // until something breaks", which is a soak run whose length is decided by
+    // the DUT rather than by the caller.
+    //
+    auto passCount( const Options & options) -> std::uint64_t
+    {
+        if ( options.Repeat)
+            return *options.Repeat;
+
+        return options.UntilFailure ? std::numeric_limits<std::uint64_t>::max() : 1;
+    }
+
+    //
+    // Calls a hook if the catalog declared one. An absent hook succeeds --
+    // "there was nothing to do" is not a failure.
+    //
+    // Taking the hook as a parameter rather than testing core::catalog::Setup
+    // against nullptr at the call site is what keeps this compiling under
+    // -Werror both ways round: those constants are compile-time known, so a
+    // catalog that *does* declare a hook makes the null test provably useless
+    // and -Waddress rejects it, while a catalog that declares none needs
+    // exactly that test. A parameter is opaque to the warning and correct for
+    // both.
+    //
+    [[nodiscard]]
+    auto runHook( const core::RunHook hook) -> bool
+    {
+        return hook == nullptr || hook();
+    }
+
+    //
+    // Runs TEARDOWN on the way out of the run, whichever way that is -- the
+    // selection finishing, --until-failure stopping early, or a script throwing
+    // straight past everything. A destructor for the same reason
+    // hal::RigSafingGuard is one: the alternative is a call at each of those
+    // exits and a list to keep in step with the next one added.
+    //
+    // Ordered *inside* main's hal::RigSafingGuard, so a run ends by doing what
+    // the suite asked for and only then the unconditional safing -- a teardown
+    // that expects the fabric still wired up gets it.
+    //
+    // Nothing escapes here. A destructor that throws while the stack is already
+    // unwinding from a failing script terminates the process, which would lose
+    // both logs and tell a rig console nothing about what went wrong.
+    //
+    class TeardownGuard
+    {
+        public:
+            TeardownGuard( const core::RunHook hook, bool & allPassed) : mHook( hook), mAllPassed( allPassed) {}
+
+            ~TeardownGuard()
+            {
+                if ( !mHook)
+                    return;
+
+                try
+                {
+                    if ( !mHook())
+                        fail( "TEARDOWN reported failure");
+                }
+                catch ( const std::exception & e)
+                {
+                    fail( std::string( "TEARDOWN threw: ") + e.what());
+                }
+                catch ( ...)
+                {
+                    fail( "TEARDOWN threw an unknown exception");
+                }
+            }
+
+        private:
+            //
+            // A failing teardown fails the run. The scripts may well all have
+            // passed, but a rig that did not shut down the way the suite says
+            // it should is not a run anybody should read as clean.
+            //
+            auto fail( const std::string & what) -> void
+            {
+                std::cerr << what << '\n';
+
+                core::journal().post( core::JournalRecord{
+                    .Method  = core::Verb::Note,
+                    .Subject = "run",
+                    .Detail  = what
+                });
+
+                mAllPassed = false;
+            }
+
+            core::RunHook  mHook;
+            bool &         mAllPassed;
+    };
+
+    //
+    // The whole run: SETUP, then the selection as many times as asked, then
+    // TEARDOWN.
+    //
+    // The hooks bracket the *selection*, not each pass over it -- so
+    // --repeat=50 powers the rig on once, runs the scripts fifty times, and
+    // powers it off once. See core::RunHook.
+    //
+    // Defined below runTests, next to the loop it owns.
+    auto runPasses( const Options & options, bool & allPassed) -> void;
+
+    auto runTests( const Options & options) -> bool
+    {
+        //
+        // Checked before SETUP: a selection matching nothing is a caller error,
+        // and powering a rig up to then run no test at all is not a helpful way
+        // to report it.
+        //
+        if ( !anythingSelected( options.Selection))
         {
             std::cerr << "No catalog test matched --select; nothing ran.\n";
             return false;
         }
 
+        bool allPassed = true;
+
+        //
+        // The guard lives in a scope of its own, and the verdict is returned
+        // only after that scope closes. A `return allPassed` with the guard
+        // still alive would copy the value out *before* the destructor ran, so
+        // a teardown reporting failure could never affect the exit status --
+        // which is precisely what it is meant to do.
+        //
+        {
+            //
+            // Constructed before SETUP runs, so a setup that fails half way
+            // through -- supplies up, fabric not -- still gets its teardown.
+            //
+            const TeardownGuard teardown{ core::catalog::Teardown, allPassed };
+
+            if ( !runHook( core::catalog::Setup))
+            {
+                std::cerr << "SETUP reported failure; no test was run.\n";
+
+                core::journal().post( core::JournalRecord{
+                    .Method  = core::Verb::Note,
+                    .Subject = "run",
+                    .Detail  = "SETUP reported failure; no test was run"
+                });
+
+                allPassed = false;
+            }
+            else
+            {
+                runPasses( options, allPassed);
+            }
+        }
+
         return allPassed;
+    }
+
+    //
+    // The passes themselves, split out so runTests above can keep the guard's
+    // scope and the verdict's lifetime obvious rather than burying them in a
+    // loop.
+    //
+    auto runPasses( const Options & options, bool & allPassed) -> void
+    {
+        const auto passes = passCount( options);
+
+        for ( std::uint64_t pass = 0; pass < passes; ++pass)
+        {
+            //
+            // Recorded only when there is more than one, so an ordinary single
+            // run's log is unchanged. Without it a repeated run's log is the
+            // same group and test headings over and over with nothing saying
+            // which time round it is.
+            //
+            if ( passes > 1)
+            {
+                core::journal().post( core::JournalRecord{
+                    .Method  = core::Verb::Note,
+                    .Subject = "run",
+                    .Detail  = options.Repeat
+                        ? "pass " + std::to_string( pass + 1) + " of " + std::to_string( passes)
+                        : "pass " + std::to_string( pass + 1)
+                });
+            }
+
+            const bool passed = runOnePass( options.Selection);
+
+            allPassed &= passed;
+
+            if ( !passed && options.UntilFailure)
+            {
+                std::cerr << "Stopping after failing pass " << ( pass + 1) << " (--until-failure).\n";
+
+                core::journal().post( core::JournalRecord{
+                    .Method  = core::Verb::Note,
+                    .Subject = "run",
+                    .Detail  = "stopped after failing pass " + std::to_string( pass + 1) + " (--until-failure)"
+                });
+
+                break;
+            }
+        }
     }
 } // namespace
 
@@ -430,7 +704,7 @@ int main( int argc, char ** argv)
 
         try
         {
-            allPassed = runTests( options.Selection);
+            allPassed = runTests( options);
         }
         catch ( const std::exception & e)
         {

@@ -135,5 +135,24 @@ if(BUILD_TESTING_LAYERS)
             tests/test_report.cpp
             tests/test_rtf_sink.cpp
             tests/test_sarif_sink.cpp
+            tests/test_run_hooks.cpp
+    )
+
+    # --- Fixture catalog, for tests/test_run_hooks.cpp ---
+    # A catalog declaring SETUP/TEARDOWN, which the shipped
+    # suite/test_catalog.inc deliberately does not -- see that test's own
+    # header comment for why the no-hooks half needs no fixture.
+    #
+    # Absolute paths for the same reason app/CMakeLists.txt uses them for
+    # THORIUM_TEST_CATALOG proper: the #include naming them lives in
+    # core/active_test_catalog.hpp, so a path relative to the test file that
+    # sets them would be resolved from the wrong directory entirely.
+    #
+    # Separate names rather than defining THORIUM_TEST_CATALOG itself, so this
+    # reaches exactly the one translation unit that opts in by redefining them,
+    # and no other core test acquires a catalog it never asked for.
+    target_compile_definitions(core_tests PRIVATE
+        THORIUM_TEST_CATALOG_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/hooked_catalog.inc"
+        THORIUM_TEST_SCRIPTS_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/hooked_scripts.hpp"
     )
 endif()

@@ -33,10 +33,41 @@
 //
 namespace core::catalog
 {
+    //
+    // Fallbacks for a catalog that declares no SETUP/TEARDOWN of its own --
+    // which is the normal case, and must stay the case that needs no
+    // placeholder written anywhere.
+    //
+    // These have to be declared *before* namespace detail below, because that
+    // is what makes them findable from inside it. A catalog's own SETUP expands
+    // to a SetupHook in detail, which hides the one here; a catalog with no
+    // SETUP declares nothing, and unqualified lookup inside detail walks out to
+    // this one instead. That is the whole mechanism: ordinary name lookup, not
+    // a detection trick, and the reason the two resolutions below are written
+    // unqualified rather than as detail::SetupHook.
+    //
+    inline constexpr RunHook SetupHook    = nullptr;
+    inline constexpr RunHook TeardownHook = nullptr;
+
     namespace detail
     {
         #include THORIUM_TEST_CATALOG
+
+        //
+        // Unqualified on purpose -- see the fallbacks' comment above. Resolved
+        // here, inside detail, because that is the only scope where a catalog's
+        // own declaration is visible to hide the fallback.
+        //
+        inline constexpr RunHook ResolvedSetup    = SetupHook;
+        inline constexpr RunHook ResolvedTeardown = TeardownHook;
     } // namespace detail
+
+    //
+    // The hooks that bracket a run, or nullptr where the catalog declared
+    // none -- the runner checks before calling (see app/src/main.cpp).
+    //
+    inline constexpr RunHook Setup    = detail::ResolvedSetup;
+    inline constexpr RunHook Teardown = detail::ResolvedTeardown;
 
     //
     // The whole catalog, flattened to one compile-time array of groups. A UI

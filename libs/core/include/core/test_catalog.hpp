@@ -59,6 +59,28 @@ namespace core
     using TestScript = auto (*)() -> bool;
 
     //
+    // A run hook: code that brackets the selected scripts, declared by the
+    // catalog via SETUP/TEARDOWN below. Powering the rig on before the first
+    // script and off after the last is the case it exists for.
+    //
+    // Same shape as a TestScript, and deliberately a distinct name rather than
+    // a reuse of it: a hook is not a test, contributes no verdict of its own to
+    // the report, and appears in no group -- what its bool means is "did the
+    // bracketing work", not "did the DUT pass".
+    //
+    // What it brackets is the *selection*, once, however many times that
+    // selection is then repeated (see --repeat in app/src/main.cpp). A hook
+    // that should instead run per repetition would be a different hook, not a
+    // different meaning for this one -- there is nothing here to add it yet
+    // because nothing has needed it.
+    //
+    // Both hooks are optional. A catalog declaring neither is the normal case
+    // and needs no placeholder; see core/active_test_catalog.hpp for how their
+    // absence resolves.
+    //
+    using RunHook = auto (*)() -> bool;
+
+    //
     // A single named, traceable test case: an id + description (matching a
     // test-plan entry) plus the script it runs.
     //
@@ -119,3 +141,25 @@ namespace core
 #define END_GROUP                                                      \
         };                                                               \
     };
+
+//
+// SETUP / TEARDOWN: the code that brackets the selected scripts, named the
+// same way TEST names a script -- as an identifier checked against its
+// declaration, not a string looked up at runtime.
+//
+//   SETUP(    rigPowerOn)
+//   TEARDOWN( rigPowerOff)
+//
+// Both are optional and independent: declare one, both, or neither. A catalog
+// with no SETUP line needs no placeholder for one, which is what the fallback
+// declarations in core/active_test_catalog.hpp are for.
+//
+// At most one of each per catalog -- a second SETUP is a redefinition error at
+// the point it is written, which is the right outcome: two setup routines have
+// an order between them that nothing in the file states.
+//
+#define SETUP( hook)                                                   \
+    inline constexpr ::core::RunHook SetupHook = hook;
+
+#define TEARDOWN( hook)                                                \
+    inline constexpr ::core::RunHook TeardownHook = hook;

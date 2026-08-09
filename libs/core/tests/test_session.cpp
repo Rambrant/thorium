@@ -70,6 +70,75 @@ TEST( CoreSession, ScriptedSessionThrowsWhenNothingWasProgrammed)
         std::runtime_error);
 }
 
+//
+// Value sources. These cover the seam itself -- the kind check, and the two
+// ends of the exhaustion question -- where test_measure.cpp covers the
+// Measure.inject() spellings that produce one.
+//
+TEST( CoreSession, ScriptedSessionSourceIsConsumedInOrderThenThrows)
+{
+    core::ScriptedSession session;
+    session.program( "5VOutput", core::sourceOf( std::vector{ Voltage{ 5.02 }, Voltage{ 5.03 } }));
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 5.02);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 5.03);
+
+    EXPECT_THROW(
+        (void)session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0)),
+        std::runtime_error);
+}
+
+TEST( CoreSession, ScriptedSessionSourceValuesAreCheckedForTheirKind)
+{
+    core::ScriptedSession session;
+    session.program( "5VOutput", core::sourceOf( std::vector{ Voltage{ 5.02 } }));
+
+    EXPECT_THROW(
+        (void)session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0)),
+        std::runtime_error);
+}
+
+//
+// A source is free to never end -- which is what makes "run this until it
+// fails" expressible without deciding up front how many passes that will take.
+//
+TEST( CoreSession, ScriptedSessionAnEndlessSourceNeverRunsOut)
+{
+    core::ScriptedSession session;
+
+    double next = 5.0;
+    session.program( "5VOutput", [&next]() -> std::optional<core::QuantityVariant>
+    {
+        return Voltage{ next += 0.01 };
+    });
+
+    for( int i = 0; i < 1000; ++i)
+    {
+        EXPECT_NO_THROW(
+            (void)session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0)));
+    }
+}
+
+//
+// program() replacing a source matters because MeasureEngine::inject() is
+// built on it: injecting a point twice in one test must not leave the first
+// sequence half-consumed underneath the second.
+//
+TEST( CoreSession, ScriptedSessionProgrammingAPointAgainReplacesItsSource)
+{
+    core::ScriptedSession session;
+    session.program( "5VOutput", core::sourceOf( std::vector{ Voltage{ 1.0 }, Voltage{ 2.0 } }));
+    session.program( "5VOutput", core::sourceOf( std::vector{ Voltage{ 9.0 } }));
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 9.0);
+    EXPECT_THROW(
+        (void)session.fetch( "5VOutput", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0)),
+        std::runtime_error);
+}
+
 TEST( CoreSession, SwitchableSessionDefaultsToTheConstructedSession)
 {
     core::LiveSession       live;

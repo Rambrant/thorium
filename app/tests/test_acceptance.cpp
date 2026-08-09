@@ -101,6 +101,13 @@ namespace
     constexpr std::string_view kRunScripts = THORIUM_RUN_SCRIPTS_EXE;
     constexpr std::string_view kOutputRoot = THORIUM_ACCEPTANCE_OUTPUT_DIR;
 
+    //
+    // The same runner over a catalog that declares SETUP/TEARDOWN, which the
+    // shipped suite deliberately does not -- see app/CMakeLists.txt and
+    // app/tests/fixtures/.
+    //
+    constexpr std::string_view kRunScriptsHooked = THORIUM_RUN_SCRIPTS_HOOKED_EXE;
+
     auto readFile( const std::filesystem::path & path) -> std::string
     {
         std::ifstream in( path, std::ios::in | std::ios::binary);
@@ -236,6 +243,49 @@ namespace
             //
             auto run( const std::vector<std::string> & args) -> int
             {
+                return runBinary( kRunScripts, args, {});
+            }
+
+            //
+            // The hook fixture's runner (see app/CMakeLists.txt), with the
+            // environment variables its scripts and hooks read to decide
+            // whether to fail or throw. Same main.cpp as run() drives -- only
+            // the catalog behind it differs.
+            //
+            auto runHooked( const std::vector<std::string> & args,
+                            const std::vector<std::string> & environment = {}) -> int
+            {
+                return runBinary( kRunScriptsHooked, args, environment);
+            }
+
+            //
+            // The markers the hook fixture wrote, in the order it wrote them --
+            // "setup", "script", "teardown". A hook posts no journal event, so
+            // stdout is the only place its ordering is visible at all.
+            //
+            [[nodiscard]]
+            auto hookOrder() const -> std::vector<std::string>
+            {
+                constexpr std::string_view prefix = "HOOKFIXTURE ";
+
+                std::vector<std::string> markers;
+                std::istringstream       lines( mOut);
+
+                for( std::string line; std::getline( lines, line); )
+                {
+                    if( const auto at = line.find( prefix); at != std::string::npos)
+                    {
+                        markers.push_back( line.substr( at + prefix.size()));
+                    }
+                }
+
+                return markers;
+            }
+
+            auto runBinary( const std::string_view           exe,
+                            const std::vector<std::string> & args,
+                            const std::vector<std::string> & environment) -> int
+            {
                 //
                 // Two spellings of the same invocation, because they are for
                 // different readers:
@@ -246,9 +296,24 @@ namespace
                 //   readable   -- just "run_scripts ...", printed below, where
                 //                 an absolute build path is noise
                 //
-                std::string invocation( kRunScripts);
-                std::string readable = std::filesystem::path( kRunScripts).filename().string();
-                std::string command  = "cd " + shellQuoted( mDir.string()) + " && " + shellQuoted( kRunScripts);
+                std::string invocation( exe);
+                std::string readable = std::filesystem::path( exe).filename().string();
+                std::string command  = "cd " + shellQuoted( mDir.string()) + " && ";
+
+                //
+                // Prefixed onto the command rather than set in this process:
+                // the variables belong to the run being tested, and a scenario
+                // that leaked one into the test binary's own environment would
+                // change every scenario after it.
+                //
+                for( const auto & variable : environment)
+                {
+                    invocation = variable + " " + invocation;
+                    readable   = variable + " " + readable;
+                    command   += variable + " ";
+                }
+
+                command += shellQuoted( exe);
 
                 for( const auto & arg : args)
                 {
@@ -344,6 +409,40 @@ namespace
     struct AcceptanceHumanLog  : Acceptance {};
     struct AcceptanceMachineLog: Acceptance {};
     struct AcceptanceLogFiles  : Acceptance {};
+    struct AcceptanceRepeat    : Acceptance {};
+    struct AcceptanceHooks     : Acceptance {};
+
+    //
+    // The test ids the console reported a verdict for, in the order it
+    // reported them -- which is the only way to see from outside whether
+    // --repeat repeated the selection or repeated each script. Read off the
+    // "RESULT <id>" lines core::ConsoleSink writes per test.
+    //
+    [[nodiscard]]
+    auto verdictOrder( const std::string & console) -> std::vector<std::string>
+    {
+        std::vector<std::string> ids;
+        std::istringstream       lines( console);
+
+        for( std::string line; std::getline( lines, line); )
+        {
+            const auto marker = line.find( "RESULT");
+
+            if( marker == std::string::npos)
+            {
+                continue;
+            }
+
+            std::istringstream rest( line.substr( marker + std::string_view( "RESULT").size()));
+
+            if( std::string id; rest >> id)
+            {
+                ids.push_back( id);
+            }
+        }
+
+        return ids;
+    }
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -690,4 +789,196 @@ TEST_F( AcceptanceLogFiles, TwoRunsIntoOneDirectoryCoexist)
 
     EXPECT_EQ( countArtifacts( ".sarif"), 2u);
     EXPECT_EQ( countArtifacts( ".rtf"),   2u);
+}
+
+// ---------------------------------------------------------------------------
+// Repeating a run: --repeat / --until-failure
+// ---------------------------------------------------------------------------
+
+//
+// The property the flag is named for, and the one worth pinning from outside:
+// the *selection* is what repeats. Two tests over two passes must come back
+// A B A B, not A A B B -- which is what makes a pass a meaningful unit for
+// SETUP/TEARDOWN to bracket and for --until-failure to stop at.
+//
+TEST_F( AcceptanceRepeat, RepeatRunsTheWholeSelectionEachPassRatherThanEachScript)
+{
+    run( { "--repeat=2", "--no-color" });
+
+    EXPECT_EQ( verdictOrder( mOut),
+        ( std::vector<std::string>{ "FuseRegister", "SupplyRail", "FuseRegister", "SupplyRail" }));
+}
+
+TEST_F( AcceptanceRepeat, RepeatAppliesToASelectionToo)
+{
+    run( { "--select=SupplyRail", "--repeat=3", "--no-color" });
+
+    EXPECT_EQ( verdictOrder( mOut),
+        ( std::vector<std::string>{ "SupplyRail", "SupplyRail", "SupplyRail" }));
+}
+
+//
+// Passes are marked in the machine log -- without it a repeated run's log is
+// the same headings over and over with nothing saying which time round it is.
+//
+TEST_F( AcceptanceRepeat, EachPassIsMarkedInTheMachineLog)
+{
+    run( { "--repeat=3", "--quiet" });
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    const auto log = readFile( sarif);
+
+    EXPECT_TRUE( containsText( sarif, log, "pass 1 of 3"));
+    EXPECT_TRUE( containsText( sarif, log, "pass 2 of 3"));
+    EXPECT_TRUE( containsText( sarif, log, "pass 3 of 3"));
+}
+
+//
+// An ordinary single run is unchanged by any of this -- no pass markers, no
+// extra events.
+//
+TEST_F( AcceptanceRepeat, ASingleRunIsNotMarkedWithPasses)
+{
+    run( { "--quiet" });
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    EXPECT_TRUE( omitsText( sarif, readFile( sarif), "pass 1"));
+}
+
+//
+// --until-failure caps a --repeat. Every script fails on a rig with no
+// hardware attached (the instruments read zero), so the first pass is the
+// failing one and passes two onwards must never run.
+//
+TEST_F( AcceptanceRepeat, UntilFailureStopsAtTheFirstFailingPass)
+{
+    EXPECT_EQ( run( { "--repeat=4", "--until-failure", "--quiet" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "Stopping after failing pass 1"));
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    const auto log = readFile( sarif);
+
+    EXPECT_TRUE( containsText( sarif, log, "pass 1 of 4"));
+    EXPECT_TRUE( omitsText(    sarif, log, "pass 2 of 4"));
+}
+
+//
+// A pass count that isn't one is a caller error, not something to reinterpret
+// -- the same treatment an unknown flag gets, and for the same reason.
+//
+TEST_F( AcceptanceRepeat, ARepeatCountThatIsNotAPositiveNumberIsRejectedBeforeAnythingRuns)
+{
+    for( const auto bad : { "--repeat=0", "--repeat=-1", "--repeat=ten", "--repeat=3x" })
+    {
+        EXPECT_EQ( run( { bad }), 1) << bad;
+        EXPECT_TRUE( containsText( errPath(), mErr, "--repeat=")) << bad;
+    }
+
+    EXPECT_EQ( countArtifacts( ".sarif"), 0u);
+    EXPECT_EQ( countArtifacts( ".rtf"),   0u);
+}
+
+// ---------------------------------------------------------------------------
+// Bracketing a run: SETUP / TEARDOWN
+// ---------------------------------------------------------------------------
+//
+// Driven against run_scripts_hooked -- the same main.cpp over a catalog that
+// declares both hooks (see app/CMakeLists.txt). The shipped suite declares
+// neither, which is itself covered: every other scenario in this file runs a
+// catalog with no hooks and none of them see one fire.
+//
+
+TEST_F( AcceptanceHooks, SetupRunsBeforeTheScriptsAndTeardownAfterThem)
+{
+    EXPECT_EQ( runHooked( { "--no-color" }), 0);
+
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "script", "teardown" }));
+}
+
+//
+// The property that makes a pass a meaningful unit: the hooks bracket the
+// selection *once*, not once per repetition. A rig is powered up, the scripts
+// run three times, and it is powered down -- not powered up and down three
+// times over.
+//
+TEST_F( AcceptanceHooks, TheHooksBracketEveryRepeatPassRatherThanEachOne)
+{
+    EXPECT_EQ( runHooked( { "--repeat=3", "--no-color" }), 0);
+
+    EXPECT_EQ( hookOrder(),
+        ( std::vector<std::string>{ "setup", "script", "script", "script", "teardown" }));
+}
+
+//
+// A setup that fails means no test runs at all -- but teardown still does,
+// since a setup that got half way is exactly the case with something to undo.
+//
+TEST_F( AcceptanceHooks, AFailingSetupStopsTheRunButStillTearsDown)
+{
+    EXPECT_EQ( runHooked( { "--no-color" }, { "THORIUM_FIXTURE_SETUP_FAILS=1" }), 1);
+
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "teardown" }));
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "SETUP reported failure"));
+}
+
+//
+// Teardown is a guard destructor, so it runs on the way out of a script that
+// threw just as it does on the ordinary path -- the case it most needs to
+// cover, since that is when the rig is in an unknown state.
+//
+TEST_F( AcceptanceHooks, TeardownStillRunsWhenAScriptThrows)
+{
+    EXPECT_EQ( runHooked( { "--no-color" }, { "THORIUM_FIXTURE_SCRIPT_THROWS=1" }), 1);
+
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "script", "teardown" }));
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "Uncaught exception during test run"));
+}
+
+//
+// A rig that did not shut down the way the suite says it should is not a clean
+// run, however well the scripts themselves went.
+//
+TEST_F( AcceptanceHooks, AFailingTeardownFailsAnOtherwisePassingRun)
+{
+    EXPECT_EQ( runHooked( { "--no-color" }, { "THORIUM_FIXTURE_TEARDOWN_FAILS=1" }), 1);
+
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "script", "teardown" }));
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "TEARDOWN reported failure"));
+}
+
+//
+// --until-failure stops the passes; it must not skip the teardown on the way
+// out.
+//
+TEST_F( AcceptanceHooks, StoppingEarlyOnFailureStillTearsDown)
+{
+    EXPECT_EQ( runHooked( { "--repeat=5", "--until-failure", "--no-color" },
+                          { "THORIUM_FIXTURE_SCRIPT_FAILS=1" }), 1);
+
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "script", "teardown" }));
+}
+
+//
+// A selection matching nothing is reported without powering anything up: there
+// is no run to bracket.
+//
+TEST_F( AcceptanceHooks, ASelectionMatchingNothingNeverReachesTheHooks)
+{
+    EXPECT_EQ( runHooked( { "--select=NoSuchTest" }), 1);
+
+    EXPECT_TRUE( hookOrder().empty());
+    EXPECT_TRUE( containsText( errPath(), mErr, "No catalog test matched"));
 }
