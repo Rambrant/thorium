@@ -4,7 +4,7 @@ include(FetchContent)
 
 FetchContent_Declare(
     googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
+    SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/googletest-1.18.0
     GIT_TAG v1.15.2
 )
 

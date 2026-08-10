@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -8,18 +9,30 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 //
-// POSIX, for reading a child's exit status out of what std::system() hands back
-// (WIFEXITED/WEXITSTATUS). The one platform header in this codebase, and it
-// earns its place: this file's entire job is to run another process, which is
-// not something the standard library exposes an exit status for. Note the
-// contrast with libs/core, which deliberately reads the operator and host from
-// environment variables rather than calling gethostname() -- core is portable
-// framework code with a choice, and this is a test whose subject is a command.
+// The one platform-dependent file in this codebase, and it earns it: this
+// file's entire job is to run another process and read what came back, which
+// is not something the standard library exposes a portable exit status or
+// quoting rule for. Note the contrast with libs/core, which deliberately reads
+// the operator and host from environment variables rather than calling
+// gethostname() -- core is portable framework code with a choice, and this is a
+// test whose subject is a command line.
 //
-#include <sys/wait.h>
+// Everything platform-specific is confined to this header block and to
+// shellQuoted()/runBinary() below. The scenarios themselves are written once
+// and say nothing about which shell is going to run them.
+//
+#ifndef _WIN32
+    //
+    // POSIX, for reading a child's exit status out of what std::system() hands
+    // back (WIFEXITED/WEXITSTATUS). Windows has no equivalent because it needs
+    // none -- see runBinary() on what std::system() returns there.
+    //
+    #include <sys/wait.h>
+#endif
 
 //
 // Acceptance tests for the run_scripts binary: black-box, driven as a
@@ -108,6 +121,27 @@ namespace
     //
     constexpr std::string_view kRunScriptsHooked = THORIUM_RUN_SCRIPTS_HOOKED_EXE;
 
+    //
+    // Read as bytes, then normalised to \n line endings.
+    //
+    // Both halves are deliberate. Binary, so what comes back is what is
+    // actually on disk rather than whatever the platform's text mode decides --
+    // and then the CRs come out in exactly one place, here, rather than at each
+    // reader below.
+    //
+    // That second half is a Windows fix. The child's stdout and both log files
+    // arrive with \r\n there, so a reader splitting on \n keeps a \r on the end
+    // of every line: a marker pulled out with substr() carries an invisible
+    // character into its comparison, and a substring assertion for a line's
+    // last word fails against a file that plainly contains it. Normalising per
+    // reader also works, but it is a list that silently falls behind the next
+    // reader added -- and only some readers show the symptom, which is worse
+    // than none of them doing so (see verdictOrder(), which survives on
+    // Windows only because operator>> happens to treat \r as whitespace).
+    //
+    // Only \r\n is collapsed, not every \r: a lone one means something to
+    // whoever wrote it, and none of the producers here emit one to begin with.
+    //
     auto readFile( const std::filesystem::path & path) -> std::string
     {
         std::ifstream in( path, std::ios::in | std::ios::binary);
@@ -115,7 +149,22 @@ namespace
 
         contents << in.rdbuf();
 
-        return contents.str();
+        const auto raw = contents.str();
+
+        std::string text;
+        text.reserve( raw.size());
+
+        for( std::size_t i = 0; i < raw.size(); ++i)
+        {
+            if( raw[ i] == '\r' && i + 1 < raw.size() && raw[ i + 1] == '\n')
+            {
+                continue;
+            }
+
+            text += raw[ i];
+        }
+
+        return text;
     }
 
     auto writeFile( const std::filesystem::path & path, const std::string & text) -> void
@@ -125,14 +174,36 @@ namespace
     }
 
     //
-    // Single-quoted for the shell, with embedded quotes handled. None of the
-    // arguments below actually need it -- they are all plain flags -- but a
+    // Quoted for whichever shell std::system() hands the command to. None of
+    // the arguments below actually need it -- they are all plain flags -- but a
     // quoting helper that only works for the arguments you happened to try is
     // the kind of thing that breaks the first time a path has a space in it,
     // and the build directory's path is not this file's to choose.
     //
+    // The two shells share no quoting rule at all, which is why this cannot be
+    // one implementation: cmd.exe does not treat ' as quoting and passes it
+    // through as an ordinary character, so a POSIX-quoted `cd 'C:/dir'` asks it
+    // for a directory whose name begins with a quote -- reported as an invalid
+    // path, and the reason every scenario here failed on Windows before this
+    // split existed.
+    //
     auto shellQuoted( const std::string_view text) -> std::string
     {
+    #ifdef _WIN32
+        //
+        // cmd.exe: double quotes, with an embedded one doubled. Backslashes
+        // need no escaping inside them, which is what makes a native Windows
+        // path safe to wrap this way.
+        //
+        std::string result = "\"";
+
+        for( const char c : text)
+        {
+            result += ( c == '"') ? "\"\"" : std::string( 1, c);
+        }
+
+        return result + "\"";
+    #else
         std::string result = "'";
 
         for( const char c : text)
@@ -148,6 +219,20 @@ namespace
         }
 
         return result + "'";
+    #endif
+    }
+
+    //
+    // A path in the form the local shell expects -- separators included. CMake
+    // hands this file its paths with forward slashes on every platform (see
+    // THORIUM_RUN_SCRIPTS_EXE in app/CMakeLists.txt), and while cmd.exe
+    // tolerates those in a quoted argument, it does not in every position, and
+    // a command.txt written with them is not something a Windows user can
+    // paste back.
+    //
+    auto nativePath( const std::string_view path) -> std::string
+    {
+        return std::filesystem::path( path).make_preferred().string();
     }
 
     //
@@ -271,6 +356,10 @@ namespace
                 std::vector<std::string> markers;
                 std::istringstream       lines( mOut);
 
+                //
+                // No \r to strip here: mOut came through readFile(), which
+                // normalises line endings for every reader at once.
+                //
                 for( std::string line; std::getline( lines, line); )
                 {
                     if( const auto at = line.find( prefix); at != std::string::npos)
@@ -296,24 +385,47 @@ namespace
                 //   readable   -- just "run_scripts ...", printed below, where
                 //                 an absolute build path is noise
                 //
-                std::string invocation( exe);
-                std::string readable = std::filesystem::path( exe).filename().string();
-                std::string command  = "cd " + shellQuoted( mDir.string()) + " && ";
+                std::string invocation = nativePath( exe);
+                std::string readable   = std::filesystem::path( exe).filename().string();
 
                 //
-                // Prefixed onto the command rather than set in this process:
-                // the variables belong to the run being tested, and a scenario
-                // that leaked one into the test binary's own environment would
-                // change every scenario after it.
+                // /d on Windows, so a build tree on a different drive than the
+                // test binary's is actually entered rather than silently only
+                // changing that drive's current directory -- which would leave
+                // the run writing its artifacts wherever the test happened to
+                // be, and every assertion below reading an empty file.
+                //
+            #ifdef _WIN32
+                std::string command = "cd /d " + shellQuoted( nativePath( mDir.string())) + " && ";
+            #else
+                std::string command = "cd " + shellQuoted( mDir.string()) + " && ";
+            #endif
+
+                //
+                // Set in the command rather than in this process: the variables
+                // belong to the run being tested, and a scenario that leaked
+                // one into the test binary's own environment would change every
+                // scenario after it.
+                //
+                // The two shells spell this differently and there is no common
+                // form -- `VAR=value prog` is a POSIX assignment-prefix, which
+                // cmd.exe reads as a program named "VAR=value". Both spellings
+                // scope the variable to the child, which is the property that
+                // matters.
                 //
                 for( const auto & variable : environment)
                 {
                     invocation = variable + " " + invocation;
                     readable   = variable + " " + readable;
-                    command   += variable + " ";
+
+                #ifdef _WIN32
+                    command += "set " + shellQuoted( variable) + " && ";
+                #else
+                    command += variable + " ";
+                #endif
                 }
 
-                command += shellQuoted( exe);
+                command += shellQuoted( nativePath( exe));
 
                 for( const auto & arg : args)
                 {
@@ -345,7 +457,18 @@ namespace
 
                 const int raw = std::system( command.c_str());
 
+                //
+                // Windows' std::system() hands back the child's exit code
+                // directly; POSIX packs it into a wait status that has to be
+                // unpacked, and which says the child did not exit normally at
+                // all if it was killed by a signal (-1 here, so an assertion on
+                // a status can never mistake a crash for a verdict).
+                //
+            #ifdef _WIN32
+                mStatus = raw;
+            #else
                 mStatus = ( raw != -1 && WIFEXITED( raw)) ? WEXITSTATUS( raw) : -1;
+            #endif
 
                 writeFile( mDir / "status.txt", std::to_string( mStatus) + "\n");
 
@@ -784,7 +907,12 @@ TEST_F( AcceptanceLogFiles, TwoRunsIntoOneDirectoryCoexist)
     // *later* run doesn't clobber an earlier one -- rather than asserting a
     // uniqueness guarantee the naming scheme doesn't make.
     //
-    std::system( "sleep 1");
+    //
+    // Slept in-process rather than shelled out to sleep(1), which Windows'
+    // cmd.exe has no equivalent of -- and which was never worth a subprocess
+    // here anyway.
+    //
+    std::this_thread::sleep_for( std::chrono::seconds( 1));
 
     run( { "--quiet", "--select=SupplyRail" });
 
@@ -1083,9 +1211,18 @@ TEST_F( AcceptanceRecording, AReplayFileThatCannotBeReadIsFatalAndRunsNothing)
     EXPECT_TRUE( omitsText( outPath(), mOut, "RESULT"));
 }
 
+//
+// The unwritable path is built rather than hard-coded, because "a path no
+// platform can write to" has no portable spelling: an absolute one like
+// /nonexistent/readings.tsv is refused on POSIX but resolves to the current
+// drive's root on Windows, where creating it may well succeed. A directory
+// component that is an existing *file* cannot be created anywhere.
+//
 TEST_F( AcceptanceRecording, ARecordingPathThatCannotBeWrittenIsFatalAndRunsNothing)
 {
-    EXPECT_EQ( run( { "--record=/nonexistent-root-dir/readings.tsv", "--no-logs" }), 1);
+    writeFile( mDir / "blocker", "not a directory\n");
+
+    EXPECT_EQ( run( { "--record=blocker/readings.tsv", "--no-logs" }), 1);
 
     EXPECT_TRUE( containsText( errPath(), mErr, "Could not open the recording"));
     EXPECT_TRUE( omitsText( outPath(), mOut, "RESULT"));

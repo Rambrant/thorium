@@ -572,10 +572,23 @@ file `run_scripts --record=` writes, which is the same thing `--replay=` reads.
 ## 4. Running a suite
 
 ```bash
-cmake --preset gcc16-debug          # or gcc16-release
-cmake --build --preset gcc16-debug
-build/app/run_scripts --dut-serial=SN-000123
+cmake --preset macos-debug          # or windows-debug
+cmake --build build/debug
+build/debug/app/run_scripts --dut-serial=SN-000123
 ```
+
+Presets are a platform × build-type matrix — `macos-debug`, `macos-release`,
+`windows-debug`, `windows-release` — composed from two hidden halves so that a
+compiler path is written once rather than once per build type. The platform half
+picks the compiler and generator (Ninja on macOS, MinGW Makefiles on Windows);
+the build-type half picks `Debug`/`Release` and the directory, `build/debug` or
+`build/release`. Both platforms land in the same directory, so every command in
+this README works unchanged on either.
+
+`cmake --list-presets` shows only the ones whose generator exists on the host, so
+the Windows pair is invisible on macOS and vice versa. Note that `-Werror`
+applies to Release as well, so an optimiser-only warning fails that build rather
+than being reported.
 
 | Flag | Effect |
 |---|---|
@@ -599,9 +612,9 @@ unit a soak run cares about — "the tests, again" — and it is also the unit
 `SETUP`/`TEARDOWN` bracket.
 
 ```bash
-build/app/run_scripts --repeat=50                    # fifty passes
-build/app/run_scripts --until-failure                # until something breaks
-build/app/run_scripts --repeat=50 --until-failure    # at most fifty, stop on failure
+build/debug/app/run_scripts --repeat=50                    # fifty passes
+build/debug/app/run_scripts --until-failure                # until something breaks
+build/debug/app/run_scripts --repeat=50 --until-failure    # at most fifty, stop on failure
 ```
 
 `--until-failure` on its own has no bound, deliberately: how many passes a DUT
@@ -614,8 +627,8 @@ fails the whole thing.
 that is an input as well as an output:
 
 ```bash
-build/app/run_scripts --record=readings.tsv      # capture what the rig read
-build/app/run_scripts --replay=readings.tsv      # run again off the file, no rig
+build/debug/app/run_scripts --record=readings.tsv      # capture what the rig read
+build/debug/app/run_scripts --replay=readings.tsv      # run again off the file, no rig
 ```
 
 Where the two logs describe a run, this is the readings themselves, in order
@@ -689,7 +702,7 @@ themselves in the order they were taken and nothing else.
 ## 5. Build options
 
 ```bash
-cmake --preset gcc16-debug -DTHORIUM_CRITERIA_VARIANT=stress
+cmake --preset macos-debug -DTHORIUM_CRITERIA_VARIANT=stress
 ```
 
 | Variable | Default | Meaning |
@@ -715,18 +728,18 @@ the quantity tables — that would otherwise each be a place to forget something
 ## 6. Tests
 
 ```bash
-ctest --test-dir build --output-on-failure     # all 278 tests
-ctest --test-dir build -LE acceptance          # unit tests only (261)
-ctest --test-dir build -L  acceptance -V       # the CLI tour (17)
+ctest --test-dir build/debug --output-on-failure     # all 317 tests
+ctest --test-dir build/debug -LE acceptance          # unit tests only (280)
+ctest --test-dir build/debug -L  acceptance -V       # the CLI tour (37)
 ```
 
 | Target | Tests | Covers |
 |---|---|---|
-| `core_tests` | 160 | units, predicates, criteria, sessions, journal, all three log sinks |
-| `hal_tests` | 92 | drivers, switching fabric, wiring, safing, `describeConfig` |
-| `dut_tests` | 3 | the DUT profile — including the wiring-coverage build check |
+| `core_tests` | 172 | units, predicates, criteria, sessions, journal, all three log sinks |
+| `hal_tests` | 98 | drivers, switching fabric, wiring, safing, `describeConfig` |
+| `dut_tests` | 4 | the DUT profile — including the wiring-coverage build check |
 | `scripts_tests` | 6 | the test scripts, injected; plus the variant parity build check |
-| `acceptance_tests` | 17 | the `run_scripts` binary as a subprocess — flags, log files, exit codes |
+| `acceptance_tests` | 37 | the `run_scripts` binary as a subprocess — flags, log files, exit codes |
 
 The acceptance tests are worth knowing about separately: they run the real binary
 with real flags and keep everything under `<build>/app/acceptance/<suite>.<test>/` —

@@ -1,43 +1,64 @@
 {
   "version": 6,
+
   "configurePresets": [
     {
-      "name": "gcc16-debug",
-      "displayName": "GCC 16 (Debug)",
+      "name": "macos",
+      "hidden": true,
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/debug",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "/opt/homebrew/bin/gcc-16",
-        "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-16",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-16"
+      }
+    },
+
+    {
+      "name": "windows",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "C:/mingw64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/mingw64/bin/g++.exe"
+      }
+    },
+
+    {
+      "name": "debug",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
       }
     },
+
     {
-      "name": "gcc16-release",
-      "displayName": "GCC 16 (Release)",
-      "generator": "Ninja",
+      "name": "release",
+      "hidden": true,
       "binaryDir": "${sourceDir}/build/release",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "/opt/homebrew/bin/gcc-16",
-        "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-16",
         "CMAKE_BUILD_TYPE": "Release"
       }
-    }
-  ],
-  "buildPresets": [
-    { "name": "gcc16-debug", "configurePreset": "gcc16-debug" },
-    { "name": "gcc16-release", "configurePreset": "gcc16-release" }
-  ],
-  "testPresets": [
-    {
-      "name": "gcc16-debug",
-      "configurePreset": "gcc16-debug",
-      "output": { "outputOnFailure": true }
     },
+
     {
-      "name": "gcc16-release",
-      "configurePreset": "gcc16-release",
-      "output": { "outputOnFailure": true }
+      "name": "macos-debug",
+      "inherits": ["debug", "macos"]
+    },
+
+    {
+      "name": "macos-release",
+      "inherits": ["release", "macos"]
+    },
+
+    {
+      "name": "windows-debug",
+      "inherits": ["debug", "windows"]
+    },
+
+    {
+      "name": "windows-release",
+      "inherits": ["release", "windows"]
     }
   ]
+
 }

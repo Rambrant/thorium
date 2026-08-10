@@ -1,12 +1,11 @@
-cmake_minimum_required(VERSION 3.30)  # 3.30+ needed: CXX_STANDARD 26 support
+cmake_minimum_required(VERSION 3.30)
 
-# --- Force GCC 16 (Homebrew) instead of Apple Clang ---
-# Must be set BEFORE the project() call.
-if(NOT CMAKE_C_COMPILER)
+if(APPLE)
     set(CMAKE_C_COMPILER "/opt/homebrew/bin/gcc-16")
-endif()
-if(NOT CMAKE_CXX_COMPILER)
     set(CMAKE_CXX_COMPILER "/opt/homebrew/bin/g++-16")
+elseif(WIN32)
+    set(CMAKE_C_COMPILER "C:/mingw64/bin/gcc.exe")
+    set(CMAKE_CXX_COMPILER "C:/mingw64/bin/g++.exe")
 endif()
 
 project(Thorium LANGUAGES CXX VERSION 0.1.0)
