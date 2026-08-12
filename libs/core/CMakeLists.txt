@@ -6,6 +6,7 @@ add_library(core STATIC
         src/session.cpp
         src/format.cpp
         src/journal.cpp
+        src/criteria_variants.cpp
         src/report.cpp
         src/console_sink.cpp
         src/rtf_sink.cpp
@@ -22,6 +23,7 @@ add_library(core STATIC
         include/core/predicates.hpp      # header-only
         include/core/criterion.hpp       # header-only
         include/core/active_criteria.hpp # header-only
+        include/core/criteria_variants.hpp
         include/core/meta.hpp            # header-only
         include/core/format.hpp          # header-only apart from src/format.cpp
         include/core/predicate_text.hpp  # header-only
@@ -38,12 +40,18 @@ target_include_directories(core PUBLIC
 )
 
 # --- Build-stamped traceability for the run logs ---
-# Both log streams carry a header saying which framework version, which
-# tolerance table, which DUT and which rig a run was performed with (see
-# core::RunInfo in core/journal.hpp). These four are the half of that header
-# that has to come from the build rather than from the command line: they
-# describe the binary itself, so baking them in is what makes them impossible
-# for a caller to misreport.
+# Both log streams carry a header saying which framework version, which DUT and
+# which rig a run was performed with (see core::RunInfo in core/journal.hpp).
+# These are the half of that header that has to come from the build rather than
+# from the command line: they describe the binary itself, so baking them in is
+# what makes them impossible for a caller to misreport.
+#
+# The criteria variant used to be in that half and no longer is: every variant
+# is now compiled in and a run selects one with --criteria=, so the log reports
+# core::activeCriteriaVariantName() -- what the run actually applied -- rather
+# than a build-time constant that would now only describe the default. What the
+# build still supplies is the two definitions below it: which names are legal,
+# and which one applies when the flag is absent.
 #
 # PRIVATE, not PUBLIC: only src/journal.cpp reads them, and a consumer of
 # Thorium::core has no reason to be recompiled when a rig renames itself.
@@ -91,7 +99,8 @@ message(STATUS "DUT: ${THORIUM_DUT_NAME} on rig: ${THORIUM_RIG_NAME}")
 # when core is configured standalone, which journal.cpp reports as "unknown".
 target_compile_definitions(core PRIVATE
         THORIUM_FRAMEWORK_VERSION="${PROJECT_VERSION}"
-        THORIUM_CRITERIA_VARIANT_NAME="${THORIUM_CRITERIA_VARIANT}"
+        THORIUM_CRITERIA_VARIANT_NAMES="${THORIUM_CRITERIA_VARIANT_NAMES}"
+        THORIUM_DEFAULT_CRITERIA_VARIANT="${THORIUM_CRITERIA_VARIANT}"
         THORIUM_DUT_NAME="${THORIUM_DUT_NAME}"
         THORIUM_RIG_NAME="${THORIUM_RIG_NAME}"
         THORIUM_SUITE_VERSION="${THORIUM_SUITE_VERSION}"
@@ -126,6 +135,7 @@ if(BUILD_TESTING_LAYERS)
             tests/test_adapter.cpp
             tests/test_predicates.cpp
             tests/test_criterion.cpp
+            tests/test_criteria_variants.cpp
             tests/test_verify.cpp
             tests/test_meta.cpp
             tests/test_static_constraints.cpp

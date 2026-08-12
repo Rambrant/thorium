@@ -8,7 +8,7 @@
 # a separate rig's own top-level CMakeLists.txt would after pulling this
 # library in via add_subdirectory/FetchContent. Same compile-definition-
 # swap mechanism core/active_criteria.hpp already uses for
-# THORIUM_ACTIVE_CRITERIA/THORIUM_TEST_CATALOG -- see rig/README.md for
+# THORIUM_CRITERIA_VARIANT_TABLES/THORIUM_TEST_CATALOG -- see rig/README.md for
 # what each of these three files actually contains.
 set(THORIUM_ACTIVE_INSTRUMENTS "" CACHE FILEPATH
     "Path to the linking rig's active_instruments.hpp (its concrete instrument globals + fabric)")
@@ -77,7 +77,7 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 # library (suite/scripts.hpp, hal_tests' test_safing.cpp). All three need to
 # reach anyone linking hal, transitively, the same reason
 # THORIUM_TEST_CATALOG/THORIUM_TEST_SCRIPTS are PUBLIC on app/'s scripts
-# target rather than PRIVATE like THORIUM_ACTIVE_CRITERIA (whose only
+# target rather than PRIVATE like THORIUM_CRITERIA_VARIANT_TABLES (whose only
 # consumer is scripts' own .cpp files).
 target_compile_definitions(hal PUBLIC
     THORIUM_ACTIVE_INSTRUMENTS="${THORIUM_ACTIVE_INSTRUMENTS}"

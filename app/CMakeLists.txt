@@ -24,19 +24,29 @@ target_link_libraries(scripts PUBLIC hal core)
 
 target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 
-# --- Criteria/tolerance variant selection ---
-# Points core/active_criteria.hpp at the active variant's single flat .inc
-# file (every script's CRITERIA/CRIT side by side), per THORIUM_CRITERIA_VARIANT
-# (validated in the top-level CMakeLists.txt). THORIUM_PRODUCTION_CRITERIA is
-# a second, fixed path -- always criteria_production.inc -- so other variants
-# can reference "the same value as production" via CRIT_FROM_PRODUCTION
-# without retyping it. Absolute paths, so no extra include-directory
-# wrangling. These live under dut/, not here, because the tolerances
-# they hold are a property of the DUT being tested (the same reasoning that
-# put adapter.inc there) -- see dut/README.md.
+# --- Criteria/tolerance variants ---
+# Points core/active_criteria.hpp at the two files it reads.
+#
+# THORIUM_CRITERIA_VARIANT_TABLES is generated (cmake/CriteriaVariants.cmake,
+# called from the top-level CMakeLists.txt) and holds *every* known variant's
+# .inc file, each in its own namespace, plus the X-macro that iterates them.
+# There is no longer a THORIUM_ACTIVE_CRITERIA: no single variant is "the
+# active one" at build time, since the binary carries all of them and a run
+# picks with --criteria=.
+#
+# THORIUM_PRODUCTION_CRITERIA is a second, fixed path -- always
+# criteria_production.inc -- and now has two jobs: other variants reference "the
+# same value as production" through it via CRIT_FROM_PRODUCTION, and it is the
+# reference table the merged criteria are generated from (see
+# core/active_criteria.hpp's pass 2 on why it is the right one for that).
+#
+# Absolute paths, so no extra include-directory wrangling. The criteria live
+# under dut/, not here, because the tolerances they hold are a property of the
+# DUT being tested (the same reasoning that put adapter.inc there) -- see
+# dut/README.md.
 target_compile_definitions(scripts PRIVATE
     THORIUM_PRODUCTION_CRITERIA="${CMAKE_SOURCE_DIR}/dut/criteria_production.inc"
-    THORIUM_ACTIVE_CRITERIA="${CMAKE_SOURCE_DIR}/dut/criteria_${THORIUM_CRITERIA_VARIANT}.inc"
+    THORIUM_CRITERIA_VARIANT_TABLES="${THORIUM_CRITERIA_VARIANT_TABLES}"
 )
 
 # --- Test catalog ---
@@ -79,6 +89,7 @@ install(TARGETS run_scripts RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # both calls share cmake_install.cmake's variable scope, the ordinary way to
 # hand values into an install-time script.
 install(CODE "set(THORIUM_RUN_SCRIPTS_EXE \"$<TARGET_FILE:run_scripts>\")")
+install(CODE "set(THORIUM_KNOWN_CRITERIA_VARIANTS \"${THORIUM_KNOWN_CRITERIA_VARIANTS}\")")
 install(CODE "set(THORIUM_CRITERIA_VARIANT \"${THORIUM_CRITERIA_VARIANT}\")")
 install(CODE "set(THORIUM_MANIFEST_OUTPUT \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/manifest.json\")")
 install(SCRIPT "${CMAKE_SOURCE_DIR}/cmake/GenerateManifest.cmake")
@@ -159,11 +170,12 @@ if(BUILD_TESTING_LAYERS)
     gtest_discover_tests(acceptance_tests PROPERTIES LABELS acceptance)
 
     # test_criteria_variants_compile.cpp #includes every variant .inc file
-    # directly (not through core/active_criteria.hpp, which only ever sees
-    # the one active variant) -- it needs core::criterion machinery but not
-    # the scripts library itself, and it doesn't go through the
-    # THORIUM_ACTIVE_CRITERIA compile definition above. test_fuse_register_
-    # script.cpp / test_supply_rail_script.cpp also rely on this to reach
-    # suite/scripts.hpp by a plain quoted #include.
+    # directly, into namespaces of its own, rather than through
+    # core/active_criteria.hpp -- it is checking the variants against each
+    # other, not building the merged table scripts use, so it needs
+    # core::criterion machinery but neither the scripts library nor the
+    # THORIUM_CRITERIA_VARIANT_TABLES compile definition above.
+    # test_fuse_register_script.cpp / test_supply_rail_script.cpp also rely on
+    # this to reach suite/scripts.hpp by a plain quoted #include.
     target_include_directories(scripts_tests PRIVATE ${CMAKE_SOURCE_DIR})
 endif()

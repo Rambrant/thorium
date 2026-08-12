@@ -130,44 +130,93 @@ including why it's a companion to `CRIT` rather than a change to `CRITERIA`
 itself.
 
 This is why `criteria_production.inc` is always available as `production::...`
-regardless of which variant is actually active (see `core/active_criteria.hpp`)
--- every other variant can reference it, even though only one variant's
-criteria actually get used by the running scripts.
+from inside any other variant (see `core/active_criteria.hpp`) -- every other
+variant can reference it. It is also the *reference table* the merged criteria
+are generated from, for the same reason: it is the one file that cannot use
+`CRIT_FROM_PRODUCTION` itself, so it is the one guaranteed to spell out every
+group and every id in full.
 
 ## Selecting a variant
 
-Which variant actually gets built is a single CMake option,
-`THORIUM_CRITERIA_VARIANT` (see the top-level `CMakeLists.txt`), validated
-against the list above at configure time -- an unknown value is a hard
-configure error, not a silent fallback:
+**Every** variant listed above is compiled into the binary. Which one a run
+applies is chosen on the command line:
+
+```
+run_scripts --criteria=aged
+```
+
+Without the flag, the variant the build was configured for applies -- a single
+CMake option, `THORIUM_CRITERIA_VARIANT` (see the top-level `CMakeLists.txt`),
+validated against `THORIUM_KNOWN_CRITERIA_VARIANTS` at configure time, so an
+unknown value is a hard configure error rather than a silent fallback:
 
 ```
 cmake -B build -DTHORIUM_CRITERIA_VARIANT=aged
 ```
 
-Default is `production`. This is a build-wide setting: every script picks
-up the same variant through `core/active_criteria.hpp`, so a build always
-represents one coherent hardware/test scenario, never a mix.
+Default is `production`. An unknown `--criteria=` is likewise fatal, and prints
+the names that would have worked -- a runner that quietly fell back to the
+default would apply the wrong tolerances to real hardware and hand back a log
+that looks entirely normal.
+
+The choice is still coherent per run, never a mix: it is frozen the moment the
+journal opens, so the variant named in both logs' traceability header is
+provably the one every check in them was made against.
+
+This used to be a build-wide setting -- one variant baked in per build, three
+variants meaning three build directories and three binaries. It is not any
+more, and nothing was given up in compile-time checking to get there; see
+"How all three fit in one binary" below.
+
+## How all three fit in one binary
+
+`core/active_criteria.hpp` reads the variant files twice.
+
+**Pass 1** pulls in every variant, each into its own namespace
+(`thorium::criteria::production`, `::stress`, `::aged`) -- generated from
+`THORIUM_KNOWN_CRITERIA_VARIANTS` by `cmake/CriteriaVariants.cmake`. Their
+being siblings is what makes `CRIT_FROM_PRODUCTION`'s unqualified
+`production::group::id` resolve from inside any of them.
+
+**Pass 2** re-reads the reference table with `CRITERIA`/`CRIT` redefined, so
+each `CRIT` emits not one `Criterion` but a `core::MultiCriterion` holding
+every variant's same-named criterion. That is the same
+redefine-the-macro-and-re-`#include` trick `CRIT_FROM_PRODUCTION` and
+`hal::safeRig()` use, and it is doing something reflection cannot: building a
+*new struct type* whose members are named by another file.
+
+A script is unaffected and needs no change. `FS_Supply_1::FS_Supply_5V0` is
+still an ordinary `static constexpr` member of an ordinary struct -- it just
+carries three tolerances instead of one, and `core::Verify` picks between them
+by the selected variant's index.
+
+What this costs in compile-time checking is nothing. What it adds:
+
+| | before | now |
+|---|---|---|
+| Typo'd `CRIT` id in a script | no such member | unchanged |
+| A `CRIT` production declares that a variant is missing | caught by `scripts_tests` | compile error naming the id **and** the variant |
+| A variant whose predicate doesn't fit the reading (an amp criterion on a volt rail) | **shipped silently** until someone targeted that variant | compile error, on every build |
+
+That last row is the one worth noticing: the compiler previously never saw the
+inactive variants next to the script measuring against them, so it could not
+have caught it.
 
 ## Why every variant compiles, always
 
-`suite/tests/test_criteria_variants_compile.cpp` `#include`s every variant
-file from here, each in its own namespace, regardless of which one
-`THORIUM_CRITERIA_VARIANT` is currently set to. A typo in `aged` is caught
-the moment anyone builds the `scripts_tests` target -- not the day someone
-finally targets aged equipment for real. It lives under `suite/tests/`
-rather than here because it's a test *of* this data, following the same
-"content in one place, its tests alongside the rest of the test-script
-tests" split this whole directory uses -- `test_adapter.cpp`
-above is the same idea, for `adapter.inc`.
+Given the above, a real build now enforces most of this on its own. What it
+cannot see is a group or `CRIT` that exists **only** in a non-reference variant:
+the merge only ever looks up the ids production declares, so a stray id in
+`criteria_stress.inc` is never merged, never run, and never complained about.
 
-That file also `static_assert`s that each variant defines the exact
-expected `CRIT` names for both `FS_Fuse_6` and `FS_Supply_1` (not just that
-it compiles): a struct with a *renamed* member still compiles fine, so bare
-compilation alone doesn't catch a misspelled criterion id. The named check
-is what does -- if you add a new `CRITERIA` block here, add a matching
-check there too, or a rename in that group can go undetected in whichever
-variant isn't currently active.
+`suite/tests/test_criteria_variants_compile.cpp` is what catches that. It
+`#include`s every variant file from here, each in its own namespace, and uses
+reflection to `static_assert` group/id parity **both ways** between every pair
+-- no hand-written concept or check per `CRITERIA` group, which matters with
+dozens of them. It lives under `suite/tests/` rather than here because it's a
+test *of* this data, following the same "content in one place, its tests
+alongside the rest of the test-script tests" split this whole directory uses --
+`test_adapter.cpp` above is the same idea, for `adapter.inc`.
 
 ## Adding a new variant
 
@@ -175,8 +224,12 @@ variant isn't currently active.
    names as its siblings.
 2. Add the new variant name to `THORIUM_KNOWN_CRITERIA_VARIANTS` in the
    top-level `CMakeLists.txt`.
-3. Add it to the `#include`/`static_assert` block in
+3. Add a namespace for it, and a `checkParity` pair against `production`, in
    `suite/tests/test_criteria_variants_compile.cpp`.
+
+Steps 1 and 2 are what a run needs; the tables, the `--criteria=` name list and
+the manifest all follow from that one list. Step 3 is the surplus-id check the
+build cannot do for itself.
 
 ## Adding a new CRITERIA block (e.g. for a new script)
 
@@ -186,16 +239,20 @@ variant isn't currently active.
 2. Reference it from the script the same way `supply_rail_script.cpp` and
    `fuse_register_script.cpp` do: `#include "core/active_criteria.hpp"`,
    then use `YourGroupName::YourCritName` directly.
-3. Add a `HasYourGroupCriteria` concept + `static_assert`s for it in
-   `suite/tests/test_criteria_variants_compile.cpp`, one per variant.
+
+Nothing to add to the tests: the parity check in
+`suite/tests/test_criteria_variants_compile.cpp` reflects over whatever groups
+each variant declares, so a new one is covered the moment it exists. Miss it in
+one variant and the build says so.
 
 ## Why `active_criteria.hpp` is a separate header from `criterion.hpp`
 
 `core/criterion.hpp` is the general, dependency-free `CRITERIA`/`CRIT`
 mechanism -- it's used on its own (e.g. by `test_criterion.cpp`) with no
 notion of "variants" at all. `core/active_criteria.hpp` is a specific
-*consumer* of that mechanism: it resolves `THORIUM_ACTIVE_CRITERIA`, which
-requires the `scripts` target's build configuration. Folding the two
+*consumer* of that mechanism: it resolves `THORIUM_CRITERIA_VARIANT_TABLES`
+and `THORIUM_PRODUCTION_CRITERIA`, which require the `scripts` target's build
+configuration. Folding the two
 together would force that requirement onto every unrelated user of the
 general macros -- `core`'s own unit tests would stop compiling.
 

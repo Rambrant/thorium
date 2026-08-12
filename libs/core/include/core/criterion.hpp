@@ -60,6 +60,71 @@ namespace core
     {
         return Criterion<Predicate>{ group, id, description, predicate };
     }
+
+    //
+    // PredicateFor, asked of a whole Criterion rather than of a bare predicate:
+    // "can this criterion be checked against these values". Needed because the
+    // multi-variant machinery below holds Criterions, not predicates, and a
+    // constraint over a pack of them cannot reach inside each one to name its
+    // Predicate type without a helper trait per case.
+    //
+    template<typename C, typename... Ts>
+    concept CriterionFor =
+        requires( const C & criterion, const Ts &... values)
+        {
+            { criterion.predicate( values...) } -> std::convertible_to<bool>;
+        };
+
+    //
+    // The same criterion under every known tolerance variant at once: one
+    // Criterion per variant, in THORIUM_KNOWN_CRITERIA_VARIANTS order, with the
+    // one to actually apply chosen at runtime (see core/criteria_variants.hpp
+    // and the Verify overloads in core/verify.hpp).
+    //
+    // This is what a CRIT entry expands to in a merged criteria table -- see
+    // core/active_criteria.hpp, which is the only thing that builds one. A
+    // script still writes FS_Supply_1::FS_Supply_5V0 and still gets a compile
+    // error for a typo, because that is still a real static constexpr member of
+    // a real struct; it just now carries three tolerances instead of one.
+    //
+    // A tuple, for the same reason core::meta::all() hands back one: two
+    // variants of the same criterion routinely hold different predicate *types*
+    // -- EQ( 5.0_V).epsilon( 0.05_V) and EQ( 5.0_V).epsilon( 0.10_V) are the
+    // same type, but nothing stops a variant from widening a check into an
+    // IN( ...) range instead -- and a tuple is the only container that holds
+    // them all with no type erasure and no virtual call between a script and
+    // the tolerance it is being held to.
+    //
+    // group and id are lifted out of the variants and stored once because they
+    // are identical across all of them by construction (the merge pass stamps
+    // both from the reference table). description deliberately is NOT: each
+    // variant writes its own prose, and a log has to quote the one that was
+    // actually applied -- see suite/README.md.
+    //
+    template<typename... Variants>
+    struct MultiCriterion
+    {
+        std::string_view         group;
+        std::string_view         id;
+
+        std::tuple<Variants...>  variants;
+
+        static constexpr std::size_t VariantCount = sizeof...( Variants);
+    };
+
+    //
+    // Factory used by the merged CRIT macro, free-standing for the same reason
+    // makeCriterion() is. The group/id pair comes first and the variants follow
+    // as a pack, which is what lets the macro paste one `, ns::id` per known
+    // variant onto the end of the call without knowing how many there are.
+    //
+    template<typename... Variants>
+    constexpr auto makeMultiCriterion( std::string_view group,
+                                       std::string_view id,
+                                       Variants...      variants) -> MultiCriterion<Variants...>
+    {
+        return MultiCriterion<Variants...>{ group, id, std::make_tuple( variants...) };
+    }
 } // namespace core
 
 //
@@ -174,14 +239,30 @@ namespace core::meta
     {
         //
         // True for a reflected type that is a specialization of
-        // core::Criterion<...> -- what distinguishes a CRIT member from
-        // Group's other static members (Name, Description). See this
-        // block's own comment above for why remove_cv() is required.
+        // core::Criterion<...> or core::MultiCriterion<...> -- what
+        // distinguishes a CRIT member from Group's other static members (Name,
+        // Description). See this block's own comment above for why remove_cv()
+        // is required.
+        //
+        // Both, because a CRIT expands to one or the other depending on which
+        // table it is in: a hand-written or single-variant group holds
+        // Criterions, while a merged group built by core/active_criteria.hpp
+        // holds MultiCriterions. all()/get() below are equally useful over
+        // either and have no reason to care which; what they hand back differs,
+        // but that is the caller's business, not this predicate's. Matching
+        // only ^^Criterion would silently report a merged group as having no
+        // criteria at all -- an empty tuple rather than an error, which is the
+        // worst shape a wrong answer can take here.
         //
         consteval auto isCriterion( std::meta::info type) -> bool
         {
-            return std::meta::has_template_arguments( type)
-                && std::meta::template_of( type) == ^^Criterion;
+            if( ! std::meta::has_template_arguments( type))
+            {
+                return false;
+            }
+
+            return std::meta::template_of( type) == ^^Criterion
+                || std::meta::template_of( type) == ^^MultiCriterion;
         }
 
         //

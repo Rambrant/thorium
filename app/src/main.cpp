@@ -14,6 +14,7 @@
 
 #include "core/active_test_catalog.hpp"
 #include "core/console_sink.hpp"
+#include "core/criteria_variants.hpp"
 #include "core/journal.hpp"
 #include "core/rtf_sink.hpp"
 #include "core/sarif_sink.hpp"
@@ -32,6 +33,26 @@
 //   run_scripts --safe             drop the rig to a known idle state and
 //                                  exit -- no test is run, nothing is
 //                                  measured, nothing is reported
+//
+// ---------------------------------------------------------------------------
+// Choosing the tolerances
+// ---------------------------------------------------------------------------
+//   --criteria=NAME   run against that tolerance variant
+//
+// Every variant the deployment declares (THORIUM_KNOWN_CRITERIA_VARIANTS -- e.g.
+// production, stress, aged) is compiled into this one binary, and this is what
+// picks between them; without the flag, the variant the build was configured
+// for applies (core::defaultCriteriaVariantName()). See suite/README.md for the
+// mechanism and core/criteria_variants.hpp for the seam.
+//
+// An unrecognised name is fatal, and lists the ones that would have worked --
+// same stance as an unknown flag, and for a stronger reason: a runner that
+// quietly fell back to the default would apply the wrong tolerances to real
+// hardware and produce a log that looks entirely normal.
+//
+// The choice is made before the journal opens and is frozen once it does, so
+// the variant named in both logs' traceability header is provably the one every
+// check in them was made against.
 //
 // ---------------------------------------------------------------------------
 // Repeating a run
@@ -154,6 +175,14 @@ namespace
         bool                           SafeOnly{ false };
 
         //
+        // Which tolerance variant to apply. Unset means the one this build was
+        // configured for -- deliberately not resolved to a name here, so that
+        // "the caller said nothing" and "the caller happened to name the
+        // default" stay distinguishable right up to the point of use.
+        //
+        std::optional<std::string_view>  CriteriaVariant;
+
+        //
         // How many times to run the selection. Unset is not the same as 1: on
         // its own it means once, but with UntilFailure it means "keep going",
         // which is what lets --until-failure be useful without having to guess
@@ -250,6 +279,8 @@ namespace
                 options.UntilFailure = true;
             else if ( arg.starts_with( "--select="))
                 options.Selection = splitCommaList( valueOf( arg, "--select="));
+            else if ( arg.starts_with( "--criteria="))
+                options.CriteriaVariant = valueOf( arg, "--criteria=");
             else if ( arg.starts_with( "--repeat="))
             {
                 const auto text = valueOf( arg, "--repeat=");
@@ -304,6 +335,29 @@ namespace
         if ( options.RecordPath && options.ReplayPath)
         {
             std::cerr << "--record= and --replay= are exclusive: recording a replay would just copy its input.\n";
+            return std::nullopt;
+        }
+
+        //
+        // Applied here rather than at the point of use, for the same reason the
+        // checks above are rejected here: this is the last moment at which
+        // nothing has happened yet. core::selectCriteriaVariant validates and
+        // applies in one step -- it owns the list of legal names (generated
+        // from THORIUM_KNOWN_CRITERIA_VARIANTS, see core/criteria_variants.hpp),
+        // so there is no second copy of it here to fall out of step with it.
+        //
+        // Not applying anything when the flag is absent is what leaves the
+        // build's own default in force.
+        //
+        if ( options.CriteriaVariant && !core::selectCriteriaVariant( *options.CriteriaVariant))
+        {
+            std::cerr << "Unknown criteria variant: " << *options.CriteriaVariant << "\nKnown variants:";
+
+            for ( const auto & name : core::criteriaVariantNames())
+                std::cerr << ' ' << name;
+
+            std::cerr << " (default: " << core::defaultCriteriaVariantName() << ")\n";
+
             return std::nullopt;
         }
 

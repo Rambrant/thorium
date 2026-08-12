@@ -12,14 +12,27 @@
 // This file has no runtime assertions -- like test_static_constraints.cpp
 // in libs/core, the entire point is that it compiles. Every criteria
 // variant for every script is #included here, each in its own namespace,
-// so a typo in a variant nobody is currently building against (e.g. "aged"
-// while everyone's day-to-day building "production") is still caught the
-// moment anyone builds this target -- not the day someone finally targets
-// that hardware/temperature/age scenario for real.
+// and checked against every other for group/id parity.
 //
-// The actual scripts never see more than one variant at a time (see
-// core/active_criteria.hpp), selected by THORIUM_CRITERIA_VARIANT. This
-// file is the only place all variants exist side by side.
+// What this file is for has narrowed, and it is worth being precise about
+// what is left. It used to be the only place all variants existed side by
+// side: the scripts saw exactly one at a time, so a typo in a variant nobody
+// was currently building against went unnoticed until somebody targeted that
+// hardware/temperature/age scenario for real, and this file existed to close
+// that gap.
+//
+// That is now how the framework itself works. core/active_criteria.hpp reads
+// every variant into thorium::criteria::<name> and merges them, so a real
+// build already fails if a group or CRIT that production declares is missing
+// from another variant -- with an error naming the id and the variant, which
+// is a better diagnostic than the static_asserts below produce.
+//
+// What survives that, and is why this file is still here: the merge only ever
+// looks up the ids production declares. A group or CRIT that exists ONLY in a
+// non-reference variant is invisible to it -- never merged, never run, and
+// never complained about. The both-directions checkParity() calls at the
+// bottom are what catch that, and they are the reason this runs both ways
+// between every pair rather than only outward from production.
 //
 namespace thorium_criteria_compile_check
 {

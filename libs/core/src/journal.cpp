@@ -8,6 +8,7 @@
 #include <initializer_list>
 #include <utility>
 
+#include "core/criteria_variants.hpp"
 #include "core/meta.hpp"
 
 //
@@ -20,10 +21,6 @@
 //
 #ifndef THORIUM_FRAMEWORK_VERSION
     #define THORIUM_FRAMEWORK_VERSION "unknown"
-#endif
-
-#ifndef THORIUM_CRITERIA_VARIANT_NAME
-    #define THORIUM_CRITERIA_VARIANT_NAME "unknown"
 #endif
 
 #ifndef THORIUM_DUT_NAME
@@ -171,7 +168,17 @@ namespace core
         return RunInfo{
             .FrameworkName    = "Thorium",
             .FrameworkVersion = THORIUM_FRAMEWORK_VERSION,
-            .CriteriaVariant  = THORIUM_CRITERIA_VARIANT_NAME,
+
+            //
+            // Read from the runtime selection rather than baked in at build
+            // time: every known variant is compiled into the binary and a run
+            // picks one with --criteria= (see core/criteria_variants.hpp), so a
+            // build-time constant here would report the *default* on every run,
+            // including the ones that overrode it. Journal::begin() freezes the
+            // selection immediately after this is assembled, so what the header
+            // claims and what the checks below it applied cannot come apart.
+            //
+            .CriteriaVariant  = std::string( activeCriteriaVariantName()),
             .DutName          = THORIUM_DUT_NAME,
             .DutSerial        = {},
             .RigName          = THORIUM_RIG_NAME,
@@ -198,6 +205,15 @@ namespace core
 
     auto Journal::begin( RunInfo info) -> void
     {
+        //
+        // The run has started, so the criteria variant is now part of a record
+        // that has been committed to: the header about to reach every sink
+        // names it. Changing it after this point would produce a log whose
+        // header and whose checks disagree, with nothing in the file saying so
+        // -- see core/criteria_variants.hpp.
+        //
+        lockCriteriaVariant();
+
         mRunInfo      = std::move( info);
         mNextSequence = 0;
         mGroup.clear();

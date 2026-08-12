@@ -44,10 +44,11 @@ Fifteen classes of mistake, none of which can reach the bench:
 | Misspelled DUT point — `DeviceX::Output5Vx` | no such member |
 | Forgotten `at(...)` — `Measure( Dmm1.voltage(), DeviceX::Output5V)` | no matching overload |
 | Misspelled criterion — `FS_Supply_1::FS_Supply_5V0x` | no such member |
-| Unit mismatch in a criterion — `EQ( 5.0_A)` against a voltage reading | no viable predicate |
+| Unit mismatch in a criterion — `EQ( 5.0_A)` against a voltage reading | no viable predicate — in **every** tolerance variant, not just the default one |
 | A DUT point with no `rig/wiring.inc` entry | `dut_tests` fails to build |
 | A tolerance variant referencing a production value that doesn't exist | no such member |
-| A variant missing a criterion another variant has | `scripts_tests` fails to build |
+| A variant missing a criterion production declares | the `scripts` library fails to build, naming the id *and* the variant |
+| A criterion present in one variant only | `scripts_tests` fails to build |
 | Misspelled or renamed script in `TEST(...)` | undeclared identifier |
 | `Connect( DcP1.dc())` on a supply with no isolation relay | no matching `connectDriver` |
 | `Osc1.channel<5>()` on a four-channel scope | no valid instantiation |
@@ -67,10 +68,19 @@ three weeks later. Same trick for tolerance variants in
 `suite/tests/test_criteria_variants_compile.cpp`.
 
 **Criteria variants.** Production, stress-chamber and aged-equipment tolerances
-are three separate tables selected at configure time. A criterion whose value is
-unchanged from production is written `CRIT_FROM_PRODUCTION`, so the number lives
-in exactly one place — and a typo in the reference is a hard compile error, not a
-silent fallback.
+are three separate tables, **all compiled into one binary** and chosen per run
+with `run_scripts --criteria=stress`. A criterion whose value is unchanged from
+production is written `CRIT_FROM_PRODUCTION`, so the number lives in exactly one
+place — and a typo in the reference is a hard compile error, not a silent
+fallback.
+
+Nothing was traded away to get the runtime choice. A script still writes
+`FS_Supply_1::FS_Supply_5V0` as an ordinary struct member, so a typo is still
+"no such member"; what changed is that the criterion now carries one tolerance
+per variant and `Verify` picks between them. The compiler in fact checks *more*
+than it used to: it now sees every variant next to the script measuring against
+it, so an amp criterion in the aged table fails the build today rather than the
+day someone first targets aged hardware. See `dut/README.md` for the mechanism.
 
 ### What is deliberately still runtime
 
@@ -300,7 +310,9 @@ production means:
 CRIT_FROM_PRODUCTION( FS_Supply_1, FS_Supply_12V)
 ```
 
-**Miss a variant and `scripts_tests` will not build.**
+**Miss a variant and the build will not complete** — the merged table that every
+script names is generated from production's, so a missing id is a compile error
+that says which variant is short of it.
 
 ### Add a test script
 
@@ -448,9 +460,8 @@ criteria they hold. That is the case worth having — it's the same code doing t
 checking either way. A group of a different shape needs its own script.
 
 This is not how tolerance variants work: swapping production/stress/aged is
-`THORIUM_CRITERIA_VARIANT`'s job (see **Build options**) and changes no script
-and no catalog entry. The template is for when one run has to check two groups
-side by side.
+`--criteria=`'s job (see **Running**) and changes no script and no catalog
+entry. The template is for when one run has to check two groups side by side.
 
 ### Measure something that isn't routed
 
@@ -595,6 +606,7 @@ than being reported.
 | *(none)* | run every test in the catalog |
 | `--list-tests` | print `group\|id\|description` per test, run nothing |
 | `--select=a,b` | run only these test ids, in catalog order |
+| `--criteria=NAME` | apply that tolerance variant — `production`, `stress`, `aged` |
 | `--repeat=N` | run the selection N times over |
 | `--until-failure` | stop as soon as a pass fails |
 | `--safe` | drop the rig to idle and exit — no test, no log |
@@ -605,6 +617,20 @@ than being reported.
 | `--quiet`, `--no-logs`, `--no-color` | suppress the console, the files, the colour |
 
 Exit code is 0 only if every selected test passed.
+
+**Choosing the tolerances.** Every variant is compiled in, so one binary serves
+all of them:
+
+```bash
+build/debug/app/run_scripts                       # the build's default variant
+build/debug/app/run_scripts --criteria=stress     # stress-chamber tolerances
+```
+
+An unknown name is fatal and lists the ones that would have worked — a runner
+that quietly fell back to the default would apply the wrong tolerances to real
+hardware and hand back a log that looks entirely normal. The choice is frozen
+when the journal opens, so the variant named in both logs' header is provably
+the one every check in them was made against.
 
 **Repeating a run.** What repeats is the *selection*, not each script:
 `--select=A,B --repeat=3` runs `A B A B A B`, never `A A A B B B`. That is the
@@ -707,7 +733,8 @@ cmake --preset macos-debug -DTHORIUM_CRITERIA_VARIANT=stress
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `THORIUM_CRITERIA_VARIANT` | `production` | which tolerance table: `production`, `stress`, `aged`. A typo fails the *configure* step |
+| `THORIUM_KNOWN_CRITERIA_VARIANTS` | `production stress aged` | which tolerance tables are compiled in. Each needs a matching `dut/criteria_<name>.inc`, checked at *configure* time |
+| `THORIUM_CRITERIA_VARIANT` | `production` | which of them applies when `--criteria=` is not given. A typo fails the *configure* step |
 | `THORIUM_DUT_NAME` | `DeviceX` | DUT name in both logs |
 | `THORIUM_RIG_NAME` | `thorium-rig-1` | bench name in the machine log |
 | `THORIUM_SUITE_VERSION`, `THORIUM_DUT_VERSION`, `THORIUM_RIG_VERSION` | `git describe --always --dirty` | content revision in both logs |

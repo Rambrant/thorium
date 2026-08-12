@@ -7,11 +7,20 @@
 # which criteria variant" without parsing C++ or knowing anything about
 # this build beyond where run_scripts landed.
 #
-# THORIUM_RUN_SCRIPTS_EXE / THORIUM_CRITERIA_VARIANT / THORIUM_MANIFEST_OUTPUT
-# are set by the install(CODE ...) calls immediately before this script runs,
-# not passed as -D arguments -- install(SCRIPT ...) shares the same variable
-# scope as the install(CODE ...) calls around it in cmake_install.cmake, the
-# ordinary way to hand values into an install-time script.
+# criteriaVariants is a list rather than the single criteriaVariant this used
+# to report, and that is the visible half of a real change: every variant is
+# now compiled into the binary and chosen per run with --criteria=, so one
+# installed run_scripts offers what previously needed one install per variant.
+# A server that wants to run the stress tolerances no longer has to find a
+# differently-built binary -- it passes a flag to this one. defaultCriteria is
+# what it gets if it passes nothing.
+#
+# THORIUM_RUN_SCRIPTS_EXE / THORIUM_KNOWN_CRITERIA_VARIANTS /
+# THORIUM_CRITERIA_VARIANT / THORIUM_MANIFEST_OUTPUT are set by the
+# install(CODE ...) calls immediately before this script runs, not passed as -D
+# arguments -- install(SCRIPT ...) shares the same variable scope as the
+# install(CODE ...) calls around it in cmake_install.cmake, the ordinary way to
+# hand values into an install-time script.
 #
 execute_process(
     COMMAND "${THORIUM_RUN_SCRIPTS_EXE}" --list-tests
@@ -68,8 +77,17 @@ foreach(line IN LISTS THORIUM_CATALOG_LINES)
         "\n    { \"group\": \"${group}\", \"id\": \"${id}\", \"description\": \"${description}\" }")
 endforeach()
 
+set(THORIUM_VARIANTS_JSON "")
+foreach(variant IN LISTS THORIUM_KNOWN_CRITERIA_VARIANTS)
+    if(NOT THORIUM_VARIANTS_JSON STREQUAL "")
+        string(APPEND THORIUM_VARIANTS_JSON ", ")
+    endif()
+    string(APPEND THORIUM_VARIANTS_JSON "\"${variant}\"")
+endforeach()
+
 file(WRITE "${THORIUM_MANIFEST_OUTPUT}" "{
-  \"criteriaVariant\": \"${THORIUM_CRITERIA_VARIANT}\",
+  \"criteriaVariants\": [${THORIUM_VARIANTS_JSON}],
+  \"defaultCriteriaVariant\": \"${THORIUM_CRITERIA_VARIANT}\",
   \"binary\": \"run_scripts\",
   \"tests\": [${THORIUM_TESTS_JSON}
   ]

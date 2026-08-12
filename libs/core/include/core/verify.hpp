@@ -1,8 +1,12 @@
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string_view>
+#include <tuple>
+#include <utility>
 
+#include "core/criteria_variants.hpp"
 #include "core/criterion.hpp"
 #include "core/format.hpp"
 #include "core/predicate_text.hpp"
@@ -115,5 +119,129 @@ namespace core
         {
             return Verify( criterion, reading->value());
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Multi-variant criteria
+    // -----------------------------------------------------------------------
+    //
+    // A merged criteria table's CRIT entries are MultiCriterions -- the same
+    // criterion under every known tolerance variant at once (see
+    // core/criterion.hpp and core/active_criteria.hpp). These overloads are what
+    // makes them checkable: pick the variant the run selected, then hand the
+    // ordinary single-variant Verify above the Criterion it was always going to
+    // get.
+    //
+    // Everything below the selection is unchanged, which is the point. A
+    // variant's criterion reaches reportResult() with its own description and
+    // its own rendered tolerance, so a log states the limit that was actually
+    // applied rather than the one some other variant would have applied.
+    //
+    namespace detail
+    {
+        //
+        // The tuple element at a *runtime* index, verified.
+        //
+        // A fold over a compile-time index pack rather than a switch or an array
+        // of function pointers: the variants hold different predicate types, so
+        // there is no common signature to switch to, and each arm has to be
+        // instantiated separately anyway. The && inside each term is what stops
+        // the other arms from evaluating -- exactly one comparison matches, and
+        // || short-circuits the rest.
+        //
+        // matched is not decoration: it is false only if wanted is out of range,
+        // which cannot happen through core::selectCriteriaVariant (it validates
+        // against the same generated list the tuple was built from) but would
+        // otherwise silently return "passed" for a check that never ran.
+        //
+        template<typename Multi, typename T, std::size_t... I>
+        auto verifySelectedVariant( const Multi & multi,
+                                    const T &     value,
+                                    std::size_t   wanted,
+                                    std::index_sequence<I...>) -> bool
+        {
+            bool result = false;
+
+            const bool matched = ( ( I == wanted && ( result = Verify( std::get<I>( multi.variants), value), true)) || ...);
+
+            return matched && result;
+        }
+
+        //
+        // Whether T is the std::optional<Quantity<Unit>> a Measure hands back --
+        // used only to keep the diagnostic overloads below from competing with
+        // the optional overload, which handles an absent reading itself.
+        //
+        template<typename T>
+        constexpr bool isOptionalQuantity = false;
+
+        template<typename Unit>
+        constexpr bool isOptionalQuantity<std::optional<Quantity<Unit>>> = true;
+    } // namespace detail
+
+    template<typename... Variants, typename T>
+        requires ( CriterionFor<Variants, T> && ...)
+    bool Verify( const MultiCriterion<Variants...> & criterion, const T & value)
+    {
+        return detail::verifySelectedVariant( criterion, value, activeCriteriaVariant(),
+                                              std::make_index_sequence<sizeof...( Variants)>{});
+    }
+
+    //
+    // The absent-reading overload, for the same reason the single-variant one
+    // above exists -- and it dispatches to that one per variant rather than
+    // reimplementing it, so "a missing reading is a failed check, not a skipped
+    // one" is stated in exactly one place.
+    //
+    template<typename... Variants, typename Unit>
+        requires ( ( CriterionFor<Variants, double> || CriterionFor<Variants, Quantity<Unit>>) && ...)
+    bool Verify( const MultiCriterion<Variants...> & criterion, const std::optional<Quantity<Unit>> & reading)
+    {
+        return detail::verifySelectedVariant( criterion, reading, activeCriteriaVariant(),
+                                              std::make_index_sequence<sizeof...( Variants)>{});
+    }
+
+    //
+    // --- Diagnostics for a mismatched variant ---
+    //
+    // Building every variant into the binary means every variant's predicates
+    // are now type-checked against the reading each script actually takes, not
+    // just the one variant a build happened to select. That is the main thing
+    // this mechanism buys (a Current criterion in dut/criteria_aged.inc no
+    // longer waits until someone targets aged hardware to be discovered) -- but
+    // without these, it buys it as "no matching function for call to Verify"
+    // followed by three pages of expanded MultiCriterion template arguments,
+    // with nothing saying which variant is the odd one out or why.
+    //
+    // These are the same overloads with the constraint negated, so one of them
+    // is what overload resolution lands on instead, and the error is a sentence.
+    // They return bool and are never actually called -- a static_assert has
+    // already failed by then.
+    //
+    template<typename... Variants, typename T>
+        requires ( ! detail::isOptionalQuantity<T>) && ( ! ( CriterionFor<Variants, T> && ...))
+    bool Verify( const MultiCriterion<Variants...> &, const T &)
+    {
+        static_assert( meta::detail::dependentFalse<T>,
+                       "at least one criteria variant's predicate cannot be checked against this "
+                       "reading's type -- every variant of a criterion has to accept the same "
+                       "measurement (a Voltage criterion in one variant and a Current one in "
+                       "another, say). Check that this CRIT's entry agrees in every "
+                       "dut/criteria_*.inc, not just the one this build defaults to.");
+
+        return false;
+    }
+
+    template<typename... Variants, typename Unit>
+        requires ( ! ( ( CriterionFor<Variants, double> || CriterionFor<Variants, Quantity<Unit>>) && ...))
+    bool Verify( const MultiCriterion<Variants...> &, const std::optional<Quantity<Unit>> &)
+    {
+        static_assert( meta::detail::dependentFalse<Unit>,
+                       "at least one criteria variant's predicate cannot be checked against this "
+                       "reading's unit -- every variant of a criterion has to accept the same "
+                       "measurement. Check that this CRIT's entry agrees in every "
+                       "dut/criteria_*.inc, not just the one this build defaults to.");
+
+        return false;
     }
 } // namespace core

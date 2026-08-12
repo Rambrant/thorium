@@ -19,7 +19,7 @@ namespace hal
     // definition pointing at the linking rig's own instrument.inc (see
     // rig/instrument.inc for this repo's) -- the same compile-definition-
     // swap mechanism core/active_criteria.hpp already uses for
-    // THORIUM_ACTIVE_CRITERIA. A driver still names the *role* it plays
+    // THORIUM_CRITERIA_VARIANT_TABLES. A driver still names the *role* it plays
     // ("DC power, channel N"), not the model, the same reasoning that keeps
     // hal::N6701A's own class name (not this enum) tied to the physical
     // instrument model -- see hal::N6701A's own comment in hal/n6701a.hpp.

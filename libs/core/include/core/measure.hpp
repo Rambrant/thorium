@@ -51,7 +51,7 @@ namespace core
     // FabricT/InstrumentWiringT/ConnectorWiringT are only ever named where
     // the concrete instance is put together -- see hal/measure.cpp -- the
     // same "inject the project-specific bit at the build stage" role
-    // THORIUM_ACTIVE_CRITERIA/THORIUM_TEST_CATALOG already play for the
+    // THORIUM_CRITERIA_VARIANT_TABLES/THORIUM_TEST_CATALOG already play for the
     // criteria variants and the test catalog (see core/active_criteria.hpp,
     // core/active_test_catalog.hpp).
     //

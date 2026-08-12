@@ -13,7 +13,7 @@ supplies those as three file paths at configure time -- see
 `THORIUM_ACTIVE_INSTRUMENTS`/`THORIUM_INSTRUMENT_TABLE`/
 `THORIUM_WIRING_TABLE` in this directory's `CMakeLists.txt` -- the same
 compile-definition-swap mechanism `core/active_criteria.hpp` already uses
-for `THORIUM_ACTIVE_CRITERIA`. This repo's own top-level `CMakeLists.txt`
+for `THORIUM_CRITERIA_VARIANT_TABLES`. This repo's own top-level `CMakeLists.txt`
 sets those three to point at `rig/`, since this repo is (for now) both the
 library and its one rig; a separate rig repo pulling this library in later
 would set the same three variables pointing at its own `rig/`-equivalent

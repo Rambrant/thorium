@@ -41,23 +41,54 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-# --- Criteria/tolerance variant selection ---
-# Which tolerance table the scripts layer's CRIT/CRITERIA checks are built
+# --- Criteria/tolerance variants ---
+# Which tolerance tables the scripts layer's CRIT/CRITERIA checks are built
 # against: e.g. production hardware fresh off the line vs. a stress-chamber
-# run vs. equipment that's been in service for years. This is a single,
-# CMake-validated choice -- not a raw environment variable read via #ifdef --
-# so a typo fails the *configure* step loudly, the same way a misspelled
-# CRIT id fails to compile. See suite/README.md for the full mechanism.
+# run vs. equipment that's been in service for years.
+#
+# EVERY variant in this list is compiled into the binary, and which one a run
+# actually applies is chosen at runtime by run_scripts' --criteria= flag. That
+# is a change from how this used to work -- one variant was baked in per build,
+# and three variants meant three build directories and three binaries -- and it
+# costs nothing in compile-time checking, because the merged table a script
+# sees is still a real struct with real members (see core/active_criteria.hpp
+# for the mechanism, and suite/README.md for the whole story). It in fact
+# checks *more*: every variant's predicates are now type-checked against the
+# reading each script actually takes, where before only the one built-against
+# variant was.
+#
+# Still a single, CMake-validated list -- not a raw environment variable read
+# via #ifdef -- so a typo fails the *configure* step loudly, the same way a
+# misspelled CRIT id fails to compile. Adding a variant is this one line plus
+# the matching dut/criteria_<name>.inc; everything the compiler and the runtime
+# selector need is generated from here (cmake/CriteriaVariants.cmake).
 set(THORIUM_KNOWN_CRITERIA_VARIANTS production stress aged)
+
+# Which of them a run uses when --criteria= is not given. A default rather than
+# a build-time restriction: a bench operator who forgets the flag gets the
+# variant this deployment was configured for, not an arbitrary one.
 set(THORIUM_CRITERIA_VARIANT "production" CACHE STRING
-    "Which criteria/tolerance variant to build the scripts layer against (${THORIUM_KNOWN_CRITERIA_VARIANTS})")
+    "Which criteria/tolerance variant a run uses when --criteria= is not given (${THORIUM_KNOWN_CRITERIA_VARIANTS})")
 set_property(CACHE THORIUM_CRITERIA_VARIANT PROPERTY STRINGS ${THORIUM_KNOWN_CRITERIA_VARIANTS})
 
 if(NOT THORIUM_CRITERIA_VARIANT IN_LIST THORIUM_KNOWN_CRITERIA_VARIANTS)
     message(FATAL_ERROR
         "THORIUM_CRITERIA_VARIANT='${THORIUM_CRITERIA_VARIANT}' is not one of: ${THORIUM_KNOWN_CRITERIA_VARIANTS}")
 endif()
-message(STATUS "Criteria variant: ${THORIUM_CRITERIA_VARIANT}")
+
+include(CriteriaVariants)
+
+# Sets THORIUM_CRITERIA_VARIANT_TABLES / THORIUM_CRITERIA_VARIANT_NAMES to the
+# two generated files' paths; libs/core and app hand those to the translation
+# units that read them, as compile definitions, exactly the way
+# THORIUM_PRODUCTION_CRITERIA and THORIUM_TEST_CATALOG already work.
+thorium_generate_criteria_variants(
+    "${THORIUM_KNOWN_CRITERIA_VARIANTS}"
+    "${CMAKE_SOURCE_DIR}/dut"
+    "${CMAKE_BINARY_DIR}/generated/thorium"
+)
+
+message(STATUS "Criteria variants: ${THORIUM_KNOWN_CRITERIA_VARIANTS} (default: ${THORIUM_CRITERIA_VARIANT})")
 
 # --- Content revision, for the run logs' traceability header ---
 # Both log streams record which revision of this deployment's *content* -- the

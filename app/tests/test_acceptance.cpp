@@ -529,6 +529,7 @@ namespace
     struct AcceptanceSafing    : Acceptance {};
     struct AcceptanceArguments : Acceptance {};
     struct AcceptanceSelection : Acceptance {};
+    struct AcceptanceCriteria  : Acceptance {};
     struct AcceptanceHumanLog  : Acceptance {};
     struct AcceptanceMachineLog: Acceptance {};
     struct AcceptanceLogFiles  : Acceptance {};
@@ -692,6 +693,109 @@ TEST_F( AcceptanceSelection, SelectingNothingIsReportedRatherThanPassingVacuousl
     EXPECT_EQ( run( { "--select=NoSuchTest" }), 1);
 
     EXPECT_TRUE( containsText( errPath(), mErr, "No catalog test matched"));
+}
+
+// ---------------------------------------------------------------------------
+// Tolerance variants: run_scripts --criteria=
+// ---------------------------------------------------------------------------
+
+//
+// Every variant the deployment declares is compiled into this one binary, and
+// --criteria= is what picks between them (see suite/README.md). This is the
+// only place that can show it end to end: unit tests can select a variant and
+// watch a verdict change, but only a real invocation shows the flag reaching
+// the tolerances, the console and both log files as one consistent story.
+//
+// Asserted through the *rendered tolerance* rather than the criterion's prose:
+// "+/-0.15 V" is core::describeCriterion reading the predicate that was
+// actually evaluated, whereas the description beside it is hand-written text
+// that could say anything. If those two ever disagree, this catches the one
+// that matters.
+//
+TEST_F( AcceptanceCriteria, WithoutTheFlagTheBuildsDefaultVariantApplies)
+{
+    run( { "--no-logs", "--no-color" });
+
+    EXPECT_TRUE( containsText( outPath(), mOut, "Criteria          production"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.05 V"));
+}
+
+TEST_F( AcceptanceCriteria, TheFlagChangesTheToleranceThatIsActuallyApplied)
+{
+    run( { "--no-logs", "--no-color", "--criteria=aged" });
+
+    EXPECT_TRUE( containsText( outPath(), mOut, "Criteria          aged"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.15 V"));
+
+    //
+    // The 5V rail specifically, not "+/-0.05 V" anywhere: fuse_register_script
+    // also makes an ad-hoc EQ( 12.0_V).epsilon( 0.05_V) check that no variant
+    // has any say over, so the broader assertion would fail on a criterion that
+    // is behaving exactly as intended.
+    //
+    EXPECT_TRUE( omitsText( outPath(), mOut, "= 5 V +/-0.05 V"))
+        << "production's 5V tolerance must not be applied in an aged run";
+}
+
+//
+// One binary, three tolerance tables: the same criterion id renders a different
+// limit per run, with no rebuild between them. This is the property the whole
+// mechanism exists for, and running the binary is the only way to state it.
+//
+TEST_F( AcceptanceCriteria, TheSameBinaryServesEveryVariant)
+{
+    run( { "--no-logs", "--no-color", "--criteria=production" });
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.05 V"));
+
+    run( { "--no-logs", "--no-color", "--criteria=stress" });
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.1 V"));
+
+    run( { "--no-logs", "--no-color", "--criteria=aged" });
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.15 V"));
+}
+
+//
+// Both logs have to name the variant that was applied, not the one the build
+// defaults to -- a machine log keyed on the wrong tolerance table would make
+// two incomparable runs look comparable.
+//
+TEST_F( AcceptanceCriteria, BothLogsRecordTheVariantThatWasApplied)
+{
+    run( { "--quiet", "--criteria=stress" });
+
+    const auto sarif = findArtifact( ".sarif");
+    const auto rtf   = findArtifact( ".rtf");
+
+    ASSERT_FALSE( sarif.empty());
+    ASSERT_FALSE( rtf.empty());
+
+    const auto machineLog = readFile( sarif);
+
+    EXPECT_TRUE( containsText( sarif, machineLog, R"("criteriaVariant": "stress")"));
+
+    // The run's own identity, which a server uses to group results -- see
+    // core::SarifSink::automationDetails.
+    EXPECT_TRUE( containsText( sarif, machineLog, R"("id": "thorium/DeviceX/stress/)"));
+
+    EXPECT_TRUE( containsText( rtf, readFile( rtf), "stress"));
+}
+
+//
+// Fatal, and it says what would have worked. A runner that quietly fell back to
+// the default here would apply the wrong tolerances to real hardware and hand
+// back a log that looks entirely normal -- worse than the unknown-flag case,
+// which at least fails obviously.
+//
+TEST_F( AcceptanceCriteria, AnUnknownVariantIsFatalAndListsTheKnownOnes)
+{
+    EXPECT_EQ( run( { "--criteria=no-such-variant" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "Unknown criteria variant: no-such-variant"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "production"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "stress"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "aged"));
+
+    EXPECT_FALSE( std::filesystem::exists( mDir / "logs")) << "a rejected run must not leave a log behind";
 }
 
 // ---------------------------------------------------------------------------
