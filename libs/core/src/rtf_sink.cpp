@@ -33,15 +33,34 @@ namespace core
             "}";
 
         //
-        // \f1 is the monospaced font -- the human log is a column layout (see
-        // core/report.cpp's width constants), and a proportional font throws
-        // every column out of alignment, which defeats the reason the padding
-        // is there.
+        // One font, monospaced, and it is the document default (\deff0 in the
+        // preamble below) as well as the one every span selects -- the human log
+        // is a column layout (see core/report.cpp's width constants), and a
+        // proportional font throws every column out of alignment, which defeats
+        // the reason the padding is there.
+        //
+        // Courier New rather than something better-looking, because it is the
+        // one monospaced font present out of the box on every platform a run log
+        // gets opened on: Windows and macOS both ship it, and LibreOffice
+        // substitutes the metric-compatible Liberation Mono for it on Linux.
+        // This used to name Menlo, which exists only on macOS -- on Windows the
+        // reader found no such font and fell back to its default *proportional*
+        // face, so every column in the file was ragged. A log that is only
+        // legible on the machine it was written on is half a log.
+        //
+        // \fprq1 (fixed pitch) alongside \fmodern is the belt to that braces:
+        // both tell a reader that has to substitute anyway to reach for a
+        // monospaced face rather than a proportional one. \fcharset0 is ANSI,
+        // matching the \ansicpg1252 the preamble declares.
+        //
+        // Deliberately the only entry. The table used to carry an unused
+        // proportional \f0 alongside it, which is how the default font
+        // (\deff0) came to be one the document never actually uses -- a trap
+        // for any span later emitted without an explicit font selector.
         //
         constexpr std::string_view kFontTable =
             "{\\fonttbl"
-            "{\\f0\\fswiss Helvetica;}"
-            "{\\f1\\fmodern Menlo;}"
+            "{\\f0\\fmodern\\fprq1\\fcharset0 Courier New;}"
             "}";
 
         //
@@ -150,28 +169,28 @@ namespace core
         // truncate this file anywhere and what remains still renders correctly,
         // and no span's formatting leaks into the one after it.
         //
-        // One font (\f1, monospaced) and one body size (\fs20) throughout, with
-        // hierarchy carried by weight and colour instead. That is not a style
-        // preference: the log is a column grid (see core/report.cpp's width
-        // constants), several lines now mix two emphases *within* a line (a
-        // measurement plus its grey description), and a size or font change
-        // mid-line would break the alignment the padding exists to create.
-        // Headings get a modest bump because they sit on their own line, where
-        // nothing has to line up with them.
+        // One font (\f0, monospaced -- see kFontTable) and one body size
+        // (\fs20) throughout, with hierarchy carried by weight and colour
+        // instead. That is not a style preference: the log is a column grid
+        // (see core/report.cpp's width constants), several lines now mix two
+        // emphases *within* a line (a measurement plus its grey description),
+        // and a size or font change mid-line would break the alignment the
+        // padding exists to create. Headings get a modest bump because they sit
+        // on their own line, where nothing has to line up with them.
         //
         auto emphasisFormat( const Emphasis emphasis) -> std::string_view
         {
             switch( emphasis)
             {
-                case Emphasis::Plain:   return "\\f1\\fs20\\cf1 ";
-                case Emphasis::Heading: return "\\f1\\fs22\\b\\cf4 ";
-                case Emphasis::Detail:  return "\\f1\\fs20\\cf5 ";
-                case Emphasis::Pass:    return "\\f1\\fs20\\b\\cf2 ";
-                case Emphasis::Fail:    return "\\f1\\fs20\\b\\cf3 ";
-                case Emphasis::Warning: return "\\f1\\fs20\\b\\cf6 ";
+                case Emphasis::Plain:   return "\\f0\\fs20\\cf1 ";
+                case Emphasis::Heading: return "\\f0\\fs22\\b\\cf4 ";
+                case Emphasis::Detail:  return "\\f0\\fs20\\cf5 ";
+                case Emphasis::Pass:    return "\\f0\\fs20\\b\\cf2 ";
+                case Emphasis::Fail:    return "\\f0\\fs20\\b\\cf3 ";
+                case Emphasis::Warning: return "\\f0\\fs20\\b\\cf6 ";
             }
 
-            return "\\f1\\fs20\\cf1 ";
+            return "\\f0\\fs20\\cf1 ";
         }
     } // namespace
 

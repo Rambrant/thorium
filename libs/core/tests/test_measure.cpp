@@ -140,8 +140,13 @@ namespace mock
 namespace
 {
     constexpr mock::Location kLoc{ 3 };
+    constexpr mock::Location kLoc2{ 4 };
 
-    constexpr core::AdapterPointTag<kLoc> Output5V{ "Output5V", "5Vdc supply port" };
+    constexpr core::AdapterPointTag<kLoc>  Output5V{ "Output5V", "5Vdc supply port" };
+
+    // A second point, so a test can say something about one point's programming
+    // without saying it about every point at once -- see UseLiveDiscards... below.
+    constexpr core::AdapterPointTag<kLoc2> Output3V3{ "Output3V3", "3.3Vdc supply port" };
 
     struct MeasureEngineFixture : ::testing::Test
     {
@@ -156,6 +161,7 @@ namespace
         {
             instrumentWiring.addWire( mock::InstrumentId::Dmm1, 14);
             connectorWiring.addWire( kLoc, 3);
+            connectorWiring.addWire( kLoc2, 4);
         }
     };
 } // namespace
@@ -246,6 +252,37 @@ TEST_F( MeasureEngineFixture, UseLiveRestoresRealRoutingAfterAnInject)
     const auto value = Measure( dmm1.voltage(), at( Output5V));
 
     EXPECT_DOUBLE_EQ( value.value(), 6.0);
+}
+
+//
+// useLive() is the full inverse of inject(), not just the routing half of it.
+//
+// This is the shape of a real bug rather than a hypothetical: every script test
+// fixture calls useLive() in TearDown to undo its injections, and while it only
+// switched the session back, each test inherited every point the tests before it
+// had programmed. suite/tests/test_supply_rail_script.cpp's
+// "ThrowsWhenAPointIsMissing" passed only because gtest_discover_tests gives each
+// test its own process -- run in one process it found "Output3V3" still armed
+// from an earlier test and quietly measured it instead of throwing.
+//
+// The last line is the assertion that matters. A point this caller never
+// programmed must produce ScriptedSession's "nothing programmed for point" error,
+// because a canned value surviving from an earlier caller is indistinguishable
+// from a real reading once it reaches a criterion.
+//
+TEST_F( MeasureEngineFixture, UseLiveDiscardsProgrammingSoALaterInjectStartsClean)
+{
+    Measure.inject( "Output5V",  Voltage{ 5.02 });
+    Measure.inject( "Output3V3", Voltage{ 3.29 });
+
+    Measure.useLive();
+
+    // A fresh injection for one point only -- the other must not still be armed.
+    Measure.inject( "Output5V", Voltage{ 5.01 });
+
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.01);
+
+    EXPECT_THROW( (void)Measure( dmm1.voltage(), at( Output3V3)), std::runtime_error);
 }
 
 TEST_F( MeasureEngineFixture, ThrowsWhenTheRequestedInstrumentIsNotWiredToThatPin)

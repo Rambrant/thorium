@@ -179,6 +179,55 @@ TEST_F( RtfSinkTest, HeaderCarriesAFontAndColourTable)
 }
 
 //
+// The log is a column grid (see core/report.cpp's width constants), so the font
+// is load-bearing rather than cosmetic: a proportional face makes every column
+// in the file ragged and the padding pointless.
+//
+// Asserting the *name*, not just that some font table exists, because that is
+// exactly the gap this closes. The table used to name Menlo -- which does not
+// exist on Windows, where the reader silently fell back to its default
+// proportional face -- and a test that only looked for "\fonttbl" was perfectly
+// happy with that. There is no way to check "the reader found a monospaced
+// font" from here, so the next best thing is to pin the property that decides
+// it: a face that ships on every platform these logs are opened on.
+//
+TEST_F( RtfSinkTest, TheFontIsMonospacedAndAvailableOnEveryPlatform)
+{
+    core::RtfSink sink( mPath.string());
+
+    const auto text = readFile( mPath);
+
+    EXPECT_NE( text.find( "Courier New"), std::string::npos)
+        << "the named font must be one Windows, macOS and Linux can all resolve";
+
+    // \fmodern (family) and \fprq1 (fixed pitch) are what a reader that has to
+    // substitute anyway reads to pick a monospaced face rather than a
+    // proportional one.
+    EXPECT_NE( text.find( "\\fmodern"), std::string::npos);
+    EXPECT_NE( text.find( "\\fprq1"), std::string::npos);
+}
+
+//
+// The document default and the font every span selects have to be the same one.
+// They were not: \deff0 pointed at a proportional entry that nothing ever used,
+// so any span emitted without an explicit font selector would have come out in
+// the wrong face.
+//
+TEST_F( RtfSinkTest, TheDefaultFontIsTheOneEverySpanActuallyUses)
+{
+    core::RtfSink sink( mPath.string());
+
+    sink.onRunStart( runInfo());
+    sink.onEvent( measureEvent());
+
+    const auto text = readFile( mPath);
+
+    EXPECT_NE( text.find( "\\deff0"), std::string::npos);
+    EXPECT_NE( text.find( "\\f0"), std::string::npos) << "spans must select the default font, not another one";
+    EXPECT_EQ( text.find( "\\f1"), std::string::npos) << "there is only one font in the table";
+}
+
+//
 // Colour coding is the point of choosing RTF over plain text, so a pass and a
 // fail must not come out in the same colour.
 //

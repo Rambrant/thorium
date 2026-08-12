@@ -287,9 +287,14 @@ namespace core
             // Feeds a canned value for a point, bypassing hal entirely --
             // for script unit tests. Switches this engine to use injected/
             // loaded values if it wasn't already (no separate "now use
-            // this" call needed); see useLive() to go back. Keyed by the
-            // point's Name (e.g. "Output5V"), matching what operator() above
-            // passes to the session.
+            // this" call needed); useLive() goes back, and discards these
+            // again. Keyed by the point's Name (e.g. "Output5V"), matching
+            // what operator() above passes to the session.
+            //
+            // Programming accumulates until then: injecting two points arms
+            // both, which is what a script measuring several of them needs.
+            // That is also why useLive() has to discard rather than merely
+            // switch away -- see its own comment.
             //
             auto inject( std::string_view pointName, QuantityVariant value) -> void
             {
@@ -357,10 +362,38 @@ namespace core
                 mSwitchable.use( mScripted);
             }
 
-            // Returns to real routing + real instrument reads.
+            //
+            // Returns to real routing + real instrument reads, and discards
+            // whatever was injected or loaded -- the full inverse of inject()
+            // and load(), not half of one.
+            //
+            // Discarding is the point, and it used to be missing. Switching the
+            // session back on its own left every programmed point still armed
+            // in mScripted, which is unreachable state that can only do harm:
+            // there is no useScripted() to re-enter with, so the only way back
+            // is another inject() -- which programs afresh anyway -- and
+            // meanwhile that later inject() would silently re-arm every point
+            // programmed before it. A script then measuring a point *this*
+            // caller never programmed would quietly receive a stale canned
+            // value instead of the hard "nothing programmed for point" error
+            // ScriptedSession::fetch exists to raise. A test that passes on a
+            // value left behind by the test before it is exactly the kind of
+            // quietly-wrong result this framework is built to refuse.
+            //
+            // It also makes the pair symmetric with what load() already
+            // documents about itself: entering a scripted mode discards what
+            // the previous one had, so leaving it discards too.
+            //
+            // Assignment rather than a clear() on ScriptedSession, because
+            // load() above already establishes that idiom for exactly this --
+            // "start from a fresh set of sources" -- and a second spelling of
+            // one operation is a second thing to keep in step.
+            //
             auto useLive() -> void
             {
                 mSwitchable.useDefault();
+
+                mScripted = ScriptedSession{};
             }
 
             // Starts/stops logging every fetch (live, injected, or replayed).
