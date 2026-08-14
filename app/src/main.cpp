@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <charconv>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -12,6 +11,7 @@
 #include <system_error>
 #include <vector>
 
+#include "cli.hpp"
 #include "core/active_test_catalog.hpp"
 #include "core/console_sink.hpp"
 #include "core/criteria_variants.hpp"
@@ -33,6 +33,13 @@
 //   run_scripts --safe             drop the rig to a known idle state and
 //                                  exit -- no test is run, nothing is
 //                                  measured, nothing is reported
+//
+// That is the shape of the thing. For the flags themselves -- every spelling,
+// what each takes, one line on what each does -- run `run_scripts --help`, or
+// read the Options struct below, which is the single place they are declared and
+// what --help is generated from. The sections that follow here deliberately do
+// not restate that list: they explain the handful of choices whose *reasoning*
+// does not fit on a help line.
 //
 // ---------------------------------------------------------------------------
 // Choosing the tolerances
@@ -168,11 +175,29 @@ namespace
     // handled before any log file is created, since neither runs a test and
     // neither should leave a log claiming one happened.
     //
+    // The annotations are what the parser and --help are generated from (see
+    // cli.hpp): a member's Flag gives its spelling, its Doc gives its --help
+    // line, and its *type* decides whether it takes a value and how that value
+    // is read. A flag therefore exists in exactly one place. Adding one is
+    // adding a member here; there is no parser branch and no help text to keep
+    // in step with it.
+    //
     struct Options
     {
+        [[= cli::Flag{ "--select" }, = cli::Meta{ "ID[,ID...]" },
+           = cli::Doc{ "run only the named test ids, in catalog order" }]]
         std::vector<std::string_view>  Selection;      // empty => run everything
+
+        [[= cli::Flag{ "--list-tests" },
+           = cli::Doc{ "print \"group|id|description\" per test and exit" }]]
         bool                           ListOnly{ false };
+
+        [[= cli::Flag{ "--safe" },
+           = cli::Doc{ "drop the rig to a known idle state and exit" }]]
         bool                           SafeOnly{ false };
+
+        [[= cli::Flag{ "--help" }, = cli::Doc{ "print this list and exit" }]]
+        bool                           ShowHelp{ false };
 
         //
         // Which tolerance variant to apply. Unset means the one this build was
@@ -180,6 +205,8 @@ namespace
         // "the caller said nothing" and "the caller happened to name the
         // default" stay distinguishable right up to the point of use.
         //
+        [[= cli::Flag{ "--criteria" }, = cli::Meta{ "NAME" },
+           = cli::Doc{ "run against that tolerance variant" }]]
         std::optional<std::string_view>  CriteriaVariant;
 
         //
@@ -188,7 +215,12 @@ namespace
         // which is what lets --until-failure be useful without having to guess
         // a pass count up front. See passCount() below.
         //
+        [[= cli::Flag{ "--repeat" }, = cli::Meta{ "N" }, = cli::Positive{ "passes" },
+           = cli::Doc{ "run the selection N times over" }]]
         std::optional<std::uint64_t>   Repeat;
+
+        [[= cli::Flag{ "--until-failure" },
+           = cli::Doc{ "stop as soon as a pass fails" }]]
         bool                           UntilFailure{ false };
 
         //
@@ -197,42 +229,45 @@ namespace
         // server, this one is the readings themselves, in order, so the same
         // run can be played back with no rig attached.
         //
+        [[= cli::Flag{ "--record" }, = cli::Meta{ "PATH" },
+           = cli::Doc{ "write the reading stream to PATH" }]]
         std::optional<std::string>     RecordPath;
+
+        [[= cli::Flag{ "--replay" }, = cli::Meta{ "PATH" },
+           = cli::Doc{ "read readings from PATH instead of the rig" }]]
         std::optional<std::string>     ReplayPath;
 
+        [[= cli::Flag{ "--log-dir" }, = cli::Meta{ "DIR" },
+           = cli::Doc{ "where both run logs are written (default: logs)" }]]
         std::string                    LogDir{ "logs" };
+
+        [[= cli::Flag{ "--sarif" }, = cli::Meta{ "PATH" },
+           = cli::Doc{ "SARIF log path (default: derived from --log-dir)" }]]
         std::optional<std::string>     SarifPath;      // unset => derived from LogDir
+
+        [[= cli::Flag{ "--rtf" }, = cli::Meta{ "PATH" },
+           = cli::Doc{ "RTF log path (default: derived from --log-dir)" }]]
         std::optional<std::string>     RtfPath;
+
+        [[= cli::Flag{ "--no-logs" }, = cli::Clears{},
+           = cli::Doc{ "write no run log at all" }]]
         bool                           WriteLogs{ true };
 
+        [[= cli::Flag{ "--no-color" }, = cli::Flag{ "--no-colour" }, = cli::Clears{},
+           = cli::Doc{ "no ANSI colour in the console view" }]]
         bool                           Colour{ true };
+
+        [[= cli::Flag{ "--quiet" }, = cli::Doc{ "no live console view" }]]
         bool                           Quiet{ false };  // no live console view
 
+        [[= cli::Flag{ "--dut-serial" }, = cli::Meta{ "SERIAL" },
+           = cli::Doc{ "DUT serial, recorded in both logs' header" }]]
         std::string                    DutSerial;
+
+        [[= cli::Flag{ "--operator" }, = cli::Meta{ "NAME" },
+           = cli::Doc{ "operator name, recorded in both logs' header" }]]
         std::string                    OperatorName;
     };
-
-    auto splitCommaList( std::string_view csv) -> std::vector<std::string_view>
-    {
-        std::vector<std::string_view> parts;
-        std::size_t                   start = 0;
-
-        while ( start <= csv.size())
-        {
-            auto comma = csv.find( ',', start);
-            auto end   = (comma == std::string_view::npos) ? csv.size() : comma;
-
-            if ( end > start)
-                parts.push_back( csv.substr( start, end - start));
-
-            if ( comma == std::string_view::npos)
-                break;
-
-            start = comma + 1;
-        }
-
-        return parts;
-    }
 
     auto isSelected( std::string_view id, const std::vector<std::string_view> & selection) -> bool
     {
@@ -246,84 +281,28 @@ namespace
                 std::cout << group.name << '|' << test.id << '|' << test.description << '\n';
     }
 
-    auto valueOf( const std::string_view arg, const std::string_view prefix) -> std::string_view
-    {
-        return arg.substr( prefix.size());
-    }
-
     //
     // Returns std::nullopt on an unrecognised argument, having already reported
     // it -- the same "unknown argument is a hard failure" behaviour this runner
     // has always had, kept because a mistyped flag silently ignored is a run
     // that didn't do what was asked.
     //
+    // The per-flag half of that -- which spellings exist, which take a value,
+    // how each value is read -- is generated from the Options annotations by
+    // cli::parse. What stays here is everything that is not a property of one
+    // flag on its own: the two checks below. Neither could be an annotation
+    // without inventing a way to write "this flag and that flag together" down,
+    // and both are short enough that spelling them out is clearer than the
+    // machinery that would be needed to declare them.
+    //
     auto parseOptions( const int argc, char ** argv) -> std::optional<Options>
     {
-        Options options;
+        auto parsed = cli::parse<Options>( argc, argv, std::cerr);
 
-        for ( int i = 1; i < argc; ++i)
-        {
-            const std::string_view arg = argv[ i];
+        if ( !parsed)
+            return std::nullopt;
 
-            if ( arg == "--list-tests")
-                options.ListOnly = true;
-            else if ( arg == "--safe")
-                options.SafeOnly = true;
-            else if ( arg == "--no-color" || arg == "--no-colour")
-                options.Colour = false;
-            else if ( arg == "--quiet")
-                options.Quiet = true;
-            else if ( arg == "--no-logs")
-                options.WriteLogs = false;
-            else if ( arg == "--until-failure")
-                options.UntilFailure = true;
-            else if ( arg.starts_with( "--select="))
-                options.Selection = splitCommaList( valueOf( arg, "--select="));
-            else if ( arg.starts_with( "--criteria="))
-                options.CriteriaVariant = valueOf( arg, "--criteria=");
-            else if ( arg.starts_with( "--repeat="))
-            {
-                const auto text = valueOf( arg, "--repeat=");
-
-                std::uint64_t count = 0;
-                const auto [ end, error] = std::from_chars( text.data(), text.data() + text.size(), count);
-
-                //
-                // Rejected rather than clamped, and rejected here rather than
-                // at first use: --repeat=0 (run nothing), --repeat=-1 and
-                // --repeat=ten are all a caller asking for something this
-                // cannot do, and a run that quietly reinterpreted the number
-                // would be a run that didn't do what was asked -- the same
-                // reason an unknown flag is fatal just below.
-                //
-                if ( error != std::errc{} || end != text.data() + text.size() || count == 0)
-                {
-                    std::cerr << "--repeat= needs a positive whole number of passes, got: " << text << '\n';
-                    return std::nullopt;
-                }
-
-                options.Repeat = count;
-            }
-            else if ( arg.starts_with( "--log-dir="))
-                options.LogDir = std::string( valueOf( arg, "--log-dir="));
-            else if ( arg.starts_with( "--sarif="))
-                options.SarifPath = std::string( valueOf( arg, "--sarif="));
-            else if ( arg.starts_with( "--rtf="))
-                options.RtfPath = std::string( valueOf( arg, "--rtf="));
-            else if ( arg.starts_with( "--record="))
-                options.RecordPath = std::string( valueOf( arg, "--record="));
-            else if ( arg.starts_with( "--replay="))
-                options.ReplayPath = std::string( valueOf( arg, "--replay="));
-            else if ( arg.starts_with( "--dut-serial="))
-                options.DutSerial = std::string( valueOf( arg, "--dut-serial="));
-            else if ( arg.starts_with( "--operator="))
-                options.OperatorName = std::string( valueOf( arg, "--operator="));
-            else
-            {
-                std::cerr << "Unknown argument: " << arg << '\n';
-                return std::nullopt;
-            }
-        }
+        const auto & options = *parsed;
 
         //
         // Rejected rather than allowed to mean something surprising. Recording
@@ -361,7 +340,20 @@ namespace
             return std::nullopt;
         }
 
-        return options;
+        return parsed;
+    }
+
+    //
+    // Generated from the Options annotations, so this cannot drift from the
+    // flags the parser actually accepts -- adding a member with a Flag and a Doc
+    // is what makes it appear here. The body is assembled at compile time and
+    // baked into the binary as one string; nothing is walked at runtime.
+    //
+    void printUsage()
+    {
+        std::cout << "usage: run_scripts [options]\n\n"
+                  << cli::usageText<Options>()
+                  << "\nWith no options, every test in the catalog is run.\n";
     }
 
     auto commandLineOf( const int argc, char ** argv) -> std::string
@@ -707,6 +699,17 @@ int main( int argc, char ** argv)
         return 1;
 
     const auto & options = *parsed;
+
+    //
+    // Before every other mode, including --safe: --help is the one invocation
+    // that must not touch the rig, and a caller who asked what the flags are has
+    // not asked for anything to happen.
+    //
+    if ( options.ShowHelp)
+    {
+        printUsage();
+        return 0;
+    }
 
     //
     // Checked before --list-tests, and before any script runs -- see this

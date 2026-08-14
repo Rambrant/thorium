@@ -615,6 +615,30 @@ TEST_F( AcceptanceSafing, SafeExitsCleanlyAndWritesNoLog)
 // ---------------------------------------------------------------------------
 
 //
+// --help is generated from the Options struct's annotations (see app/src/cli.hpp),
+// which is the whole reason it is worth an acceptance test: the risk is not that
+// the text is badly worded, it is that a flag exists and no line describes it.
+//
+// So this asserts on coverage rather than on layout -- every flag the parser
+// accepts has to appear, including both spellings of the aliased one -- and it
+// asserts --help touches nothing, since a caller asking what the flags are has
+// not asked for a rig to be driven or a log to be written.
+//
+TEST_F( AcceptanceArguments, HelpListsEveryFlagAndTouchesNothing)
+{
+    EXPECT_EQ( run( { "--help" }), 0);
+
+    for ( const auto flag : { "--select=", "--list-tests", "--safe", "--help",
+                              "--criteria=", "--repeat=", "--until-failure",
+                              "--record=", "--replay=", "--log-dir=", "--sarif=",
+                              "--rtf=", "--no-logs", "--no-color", "--no-colour",
+                              "--quiet", "--dut-serial=", "--operator=" })
+        EXPECT_TRUE( containsText( outPath(), mOut, flag)) << flag;
+
+    EXPECT_FALSE( std::filesystem::exists( mDir / "logs"));
+}
+
+//
 // A mistyped flag has to be a hard failure -- silently ignored, it means a run
 // that didn't do what was asked.
 //
