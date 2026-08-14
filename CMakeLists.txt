@@ -180,10 +180,19 @@ endif()
 # content depend on anything outside it.
 #
 # core  : foundational utilities, no dependencies on other layers
-# hal   : generic hardware abstraction layer (instrument drivers, switching
-#         fabric, wiring/measure/apply/safing mechanism) -- depends on core,
-#         and on this rig's data below, but knows nothing rig-specific
-#         itself; see libs/hal/README.md
+# hal   : generic hardware abstraction layer (switching fabric, wiring,
+#         the measure/apply/safing mechanism, and the API instrument
+#         drivers are written against) -- depends on core, and on this rig's
+#         data below, but knows nothing rig-specific itself. Two targets:
+#         hal, which drivers compile against, and hal_rig, which compiles
+#         against the drivers -- see libs/hal/README.md
+# instruments
+#       : one directory per instrument driver, each independently
+#         packageable, each declaring its own target and carrying its own
+#         tests -- framework content like libs/, but versioned and shipped a
+#         driver at a time rather than as one library, which is why it sits
+#         at the top level rather than under libs/; see
+#         instruments/README.md
 # rig   : this rig's data only (which instruments it has, how they're
 #         wired, what to call them) -- content only, no library of its own,
 #         the same shape dut/ uses for DUT-specific data; see rig/README.md.
@@ -216,15 +225,51 @@ set(THORIUM_ACTIVE_INSTRUMENTS "${CMAKE_SOURCE_DIR}/rig/active_instruments.hpp" 
 set(THORIUM_INSTRUMENT_TABLE "${CMAKE_SOURCE_DIR}/rig/instrument.inc" CACHE FILEPATH "" FORCE)
 set(THORIUM_WIRING_TABLE "${CMAKE_SOURCE_DIR}/rig/wiring.inc" CACHE FILEPATH "" FORCE)
 
+# --- Which instrument drivers are available to build against ---
+# The fourth thing a rig supplies libs/hal, alongside the three files above:
+# where its instrument drivers live. One directory per driver, each with its
+# own CMakeLists.txt declaring its own target -- see instruments/README.md and
+# libs/hal/CMakeLists.txt's own comment on why the drivers are configured
+# between hal and hal_rig rather than inside either.
+#
+# Discovered by glob rather than listed, and that is a smaller decision than it
+# looks, because it settles *availability*, not *use*. What this rig actually
+# instantiates is still declared, one explicit line at a time, in
+# rig/instrument.inc -- a driver sitting in instruments/ that no INSTRUMENT()
+# line names contributes no global, no hal::InstrumentId enumerator and no
+# object code. So dropping a driver package into the tree makes it compilable;
+# it does not make it part of the rig, and the single reviewable list of what
+# this rig has stays exactly where it already was. (Contrast
+# THORIUM_CRITERIA_VARIANT_NAMES below, which is spelled out longhand: there,
+# the list *is* the semantic content, so a glob would be discarding the thing
+# worth reviewing.)
+#
+# CONFIGURE_DEPENDS so unpacking a driver into instruments/ is picked up by the
+# next build without a manual reconfigure. It costs a directory stat per build,
+# and the usual objection to it -- that globbed *source lists* go stale in ways
+# that are hard to see -- does not apply here: what is globbed is a set of
+# directories that must each contain a CMakeLists.txt, and a missing one fails
+# loudly at configure time rather than silently dropping a file from a target.
+file(GLOB _thorium_instrument_manifests CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/instruments/*/CMakeLists.txt")
+
+set(THORIUM_INSTRUMENT_DIRS "")
+
+foreach(_thorium_manifest IN LISTS _thorium_instrument_manifests)
+    get_filename_component(_thorium_dir "${_thorium_manifest}" DIRECTORY)
+    list(APPEND THORIUM_INSTRUMENT_DIRS "${_thorium_dir}")
+endforeach()
+
 add_subdirectory(libs/core)
 add_subdirectory(libs/hal)
 
-# --- Package export: core + hal as the reusable "Thorium" framework ---
-# core and hal register themselves into the ThoriumTargets export set via
-# their own install(TARGETS ... EXPORT ThoriumTargets ...) calls (see
-# libs/core/CMakeLists.txt, libs/hal/CMakeLists.txt) -- this is what turns
+# --- Package export: core + hal + the drivers as the reusable "Thorium" framework ---
+# core, hal, hal_rig and every instrument driver register themselves into the
+# ThoriumTargets export set via their own install(TARGETS ... EXPORT
+# ThoriumTargets ...) calls (see libs/core/CMakeLists.txt,
+# libs/hal/CMakeLists.txt, instruments/*/CMakeLists.txt) -- this is what turns
 # that into an actual find_package()-able CMake package: ThoriumTargets.cmake
-# (the compiled targets, namespaced Thorium::core/Thorium::hal) plus
+# (the compiled targets, namespaced Thorium::core/Thorium::hal/...) plus
 # ThoriumConfig.cmake/ThoriumConfigVersion.cmake (what find_package(Thorium)
 # actually looks for).
 #

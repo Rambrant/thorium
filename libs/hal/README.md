@@ -1,10 +1,10 @@
 # hal/ -- generic instrument drivers, switching fabric, Measure, and Apply/Remove
 
-This directory holds the mechanism, not any one rig's facts: the instrument
-driver classes (`N6701A`, `Ac6677A`, `L4411A`, `DSO8064`), the VPC90
+This directory holds the mechanism, not any one rig's facts: the VPC90
 connector array's coordinate system, the matrix/mux switching fabric, the
-`InstrumentWiring`/`ConnectorWiring` machinery, and the `Measure` and
-`Apply`/`Remove` objects every test script calls through. Meant to be
+`InstrumentWiring`/`ConnectorWiring` machinery, the API instrument drivers are
+written against, and the `Measure` and `Apply`/`Remove` objects every test
+script calls through. Meant to be
 linked by many rigs testing many DUTs, not just this repo's -- so nothing
 here knows what "Device X" is (DUT-specific data lives under `dut/`,
 see its README) or what instruments a given rig actually has, how they're
@@ -19,6 +19,36 @@ library and its one rig; a separate rig repo pulling this library in later
 would set the same three variables pointing at its own `rig/`-equivalent
 instead.
 
+The concrete driver classes no longer live here. Each is its own independently
+packageable directory under `instruments/` at the repo root -- `hal::L4411A`
+already is, `N6701A`/`Ac6677A`/`DSO8064` still sit in `include/hal/` awaiting the
+same move. See `instruments/README.md`.
+
+## Two targets: `hal` and `hal_rig`
+
+Not a packaging detail -- it is the boundary that makes an `instruments/` tree
+possible, and it is worth understanding before changing anything here.
+
+| | Sources | Compiles against |
+|---|---|---|
+| `hal` | `vpc_location` `switch_fabric` `instrument` `wiring` | `core`, and `rig/instrument.inc` for `InstrumentId`'s enumerators |
+| `hal_rig` | `apply` `measure` `safing` | all of the above, plus `rig/active_instruments.hpp` and so every driver behind it |
+
+The asymmetry was always there and one target hid it. A driver must compile
+against `hal`, so `hal` has to be configurable before any driver is; but
+`active_instruments.hpp` reaches the drivers, so anything expanding it must come
+after them. The `instruments/` tree is configured between the two.
+
+What this buys, beyond ordering: what a driver may assume is now exactly what
+`hal` exports, checked by the build rather than by reviewers. Note that the
+check in `CMakeLists.txt` is explicit and has to be -- the cycle a driver closes
+by linking `hal_rig` is one CMake tolerates in silence.
+
+A consumer picks by what it names. Scripts and rig-level code name instrument
+globals and call `Measure`/`Apply`/`safeRig`, so they link `hal_rig` (`hal` comes
+transitively). `dut/`'s tests use only `hal::Adapter` and the wiring machinery,
+so they link `hal`.
+
 ## Layout
 
 ```
@@ -27,15 +57,22 @@ libs/hal/
         vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
         switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
         instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_TABLE
-        l4411a.hpp          # hal::L4411A -- a generic DMM driver
+        wiring.hpp         # InstrumentWiring/ConnectorWiring + WIRE macros
+        adapter.hpp        # ADAPTER/POINT/END_ADAPTER macros
+        describe.hpp       # the describe customization point drivers hook into
+        measure.hpp        # MeasureEngine alias + extern Measure
+        apply.hpp           # ApplyEngine/RemoveEngine aliases + extern Apply/Remove
+        safing.hpp         # safeRig()
+
+        # Awaiting the move out to instruments/, the way l4411a already has:
         dso8064.hpp         # hal::DSO8064 -- a generic scope driver
         n6701a.hpp          # hal::N6701A/N6701ABuilder -- one N6701A channel
         ac6677a.hpp          # hal::Ac6677A/Ac6677ABuilder, phase()/ThreePhaseWyePoints
-        wiring.hpp         # InstrumentWiring/ConnectorWiring + WIRE macros
-        adapter.hpp        # ADAPTER/POINT/END_ADAPTER macros
-        measure.hpp        # MeasureEngine alias + extern Measure
-        apply.hpp           # ApplyEngine/RemoveEngine aliases + extern Apply/Remove
 ```
+
+`hal::L4411A` lives in `instruments/l4411a/include/hal/l4411a.hpp` and is still
+spelled `#include "hal/l4411a.hpp"`, in `namespace hal`, at every call site --
+moving a driver out changes its build location and nothing else.
 
 A rig's own instrument list, wiring data, and concrete instrument
 identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP4`/`AcP1`/`fabric` in

@@ -20,7 +20,11 @@ add_library(scripts STATIC
     ${THORIUM_SUITE_SCRIPT_SOURCES}
 )
 
-target_link_libraries(scripts PUBLIC hal core)
+# hal_rig, not hal: a script names this rig's instrument globals (Dmm1, DcP1,
+# ...) and calls Measure/Apply/safeRig on them, all of which live in hal_rig --
+# see libs/hal/CMakeLists.txt on why that is a separate target from the generic
+# hal the drivers themselves compile against. hal comes along transitively.
+target_link_libraries(scripts PUBLIC hal_rig core)
 
 target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 
@@ -144,7 +148,7 @@ if(BUILD_TESTING_LAYERS)
     # the run loop would be testing the reimplementation. The catalog is the only
     # thing that differs, which is exactly the variable under test.
     add_library(hooked_scripts STATIC tests/fixtures/hooked_scripts.cpp)
-    target_link_libraries(hooked_scripts PUBLIC hal core)
+    target_link_libraries(hooked_scripts PUBLIC hal_rig core)
     target_include_directories(hooked_scripts PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures)
     target_compile_definitions(hooked_scripts PUBLIC
         THORIUM_TEST_CATALOG="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/hooked_catalog.inc"
