@@ -60,11 +60,17 @@ target_include_directories(core PUBLIC
 # beats a plausible wrong one.
 #
 # THORIUM_DUT_NAME / THORIUM_RIG_NAME are set here rather than derived from
-# dut/adapter.inc's ADAPTER name or rig/: neither of those is reachable from
-# here (libs/ knows nothing about this deployment's content -- see the top-level
-# CMakeLists.txt's own comment on that split), and the DUT a rig tests is
-# exactly the kind of fact a separate rig repo consuming this framework needs to
-# set for itself.
+# dut/ or rig/: neither of those is reachable from here (libs/ knows nothing
+# about this deployment's content -- see the top-level CMakeLists.txt's own
+# comment on that split), and the DUT a rig tests is exactly the kind of fact a
+# separate rig repo consuming this framework needs to set for itself.
+#
+# dut/adapter.inc could not supply THORIUM_DUT_NAME even if it were reachable:
+# ADAPTER takes no name at all any more (see libs/hal/include/hal/adapter.hpp).
+# The adapter table opens the fixed `dut` struct, because a build targets one
+# DUT and every script call site would otherwise repeat a name the build has
+# already fixed. THORIUM_DUT_NAME is the separate, display-only fact -- free to
+# be "Device X rev B", spaces and all, since nothing compiles against it.
 #
 # Deliberately NOT `set(... CACHE STRING ...)`, which is what these were first
 # written as and which is a trap for exactly this kind of value. A cache

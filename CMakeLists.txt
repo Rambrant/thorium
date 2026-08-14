@@ -207,7 +207,8 @@ endif()
 #         + core, the same reason it lives alongside them rather than under
 #         libs/
 # app   : the runner (main.cpp) plus the "scripts" library it runs -- the
-#         scripts themselves, the test catalog, and scripts.hpp live under
+#         scripts themselves, the test catalog, scripts.hpp and prelude.hpp
+#         live under
 #         suite/ rather than in app/, which holds no DUT-specific content at
 #         all; the criteria/tolerance variants live under dut/ instead,
 #         since tolerances are a property of the DUT being tested (see

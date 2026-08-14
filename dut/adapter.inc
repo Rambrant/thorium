@@ -26,7 +26,12 @@
 // a digit (C++ identifiers can't start with a digit) -- Output5V/Output3V3
 // stand in for the spec's "5VOutput"/"3V3Output".
 //
-ADAPTER( DeviceX, "Device X on standard adapter")
+// ADAPTER takes only a description: the group it opens is always `dut`, since
+// a build targets one DUT on one adapter (see hal/adapter.hpp's own comment).
+// The DUT's name for the logs is THORIUM_DUT_NAME, set in
+// libs/core/CMakeLists.txt -- not this file.
+//
+ADAPTER( "Device X on standard adapter")
     POINT( Output5V,   A, 1, 3, "5Vdc supply port")
     POINT( Output3V3,  A, 1, 6, "3.3Vdc supply port")
     POINT( ClkProbe,   A, 1, 2, "Config clock probe")

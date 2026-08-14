@@ -27,15 +27,15 @@ dut/
 
 `ADAPTER`/`POINT`/`END_ADAPTER` (see `libs/hal/include/hal/adapter.hpp`) --
 mirroring `CRITERIA`/`CRIT`/`END_CRITERIA` below -- expand into the one
-`DeviceX` struct: a fixed set of named points (e.g. `Output5V`),
+`dut` struct: a fixed set of named points (e.g. `Output5V`),
 each carrying its VPC90 location baked into its own *type*
 (`core::AdapterPointTag<Loc>`), not stored as runtime data. That is what makes
 both of the following genuine compile errors, exactly like `CRIT`'s protection
 against a misspelled criterion id:
 
-- **A misspelled point name** -- `DeviceX::Output5Vx` is "no such
+- **A misspelled point name** -- `dut::Output5Vx` is "no such
   member", the same way `FS_Fuse_6::FS_Fuse_01x` already is.
-- **A missing `at()`** -- `Measure( Dmm1.voltage(), DeviceX::Output5V)`,
+- **A missing `at()`** -- `Measure( Dmm1.voltage(), dut::Output5V)`,
   with the point passed bare, also fails to find a matching overload:
   `MeasureEngine::operator()` takes `core::At<AdapterPointTag<Loc>>`,
   not an `AdapterPointTag` directly -- see `core/at.hpp`'s own comment for
@@ -48,7 +48,11 @@ stand in for the spec's "5VOutput"/"3V3Output".
 
 Because there is exactly one adapter per device (the connector on the
 device doesn't change), this struct -- not some separate profile type --
-*is* the adapter.
+*is* the adapter. That is also why `ADAPTER` takes only a description and
+not a name: a build targets one DUT on one adapter, so the struct is always
+`dut`, and no call site has to repeat a name the build already fixed. The
+DUT's identity for the logs is `THORIUM_DUT_NAME` (see
+`libs/core/CMakeLists.txt`) -- a display string, not a C++ identifier.
 
 Like the criteria files below, this file is deliberately bare: just
 `ADAPTER( ... ) ... END_ADAPTER`, nothing else -- no `#pragma once`, no
@@ -56,10 +60,12 @@ Like the criteria files below, this file is deliberately bare: just
 (`::hal::...`, `::core::...`), unlike `CRITERIA`/`CRIT` which need a
 `using namespace` wrapper -- see `hal/adapter.hpp`'s own comment for why.
 
-Each script that measures against this profile `#include`s it directly
-(after `hal/adapter.hpp`, for the macros), the same way each script already
-`#include`s `core/active_criteria.hpp` individually rather than through
-`suite/scripts.hpp` -- see `suite/scripts/supply_rail_script.cpp`.
+A script does not `#include` this file itself: `suite/prelude.hpp` does it
+(after `hal/adapter.hpp`, for the macros -- that ordering rule is exactly
+what is worth stating once there rather than at the top of every script),
+alongside `core/active_criteria.hpp` and the rig's instruments. A script
+includes the prelude and nothing else. `dut/tests/` does include this file
+directly, since those tests exercise the data itself.
 
 Reachability -- whether this rig's wiring (see
 `libs/hal/include/hal/wiring.hpp`) actually connects a given instrument to

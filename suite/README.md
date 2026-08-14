@@ -23,16 +23,41 @@ how to add a pair, and `core::RunHook` for what they promise.
 `scripts.hpp` holds the test scripts' declarations, at global scope
 deliberately (see the comment there) -- which is what lets
 `core/active_test_catalog.hpp` name one directly in a `TEST(...)` without
-knowing any suite-specific namespace at all. `scripts/` holds their
-definitions, one `.cpp` per script -- not built via a `CMakeLists.txt` of
-its own (this directory has none, deliberately), but discovered by
-`app/CMakeLists.txt`.
+knowing any suite-specific namespace at all. It is declarations *only*: that
+header is compiled into `main.cpp` via `THORIUM_TEST_SCRIPTS`, which has no
+use for instruments or criteria tables.
+
+`prelude.hpp` is the other half of that split and is what a script actually
+includes -- everything a script body is written against, in one line:
+`scripts.hpp` itself, the rig's instrument globals, `Measure`/`Apply`/
+`Verify`, the merged criteria tables, and the adapter points. A script
+therefore begins with exactly
+
+```cpp
+#include "../prelude.hpp"
+```
+
+and nothing else. Which framework header supplies `Verify` and which supplies
+`Measure` is not something a test engineer writing a script should have to
+carry; before this split the two scripts here had already drifted to different
+answers. Note that `tests/` does *not* use the prelude -- see below.
+
+`scripts/` holds the scripts' definitions, one `.cpp` per script -- not built
+via a `CMakeLists.txt` of its own (this directory has none, deliberately), but
+discovered by `app/CMakeLists.txt`.
 
 `tests/` holds the tests *of* this suite's content -- the scripts -- plus
 `test_criteria_variants_compile.cpp`, which tests the criteria data that
 actually lives in `dut/` (kept here rather than there since it's a
 test, following the same "content in one place, tests alongside the rest
 of the test-script tests" split `dut/README.md` also describes).
+
+These deliberately include `scripts.hpp`, not `prelude.hpp`: a test of a
+script is not a script. It calls one and injects its readings by point
+*name* (`Measure.inject( "Output5V", ...)`), so it needs the `Measure` verb
+and the quantity types and none of the criteria or adapter tables -- which
+is also what lets the `scripts_tests` target build without the criteria
+compile definitions, those being `PRIVATE` to the `scripts` library.
 There is no runner-specific test; `app/` just has the one executable.
 
 ## Layout
@@ -41,6 +66,7 @@ There is no runner-specific test; `app/` just has the one executable.
 suite/
     test_catalog.inc
     scripts.hpp
+    prelude.hpp
     scripts/
         fuse_register_script.cpp
         supply_rail_script.cpp

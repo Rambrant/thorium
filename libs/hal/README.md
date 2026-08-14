@@ -102,9 +102,10 @@ actual data, built via
 `INSTRUMENT_WIRING`/`WIRE_INSTRUMENT`/`END_INSTRUMENT_WIRING` and
 `CONNECTOR_WIRING`/`WIRE_CONNECTOR`/`END_CONNECTOR_WIRING` (see
 `wiring.hpp`'s own comment). Each rig has exactly one instance of each
-table, unlike `ADAPTER` (named per DUT profile) or `CRITERIA` (several
-groups per file), so these macros build one fixed, namespaced global
-(`hal::instrumentWiring`/`hal::connectorWiring`) rather than taking a name.
+table, unlike `CRITERIA` (several groups per file), so these macros build
+one fixed, namespaced global (`hal::instrumentWiring`/`hal::connectorWiring`)
+rather than taking a name. `ADAPTER` is the same one-per-build case and takes
+no name either.
 Both `hal/measure.cpp` and `hal/apply.cpp` `#include` it, since each is its
 own translation unit needing its own declaration of the (inline) tables --
 see `wiring.inc`'s own comment.
@@ -143,12 +144,12 @@ cases above.
 ## Measure
 
 `measure.hpp`/`measure.cpp` assemble the one `Measure` object every test
-script measures through (`Measure( Dmm1.voltage(), at( DeviceX::Output5V))`):
+script measures through (`Measure( Dmm1.voltage(), at( dut::Output5V))`):
 `core::MeasureEngine` instantiated with `hal::SwitchFabric`,
 `hal::InstrumentWiring`, and `hal::ConnectorWiring`. This has no dependency
 on anything under `dut/` at all -- not even a textual `#include` -- since an
 `AdapterPointTag` carries everything `Measure` needs to know about a point
-in its own type; the DUT profile (`dut::DeviceX`) is only ever
+in its own type; the DUT profile (`dut`) is only ever
 named at each individual `Measure(...)` call site in a script, not baked
 into this instantiation.
 

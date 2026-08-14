@@ -21,7 +21,7 @@
 //
 // Like test_criteria_variants_compile.cpp in suite/tests/: this file has no
 // runtime assertions of its own -- the entire point is that it compiles.
-// A DeviceX POINT with no matching rig/wiring.inc entry (a typo
+// A dut POINT with no matching rig/wiring.inc entry (a typo
 // in either file, or a POINT added without ever wiring it up) fails the
 // build here, the moment anyone builds this target, rather than only when
 // a script happens to exercise that exact point.
@@ -86,17 +86,17 @@ namespace thorium_wiring_coverage_check
             constexpr auto location = [: locationRef :];
 
             static_assert( hal::isWired( location),
-                          "a DeviceX POINT has no matching WIRE_CONNECTOR entry in rig/wiring.inc "
+                          "a dut POINT has no matching WIRE_CONNECTOR entry in rig/wiring.inc "
                           "-- see hal::isWired()'s own comment in hal/wiring.hpp");
         }
 
         return true;
     }
 
-    constexpr bool deviceXWiringCovered = checkCoverage<DeviceX>();
+    constexpr bool dutWiringCovered = checkCoverage<dut>();
 } // namespace thorium_wiring_coverage_check
 
-TEST( WiringCoverage, EveryDeviceXPointHasAConnectorWiringEntry)
+TEST( WiringCoverage, EveryDutPointHasAConnectorWiringEntry)
 {
     //
     // Nothing to run: reaching this line at all means every static_assert
@@ -162,7 +162,7 @@ namespace thorium_sense_consistency_check
             if constexpr( hal::isWired( location, hal::WireRole::Sense))
             {
                 static_assert( hal::isWired( location, hal::WireRole::Force),
-                              "a DeviceX POINT has WIRE_CONNECTOR_SENSE but no WIRE_CONNECTOR in "
+                              "a dut POINT has WIRE_CONNECTOR_SENSE but no WIRE_CONNECTOR in "
                               "rig/wiring.inc -- see above");
             }
         }
@@ -170,7 +170,7 @@ namespace thorium_sense_consistency_check
         return true;
     }
 
-    constexpr bool connectorSenseConsistent = checkConnectorSenseConsistency<DeviceX>();
+    constexpr bool connectorSenseConsistent = checkConnectorSenseConsistency<dut>();
 } // namespace thorium_sense_consistency_check
 
 

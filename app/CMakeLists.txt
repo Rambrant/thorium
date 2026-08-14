@@ -57,7 +57,9 @@ target_compile_definitions(scripts PRIVATE
 # THORIUM_TEST_CATALOG points core/active_test_catalog.hpp at
 # suite/test_catalog.inc; THORIUM_TEST_SCRIPTS points it at
 # suite/scripts.hpp (the declarations every TEST(...) is checked
-# against). Both absolute paths, both PUBLIC (unlike the criteria defines
+# against -- declarations only, which is why pointing main.cpp at it costs
+# nothing; what a script body needs is in suite/prelude.hpp instead, and
+# nothing here points at that). Both absolute paths, both PUBLIC (unlike the criteria defines
 # above): main.cpp includes active_test_catalog.hpp too, and it's compiled
 # as part of run_scripts, not this scripts library, so it needs these
 # definitions to reach it via target_link_libraries below.

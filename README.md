@@ -6,7 +6,7 @@ real instruments testing a real device.
 A test script reads like the test specification it came from:
 
 ```cpp
-const auto rail = Measure( Dmm1.voltage(), at( DeviceX::Output5V));
+const auto rail = Measure( Dmm1.voltage(), at( dut::Output5V));
 
 allPassed &= Verify( FS_Supply_1::FS_Supply_5V0, rail);
 ```
@@ -41,8 +41,8 @@ Fifteen classes of mistake, none of which can reach the bench:
 
 | Mistake | What happens |
 |---|---|
-| Misspelled DUT point — `DeviceX::Output5Vx` | no such member |
-| Forgotten `at(...)` — `Measure( Dmm1.voltage(), DeviceX::Output5V)` | no matching overload |
+| Misspelled DUT point — `dut::Output5Vx` | no such member |
+| Forgotten `at(...)` — `Measure( Dmm1.voltage(), dut::Output5V)` | no matching overload |
 | Misspelled criterion — `FS_Supply_1::FS_Supply_5V0x` | no such member |
 | Unit mismatch in a criterion — `EQ( 5.0_A)` against a voltage reading | no viable predicate — in **every** tolerance variant, not just the default one |
 | A DUT point with no `rig/wiring.inc` entry | `dut_tests` fails to build |
@@ -145,7 +145,7 @@ from":
 
 ```
   A test script                                     suite/scripts/*.cpp
-  Measure( Dmm1.voltage(), at( DeviceX::Output5V))
+  Measure( Dmm1.voltage(), at( dut::Output5V))
            │                    │
            │                    └── the POINT: which VPC pin, baked into
            │                        its TYPE                     dut/adapter.inc
@@ -269,7 +269,7 @@ lookups at all.
 `dut/adapter.inc` — `POINT( id, rack, connector, pin, description)`:
 
 ```cpp
-ADAPTER( DeviceX, "Device X on standard adapter")
+ADAPTER( "Device X on standard adapter")
     POINT( Output12V, A, 1, 7, "12Vdc supply port")
 END_ADAPTER
 ```
@@ -278,9 +278,9 @@ A point declares *where*, not *what*. The same pin can then be read for any
 quantity, chosen by the port at the call site:
 
 ```cpp
-Measure( Dmm1.voltage(),                at( DeviceX::Output12V));   // the rail
-Measure( Dmm1.current(),                at( DeviceX::Output12V));   // inrush
-Measure( Osc1.channel<1>().frequency(), at( DeviceX::Output12V));   // ripple
+Measure( Dmm1.voltage(),                at( dut::Output12V));   // the rail
+Measure( Dmm1.current(),                at( dut::Output12V));   // inrush
+Measure( Osc1.channel<1>().frequency(), at( dut::Output12V));   // ripple
 ```
 
 The identifier cannot start with a digit, so a spec label like "12VOutput"
@@ -326,16 +326,8 @@ Three files, in this order:
 2. **Define** in `suite/scripts/thermal_ramp_script.cpp` — no `CMakeLists.txt`
    edit; `suite/scripts/*.cpp` is globbed with `CONFIGURE_DEPENDS`:
    ```cpp
-   #include "../scripts.hpp"
-
-   #include "core/verify.hpp"
-   #include "hal/adapter.hpp"
-   #include "hal/apply.hpp"          // Apply / Remove / Connect / Disconnect
-
-   #include "core/active_criteria.hpp"
-   #include "dut/adapter.inc"
-
-   using namespace core::literals;   // 24.0_V, 2.0_A
+   #include "../prelude.hpp"       // instruments, Measure/Apply/Verify,
+                                    // criteria tables, adapter points, literals
 
    auto thermalRampScript() -> bool
    {
@@ -344,7 +336,7 @@ Three files, in this order:
        Apply(   DcP3.dc().voltage( 24.0_V).currentLimit( 2.0_A));
        Connect( DcP3.dc());
 
-       const auto rail = Measure( Dmm1.voltage(), at( DeviceX::Output12V));
+       const auto rail = Measure( Dmm1.voltage(), at( dut::Output12V));
        allPassed &= Verify( FS_Supply_1::FS_Supply_12V, rail);
 
        Disconnect( DcP3.dc());
@@ -429,8 +421,8 @@ auto supplyRailScript() -> bool
 {
     bool allPassed = true;
 
-    allPassed &= core::Verify( Criteria::FS_Supply_5V0, Measure( Dmm1.voltage(), at( DeviceX::Output5V)));
-    allPassed &= core::Verify( Criteria::FS_Supply_3V3, Measure( Dmm1.voltage(), at( DeviceX::Output3V3)));
+    allPassed &= Verify( Criteria::FS_Supply_5V0, Measure( Dmm1.voltage(), at( dut::Output5V)));
+    allPassed &= Verify( Criteria::FS_Supply_3V3, Measure( Dmm1.voltage(), at( dut::Output3V3)));
 
     return allPassed;
 }
@@ -504,7 +496,7 @@ sense pin as an ordinary `POINT` and convert in units, so the result is a
 `Current` a criterion in amps can check:
 
 ```cpp
-const auto drop = Measure( Dmm1.voltage(), at( DeviceX::ShuntSense));
+const auto drop = Measure( Dmm1.voltage(), at( dut::ShuntSense));
 const auto load = drop / 10.0_mOhm;          // a Current, not a double
 
 allPassed &= Verify( FS_Supply_1::FS_Load_Max, load);

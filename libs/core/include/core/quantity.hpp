@@ -227,7 +227,7 @@ namespace core
         // V / R -- and writing it that way keeps the result a Current, which a
         // criterion in amps can then check.
         //
-        //     const auto drop  = Measure( Dmm1.voltage(), at( DeviceX::ShuntSense));
+        //     const auto drop  = Measure( Dmm1.voltage(), at( dut::ShuntSense));
         //     const auto load  = drop / 10.0_mOhm;      // a Current, not a double
         //
         // Deliberately all three rather than only the one with a caller today:

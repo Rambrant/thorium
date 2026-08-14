@@ -1,18 +1,4 @@
-#include "../scripts.hpp"
-
-#include "core/criterion.hpp"
-#include "core/predicates.hpp"
-#include "core/quantity.hpp"
-#include "core/verify.hpp"
-#include "hal/adapter.hpp"
-
-#include "core/active_criteria.hpp"
-
-#include "dut/adapter.inc"
-
-using namespace core::literals;
-using namespace core::quantities;
-using core::Verify;
+#include "../prelude.hpp"
 
 
 auto fuseRegisterScript() -> bool
@@ -36,7 +22,7 @@ auto fuseRegisterScript() -> bool
     // Ad-hoc check (no CRIT constant declared up front) against a measured
     // quantity.
     //
-    const auto voltage = Measure( Dmm2.voltage(), at( DeviceX::Vout));
+    const auto voltage = Measure( Dmm2.voltage(), at( dut::Vout));
 
     allPassed &= Verify( "Voltage", "Vout", "Supply voltage", EQ( 12.0_V).epsilon( 0.05_V), voltage);
 

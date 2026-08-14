@@ -1,5 +1,17 @@
 #include "suite/scripts.hpp"
 
+//
+// Not suite/prelude.hpp: these tests are not scripts. They call one and
+// inject its readings by point *name* -- Measure.inject( "Output5V", ...) --
+// so they need the Measure verb and the quantity types, and none of the
+// criteria tables or adapter points a script body is written against. That
+// is also what lets scripts_tests build without the criteria compile
+// definitions, which are PRIVATE to the scripts library (see
+// app/CMakeLists.txt).
+//
+#include "core/quantity.hpp"
+#include "hal/measure.hpp"
+
 #include <gtest/gtest.h>
 
 #include "core/criteria_variants.hpp"

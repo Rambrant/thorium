@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 
 //
-// Exercises the actual DeviceX data (not the generic
+// Exercises the actual dut adapter data (not the generic
 // AdapterPointTag mechanism -- see core/tests/test_adapter.cpp for that).
 // A plain #include: ADAPTER/POINT (see hal/adapter.hpp) expand fully
 // qualified, so nothing else needs to be brought into scope first.
@@ -19,18 +19,18 @@
 // there is chosen by whichever instrument port is pointed at it (see
 // core::AdapterPointTag).
 //
-static_assert( DeviceX::Output5V.LocationValue == hal::VpcLocation{ hal::VpcRack::A, 1, 3 });
+static_assert( dut::Output5V.LocationValue == hal::VpcLocation{ hal::VpcRack::A, 1, 3 });
 
-static_assert( DeviceX::Output3V3.LocationValue == hal::VpcLocation{ hal::VpcRack::A, 1, 6 });
-static_assert( DeviceX::Vout.LocationValue      == hal::VpcLocation{ hal::VpcRack::A, 1, 4 });
+static_assert( dut::Output3V3.LocationValue == hal::VpcLocation{ hal::VpcRack::A, 1, 6 });
+static_assert( dut::Vout.LocationValue      == hal::VpcLocation{ hal::VpcRack::A, 1, 4 });
 
-TEST( DeviceXProfile, PointsCarryTheNameAndDescriptionFromTheSpec)
+TEST( DutProfile, PointsCarryTheNameAndDescriptionFromTheSpec)
 {
-    EXPECT_EQ( DeviceX::Output5V.Name, "Output5V");
-    EXPECT_EQ( DeviceX::Output5V.Description, "5Vdc supply port");
+    EXPECT_EQ( dut::Output5V.Name, "Output5V");
+    EXPECT_EQ( dut::Output5V.Description, "5Vdc supply port");
 }
 
-TEST( DeviceXProfile, GroupDescriptionMatchesTheAdapterName)
+TEST( DutProfile, GroupDescriptionComesFromTheAdapterTable)
 {
-    EXPECT_EQ( DeviceX::Description, "Device X on standard adapter");
+    EXPECT_EQ( dut::Description, "Device X on standard adapter");
 }

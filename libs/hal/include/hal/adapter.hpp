@@ -23,15 +23,31 @@
 // digit (e.g. "5VOutput"): C++ identifiers can't start with a digit. Use a
 // legal rearrangement instead (Output5V) -- see dut/adapter.inc.
 //
-//   ADAPTER( DeviceX, "Device X on standard adapter")
+//   ADAPTER( "Device X on standard adapter")
 //       POINT( Output5V, A, 1, 3, "5Vdc supply port")
 //   END_ADAPTER
 //
-//   Measure( Dmm1.voltage(), at( DeviceX::Output5V));
-//   Measure( Dmm1.current(), at( DeviceX::Output5V));   // same pin, fine
+//   Measure( Dmm1.voltage(), at( dut::Output5V));
+//   Measure( Dmm1.current(), at( dut::Output5V));   // same pin, fine
 //
-#define ADAPTER( groupName, desc)                                      \
-    struct groupName                                                   \
+// The group is always named `dut`, not named by the table the way CRITERIA
+// names its groups. A build targets exactly one DUT on exactly one adapter,
+// so there was never a second name for a script to pick between -- the old
+// per-table name (DeviceX) was a second spelling of a fact the build already
+// fixes, and one every call site had to repeat. The DUT's identity for
+// traceability is a separate fact and stays separate: THORIUM_DUT_NAME (see
+// libs/core/CMakeLists.txt) is what the logs report, and it is a display
+// string, not a C++ identifier, so it is free to be "Device X rev B" without
+// breaking a single Measure() call. What this table still names for itself is
+// its Description, below.
+//
+// `dut` is a struct at global scope rather than a real namespace because that
+// is what makes a misspelled point a "no such member" error (see
+// core::AdapterPointTag) -- but it reads as the namespace it stands in for,
+// which is why the codebase's comments have always written dut:: for it.
+//
+#define ADAPTER( desc)                                                 \
+    struct dut                                                         \
     {                                                                  \
         static constexpr std::string_view Description = desc;
 

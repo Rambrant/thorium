@@ -315,10 +315,12 @@ namespace hal
 // WIRE_CONNECTOR_SENSE / END_CONNECTOR_WIRING: declarative wiring tables,
 // mirroring CRITERIA/CRIT and ADAPTER/POINT -- see a rig's own wiring.inc
 // (rig/wiring.inc in this repo). Each rig has exactly one of each table
-// (unlike ADAPTER, which is named per DUT
-// profile, or CRITERIA, which has several groups per file), so these
-// macros build one fixed, namespaced global apiece rather than taking a
-// name argument.
+// (unlike CRITERIA, which has several groups per file), so these macros
+// build one fixed, namespaced global apiece rather than taking a name
+// argument. ADAPTER is the same one-per-build case and takes no name
+// either -- it opens the fixed `dut` struct (see hal/adapter.hpp) -- the
+// difference being only that its members have to be struct members for
+// POINT to get its compile-time misspelling check.
 //
 // Every wiring entry is a Path -- one hop or several, there's no separate
 // "chain" form: WIRE_INSTRUMENT/WIRE_CONNECTOR both just take one or more

@@ -1,11 +1,4 @@
-#include "../scripts.hpp"
-
-#include "core/verify.hpp"
-#include "hal/adapter.hpp"
-
-#include "core/active_criteria.hpp"
-
-#include "dut/adapter.inc"
+#include "../prelude.hpp"
 
 auto supplyRailScript() -> bool
 {
@@ -13,15 +6,15 @@ auto supplyRailScript() -> bool
 
     //
     // Reads like the test spec: check this requirement at this port. No
-    // instrument, switch path, or rig detail is visible here. DeviceX::Output5V
+    // instrument, switch path, or rig detail is visible here. dut::Output5V
     // etc are compile-time-checked -- a typo here is "no such member", not
     // a runtime error.
     //
-    const auto dc5Voltage = Measure( Dmm1.voltage(), at( DeviceX::Output5V));
-    const auto dc3Voltage = Measure( Dmm1.voltage(), at( DeviceX::Output3V3));
+    const auto dc5Voltage = Measure( Dmm1.voltage(), at( dut::Output5V));
+    const auto dc3Voltage = Measure( Dmm1.voltage(), at( dut::Output3V3));
 
-    allPassed &= core::Verify( FS_Supply_1::FS_Supply_5V0, dc5Voltage);
-    allPassed &= core::Verify( FS_Supply_1::FS_Supply_3V3, dc3Voltage);
+    allPassed &= Verify( FS_Supply_1::FS_Supply_5V0, dc5Voltage);
+    allPassed &= Verify( FS_Supply_1::FS_Supply_3V3, dc3Voltage);
 
     return allPassed;
 }
