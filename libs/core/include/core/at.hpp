@@ -8,14 +8,22 @@ namespace core
     // conversion helper -- its whole job is to look like a keyword in
     // source code, so a call like
     //
-    //     Measure( Dmm1.voltage(), at( Output5V));
-    //     Apply(   Dcp1.dc(    at( Output5V)).voltage( 24_V));
+    //     Measure( Dmm1.voltage(),            at( Output5V));
+    //     Measure( Osc1.channel<3>().vpp(),   at( ClkProbe));
     //
     // reads unambiguously as "at this DUT point", the same way _V/_A make a
-    // bare literal read unambiguously as a Quantity. Measure/Apply/Remove
-    // and their builders take At<...>, not AdapterPointTag<...> directly,
-    // so a bare Output5V without at() is a compile error suggesting the
-    // fix.
+    // bare literal read unambiguously as a Quantity.
+    //
+    // Measure is the only verb that takes one, and that is the point rather
+    // than an omission: at() names which of many pins to route to, so it
+    // belongs exactly where there is a choice. A source instrument has none --
+    // DcP1/AcP1 are cabled straight to their pins (see hal::N6701A), so Apply/
+    // Remove/Connect/Disconnect take a builder and nothing else -- and an
+    // instrument readback like DcP1.measuredVoltage() never leaves the
+    // instrument, so that Measure overload takes no point either.
+    //
+    // Measure takes At<...>, not AdapterPointTag<...> directly, so a bare
+    // Output5V without at() is a compile error suggesting the fix.
     //
     template<typename PointT>
     struct At

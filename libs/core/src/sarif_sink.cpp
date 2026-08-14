@@ -18,6 +18,17 @@ namespace core
         constexpr std::string_view kToolUri      = "https://github.com/thomasrambrant/thorium";
 
         //
+        // The one rule every ad-hoc check reports under -- see ruleIdFor below
+        // for why they are not indexed by a criterion. Spelled like the other
+        // verb rules ("Thorium/Measure", "Thorium/Connect") because that is
+        // what it is: the Verify verb's own rule, for the results that have no
+        // criterion behind them. A CRITERIA table named "Thorium" holding a
+        // CRIT named "Verify" would collide with it, which is not a case worth
+        // defending against.
+        //
+        constexpr std::string_view kAdHocVerifyRule = "Thorium/Verify";
+
+        //
         // Indentation, as whole strings rather than a computed repeat: the
         // document's nesting is fixed and shallow, and naming the levels makes
         // the writer below read like the JSON it produces.
@@ -103,6 +114,27 @@ namespace core
         }
 
         //
+        // What this result is *about*, for the machine log's logical location.
+        //
+        // Usually the subject: a criterion id, a DUT point, an instrument. An
+        // ad-hoc check has none of those -- core/verify.hpp's three-argument
+        // Verify puts its one line of prose in the description and leaves the
+        // subject empty, because the human report's subject column is sized for
+        // an identifier and a sentence there wrecks the row. This file has no
+        // columns to wreck, so it uses the prose: a logical location with no
+        // name at all would leave a consumer unable to say which of a run's
+        // ad-hoc checks it was looking at, and the prose is the only thing that
+        // distinguishes them.
+        //
+        // Two sinks rendering one record differently, deliberately -- the
+        // constraint that shapes the human row does not exist here.
+        //
+        auto subjectName( const JournalEvent & event) -> std::string
+        {
+            return event.Subject.empty() ? event.Detail : event.Subject;
+        }
+
+        //
         // The result's own message -- the one field a consumer displays without
         // knowing anything about Thorium, so it has to stand alone: what was
         // done, to what, with what result.
@@ -111,9 +143,11 @@ namespace core
         {
             std::string message( to_string( event.Method));
 
-            if( !event.Subject.empty())
+            const auto subject = subjectName( event);
+
+            if( !subject.empty())
             {
-                message += " " + event.Subject;
+                message += " " + subject;
             }
 
             if( !event.Value.empty())
@@ -121,7 +155,7 @@ namespace core
                 message += " = " + event.Value;
             }
 
-            if( !event.Instrument.empty() && event.Instrument != event.Subject)
+            if( !event.Instrument.empty() && event.Instrument != subject)
             {
                 message += " via " + event.Instrument;
             }
@@ -131,7 +165,12 @@ namespace core
                 message += event.Passed.value() ? " [PASS]" : " [FAIL]";
             }
 
-            if( !event.Detail.empty())
+            //
+            // Skipped when the description is already standing in as the
+            // subject -- an ad-hoc check has one line of prose, and a message
+            // reading "Verify X = 5 V [PASS] -- X" says it twice.
+            //
+            if( !event.Detail.empty() && event.Detail != subject)
             {
                 message += " -- " + event.Detail;
             }
@@ -153,9 +192,9 @@ namespace core
                 name += ( name.empty() ? "" : "/") + event.Test;
             }
 
-            if( !event.Subject.empty())
+            if( const auto subject = subjectName( event); !subject.empty())
             {
-                name += ( name.empty() ? "" : "/") + event.Subject;
+                name += ( name.empty() ? "" : "/") + subject;
             }
 
             return name;
@@ -213,15 +252,34 @@ namespace core
         if( event.Method == Verb::Verify)
         {
             //
-            // The criterion's own CRITERIA group and id -- the same two strings
-            // a CRIT entry declares (see core/criterion.hpp) and the same pair a
-            // test spec traces to. Deliberately SubjectGroup, not the running
-            // test's Group: a criterion checked from two different catalog tests
-            // is one rule with two results, which is what makes a SARIF
-            // consumer's "results for rule X" query mean "every time this
-            // requirement was checked" across runs, tests and DUTs.
+            // A table-declared criterion IS a SARIF rule, in the format's own
+            // sense of the word: a stable id with prose attached, evaluated
+            // repeatedly, one result per evaluation. So its CRITERIA group and
+            // id -- the same two strings a CRIT entry declares (see
+            // core/criterion.hpp), and the pair a test spec traces to -- become
+            // the ruleId, and a consumer's "results for rule X" query means
+            // "every time this requirement was checked" across runs, tests and
+            // DUTs. Deliberately SubjectGroup, not the running test's Group: a
+            // criterion checked from two different catalog tests is one rule
+            // with two results.
             //
-            return event.SubjectGroup.empty() ? event.Subject : event.SubjectGroup + "/" + event.Subject;
+            // An ad-hoc check is not that, and is deliberately not pretended to
+            // be. It is an assertion written inline in one script, with no
+            // entry in any table and no identity to track between runs -- so
+            // rather than indexing it by a name someone had to invent, every
+            // ad-hoc result shares this one rule. Its prose is still in the
+            // file, and in the places a reader and a query actually want it:
+            // logicalLocations[].name, the fullyQualifiedName that qualifies it
+            // by group and test, and the message. What is gone is the pretence
+            // that it was a stable key. Promoting the check to a CRIT is what
+            // buys back per-criterion grouping -- see core/verify.hpp's
+            // three-argument overload.
+            //
+            // An empty SubjectGroup is what distinguishes the two, and is not a
+            // heuristic: it is precisely what that overload constructs.
+            //
+            return event.SubjectGroup.empty() ? std::string( kAdHocVerifyRule)
+                                              : event.SubjectGroup + "/" + event.Subject;
         }
 
         return "Thorium/" + std::string( to_string( event.Method));
@@ -274,9 +332,23 @@ namespace core
             return;
         }
 
-        mRules.emplace_back( id, ( event.Method == Verb::Verify)
-            ? event.Detail
-            : "Thorium " + std::string( to_string( event.Method)) + " step");
+        //
+        // A criterion rule is described by the criterion's own prose. The
+        // shared ad-hoc rule cannot be -- it stands for every inline check in
+        // the run, which have nothing in common to describe -- so it gets a
+        // fixed sentence saying what kind of result belongs to it, and each
+        // result carries its own text in its message and logical location.
+        //
+        if( event.Method == Verb::Verify)
+        {
+            mRules.emplace_back( id, ( id == kAdHocVerifyRule)
+                ? std::string( "An inline check in a test script, with no criteria-table entry of its own")
+                : event.Detail);
+
+            return;
+        }
+
+        mRules.emplace_back( id, "Thorium " + std::string( to_string( event.Method)) + " step");
     }
 
     auto SarifSink::onEvent( const JournalEvent & event) -> void
@@ -450,7 +522,7 @@ namespace core
                 << kI6 << "{\n"
                 << kI6 << kI1 << quoted( "logicalLocations") << ": [\n"
                 << kI6 << kI2 << "{\n"
-                << kI6 << kI2 << kI1 << quoted( "name") << ": " << quoted( event.Subject) << ",\n"
+                << kI6 << kI2 << kI1 << quoted( "name") << ": " << quoted( subjectName( event)) << ",\n"
                 << kI6 << kI2 << kI1 << quoted( "fullyQualifiedName") << ": " << quoted( fullyQualifiedName( event)) << ",\n"
                 << kI6 << kI2 << kI1 << quoted( "kind") << ": " << quoted( "member") << "\n"
                 << kI6 << kI2 << "}\n"

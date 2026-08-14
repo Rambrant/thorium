@@ -63,14 +63,24 @@ namespace core
             return ReportLine{};
         }
 
+        //
+        // Pads to width -- and, when the text is already at or past it, still
+        // emits a single space. Without that last part an over-long entry runs
+        // straight into the next column ("...at nominal28 V"), which reads as a
+        // corrupt value rather than as a wide field.
+        //
+        // Truncating instead was the alternative and is worse: these columns
+        // hold criterion ids, DUT point names and the prose of an ad-hoc check
+        // (see core/verify.hpp's three-argument Verify), and a report that
+        // quietly shortens the name of the thing being reported on is a report
+        // a reader cannot search. A ragged line is legible; a clipped
+        // identifier is a wrong answer.
+        //
         auto padded( const std::string_view text, const std::size_t width) -> std::string
         {
             std::string result( text);
 
-            if( result.size() < width)
-            {
-                result.append( width - result.size(), ' ');
-            }
+            result.append( result.size() < width ? width - result.size() : 1u, ' ');
 
             return result;
         }

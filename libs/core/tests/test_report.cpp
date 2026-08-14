@@ -426,3 +426,48 @@ TEST( CoreReport, SummaryStatesTheRunVerdict)
     EXPECT_TRUE( containsText( core::humanSummaryLines( true),  "ALL SCRIPTS PASSED"));
     EXPECT_TRUE( containsText( core::humanSummaryLines( false), "SOME SCRIPTS FAILED"));
 }
+
+//
+// A subject wider than its column must not run into the value beside it --
+// "...at nominal28 V" reads as a corrupted value rather than as a wide field.
+//
+// Latent for as long as the column has existed: nothing enforces that a
+// criterion id or a DUT point name fits 28 characters, and a long one silently
+// ate the separator. It surfaced while an earlier draft of the three-argument
+// Verify put an ad-hoc check's prose in this column; that prose now goes to the
+// description slot instead (see core/verify.hpp), so this is back to guarding
+// the case it always should have.
+//
+// The claim is separation, not alignment: a long subject is allowed to push the
+// rest of its line right. What it may not do is abut it.
+//
+TEST( CoreReport, AnOverlongSubjectIsStillSeparatedFromTheValue)
+{
+    auto event = eventOf( core::Verb::Verify);
+    event.Subject       = "Secondary backup supply at nominal";   // wider than the subject column
+    event.Value         = "28 V";
+    event.CriterionText = "= 28 V +/-0.1 V";
+    event.Passed        = true;
+
+    const auto text = core::plainText( core::humanEventLines( event).front());
+
+    EXPECT_NE( text.find( "Secondary backup supply at nominal 28 V"), std::string::npos)
+        << "subject and value ran together in: " << text;
+}
+
+//
+// The same guarantee for a measurement, which has the same column and can hit
+// it with a long DUT point name -- this was latent before any ad-hoc check
+// existed to expose it.
+//
+TEST( CoreReport, AnOverlongPointNameIsStillSeparatedFromItsReading)
+{
+    auto event = eventOf( core::Verb::Measure);
+    event.Subject = "AuxiliaryBusReferenceRailProbe";
+    event.Value   = "3.3 V";
+
+    const auto text = core::plainText( core::humanEventLines( event).front());
+
+    EXPECT_NE( text.find( "AuxiliaryBusReferenceRailProbe 3.3 V"), std::string::npos)
+        << "point name and reading ran together in: " << text;
+}

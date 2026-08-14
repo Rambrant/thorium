@@ -60,45 +60,52 @@ namespace core
     }
 
     //
-    // Convenience overload for ad-hoc checks that don't need a named Criterion
-    // constant declared up front via CRIT().
+    // Ad-hoc checks: one line of prose, the predicate, the value. No named
+    // Criterion declared up front via CRIT(), and -- the point of this overload
+    // -- no identifiers invented at the call site to stand in for one.
     //
-    // Subject and description are not two spellings of the same thing, which is
-    // the question this overload exists to answer. The description is prose for
-    // a person reading the log. The subject is a *key*: core::SarifSink pastes
-    // it into the ruleId a machine consumer groups results by, across runs and
-    // across DUTs (see SarifSink::ruleIdFor), and free text is a poor key --
-    // rewording it silently splits one rule's history in two, which is exactly
-    // what a description is allowed to do and a key is not.
+    // An earlier version took a group and an id as well, because those two are
+    // what core::SarifSink pastes into a result's ruleId (see
+    // SarifSink::ruleIdFor). That had the causality backwards. A group is a
+    // criteria *table's* name and an ad-hoc check belongs to no table; an id is
+    // a stable key for tracking one requirement across runs, and an ad-hoc check
+    // has no identity to track -- it is an assertion written inline in one
+    // script, not a requirement a spec traces to. Asking the author to invent
+    // both produced exactly what you would expect: the same two strings copied
+    // down a file, every result collapsing under one ruleId, and no complaint
+    // from anything.
     //
-    // So: subject names *what was checked* and changes only when that changes
-    // ("AcP1 phase voltage"); description says what the reader should make of
-    // it, in whatever words suit. Two ad-hoc checks that share a subject are
-    // claiming to be the same rule -- worth knowing, because the copy-paste
-    // failure here is silent otherwise: every result collapses under one ruleId
-    // and a consumer sees one rule checked N times rather than N rules.
+    // So ad-hoc results are no longer indexed by a criterion at all. They share
+    // the "Thorium/Verify" rule, and their prose travels as the result's own
+    // subject -- logicalLocations[].name and the human log's subject column --
+    // rather than as a key. A check worth tracking individually across runs is
+    // a check worth promoting to a CRIT entry, which is where a real id and a
+    // real group come from.
     //
-    // There is no group argument, deliberately, and that is the difference from
-    // the five-argument form below. A group is a criteria *table's* name -- the
-    // CRITERIA( FS_Supply_1, ...) an entry belongs to and a test spec traces to
-    // -- and an ad-hoc check belongs to no table by definition. Hand-typing one
-    // invents a grouping nothing else in the build knows about, and ruleIdFor
-    // already degrades correctly to a bare subject when there is none.
+    // The prose lands in the Criterion's description slot and the id slot is
+    // left empty -- which is also what gives it room to be prose. The human
+    // report's subject column is sized for a criterion id ("FS_Supply_1::
+    // FS_Supply_5V0"), and a sentence put there overruns it and shoves the
+    // value, the limit and the verdict rightwards on that one line; the
+    // description is the last thing on the row and has the rest of the line to
+    // itself. So an ad-hoc row prints its columns empty where a criterion would
+    // have been, and reads across as "this value, against this limit, verdict --
+    // and here is what it was". See core/report.cpp's verify row.
     //
     template< typename Predicate, typename T>
         requires core::PredicateFor< Predicate, T>
-    bool Verify( std::string_view  subject,
-                 std::string_view  description,
+    bool Verify( std::string_view  description,
                  const Predicate & predicate,
                  const T &         value )
     {
-        return Verify( Criterion{ std::string_view{}, subject, description, predicate }, value);
+        return Verify( Criterion{ std::string_view{}, std::string_view{}, description, predicate }, value);
     }
 
     //
-    // The same thing with an explicit criteria group -- for an ad-hoc check
-    // that genuinely does belong to a named table, which is rare enough that
-    // the four-argument form above is the one to reach for by default.
+    // The same thing with an explicit criteria group and id -- for a check that
+    // genuinely does belong to a named table and is meant to be tracked as its
+    // own rule, without a CRIT constant to name. Rare: the three-argument form
+    // above is the one to reach for by default.
     //
     template< typename Predicate, typename T>
         requires core::PredicateFor< Predicate, T>

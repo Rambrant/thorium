@@ -32,16 +32,16 @@ using DisconnectEngine = core::DisconnectEngine<hal::SwitchFabric, hal::Instrume
 // still takes at(...) on Measure() -- see hal/measure.hpp -- since it
 // genuinely can reach more than one point through the mux.
 //
-//   Apply(      DcP1.dc().voltage( 24_V).currentLimit( 7_A));
 //   Connect(    DcP1.dc());
+//   Apply(      DcP1.dc().voltage( 24_V).currentLimit( 7_A));
 //   ...
 //   Remove(     DcP1.dc());
 //   Disconnect( DcP1.dc());
 //
-// Nothing here enforces that relative order -- see core/apply.hpp's own
-// comment -- but note that the teardown is not the mirror image of the
-// setup: the output goes off before the relay opens, because opening a
-// relay under current is hot switching. Same reasoning there. Defined once in hal/apply.cpp,
+// Note that the sequence nests rather than mirrors: the relay closes before
+// the output comes up and opens after it goes down, so it never moves under
+// load. Nothing here enforces that -- see core/apply.hpp's own comment for
+// the reasoning and for when breaking it is the right call. Defined once in hal/apply.cpp,
 // Connect/Disconnect wired to the linking rig's fabric and its two static
 // wiring tables (see that rig's wiring.inc -- rig/wiring.inc in this repo)
 // -- see hal/measure.hpp's own comment, which this mirrors exactly.

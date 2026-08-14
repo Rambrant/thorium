@@ -376,3 +376,74 @@ TEST( CoreSarifRuleId, OtherVerbsAreReportedUnderTheirVerbsRule)
 
     EXPECT_EQ( core::SarifSink::ruleIdFor( event), "Thorium/Connect");
 }
+
+//
+// The other half of the criterion/ad-hoc split: a check with no criteria group
+// is not indexed by its own prose, it reports under the shared Verify rule.
+// What identifies it is the result -- its logical location and message -- not
+// the rule, because an inline assertion has no identity to carry between runs.
+//
+TEST( CoreSarifRuleId, AnAdHocVerifyReportsUnderTheSharedVerifyRule)
+{
+    //
+    // The record an ad-hoc check actually produces: no criteria group, no
+    // subject either -- its one line of prose is the description, so that the
+    // human report can give it the room a sentence needs (see core/verify.hpp's
+    // three-argument Verify).
+    //
+    core::JournalEvent event;
+    event.Method  = core::Verb::Verify;
+    event.Detail  = "Supply voltage at Vout";
+    event.Group   = "OutputVoltage";
+
+    EXPECT_EQ( core::SarifSink::ruleIdFor( event), "Thorium/Verify");
+}
+
+//
+// The distinction is the criteria group and nothing else -- two checks whose
+// only difference is whether a table declared them must not land on the same
+// rule, or promoting an ad-hoc check to a CRIT would change nothing.
+//
+TEST( CoreSarifRuleId, PromotingAnAdHocCheckToACriterionChangesItsRule)
+{
+    core::JournalEvent adHoc;
+    adHoc.Method  = core::Verb::Verify;
+    adHoc.Subject = "FS_Supply_5V0";
+
+    auto declared = adHoc;
+    declared.SubjectGroup = "FS_Supply_1";
+
+    EXPECT_EQ( core::SarifSink::ruleIdFor( adHoc),    "Thorium/Verify");
+    EXPECT_EQ( core::SarifSink::ruleIdFor( declared), "FS_Supply_1/FS_Supply_5V0");
+}
+
+//
+// The machine log has no columns, so it does not have to leave an ad-hoc
+// check's prose out of the place a consumer looks for "what is this result
+// about". A nameless logical location would make one run's ad-hoc results
+// indistinguishable from each other, which is the one thing they need to not
+// be, now that they all share a rule.
+//
+TEST_F( SarifSinkTest, AnAdHocCheckIsNamedByItsProseNotLeftAnonymous)
+{
+    {
+        core::SarifSink sink( mPath.string());
+
+        core::JournalEvent event;
+        event.Method = core::Verb::Verify;
+        event.Detail = "Supply voltage at Vout";
+        event.Value  = "12.03 V";
+        event.Passed = true;
+
+        sink.onEvent( event);
+        sink.onRunEnd( true);
+    }
+
+    const auto text = readFile( mPath);
+
+    EXPECT_NE( text.find( R"("name": "Supply voltage at Vout")"), std::string::npos) << text;
+
+    // ...and said once in the message, not twice -- the prose is standing in as
+    // the subject, so repeating it as a trailing description is noise.
+    EXPECT_NE( text.find( "Verify Supply voltage at Vout = 12.03 V [PASS]\""), std::string::npos) << text;
+}

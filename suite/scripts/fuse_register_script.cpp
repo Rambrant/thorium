@@ -24,7 +24,7 @@ auto fuseRegisterScript() -> bool
     //
     const auto voltage = Measure( Dmm2.voltage(), at( dut::Vout));
 
-    allPassed &= Verify( "Voltage", "Vout", "Supply voltage", EQ( 12.0_V).epsilon( 0.05_V), voltage);
+    allPassed &= Verify( "Supply voltage at Vout", EQ( 12.0_V).epsilon( 0.05_V), voltage);
 
     return allPassed;
 }

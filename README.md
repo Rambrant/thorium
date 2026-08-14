@@ -333,14 +333,14 @@ Three files, in this order:
    {
        bool allPassed = true;
 
+       Connect( DcP3.dc());   // relay closes cold, then the output comes up --
        Apply(   DcP3.dc().voltage( 24.0_V).currentLimit( 2.0_A));
-       Connect( DcP3.dc());
 
        const auto rail = Measure( Dmm1.voltage(), at( dut::Output12V));
        allPassed &= Verify( FS_Supply_1::FS_Supply_12V, rail);
 
-       Remove(     DcP3.dc());   // output off first, then open the relay --
-       Disconnect( DcP3.dc());   // opening one under current is hot switching
+       Remove(     DcP3.dc());   // ...and goes down before the relay opens.
+       Disconnect( DcP3.dc());   // A relay moved under load arcs and welds.
 
        return allPassed;
    }

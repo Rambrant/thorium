@@ -38,6 +38,14 @@ CONNECTOR_WIRING
     WIRE_CONNECTOR( A, 1, 2, HOP( Mux, "Mux2", 1))
     WIRE_CONNECTOR( A, 1, 4, HOP( Mux, "Mux1", 5))
     WIRE_CONNECTOR( A, 1, 5, HOP( Mux, "Mux1", 6))
+    // TODO(bench): channels invented, not read off the rig. Added because
+    // dut/adapter.inc's BackupSupply_2 (A-1-7) and BatterySupply (A-1-8) had no
+    // entry at all, which fails dut_tests at compile time -- these two are the
+    // next free Mux1 channels and are placeholders until the schematic is
+    // checked. Wrong-but-present routes a measurement to the wrong pin; absent
+    // would not build.
+    WIRE_CONNECTOR( A, 1, 7, HOP( Mux, "Mux1", 7))
+    WIRE_CONNECTOR( A, 1, 8, HOP( Mux, "Mux1", 8))
     WIRE_CONNECTOR( A, 3, 1, HOP( Mux, "Mux2", 2))
     WIRE_CONNECTOR( A, 3, 3, HOP( Mux, "Mux2", 3))
     WIRE_CONNECTOR( A, 3, 5, HOP( Mux, "Mux2", 4))

@@ -29,9 +29,8 @@ auto rigPowerOn() -> bool
     // teardown's Remove-then-Disconnect, read the other way round: a relay
     // closing onto an already-live supply arcs on contact bounce much as one
     // opening under load arcs on break, so the contacts move while the path is
-    // dead in both directions. (core/apply.hpp's usage example still shows
-    // Apply-then-Connect for the setup half -- that is the open question this
-    // file's arrival raises, not a rule it is quietly breaking.)
+    // dead in both directions. See core/apply.hpp, which states the rule and
+    // says why nothing enforces it.
     //
     // DcP1/DcP2 below get no Connect at all: they are hal::N6701ADirect, wired
     // straight through with no isolation relay, so there is nothing to
@@ -57,7 +56,7 @@ auto rigPowerOn() -> bool
     // is checked on the line that produces it, so there is no second variable
     // left in scope for the next rail's check to name by accident.
     //
-    allPassed &= Verify( "AcP1 phase voltage", "Primary AC input at nominal",
+    allPassed &= Verify( "Primary AC input at nominal",
                          EQ( 115_V).epsilon( 2_V),
                          Measure( AcP1.measuredVoltage()));
 
@@ -66,7 +65,7 @@ auto rigPowerOn() -> bool
     //
     Apply( DcP1.dc().voltage( 28_V).currentLimit( 7_A));
 
-    allPassed &= Verify( "DcP1 output voltage", "Backup supply at nominal",
+    allPassed &= Verify( "Backup supply at nominal",
                          EQ( 28_V).epsilon( 0.1_V),
                          Measure( DcP1.measuredVoltage()));
 
@@ -75,7 +74,7 @@ auto rigPowerOn() -> bool
     //
     Apply( DcP2.dc().voltage( 28_V).currentLimit( 7_A));
 
-    allPassed &= Verify( "DcP2 output voltage", "Secondary backup supply at nominal",
+    allPassed &= Verify( "Secondary backup supply at nominal",
                          EQ( 28_V).epsilon( 0.1_V),
                          Measure( DcP2.measuredVoltage()));
 
@@ -85,7 +84,7 @@ auto rigPowerOn() -> bool
     Connect( DcP3.dc());
     Apply(   DcP3.dc().voltage( 24_V).currentLimit( 4_A));
 
-    allPassed &= Verify( "DcP3 output voltage", "Battery supply at nominal",
+    allPassed &= Verify( "Battery supply at nominal",
                          EQ( 24_V).epsilon( 0.1_V),
                          Measure( DcP3.measuredVoltage()));
 

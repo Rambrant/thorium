@@ -107,6 +107,99 @@ TEST( WiringCoverage, EveryDutPointHasAConnectorWiringEntry)
 
 //
 // ---------------------------------------------------------------------------
+// One point per pin
+// ---------------------------------------------------------------------------
+// Two POINTs sharing a VpcLocation is always a mistake, and a uniquely quiet
+// one: both names compile, both are wired (they resolve to the same connector
+// entry), every existing check above passes, and a script measuring at one of
+// them silently reads the other's pin. Nothing about the failure looks like a
+// wiring error -- it looks like the DUT is wrong.
+//
+// It is also exactly what a copy-pasted POINT line produces, which is how these
+// tables are actually edited: duplicate the line above, change the name and the
+// description, forget the pin.
+//
+// Same shape as the coverage check -- consteval over the adapter's own
+// declarations, one static_assert per point so a failure names the offender
+// rather than the table.
+//
+namespace thorium_pin_uniqueness_check
+{
+    //
+    // The locations as *values*, not reflections: the coverage check above
+    // splices each one at its own use site, but counting needs them all in
+    // hand at once to compare against. std::meta::extract pulls the constant
+    // out of the template argument the reflection refers to.
+    //
+    template<typename Group>
+    consteval auto pointLocationValues() -> std::vector<hal::VpcLocation>
+    {
+        std::vector<hal::VpcLocation> result;
+
+        for( const auto locationRef : thorium_wiring_coverage_check::adapterPointLocationInfos<Group>())
+        {
+            result.push_back( std::meta::extract<hal::VpcLocation>( locationRef));
+        }
+
+        return result;
+    }
+
+    template<typename Group>
+    constexpr auto pointLocations = std::define_static_array( pointLocationValues<Group>());
+
+    template<typename Group>
+    consteval auto pointsAt( const hal::VpcLocation location) -> std::size_t
+    {
+        std::size_t count = 0;
+
+        for( const auto declared : pointLocations<Group>)
+        {
+            if( declared == location)
+            {
+                ++count;
+            }
+        }
+
+        return count;
+    }
+
+    //
+    // Counted rather than compared pairwise, so a pin declared three times
+    // reports once per point rather than once per pair -- and so the assertion
+    // reads as the rule it enforces: a pin belongs to exactly one point.
+    //
+    template<typename Group>
+    consteval auto checkPinUniqueness() -> bool
+    {
+        template for( constexpr auto locationRef : thorium_wiring_coverage_check::adapterPointLocationRefs<Group>)
+        {
+            constexpr auto location = [: locationRef :];
+
+            static_assert( pointsAt<Group>( location) == 1,
+                          "two dut POINTs share one VPC pin -- each POINT must name a pin of its "
+                          "own, or a measurement at one silently reads the other (see "
+                          "dut/adapter.inc)");
+        }
+
+        return true;
+    }
+
+    constexpr bool dutPinsUnique = checkPinUniqueness<dut>();
+} // namespace thorium_pin_uniqueness_check
+
+TEST( WiringCoverage, NoTwoDutPointsShareAPin)
+{
+    //
+    // Nothing to run -- see the file comment. Present so the guarantee is in
+    // the test list rather than being an invisible property of the build.
+    //
+    static_assert( thorium_pin_uniqueness_check::dutPinsUnique);
+
+    SUCCEED();
+}
+
+//
+// ---------------------------------------------------------------------------
 // Sense-lead consistency, both sides of the route
 // ---------------------------------------------------------------------------
 // A sense entry with no matching force entry is always a wiring mistake: sense

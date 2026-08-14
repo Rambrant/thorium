@@ -162,16 +162,21 @@ sources through, the same way `measure.hpp`/`measure.cpp` do for `Measure`:
 types `MeasureEngine` uses. Where `Measure` takes a `core::Port`, `Apply`
 and `Remove` each take a *builder* -- `N6701ABuilder<Loc>` or
 `Ac6677ABuilder` -- built up fluently from an instrument's `.dc(at(...))`
-or `.threePhaseWye(...)` method:
+or `.threePhaseWye()` method:
 
 ```cpp
-Apply(  DcP1.dc( at( Input24V)).voltage( 24_V).currentLimit( 7_A));
-Remove( DcP1.dc( at( Input24V)));
+Apply(  DcP1.dc().voltage( 24_V).currentLimit( 7_A));
+Remove( DcP1.dc());
 
-Apply(  AcP1.threePhaseWye( { .a=phase( at( AcInput_A)), .b=phase( at( AcInput_B)),
-                              .c=phase( at( AcInput_C)) })
-            .phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 3_A));
+Apply(  AcP1.threePhaseWye().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 3_A));
 ```
+
+Neither takes an `at(...)`: a source instrument here is fixed-wired straight to
+its VPC pin (or four, for `AcP1`), so there is no point left to choose -- see
+`hal::N6701A`'s own comment on why a real power rail is cabled rather than
+routed. Where a relay does exist in the path, `Connect` closes it before the
+output comes up and `Disconnect` opens it after the output goes down, so the
+contacts never move under load -- see `core/apply.hpp`.
 
 Dispatch to the actual instrument (`applyDriver`/`removeDriver`, defined
 alongside each builder in `n6701a.hpp`/`ac6677a.hpp`) happens via ADL on

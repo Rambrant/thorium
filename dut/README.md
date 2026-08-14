@@ -108,8 +108,20 @@ predicate's own type.
 Not everything belongs here: tolerances that never change between variants
 (or one-off ad-hoc checks added to catch a specific fault) stay as ad-hoc
 `core::Verify(...)` calls directly in the script, the same way they always
-have -- see the "Vout" check in `suite/scripts/fuse_register_script.cpp`.
-This directory is only for tolerances that genuinely vary by variant.
+have -- see the "Supply voltage at Vout" check in
+`suite/scripts/fuse_register_script.cpp`. This directory is only for
+tolerances that genuinely vary by variant.
+
+That choice has one consequence worth knowing before making it. An ad-hoc
+check takes prose and nothing else -- `Verify( "Supply voltage at Vout",
+EQ( 12.0_V).epsilon( 0.05_V), reading)` -- and its result reports in the
+machine log under the shared `Thorium/Verify` rule rather than under a rule
+of its own. Its text is still in the file (the result's logical location and
+message), but a SARIF consumer cannot group, trend, suppress or baseline it
+as a distinct requirement. A `CRIT` entry can be, because it has a stable
+compile-time id. So: if the check is a requirement you want to follow across
+runs, declare it here; if it is an assertion that a script needs in order to
+be honest about what it did, leave it inline.
 
 ## When a criterion doesn't actually change between variants
 
