@@ -8,11 +8,14 @@ installation procedure.
 
 ```
 instruments/
-    l4411a/
+    l4411a/                     # hal::L4411A  -- 6.5-digit system DMM
         CMakeLists.txt
         README.md
         include/hal/l4411a.hpp
         tests/test_l4411a.cpp
+    dso8064/                    # hal::DSO8064 -- four-channel oscilloscope
+    n6701a/                     # hal::N6701A  -- one DC supply channel
+    ac6677a/                    # hal::Ac6677A -- three-phase AC source
 ```
 
 ## How a directory here gets built
@@ -66,9 +69,27 @@ instrument is, by construction, not testing this driver in isolation, and the
 directory stops being packageable the moment one does.
 
 Tests that genuinely need several instruments together, or this rig's wiring,
-are rig-level integration tests and belong with the rig, not here.
-`libs/hal/tests/test_call_syntax.cpp` and `test_safing.cpp` are both in that
-category today and are still in `libs/hal/tests/` pending a `rig/tests/` target.
+are rig-level integration tests and belong with the rig, not here. Four files in
+`libs/hal/tests/` are in that category today, still there pending a `rig/tests/`
+target:
+
+| File | Why it can't live in a driver directory |
+|---|---|
+| `test_call_syntax.cpp` | names three drivers at once |
+| `test_safing.cpp` | names all four, and expands `THORIUM_ACTIVE_INSTRUMENTS` |
+| `test_source_instruments.cpp` | one test needing both a DC supply and an AC source |
+| `test_describe.cpp`, `test_source_readback.cpp` | assert that the *engines* post to the journal — a claim about the engine-and-driver pair, which neither side can make about itself |
+
+That last row is worth reading closely before assuming a file is misplaced: both
+files said as much in their own header comments long before any of this moved.
+
+The split of `test_source_instruments.cpp` is the one place where moving tests was
+not a verbatim lift. It held N6701A's and Ac6677A's tests behind a single shared
+fixture; each driver now carries its own copy of the fixture, trimmed to the
+instruments it actually names, with the test bodies unchanged. Fixture and suite
+names were deliberately *not* improved at the same time — `TEST_F` takes its suite
+name from the fixture, so renaming would have renamed every test and lost the
+before/after comparison that made the move verifiable.
 
 ## Adding a driver
 
@@ -84,9 +105,8 @@ of the rig after those two lines.
 
 ## Not yet done
 
-- **`n6701a`, `ac6677a`, `dso8064`** still live in `libs/hal/include/hal/`, and
-  move out the way `l4411a` already has. `libs/hal/CMakeLists.txt` still lists
-  them so they stay visible in an IDE until they go.
+- **A `rig/tests/` target** for the four integration tests listed above, so
+  `libs/hal/tests/` holds only tests of hal's own generic mechanism.
 - **A hal API version gate.** A driver written against an older `hal` and
   compiled against a newer one currently fails somewhere deep inside a template
   instantiation. A `THORIUM_HAL_API_VERSION` in generic `hal` plus a

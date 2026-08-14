@@ -62,14 +62,6 @@ add_library(hal STATIC
     include/hal/wiring.hpp         # header-only
     include/hal/adapter.hpp        # header-only
     include/hal/describe.hpp       # header-only
-
-    # Drivers still awaiting their move out to instruments/ -- listed here so
-    # they stay visible in an IDE until they go, not because they belong to
-    # this target. Each leaves as its own directory, the way l4411a already
-    # has; see instruments/README.md.
-    include/hal/n6701a.hpp         # header-only
-    include/hal/ac6677a.hpp        # header-only
-    include/hal/dso8064.hpp        # header-only
 )
 
 target_include_directories(hal PUBLIC
@@ -215,12 +207,19 @@ install(TARGETS hal_rig
 
 if(BUILD_TESTING_LAYERS)
     # Linked against hal_rig, not hal: test_safing.cpp expands
-    # THORIUM_ACTIVE_INSTRUMENTS and the rest exercise Apply/Measure/safeRig,
-    # all of which live there. The four genuinely generic test files
-    # (vpc_location, switch_fabric, wiring, and what is left of
-    # test_instrument.cpp) would link against bare hal quite happily -- see
-    # libs/hal/README.md on splitting this target so that stays true by
-    # construction rather than by accident.
+    # THORIUM_ACTIVE_INSTRUMENTS, and safeRig() lives there.
+    #
+    # What is left in this directory after the drivers took their own tests with
+    # them is two kinds of file. Three are genuinely generic (vpc_location,
+    # switch_fabric, wiring, plus what remains of test_instrument.cpp) and would
+    # link bare hal quite happily. The other four are rig-level integration
+    # tests that happen to still be here: test_call_syntax.cpp and
+    # test_safing.cpp name three and four instruments respectively, and
+    # test_describe.cpp/test_source_readback.cpp check that the engines actually
+    # post to the journal, which is a claim about the engine-and-driver pair
+    # rather than about either alone (see their own header comments, which said
+    # as much before any of this moved). Those four belong in a rig/tests target
+    # -- see instruments/README.md.
     add_layer_tests(hal hal_rig
         tests/test_vpc_location.cpp
         tests/test_switch_fabric.cpp

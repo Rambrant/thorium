@@ -19,10 +19,10 @@ library and its one rig; a separate rig repo pulling this library in later
 would set the same three variables pointing at its own `rig/`-equivalent
 instead.
 
-The concrete driver classes no longer live here. Each is its own independently
-packageable directory under `instruments/` at the repo root -- `hal::L4411A`
-already is, `N6701A`/`Ac6677A`/`DSO8064` still sit in `include/hal/` awaiting the
-same move. See `instruments/README.md`.
+The concrete driver classes no longer live here at all. Each of the four is its
+own independently packageable directory under `instruments/` at the repo root,
+carrying its own tests -- see `instruments/README.md`. What is left here is the
+API they are written against.
 
 ## Two targets: `hal` and `hal_rig`
 
@@ -63,16 +63,18 @@ libs/hal/
         measure.hpp        # MeasureEngine alias + extern Measure
         apply.hpp           # ApplyEngine/RemoveEngine aliases + extern Apply/Remove
         safing.hpp         # safeRig()
-
-        # Awaiting the move out to instruments/, the way l4411a already has:
-        dso8064.hpp         # hal::DSO8064 -- a generic scope driver
-        n6701a.hpp          # hal::N6701A/N6701ABuilder -- one N6701A channel
-        ac6677a.hpp          # hal::Ac6677A/Ac6677ABuilder, phase()/ThreePhaseWyePoints
 ```
 
-`hal::L4411A` lives in `instruments/l4411a/include/hal/l4411a.hpp` and is still
-spelled `#include "hal/l4411a.hpp"`, in `namespace hal`, at every call site --
-moving a driver out changes its build location and nothing else.
+No driver headers: all four now live under `instruments/`, one directory each,
+and are still spelled `#include "hal/<model>.hpp"`, in `namespace hal`, at every
+call site -- moving a driver out changed its build location and nothing else.
+
+| Driver | Directory |
+|---|---|
+| `hal::L4411A` | `instruments/l4411a/` |
+| `hal::DSO8064` | `instruments/dso8064/` |
+| `hal::N6701A` | `instruments/n6701a/` |
+| `hal::Ac6677A` | `instruments/ac6677a/` |
 
 A rig's own instrument list, wiring data, and concrete instrument
 identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP4`/`AcP1`/`fabric` in
