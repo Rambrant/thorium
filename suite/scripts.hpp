@@ -41,6 +41,23 @@
 //
 
 //
+// Not a test -- the catalog's TEARDOWN (see suite/test_catalog.inc). Powers
+// this rig down in a defined order after the last selected script has run:
+// every DC rail's output off before the primary AC source, then the isolation
+// relays that have one. Returns true unconditionally; it has no verdict to
+// report, and a false would fail an otherwise clean run.
+//
+// Distinct from hal::safeRig(), which runs immediately afterwards no matter
+// what -- that one is the unordered, unconditional crash path. See
+// suite/scripts/rig_power_off.cpp's own comment for why both exist.
+//
+[[nodiscard]]
+auto rigPowerOn() -> bool;
+
+[[nodiscard]]
+auto rigPowerOff() -> bool;
+
+//
 // Verifies fuse register content and output voltage against expected
 // criteria. Demonstrates the declarative Criterion/Verify DSL style,
 // as opposed to the fluent TestCase style used above.
@@ -55,17 +72,3 @@ auto fuseRegisterScript() -> bool;
 //
 [[nodiscard]]
 auto supplyRailScript() -> bool;
-
-//
-// Not a test -- the catalog's TEARDOWN (see suite/test_catalog.inc). Powers
-// this rig down in a defined order after the last selected script has run:
-// every DC rail's output off before the primary AC source, then the isolation
-// relays that have one. Returns true unconditionally; it has no verdict to
-// report, and a false would fail an otherwise clean run.
-//
-// Distinct from hal::safeRig(), which runs immediately afterwards no matter
-// what -- that one is the unordered, unconditional crash path. See
-// suite/scripts/rig_power_off.cpp's own comment for why both exist.
-//
-[[nodiscard]]
-auto rigPowerOff() -> bool;

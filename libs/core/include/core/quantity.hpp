@@ -353,19 +353,44 @@ namespace core
     //
     namespace literals
     {
+        //
+        // Every unit below is declared twice: once taking long double, for
+        // 2.0_V, and once taking unsigned long long, for 2_V. Both are needed
+        // because C++ picks the overload from how the literal was *written*,
+        // not from what the value is -- with only the first, 2_V is "unable to
+        // find numeric literal operator", which is a confusing thing to be told
+        // about a voltage that is exactly two volts. Round setpoints are the
+        // common case on a bench (28 V, 115 V, 400 Hz), so the form that reads
+        // like the datasheet should not be the form that fails to compile.
+        //
+        // The integer overload delegates to its long double sibling rather than
+        // repeating the construction, so each unit's scale factor is written
+        // once. Getting 2_kOhm and 2.0_kOhm to disagree by a factor of a
+        // thousand is exactly the kind of divergence a copied line invites.
+        //
         constexpr quantities::Voltage operator""_V( long double v ) { return quantities::Voltage{ static_cast<double>(v) }; }
+        constexpr quantities::Voltage operator""_V( unsigned long long v ) { return operator""_V( static_cast<long double>( v)); }
         constexpr quantities::Voltage operator""_kV( long double v ) { return quantities::Voltage{ static_cast<double>(v * 1000.0) }; }
+        constexpr quantities::Voltage operator""_kV( unsigned long long v ) { return operator""_kV( static_cast<long double>( v)); }
         constexpr quantities::Voltage operator""_mV( long double v ) { return quantities::Voltage{ static_cast<double>(v / 1000.0) }; }
+        constexpr quantities::Voltage operator""_mV( unsigned long long v ) { return operator""_mV( static_cast<long double>( v)); }
 
         constexpr quantities::Current operator""_A( long double v ) { return quantities::Current{ static_cast<double>(v) }; }
+        constexpr quantities::Current operator""_A( unsigned long long v ) { return operator""_A( static_cast<long double>( v)); }
         constexpr quantities::Current operator""_mA( long double v ) { return quantities::Current{ static_cast<double>(v / 1000.0) }; }
+        constexpr quantities::Current operator""_mA( unsigned long long v ) { return operator""_mA( static_cast<long double>( v)); }
 
         constexpr quantities::Power operator""_W( long double v ) { return quantities::Power{ static_cast<double>(v) }; }
+        constexpr quantities::Power operator""_W( unsigned long long v ) { return operator""_W( static_cast<long double>( v)); }
         constexpr quantities::Power operator""_kW( long double v ) { return quantities::Power{ static_cast<double>(v * 1000.0) }; }
+        constexpr quantities::Power operator""_kW( unsigned long long v ) { return operator""_kW( static_cast<long double>( v)); }
         constexpr quantities::Power operator""_mW( long double v ) { return quantities::Power{ static_cast<double>(v / 1000.0) }; }
+        constexpr quantities::Power operator""_mW( unsigned long long v ) { return operator""_mW( static_cast<long double>( v)); }
 
         constexpr quantities::ApparentPower operator""_VA( long double v ) { return quantities::ApparentPower{ static_cast<double>(v) }; }
+        constexpr quantities::ApparentPower operator""_VA( unsigned long long v ) { return operator""_VA( static_cast<long double>( v)); }
         constexpr quantities::ApparentPower operator""_mVA( long double v ) { return quantities::ApparentPower{ static_cast<double>(v / 1000.0) }; }
+        constexpr quantities::ApparentPower operator""_mVA( unsigned long long v ) { return operator""_mVA( static_cast<long double>( v)); }
 
         //
         // Lowercase "var" (not VAR/VAr) is the correct IEC/SI symbol for
@@ -373,13 +398,19 @@ namespace core
         // "VAR" is common in the power industry but is not the standard.
         //
         constexpr quantities::ReactivePower operator""_var( long double v ) { return quantities::ReactivePower{ static_cast<double>(v) }; }
+        constexpr quantities::ReactivePower operator""_var( unsigned long long v ) { return operator""_var( static_cast<long double>( v)); }
         constexpr quantities::ReactivePower operator""_kvar( long double v ) { return quantities::ReactivePower{ static_cast<double>(v * 1000.0) }; }
+        constexpr quantities::ReactivePower operator""_kvar( unsigned long long v ) { return operator""_kvar( static_cast<long double>( v)); }
 
         constexpr quantities::Time operator""_s( long double v ) { return quantities::Time{ static_cast<double>(v) }; }
+        constexpr quantities::Time operator""_s( unsigned long long v ) { return operator""_s( static_cast<long double>( v)); }
         constexpr quantities::Time operator""_ms( long double v ) { return quantities::Time{ static_cast<double>(v / 1000.0) }; }
+        constexpr quantities::Time operator""_ms( unsigned long long v ) { return operator""_ms( static_cast<long double>( v)); }
 
         constexpr quantities::Resistance operator""_Ohm( long double v ) { return quantities::Resistance{ static_cast<double>(v) }; }
+        constexpr quantities::Resistance operator""_Ohm( unsigned long long v ) { return operator""_Ohm( static_cast<long double>( v)); }
         constexpr quantities::Resistance operator""_kOhm( long double v ) { return quantities::Resistance{ static_cast<double>(v) * 1000.0 }; }
+        constexpr quantities::Resistance operator""_kOhm( unsigned long long v ) { return operator""_kOhm( static_cast<long double>( v)); }
 
         //
         // Milliohms, for shunts -- the scale a current-sense resistor is
@@ -387,8 +418,11 @@ namespace core
         // like the datasheet rather than like 0.01_Ohm.
         //
         constexpr quantities::Resistance operator""_mOhm( long double v ) { return quantities::Resistance{ static_cast<double>(v) / 1000.0 }; }
+        constexpr quantities::Resistance operator""_mOhm( unsigned long long v ) { return operator""_mOhm( static_cast<long double>( v)); }
 
         constexpr quantities::Frequency operator""_Hz( long double v ) { return quantities::Frequency{ static_cast<double>(v) }; }
+        constexpr quantities::Frequency operator""_Hz( unsigned long long v ) { return operator""_Hz( static_cast<long double>( v)); }
         constexpr quantities::Frequency operator""_kHz( long double v ) { return quantities::Frequency{ static_cast<double>(v) * 1000.0 }; }
+        constexpr quantities::Frequency operator""_kHz( unsigned long long v ) { return operator""_kHz( static_cast<long double>( v)); }
     } // namespace literals
 }     // namespace core

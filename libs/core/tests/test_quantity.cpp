@@ -173,3 +173,40 @@ TEST( CoreQuantity, OhmsLawConvertsBetweenUnitsWithoutLeavingTheTypeSystem)
     EXPECT_DOUBLE_EQ( ( load * shunt).value(), drop.value());
     EXPECT_DOUBLE_EQ( ( drop / load).value(),  shunt.value());
 }
+
+
+//
+// Integer literals, for the round setpoints a bench actually runs at: 28_V is
+// the same value as 28.0_V, not a different overload with its own conversion to
+// get wrong. Checked as a static_assert rather than an EXPECT so the claim is
+// "these are the same constant", not "they compare equal at runtime".
+//
+TEST( CoreQuantity, IntegerLiteralsMeanTheSameAsTheirDecimalSpelling)
+{
+    static_assert( 28_V   == 28.0_V);
+    static_assert( 7_A    == 7.0_A);
+    static_assert( 400_Hz == 400.0_Hz);
+    static_assert( 50_ms  == 50.0_ms);
+
+    static_assert( std::is_same_v<decltype( 28_V), Voltage>);
+    static_assert( std::is_same_v<decltype( 7_A),  Current>);
+
+    SUCCEED();
+}
+
+//
+// The scaled suffixes are where an integer overload could plausibly have gone
+// wrong -- each one delegates to its long double sibling precisely so the
+// factor is not written twice and cannot drift between the two spellings.
+//
+TEST( CoreQuantity, IntegerLiteralsCarryTheSameScaleFactorAsTheirDecimalSpelling)
+{
+    static_assert( 2_kV   == 2000.0_V);
+    static_assert( 50_mV  == 0.05_V);
+    static_assert( 2_kOhm == 2000.0_Ohm);
+    static_assert( 10_mOhm == 0.01_Ohm);
+    static_assert( 3_kHz  == 3000.0_Hz);
+    static_assert( 250_mA == 0.25_A);
+
+    SUCCEED();
+}

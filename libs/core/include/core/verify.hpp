@@ -63,6 +63,43 @@ namespace core
     // Convenience overload for ad-hoc checks that don't need a named Criterion
     // constant declared up front via CRIT().
     //
+    // Subject and description are not two spellings of the same thing, which is
+    // the question this overload exists to answer. The description is prose for
+    // a person reading the log. The subject is a *key*: core::SarifSink pastes
+    // it into the ruleId a machine consumer groups results by, across runs and
+    // across DUTs (see SarifSink::ruleIdFor), and free text is a poor key --
+    // rewording it silently splits one rule's history in two, which is exactly
+    // what a description is allowed to do and a key is not.
+    //
+    // So: subject names *what was checked* and changes only when that changes
+    // ("AcP1 phase voltage"); description says what the reader should make of
+    // it, in whatever words suit. Two ad-hoc checks that share a subject are
+    // claiming to be the same rule -- worth knowing, because the copy-paste
+    // failure here is silent otherwise: every result collapses under one ruleId
+    // and a consumer sees one rule checked N times rather than N rules.
+    //
+    // There is no group argument, deliberately, and that is the difference from
+    // the five-argument form below. A group is a criteria *table's* name -- the
+    // CRITERIA( FS_Supply_1, ...) an entry belongs to and a test spec traces to
+    // -- and an ad-hoc check belongs to no table by definition. Hand-typing one
+    // invents a grouping nothing else in the build knows about, and ruleIdFor
+    // already degrades correctly to a bare subject when there is none.
+    //
+    template< typename Predicate, typename T>
+        requires core::PredicateFor< Predicate, T>
+    bool Verify( std::string_view  subject,
+                 std::string_view  description,
+                 const Predicate & predicate,
+                 const T &         value )
+    {
+        return Verify( Criterion{ std::string_view{}, subject, description, predicate }, value);
+    }
+
+    //
+    // The same thing with an explicit criteria group -- for an ad-hoc check
+    // that genuinely does belong to a named table, which is rare enough that
+    // the four-argument form above is the one to reach for by default.
+    //
     template< typename Predicate, typename T>
         requires core::PredicateFor< Predicate, T>
     bool Verify( std::string_view  group,

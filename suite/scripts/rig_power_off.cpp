@@ -41,7 +41,6 @@ auto rigPowerOff() -> bool
     Remove( DcP1.dc());
     Remove( DcP2.dc());
     Remove( DcP3.dc());
-    Remove( DcP4.dc());
     Remove( AcP1.threePhaseWye());
 
     //
@@ -60,7 +59,6 @@ auto rigPowerOff() -> bool
     // in hal/n6701a.hpp).
     //
     Disconnect( DcP3.dc());
-    Disconnect( DcP4.dc());
     Disconnect( AcP1.threePhaseWye());
 
     //

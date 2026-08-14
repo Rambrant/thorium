@@ -115,9 +115,11 @@ namespace
     constexpr std::string_view kOutputRoot = THORIUM_ACCEPTANCE_OUTPUT_DIR;
 
     //
-    // The same runner over a catalog that declares SETUP/TEARDOWN, which the
-    // shipped suite deliberately does not -- see app/CMakeLists.txt and
-    // app/tests/fixtures/.
+    // The same runner over a *fixture* catalog whose hooks announce themselves
+    // on stdout and can be made to fail on demand -- which the shipped suite's
+    // real hooks cannot (see the AcceptanceHooks section below for why that
+    // still matters now that the shipped catalog declares both). See
+    // app/CMakeLists.txt and app/tests/fixtures/.
     //
     constexpr std::string_view kRunScriptsHooked = THORIUM_RUN_SCRIPTS_HOOKED_EXE;
 
@@ -241,6 +243,22 @@ namespace
     // than reaching for gmock's HasSubstr: this way the failure message can
     // carry the path, which HasSubstr's cannot.
     //
+    //
+    // How many times a marker appears -- for the assertions whose subject is
+    // that something happened exactly once, which containsText cannot express.
+    //
+    auto countOccurrences( const std::string & text, const std::string_view needle) -> std::size_t
+    {
+        std::size_t count = 0;
+
+        for ( auto at = text.find( needle); at != std::string::npos; at = text.find( needle, at + needle.size()))
+        {
+            ++count;
+        }
+
+        return count;
+    }
+
     auto containsText( const std::filesystem::path & artifact, const std::string & text, const std::string_view needle) -> ::testing::AssertionResult
     {
         if( text.find( needle) != std::string::npos)
@@ -1149,18 +1167,17 @@ TEST_F( AcceptanceRepeat, ARepeatCountThatIsNotAPositiveNumberIsRejectedBeforeAn
 // Bracketing a run: SETUP / TEARDOWN
 // ---------------------------------------------------------------------------
 //
-// Driven against run_scripts_hooked -- the same main.cpp over a catalog that
-// declares both hooks (see app/CMakeLists.txt), and whose hooks announce
-// themselves on stdout and can be made to fail on demand. The shipped suite
-// declares only TEARDOWN( rigPowerOff), which does neither: it is silent, and
-// it has no failure to report (see suite/scripts/rig_power_off.cpp). So the
+// Driven against run_scripts_hooked -- the same main.cpp over a catalog whose
+// hooks announce themselves on stdout and can be made to fail on demand (see
+// app/CMakeLists.txt). The shipped suite now declares both hooks too
+// (rigPowerOn/rigPowerOff), but neither can stand in here: they print no
+// ordering markers, and rigPowerOff has no failure to report at all. So the
 // claims below -- ordering around the scripts, bracketing every --repeat pass
-// once, a failing hook failing the run -- still need the fixture; the shipped
-// catalog could not show any of them.
+// once, a failing hook failing the run -- still need the fixture.
 //
-// The absent-SETUP half stays covered by every other scenario in this file:
-// they all run the shipped catalog, whose setup hook is nullptr, and none of
-// them stops before the scripts run.
+// What the shipped hooks do cover, on the real binary, is the scenario at the
+// end of this section: that the power-up and power-down actually happen, in
+// order, around the scripts.
 //
 
 TEST_F( AcceptanceHooks, SetupRunsBeforeTheScriptsAndTeardownAfterThem)
@@ -1249,19 +1266,18 @@ TEST_F( AcceptanceHooks, ASelectionMatchingNothingNeverReachesTheHooks)
 }
 
 //
-// The shipped suite's own hook, on the real binary rather than the fixture:
-// suite/scripts/rig_power_off.cpp is silent on stdout, so the only place it is
-// visible is the machine log, and what it puts there is the thing worth
-// pinning -- an ordered power-down (every source Removed, alternate rails
-// before the primary AC, then the isolation relays opened) that lands after
-// the last verdict and before hal::safeRig()'s own record.
+// The shipped suite's own hooks, on the real binary rather than the fixture.
+// rigPowerOn/rigPowerOff say nothing on stdout, so the machine log is the only
+// place they are visible -- and what they put there is the thing worth pinning:
+// a power-up and a power-down that are each other's inverse, bracketing the
+// scripts, with hal::safeRig() behind them.
 //
 // Ordering asserted by offset rather than by containsText alone: that the
-// events are present says nothing, since safing right afterwards produces a
-// rig in the same state either way. The sequence is the entire reason the
-// teardown exists rather than being left to safing.
+// events are present says nothing, since safing at the end leaves the rig in
+// the same state either way. The sequence is the entire reason these are hooks
+// rather than something left to safing.
 //
-TEST_F( AcceptanceHooks, TheShippedTeardownPowersTheRigDownInOrderBeforeSafing)
+TEST_F( AcceptanceHooks, TheShippedHooksBracketTheRunWithAnOrderedPowerCycle)
 {
     EXPECT_EQ( run( { "--quiet" }), 1);
 
@@ -1276,19 +1292,84 @@ TEST_F( AcceptanceHooks, TheShippedTeardownPowersTheRigDownInOrderBeforeSafing)
         return log.find( needle);
     };
 
-    const auto lastVerify = log.rfind( "Verify FS_Supply_3V3");
-    const auto removeDc1  = positionOf( "Remove DcP1");
-    const auto removeAc1  = positionOf( "Remove AcP1");
-    const auto openAc1    = positionOf( "Disconnect AcP1");
-    const auto safed      = positionOf( "Safe rig");
+    const auto closeAc1    = positionOf( "Connect AcP1");
+    const auto applyAc1    = positionOf( "Apply AcP1");
+    const auto applyDc1    = positionOf( "Apply DcP1");
+    const auto firstVerify = positionOf( "Verify FS_Fuse_01");
+    const auto lastVerify  = log.rfind( "Verify FS_Supply_3V3");
+    const auto removeDc1   = positionOf( "Remove DcP1");
+    const auto removeAc1   = positionOf( "Remove AcP1");
+    const auto openAc1     = positionOf( "Disconnect AcP1");
+    const auto safed       = positionOf( "Safe rig");
 
+    ASSERT_NE( closeAc1,  std::string::npos) << "no power-up in " << sarif;
     ASSERT_NE( removeDc1, std::string::npos) << "no power-down in " << sarif;
     ASSERT_NE( safed,     std::string::npos) << "no safing record in " << sarif;
 
-    EXPECT_LT( lastVerify, removeDc1) << "the teardown ran before the scripts finished";
-    EXPECT_LT( removeDc1,  removeAc1) << "the primary AC source went down before a DC rail";
-    EXPECT_LT( removeAc1,  openAc1)   << "a relay was opened before its source was off -- hot switching";
-    EXPECT_LT( openAc1,    safed)     << "safing preceded the teardown it is meant to back up";
+    // Up: relay closed dead, then energised, primary before the alternates,
+    // and all of it before the first script's first check.
+    EXPECT_LT( closeAc1,    applyAc1)    << "AcP1 was energised before its relay closed -- hot switching";
+    EXPECT_LT( applyAc1,    applyDc1)    << "an alternate rail came up before the primary";
+    EXPECT_LT( applyDc1,    firstVerify) << "a script ran before the rig was powered";
+
+    // Down: the exact inverse, after the last check and before safing.
+    EXPECT_LT( lastVerify,  removeDc1)   << "the teardown ran before the scripts finished";
+    EXPECT_LT( removeDc1,   removeAc1)   << "the primary AC source went down before a DC rail";
+    EXPECT_LT( removeAc1,   openAc1)     << "a relay was opened before its source was off -- hot switching";
+    EXPECT_LT( openAc1,     safed)       << "safing preceded the teardown it is meant to back up";
+}
+
+//
+// The question a script author is bound to ask when writing a power-up hook:
+// if SETUP fails half way through, who powers the rig back down? Not the hook
+// -- calling the teardown from inside the setup's own failure path would run it
+// twice, since main.cpp's TeardownGuard is constructed *before* SETUP precisely
+// so that a setup which energised three rails and then failed on the fourth
+// still gets torn down.
+//
+// Asserted on the shipped hooks rather than the fixture, because the fixture's
+// version of this (AFailingSetupStopsTheRunButStillTearsDown, above) only shows
+// that *a* teardown ran. What matters here is that the real one ran, in full:
+// every source this rig's setup could have energised is removed, in order,
+// even though no test ever started.
+//
+// A replay file is what makes the setup fail on demand -- the rig itself has no
+// way to be told to come up wrong, and this is exactly the case --replay exists
+// for. The four setup readings are all present because the hook checks all four
+// before returning; only the first is out of tolerance.
+//
+TEST_F( AcceptanceHooks, AFailedPowerUpIsStillPoweredBackDown)
+{
+    writeFile( mDir / "bad-setup.tsv",
+        "0\t0\tAcP1.Voltage\tAcP1\tVoltage\t100.0\n"    // outside 115 V +/-2 V
+        "1\t0\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
+        "2\t0\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
+        "3\t0\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n");
+
+    EXPECT_EQ( run( { "--replay=bad-setup.tsv", "--quiet" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "SETUP reported failure; no test was run"));
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    const auto log = readFile( sarif);
+
+    // No test ran...
+    EXPECT_FALSE( containsText( sarif, log, "Verify FS_Supply_5V0"));
+
+    // ...and the rig was still taken down, every source and both relay paths.
+    EXPECT_TRUE( containsText( sarif, log, "Remove DcP1"));
+    EXPECT_TRUE( containsText( sarif, log, "Remove DcP2"));
+    EXPECT_TRUE( containsText( sarif, log, "Remove DcP3"));
+    EXPECT_TRUE( containsText( sarif, log, "Remove AcP1"));
+    EXPECT_TRUE( containsText( sarif, log, "Disconnect DcP3"));
+    EXPECT_TRUE( containsText( sarif, log, "Disconnect AcP1"));
+
+    // Once, not twice -- the count is the assertion that the hook does not also
+    // call the teardown itself.
+    EXPECT_EQ( countOccurrences( log, "Remove AcP1"), 1u);
 }
 
 // ---------------------------------------------------------------------------
@@ -1310,7 +1391,18 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output5V\tDmm1\tVoltage"));
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output3V3\tDmm1\tVoltage"));
 
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 3);
+    // "Every reading the run took" includes the ones the SETUP hook took before
+    // the first script -- rigPowerOn() reads each source back to decide whether
+    // the rig came up (see suite/scripts/rig_power_on.cpp). A hook's readings
+    // are readings: its verdict gates the run, so a replay that could not
+    // reproduce them could not reproduce the run.
+    //
+    // Keyed by instrument rather than by point, because these are instrument
+    // readbacks with no route -- see core::MeasureEngine's point-free overload.
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "AcP1.Voltage\tAcP1\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "DcP3.Voltage\tDcP3\tVoltage"));
+
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 7);   // four from setup, three from the scripts
 }
 
 //
@@ -1322,10 +1414,17 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
 //
 TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
 {
+    // The four setup readings come first and have to be here too: rigPowerOn()
+    // runs before the scripts and checks each one, so a file without them
+    // replays a run whose rig never came up.
     writeFile( mDir / "passing.tsv",
-        "0\t0\tVout\tDmm2\tVoltage\t12.0\n"
-        "1\t0\tOutput5V\tDmm1\tVoltage\t5.0\n"
-        "2\t0\tOutput3V3\tDmm1\tVoltage\t3.3\n");
+        "0\t0\tAcP1.Voltage\tAcP1\tVoltage\t115.0\n"
+        "1\t0\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
+        "2\t0\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
+        "3\t0\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n"
+        "4\t0\tVout\tDmm2\tVoltage\t12.0\n"
+        "5\t0\tOutput5V\tDmm1\tVoltage\t5.0\n"
+        "6\t0\tOutput3V3\tDmm1\tVoltage\t3.3\n");
 
     EXPECT_EQ( run( { "--replay=passing.tsv", "--quiet" }), 0);
 
@@ -1362,7 +1461,10 @@ TEST_F( AcceptanceRecording, EachRepeatPassIsRecorded)
 
     const auto tsv = readFile( mDir / "readings.tsv");
 
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 9);   // three readings, three passes
+    // Three readings per pass, three passes -- plus the four the setup took,
+    // once, because the hooks bracket the whole selection rather than each
+    // pass (see AcceptanceHooks above).
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 13);
 }
 
 //

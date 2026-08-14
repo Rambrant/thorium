@@ -1,12 +1,12 @@
 #pragma once
 
 //
-// No SETUP: nothing here powers the rig up yet -- the scripts below measure
-// rails they assume are already live. TEARDOWN alone is deliberate rather than
-// half-finished; powering down is worth sequencing whether or not this suite
-// was the thing that powered up (see suite/scripts/rig_power_off.cpp), and an
-// absent SETUP needs no placeholder.
+// The pair that brackets every run: rigPowerOn brings this rig's sources up in
+// order and checks each came up (a false here stops the run before the first
+// test), rigPowerOff takes them back down in the inverse order. Read the two
+// files as one sequence and its reverse -- see suite/scripts/rig_power_on.cpp.
 //
+SETUP( rigPowerOn)
 TEARDOWN( rigPowerOff)
 
 GROUP( OutputVoltage, "Tests validating DUT output voltage rails")

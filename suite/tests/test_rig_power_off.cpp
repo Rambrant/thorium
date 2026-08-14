@@ -31,19 +31,25 @@ namespace
             Apply( DcP1.dc().voltage(  24.0_V).currentLimit( 7.0_A));
             Apply( DcP2.dc().voltage(   5.0_V).currentLimit( 2.0_A));
             Apply( DcP3.dc().voltage(  12.0_V).currentLimit( 1.0_A));
-            Apply( DcP4.dc().voltage(  48.0_V).currentLimit( 0.5_A));
             Apply( AcP1.threePhaseWye().phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
 
             // Only the three that have a relay at all -- Connect( DcP1.dc())
             // would not compile (see hal::SwitchableIsolation).
             Connect( DcP3.dc());
-            Connect( DcP4.dc());
             Connect( AcP1.threePhaseWye());
         }
     };
 } // namespace
 
-TEST_F( RigPowerOffFixture, EverySourceEndsUpDisabled)
+//
+// Every source the teardown *names*, which is not every source the rig has:
+// DcP4 is declared in rig/instrument.inc and mentioned by neither hook, so
+// nothing here powers it up and nothing but hal::safeRig() takes it down. It is
+// deliberately not asserted on -- an expectation that it stays enabled would
+// enshrine the gap, and one that it goes off would be testing safing from the
+// wrong file. See rigPowerOn()'s closing comment for when that should change.
+//
+TEST_F( RigPowerOffFixture, EverySourceItNamesEndsUpDisabled)
 {
     energiseEverything();
 
@@ -55,7 +61,6 @@ TEST_F( RigPowerOffFixture, EverySourceEndsUpDisabled)
     EXPECT_FALSE( DcP1.isEnabled());
     EXPECT_FALSE( DcP2.isEnabled());
     EXPECT_FALSE( DcP3.isEnabled());
-    EXPECT_FALSE( DcP4.isEnabled());
     EXPECT_FALSE( AcP1.isEnabled());
 }
 
@@ -67,7 +72,6 @@ TEST_F( RigPowerOffFixture, EverySourceEndsUpDisabled)
 TEST_F( RigPowerOffFixture, EveryIsolationRelayItClosedEndsUpOpen)
 {
     constexpr hal::SwitchElementId dcP3Path{ hal::SwitchDeviceKind::Matrix, "Matrix2", 24 };
-    constexpr hal::SwitchElementId dcP4Path{ hal::SwitchDeviceKind::Matrix, "Matrix2", 25 };
     constexpr hal::SwitchElementId acP1PhaseA{ hal::SwitchDeviceKind::Matrix, "Matrix2", 22 };
     constexpr hal::SwitchElementId acP1Neutral{ hal::SwitchDeviceKind::Matrix, "Matrix2", 27 };
 
@@ -79,7 +83,6 @@ TEST_F( RigPowerOffFixture, EveryIsolationRelayItClosedEndsUpOpen)
     EXPECT_TRUE( rigPowerOff());
 
     EXPECT_FALSE( hal::fabric.isClosed( dcP3Path));
-    EXPECT_FALSE( hal::fabric.isClosed( dcP4Path));
 
     // Both ends of AcP1's four fixed channels -- phases and the neutral/ground
     // return open together, which is the isolation the return is modelled for.

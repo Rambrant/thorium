@@ -15,18 +15,18 @@ scenario, but always runs the same set of tests). See
 
 The same file may declare `SETUP`/`TEARDOWN` -- the code bracketing the
 selected scripts, typically powering the rig up and back down. Both are
-optional and independent: this catalog declares `TEARDOWN( rigPowerOff)`
-(`scripts/rig_power_off.cpp`) and no `SETUP` at all, since nothing here powers
-the rig up yet -- and an absent hook needs no placeholder. See the README's
-"Bracket a run with setup and teardown" for how to add one, and
-`core::RunHook` for what they promise.
+optional and independent; this catalog declares both -- `SETUP( rigPowerOn)`
+and `TEARDOWN( rigPowerOff)`, in `scripts/rig_power_on.cpp` and
+`scripts/rig_power_off.cpp`. See the README's "Bracket a run with setup and
+teardown" for how to add a pair, and `core::RunHook` for what they promise.
 
-`rigPowerOff` is worth reading for the distinction it draws against
-`hal::safeRig()`, which runs immediately after it on every exit and looks like
-the same job: safing is the unconditional, unordered crash path, while the
-teardown is the normal one and exists to express the one thing safing
-deliberately cannot -- a sequence (alternate sources down before the primary,
-outputs off before relays open).
+The pair is worth reading for the distinction it draws against `hal::safeRig()`,
+which runs immediately after the teardown on every exit and looks like the same
+job: safing is the unconditional, unordered crash path, while these are the
+normal one and exist to express the one thing safing deliberately cannot -- a
+sequence. Up: relay closed dead, then energised, primary before the alternates.
+Down: the exact inverse. Only the setup returns a meaningful verdict -- it reads
+each source back, and a `false` stops the run before the first script.
 
 `scripts.hpp` holds the test scripts' declarations, at global scope
 deliberately (see the comment there) -- which is what lets
@@ -78,10 +78,12 @@ suite/
     scripts/
         fuse_register_script.cpp
         supply_rail_script.cpp
+        rig_power_on.cpp             # the catalog's SETUP, not a test
         rig_power_off.cpp            # the catalog's TEARDOWN, not a test
     tests/
         test_fuse_register_script.cpp
         test_supply_rail_script.cpp
+        test_rig_power_on.cpp
         test_rig_power_off.cpp
         test_criteria_variants_compile.cpp
 ```

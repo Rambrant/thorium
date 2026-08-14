@@ -385,9 +385,9 @@ Powering the rig up before the first script and back down after the last is a
 Both are optional and independent — declare one, both, or neither. A catalog
 with no `SETUP` line needs no placeholder for one; absence resolves to `nullptr`
 through ordinary name lookup (see `core/active_test_catalog.hpp`). The shipped
-catalog is exactly that case: it declares `TEARDOWN( rigPowerOff)` — this rig's
-ordered power-down, `suite/scripts/rig_power_off.cpp` — and no `SETUP`, because
-nothing in the suite powers the rig up yet.
+catalog declares both: `suite/scripts/rig_power_on.cpp` brings this rig's
+sources up in order and checks each one came up, and
+`suite/scripts/rig_power_off.cpp` takes them down in the inverse order.
 
 What they bracket is the **selection**, once — including every `--repeat` pass.
 `--repeat=50` powers the rig on once, runs the scripts fifty times, and powers
@@ -397,8 +397,12 @@ hook, not a different meaning for this one.
 Three things worth knowing:
 
 - **`TEARDOWN` runs on every way out** — the selection finishing, `--until-failure`
-  stopping early, or a script throwing straight past everything. It is a guard
-  destructor for the same reason `hal::RigSafingGuard` is one.
+  stopping early, a script throwing straight past everything, or **`SETUP` itself
+  failing**. It is a guard destructor for the same reason `hal::RigSafingGuard` is
+  one, and it is constructed *before* `SETUP` runs, so a power-up that energised
+  three rails and failed on the fourth is still powered back down. A setup hook
+  should therefore never call the teardown from its own failure path — that runs
+  it twice.
 - **It runs before the unconditional safing**, so a teardown that expects the
   fabric still wired up gets it. `hal::safeRig()` follows afterwards regardless.
 - **A failing hook fails the run.** Setup returning `false` means no test runs at
