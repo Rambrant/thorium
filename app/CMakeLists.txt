@@ -106,11 +106,13 @@ if(BUILD_TESTING_LAYERS)
     # not here. This is still where the target itself is defined, same as
     # suite/scripts/*.cpp is discovered from here rather than built via a
     # CMakeLists.txt of its own.
-    add_layer_tests(scripts scripts
-        ${CMAKE_SOURCE_DIR}/suite/tests/test_fuse_register_script.cpp
-        ${CMAKE_SOURCE_DIR}/suite/tests/test_supply_rail_script.cpp
-        ${CMAKE_SOURCE_DIR}/suite/tests/test_criteria_variants_compile.cpp
-    )
+    #
+    # Which is also why the directory is what gets passed: add_layer_tests
+    # globs it (see cmake/FetchGTest.cmake), so a new suite/tests/*.cpp needs
+    # no edit here -- exactly like the suite/scripts/*.cpp glob above, and for
+    # a rather more pointed reason. A script this file failed to build fails to
+    # link; a *test* this file failed to build just silently never runs.
+    add_layer_tests(scripts scripts ${CMAKE_SOURCE_DIR}/suite/tests)
 
     # --- Acceptance tests: the run_scripts binary, driven as a subprocess ---
     # Runs the built run_scripts the way a rig console or a CI job does -- real

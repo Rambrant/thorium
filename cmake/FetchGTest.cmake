@@ -16,11 +16,53 @@ FetchContent_MakeAvailable(googletest)
 
 include(GoogleTest)
 
-# Convenience helper: add_layer_tests(<layer_name> <lib_to_test> <test_source_files...>)
-# Creates a <layer_name>_tests executable, links it against gtest + the layer's
-# own library, and registers it with CTest via gtest_discover_tests.
-function(add_layer_tests LAYER_NAME LINK_LIB)
-    set(TEST_SOURCES ${ARGN})
+# Convenience helper: add_layer_tests(<layer_name> <lib_to_test> <tests_dir>)
+# Creates a <layer_name>_tests executable from every .cpp in <tests_dir>, links
+# it against gtest + the layer's own library, and registers it with CTest via
+# gtest_discover_tests.
+#
+# Globbed rather than listed, and the argument for that is the failure mode of
+# the alternative rather than the typing it saves. A source file left out of a
+# library fails to link -- something calls it, nothing defines it, the build
+# stops. A *test* file left out of its target fails at nothing: it compiles
+# nowhere, runs never, and reports no absence. The suite stays green precisely
+# because the new test is not in it, which is the one kind of missing thing this
+# project's compile-time-checking habit cannot catch for you. Every list this
+# replaced was, in fact, an exact enumeration of its own tests/*.cpp -- so what
+# was hand-maintained was a copy of a directory listing, and the copy was the
+# only half that could ever be wrong.
+#
+# Same rule the top-level CMakeLists.txt already applies to instruments/: glob
+# where the glob settles availability, spell it out longhand where the list *is*
+# the semantic content (THORIUM_KNOWN_CRITERIA_VARIANTS, rig/instrument.inc).
+# A tests/ directory is the first kind -- there is no such thing as a test file
+# that exists but is deliberately not run. A layer that somehow needs one anyway
+# should declare that target itself rather than teach this function about
+# exceptions; app/CMakeLists.txt's acceptance_tests already does exactly that,
+# for its own unrelated reasons.
+#
+# The directory is a parameter rather than assumed to be
+# ${CMAKE_CURRENT_SOURCE_DIR}/tests, because for one caller it isn't: the
+# scripts layer's tests are suite content and live under suite/tests/, while the
+# target itself is declared in app/ (see app/CMakeLists.txt). Passing it also
+# keeps this helper from globbing a caller's own tests/ directory behind its
+# back -- app/tests/ holds test_acceptance.cpp, which is deliberately a target
+# of its own.
+#
+# CONFIGURE_DEPENDS so adding or deleting a tests/*.cpp is picked up by the next
+# build with no manual reconfigure.
+function(add_layer_tests LAYER_NAME LINK_LIB TESTS_DIR)
+    file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "${TESTS_DIR}/*.cpp")
+
+    # An empty glob would otherwise reach add_executable as "no sources", whose
+    # diagnostic names the target rather than the directory that came up empty.
+    if(NOT TEST_SOURCES)
+        message(FATAL_ERROR
+            "add_layer_tests(${LAYER_NAME}): no *.cpp in '${TESTS_DIR}' -- either "
+            "that path is wrong, or the layer has no tests yet and should not be "
+            "declaring an empty test target.")
+    endif()
+
     add_executable(${LAYER_NAME}_tests ${TEST_SOURCES})
     target_link_libraries(${LAYER_NAME}_tests PRIVATE
         ${LINK_LIB}

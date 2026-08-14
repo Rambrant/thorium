@@ -131,33 +131,12 @@ install(TARGETS core
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 if(BUILD_TESTING_LAYERS)
-    add_layer_tests(core core
-            tests/test_logger.cpp
-            tests/test_quantity.cpp
-            tests/test_quantity_kind.cpp
-            tests/test_session.cpp
-            tests/test_port.cpp
-            tests/test_measure.cpp
-            tests/test_adapter.cpp
-            tests/test_predicates.cpp
-            tests/test_criterion.cpp
-            tests/test_criteria_variants.cpp
-            tests/test_verify.cpp
-            tests/test_meta.cpp
-            tests/test_static_constraints.cpp
-            tests/test_format.cpp
-            tests/test_predicate_text.cpp
-            tests/test_journal.cpp
-            tests/test_report.cpp
-            tests/test_rtf_sink.cpp
-            tests/test_sarif_sink.cpp
-            tests/test_run_hooks.cpp
-    )
+    add_layer_tests(core core ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 
     # --- Fixture catalog, for tests/test_run_hooks.cpp ---
-    # A catalog declaring SETUP/TEARDOWN, which the shipped
-    # suite/test_catalog.inc deliberately does not -- see that test's own
-    # header comment for why the no-hooks half needs no fixture.
+    # A catalog declaring both SETUP and TEARDOWN, where the shipped
+    # suite/test_catalog.inc declares only the latter -- see that test's own
+    # header comment for why the undeclared-hook half needs no fixture.
     #
     # Absolute paths for the same reason app/CMakeLists.txt uses them for
     # THORIUM_TEST_CATALOG proper: the #include naming them lives in

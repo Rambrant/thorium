@@ -2,8 +2,9 @@
 
 //
 // A catalog that declares both run hooks, for test_run_hooks.cpp. The shipped
-// suite/test_catalog.inc declares neither, so this is the other half of the
-// SETUP/TEARDOWN resolution described in core/active_test_catalog.hpp.
+// suite/test_catalog.inc declares TEARDOWN alone, so its absent SETUP covers
+// the nullptr half of the resolution described in core/active_test_catalog.hpp
+// and this fixture covers the declared half of both.
 //
 
 SETUP(    fixtureSetup)

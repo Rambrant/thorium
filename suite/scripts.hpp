@@ -6,6 +6,14 @@
 // down into hal:: or dut:: directly for behavior -- only to construct the
 // device handle they're given.
 //
+// The catalog's SETUP/TEARDOWN hooks are declared here too, alongside the
+// scripts rather than in a file of their own: they have the same signature,
+// live in the same suite/scripts/ directory, and are name-checked out of this
+// same header by core/active_test_catalog.hpp -- there is nothing for a
+// separate declarations file to separate. What sets one apart is only what it
+// is registered as in suite/test_catalog.inc, and the comment on the
+// declaration below.
+//
 // Declarations only, and deliberately so -- no instruments, no verbs, no
 // tables, not even an #include. The one reader of this file is
 // core/active_test_catalog.hpp via THORIUM_TEST_SCRIPTS, which name-checks
@@ -47,3 +55,17 @@ auto fuseRegisterScript() -> bool;
 //
 [[nodiscard]]
 auto supplyRailScript() -> bool;
+
+//
+// Not a test -- the catalog's TEARDOWN (see suite/test_catalog.inc). Powers
+// this rig down in a defined order after the last selected script has run:
+// every DC rail's output off before the primary AC source, then the isolation
+// relays that have one. Returns true unconditionally; it has no verdict to
+// report, and a false would fail an otherwise clean run.
+//
+// Distinct from hal::safeRig(), which runs immediately afterwards no matter
+// what -- that one is the unordered, unconditional crash path. See
+// suite/scripts/rig_power_off.cpp's own comment for why both exist.
+//
+[[nodiscard]]
+auto rigPowerOff() -> bool;

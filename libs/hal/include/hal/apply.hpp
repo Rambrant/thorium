@@ -35,11 +35,13 @@ using DisconnectEngine = core::DisconnectEngine<hal::SwitchFabric, hal::Instrume
 //   Apply(      DcP1.dc().voltage( 24_V).currentLimit( 7_A));
 //   Connect(    DcP1.dc());
 //   ...
-//   Disconnect( DcP1.dc());
 //   Remove(     DcP1.dc());
+//   Disconnect( DcP1.dc());
 //
-// Apply/Remove and Connect/Disconnect can be called in either relative
-// order -- see core/apply.hpp's own comment. Defined once in hal/apply.cpp,
+// Nothing here enforces that relative order -- see core/apply.hpp's own
+// comment -- but note that the teardown is not the mirror image of the
+// setup: the output goes off before the relay opens, because opening a
+// relay under current is hot switching. Same reasoning there. Defined once in hal/apply.cpp,
 // Connect/Disconnect wired to the linking rig's fabric and its two static
 // wiring tables (see that rig's wiring.inc -- rig/wiring.inc in this repo)
 // -- see hal/measure.hpp's own comment, which this mirrors exactly.

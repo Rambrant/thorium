@@ -10,10 +10,11 @@
 // TUs defining it from different catalogs would be an ODR violation rather
 // than two independent test cases.
 //
-// The other half of the mechanism -- a catalog declaring *no* hooks, resolving
-// to nullptr -- is what the shipped suite/test_catalog.inc does, so every
-// ordinary build of run_scripts and every acceptance test already exercises it.
-// There is deliberately no second fixture here restating that.
+// The other half of the mechanism -- an undeclared hook resolving to nullptr --
+// is what the shipped suite/test_catalog.inc's absent SETUP does (it declares
+// TEARDOWN alone), so every ordinary build of run_scripts and every acceptance
+// test already exercises that resolution. There is deliberately no second
+// fixture here restating it.
 //
 // ---------------------------------------------------------------------------
 // Include order matters here, and is the reason this file reads oddly.

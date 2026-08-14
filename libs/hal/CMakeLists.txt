@@ -220,15 +220,5 @@ if(BUILD_TESTING_LAYERS)
     # rather than about either alone (see their own header comments, which said
     # as much before any of this moved). Those four belong in a rig/tests target
     # -- see instruments/README.md.
-    add_layer_tests(hal hal_rig
-        tests/test_vpc_location.cpp
-        tests/test_switch_fabric.cpp
-        tests/test_instrument.cpp
-        tests/test_wiring.cpp
-        tests/test_source_instruments.cpp
-        tests/test_call_syntax.cpp
-        tests/test_safing.cpp
-        tests/test_describe.cpp
-        tests/test_source_readback.cpp
-    )
+    add_layer_tests(hal hal_rig ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 endif()

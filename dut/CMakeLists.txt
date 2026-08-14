@@ -4,10 +4,7 @@
 # link against hal (which pulls in core transitively) rather than a "dut"
 # library that no longer exists.
 if(BUILD_TESTING_LAYERS)
-    add_layer_tests(dut hal
-        tests/test_adapter.cpp
-        tests/test_wiring_coverage.cpp
-    )
+    add_layer_tests(dut hal ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 
     # test_adapter.cpp reaches dut/adapter.inc by a plain quoted #include,
     # repo-root-relative -- test_wiring_coverage.cpp reaches rig/wiring.inc

@@ -1150,9 +1150,17 @@ TEST_F( AcceptanceRepeat, ARepeatCountThatIsNotAPositiveNumberIsRejectedBeforeAn
 // ---------------------------------------------------------------------------
 //
 // Driven against run_scripts_hooked -- the same main.cpp over a catalog that
-// declares both hooks (see app/CMakeLists.txt). The shipped suite declares
-// neither, which is itself covered: every other scenario in this file runs a
-// catalog with no hooks and none of them see one fire.
+// declares both hooks (see app/CMakeLists.txt), and whose hooks announce
+// themselves on stdout and can be made to fail on demand. The shipped suite
+// declares only TEARDOWN( rigPowerOff), which does neither: it is silent, and
+// it has no failure to report (see suite/scripts/rig_power_off.cpp). So the
+// claims below -- ordering around the scripts, bracketing every --repeat pass
+// once, a failing hook failing the run -- still need the fixture; the shipped
+// catalog could not show any of them.
+//
+// The absent-SETUP half stays covered by every other scenario in this file:
+// they all run the shipped catalog, whose setup hook is nullptr, and none of
+// them stops before the scripts run.
 //
 
 TEST_F( AcceptanceHooks, SetupRunsBeforeTheScriptsAndTeardownAfterThem)
@@ -1238,6 +1246,49 @@ TEST_F( AcceptanceHooks, ASelectionMatchingNothingNeverReachesTheHooks)
 
     EXPECT_TRUE( hookOrder().empty());
     EXPECT_TRUE( containsText( errPath(), mErr, "No catalog test matched"));
+}
+
+//
+// The shipped suite's own hook, on the real binary rather than the fixture:
+// suite/scripts/rig_power_off.cpp is silent on stdout, so the only place it is
+// visible is the machine log, and what it puts there is the thing worth
+// pinning -- an ordered power-down (every source Removed, alternate rails
+// before the primary AC, then the isolation relays opened) that lands after
+// the last verdict and before hal::safeRig()'s own record.
+//
+// Ordering asserted by offset rather than by containsText alone: that the
+// events are present says nothing, since safing right afterwards produces a
+// rig in the same state either way. The sequence is the entire reason the
+// teardown exists rather than being left to safing.
+//
+TEST_F( AcceptanceHooks, TheShippedTeardownPowersTheRigDownInOrderBeforeSafing)
+{
+    EXPECT_EQ( run( { "--quiet" }), 1);
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    const auto log = readFile( sarif);
+
+    const auto positionOf = [&log]( const std::string_view needle)
+    {
+        return log.find( needle);
+    };
+
+    const auto lastVerify = log.rfind( "Verify FS_Supply_3V3");
+    const auto removeDc1  = positionOf( "Remove DcP1");
+    const auto removeAc1  = positionOf( "Remove AcP1");
+    const auto openAc1    = positionOf( "Disconnect AcP1");
+    const auto safed      = positionOf( "Safe rig");
+
+    ASSERT_NE( removeDc1, std::string::npos) << "no power-down in " << sarif;
+    ASSERT_NE( safed,     std::string::npos) << "no safing record in " << sarif;
+
+    EXPECT_LT( lastVerify, removeDc1) << "the teardown ran before the scripts finished";
+    EXPECT_LT( removeDc1,  removeAc1) << "the primary AC source went down before a DC rail";
+    EXPECT_LT( removeAc1,  openAc1)   << "a relay was opened before its source was off -- hot switching";
+    EXPECT_LT( openAc1,    safed)     << "safing preceded the teardown it is meant to back up";
 }
 
 // ---------------------------------------------------------------------------

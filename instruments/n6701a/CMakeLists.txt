@@ -51,7 +51,5 @@ if(BUILD_TESTING_LAYERS)
     # which is exactly what would make the directory no longer packageable on
     # its own. If a test here ever genuinely needs the fabric or an Apply, it
     # belongs in rig/tests instead -- see instruments/README.md.
-    add_layer_tests(n6701a hal_n6701a
-        tests/test_n6701a.cpp
-    )
+    add_layer_tests(n6701a hal_n6701a ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 endif()

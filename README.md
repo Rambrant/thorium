@@ -339,8 +339,8 @@ Three files, in this order:
        const auto rail = Measure( Dmm1.voltage(), at( dut::Output12V));
        allPassed &= Verify( FS_Supply_1::FS_Supply_12V, rail);
 
-       Disconnect( DcP3.dc());
-       Remove(     DcP3.dc());
+       Remove(     DcP3.dc());   // output off first, then open the relay --
+       Disconnect( DcP3.dc());   // opening one under current is hot switching
 
        return allPassed;
    }
@@ -384,9 +384,10 @@ Powering the rig up before the first script and back down after the last is a
 
 Both are optional and independent — declare one, both, or neither. A catalog
 with no `SETUP` line needs no placeholder for one; absence resolves to `nullptr`
-through ordinary name lookup (see `core/active_test_catalog.hpp`), so the
-shipped catalog, which declares neither, behaves exactly as it did before hooks
-existed.
+through ordinary name lookup (see `core/active_test_catalog.hpp`). The shipped
+catalog is exactly that case: it declares `TEARDOWN( rigPowerOff)` — this rig's
+ordered power-down, `suite/scripts/rig_power_off.cpp` — and no `SETUP`, because
+nothing in the suite powers the rig up yet.
 
 What they bracket is the **selection**, once — including every `--repeat` pass.
 `--repeat=50` powers the rig on once, runs the scripts fifty times, and powers

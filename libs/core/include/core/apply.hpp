@@ -74,12 +74,20 @@ namespace core
     //     Apply(  Dcp1.dc().voltage( 24_V).currentLimit( 7_A));
     //     Connect( Dcp1.dc());
     //     ...
-    //     Disconnect( Dcp1.dc());
     //     Remove( Dcp1.dc());
+    //     Disconnect( Dcp1.dc());
     //
     // Apply/Remove can be called in either order relative to Connect/
-    // Disconnect -- neither reaches for the fabric, so neither cares
-    // whether the DUT is actually wired up yet.
+    // Disconnect as far as this code is concerned -- neither reaches for the
+    // fabric, so neither cares whether the DUT is actually wired up yet. The
+    // hardware is less indifferent, which is why the teardown above is
+    // Remove-then-Disconnect rather than the mirror image of the setup:
+    // opening a relay with current still flowing through it is hot switching,
+    // which arcs, welds contacts and destroys the relay (the same rule
+    // hal::safeRig() is ordered by -- see hal/safing.hpp). Output off first,
+    // relay open second, unless something makes waiting on the ramp-down worse
+    // than the wear -- a safety interlock dropping the connection immediately
+    // is exactly that case, and is why this file enforces no order at all.
     //
     // Dispatch to the actual instrument driver happens via an ADL
     // customization point (an unqualified applyDriver/removeDriver call
