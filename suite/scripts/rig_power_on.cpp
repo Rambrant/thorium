@@ -61,7 +61,11 @@ auto rigPowerOn() -> bool
                          Measure( AcP1.measuredVoltage()));
 
     //
-    // Backup supply -- dut::BackupSupply, "28Vdc backup supply".
+    // Backup supply -- dut::BackupSupply, "28Vdc backup supply". The pairing
+    // named in this and the two comments below is no longer only a comment:
+    // it is recorded as data in rig/wiring.inc's SOURCE_WIRING table and
+    // cross-checked against dut/adapter.inc's SOURCE_POINTs when dut_tests
+    // builds, so this file and the rig cannot drift apart silently.
     //
     Apply( DcP1.dc().voltage( 28_V).currentLimit( 7_A));
 

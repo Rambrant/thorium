@@ -110,4 +110,43 @@ namespace hal
         throw std::runtime_error(
             "hal::ConnectorWiring: " + to_string( location) + " has no fixed sense path on this rig's fabric");
     }
+
+    auto SourceWiring::addLanding( const InstrumentId instrument, const VpcLocation location) -> void
+    {
+        mEntries.push_back( SourceWiringEntry{ instrument, location });
+    }
+
+    auto SourceWiring::find( const VpcLocation location) const -> InstrumentId
+    {
+        for( const auto & entry : mEntries)
+        {
+            if( entry.location == location)
+            {
+                return entry.instrument;
+            }
+        }
+
+        throw std::runtime_error(
+            "hal::SourceWiring: no fixed-wired source lands on " + to_string( location));
+    }
+
+    auto SourceWiring::findAll( const InstrumentId instrument) const -> std::vector<VpcLocation>
+    {
+        std::vector<VpcLocation> locations;
+
+        for( const auto & entry : mEntries)
+        {
+            if( entry.instrument == instrument)
+            {
+                locations.push_back( entry.location);
+            }
+        }
+
+        //
+        // No throw on empty -- see this method's own comment in
+        // hal/wiring.hpp. Every routed instrument on the rig lands nowhere,
+        // and that is the correct answer rather than an error.
+        //
+        return locations;
+    }
 } // namespace hal

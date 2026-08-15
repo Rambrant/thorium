@@ -234,3 +234,80 @@ TEST( HalConnectorWiring, WireConnectorSenseMacroTagsTheEntryAsSense)
     EXPECT_EQ( w.findSense( ( hal::VpcLocation{ hal::VpcRack::A, 1, 3 })),
                (hal::Path{ { hal::SwitchDeviceKind::Mux, "Mux1", 4 } }));
 }
+
+//
+// ---------------------------------------------------------------------------
+// SourceWiring -- the pins nothing routes to
+// ---------------------------------------------------------------------------
+// See hal::SourceWiring's own comment in hal/wiring.hpp. Note there is no Path
+// anywhere below: the whole content of an entry is that the fabric is not
+// involved, which is why this table has its own type rather than being a
+// ConnectorWiring entry with an empty path.
+//
+TEST( HalSourceWiring, FindReturnsTheInstrumentCabledOntoAPin)
+{
+    hal::SourceWiring wiring;
+    hal::VpcLocation  backupSupply{ hal::VpcRack::A, 1, 5 };
+
+    wiring.addLanding( hal::InstrumentId::DcP2, backupSupply);
+
+    EXPECT_EQ( wiring.find( backupSupply), hal::InstrumentId::DcP2);
+}
+
+TEST( HalSourceWiring, FindThrowsForAPinNoSourceLandsOn)
+{
+    hal::SourceWiring wiring;
+
+    EXPECT_THROW( (void)wiring.find( ( hal::VpcLocation{ hal::VpcRack::A, 1, 3 })), std::runtime_error);
+}
+
+TEST( HalSourceWiring, FindAllReturnsEveryPinAMultiPinSourceLandsOn)
+{
+    // AcP1's shape: three phases plus the neutral/ground return, four
+    // independent landings under one InstrumentId -- the connector-side twin
+    // of the four WIRE_INSTRUMENT rows it already has (see rig/wiring.inc).
+    hal::SourceWiring wiring;
+    hal::VpcLocation  phaseA{ hal::VpcRack::A, 3, 1 };
+    hal::VpcLocation  phaseB{ hal::VpcRack::A, 3, 3 };
+    hal::VpcLocation  phaseC{ hal::VpcRack::A, 3, 5 };
+    hal::VpcLocation  neutral{ hal::VpcRack::A, 3, 7 };
+
+    wiring.addLanding( hal::InstrumentId::AcP1, phaseA);
+    wiring.addLanding( hal::InstrumentId::AcP1, phaseB);
+    wiring.addLanding( hal::InstrumentId::AcP1, phaseC);
+    wiring.addLanding( hal::InstrumentId::AcP1, neutral);
+
+    EXPECT_EQ( wiring.findAll( hal::InstrumentId::AcP1),
+               (std::vector<hal::VpcLocation>{ phaseA, phaseB, phaseC, neutral }));
+}
+
+TEST( HalSourceWiring, FindAllIsEmptyRatherThanThrowingForARoutedInstrument)
+{
+    // Unlike InstrumentWiring::findAll(), which throws for an instrument with
+    // no fixed path -- see this method's own comment in hal/wiring.hpp. Every
+    // routed instrument on a rig lands nowhere, so "nowhere" is the ordinary
+    // answer here, not an error.
+    hal::SourceWiring wiring;
+    wiring.addLanding( hal::InstrumentId::DcP2, ( hal::VpcLocation{ hal::VpcRack::A, 1, 5 }));
+
+    EXPECT_TRUE( wiring.findAll( hal::InstrumentId::Dmm1).empty());
+}
+
+TEST( HalSourceWiring, WireSourceMacroBuildsALandingEntry)
+{
+    using namespace hal; // WIRE_SOURCE expands unqualified, as it does inside SOURCE_WIRING's own namespace hal {} block
+
+    // Same shape as WireConnectorSenseMacroTagsTheEntryAsSense above, and for
+    // the same reason: WIRE_SOURCE builds a SourceWiringEntry (which
+    // END_SOURCE_WIRING also promotes to a compile-time array), not a
+    // SourceWiring directly -- addLanding() is the one-line bridge back.
+    std::vector<SourceWiringEntry> entries;
+    WIRE_SOURCE( DcP1, A, 1, 3);
+
+    ASSERT_EQ( entries.size(), 1u);
+
+    hal::SourceWiring w;
+    for( const auto & entry : entries) w.addLanding( entry.instrument, entry.location);
+
+    EXPECT_EQ( w.find( ( hal::VpcLocation{ hal::VpcRack::A, 1, 3 })), hal::InstrumentId::DcP1);
+}

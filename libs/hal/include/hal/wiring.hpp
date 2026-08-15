@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <meta>
 #include <vector>
 
@@ -214,6 +215,82 @@ namespace hal
     };
 
     //
+    // A third static wiring fact, and the only one that is not a fabric path
+    // at all: which VPC pin a fixed-wired source instrument's output is
+    // permanently cabled onto.
+    //
+    // This used to exist only as prose, in three files that each deferred it
+    // to another one -- rig/wiring.inc noted that DcP1/DcP2 have no entry;
+    // dut/adapter.inc noted that some of its points are where a supply lands
+    // but that which one was "not yet recorded"; hal::N6701A noted that the
+    // DUT adapter documents it. Nobody recorded it, and the gap had a cost:
+    // dut/tests/test_wiring_coverage.cpp requires every declared point to be
+    // wired, there was no way to say "this pin is not routed", and so mux
+    // channels got invented for landing pins purely to make the build pass.
+    // A fabricated route to a rail is worse than a missing one -- closing it
+    // puts a supply onto signal relays that were never meant to carry it.
+    //
+    // Deliberately NOT keyed by, or derived from, hal::DirectWiring/
+    // hal::RelayIsolated (see hal/n6701a.hpp). Those say whether there is an
+    // isolation relay in an instrument's path -- whether Connect/Disconnect
+    // have anything to do. This says where the output lands. They are
+    // independent: DcP3/DcP4 have a relay AND a hard-cabled landing pin, and
+    // AcP1 lands on four. Keying this off the isolation tag would record
+    // three of this rig's five sources as having no landing pin at all.
+    //
+    // Entries are (instrument, location) with no Path, because there is no
+    // path -- the whole content of the fact is that the fabric is not
+    // involved. That also makes SourceWiringEntry a structural type outright
+    // (an enum plus a VpcLocation of enum/integers), so unlike the connector
+    // side it needs no separate key struct to reach compile time; see
+    // detail::ConnectorWiringKey's own comment for what forces that split
+    // there and not here.
+    //
+    struct SourceWiringEntry
+    {
+        InstrumentId  instrument;
+        VpcLocation   location;
+
+        friend constexpr auto operator==( SourceWiringEntry, SourceWiringEntry) -> bool = default;
+    };
+
+    class SourceWiring
+    {
+        public:
+            //
+            // See WIRE_SOURCE below for the declarative form. Named
+            // addLanding rather than addWire because what it records is not
+            // a wire through the fabric -- keeping the verb distinct from
+            // InstrumentWiring/ConnectorWiring's addWire() is the point.
+            //
+            auto addLanding( InstrumentId instrument, VpcLocation location) -> void;
+
+            //
+            // Which instrument lands on this pin. Throws std::runtime_error
+            // if none does -- a caller asking this about an ordinary routed
+            // pin has already gone wrong somewhere.
+            //
+            [[nodiscard]]
+            auto find( VpcLocation location) const -> InstrumentId;
+
+            //
+            // Every pin this instrument lands on. A list, not one location:
+            // hal::Ac6677A/AcP1 lands on four (three phases plus the
+            // neutral/ground return), the same way it already has four
+            // independent InstrumentWiring entries. Empty if this
+            // instrument is not a fixed-wired source at all -- unlike
+            // find() above this does not throw, because "no landing pins"
+            // is the ordinary, correct answer for every routed instrument
+            // on the rig.
+            //
+            [[nodiscard]]
+            auto findAll( InstrumentId instrument) const -> std::vector<VpcLocation>;
+
+        private:
+            std::vector<SourceWiringEntry> mEntries;
+    };
+
+    //
     // True if this rig's CONNECTOR_WIRING table (see rig/wiring.inc) has a
     // fixed path for this location/role -- see this file's own comment
     // above for why this is a standalone predicate rather than a
@@ -243,6 +320,30 @@ namespace hal
     //
     [[nodiscard]]
     consteval auto isInstrumentWired( InstrumentId instrument, WireRole role = WireRole::Force) -> bool;
+
+    //
+    // How many fixed-wired sources land on this pin, per this rig's
+    // SOURCE_WIRING table. Exists for the same build-time reason isWired()
+    // does, and is DEFINED by the SOURCE_WIRING/END_SOURCE_WIRING macro pair
+    // below for the same reason -- see isWired()'s own comment above.
+    //
+    // A count rather than a bool because the two questions
+    // dut/tests/test_wiring_coverage.cpp asks of it are different: "is this
+    // pin a landing pin" (below) and "do two instruments claim it", which is
+    // as quiet a mistake here as two POINTs sharing a pin already is on the
+    // adapter side -- both tables would look complete and the rig would be
+    // shorting two supplies together.
+    //
+    [[nodiscard]]
+    consteval auto sourcesAt( VpcLocation location) -> std::size_t;
+
+    //
+    // Whether any source lands on this pin at all. The predicate nearly
+    // every caller wants; sourcesAt() above is for the one that has to
+    // count.
+    //
+    [[nodiscard]]
+    consteval auto isSourceWired( VpcLocation location) -> bool;
 
     namespace detail
     {
@@ -312,7 +413,8 @@ namespace hal
 //
 // INSTRUMENT_WIRING / WIRE_INSTRUMENT / WIRE_INSTRUMENT_SENSE /
 // END_INSTRUMENT_WIRING and CONNECTOR_WIRING / WIRE_CONNECTOR /
-// WIRE_CONNECTOR_SENSE / END_CONNECTOR_WIRING: declarative wiring tables,
+// WIRE_CONNECTOR_SENSE / END_CONNECTOR_WIRING (and SOURCE_WIRING /
+// WIRE_SOURCE / END_SOURCE_WIRING further down): declarative wiring tables,
 // mirroring CRITERIA/CRIT and ADAPTER/POINT -- see a rig's own wiring.inc
 // (rig/wiring.inc in this repo). Each rig has exactly one of each table
 // (unlike CRITERIA, which has several groups per file), so these macros
@@ -456,4 +558,80 @@ namespace hal
         }                                                                           \
         return false;                                                              \
     }                                                                               \
+    }
+
+//
+// SOURCE_WIRING / WIRE_SOURCE / END_SOURCE_WIRING: the third table, naming
+// which VPC pin each fixed-wired source instrument's output is cabled onto
+// -- see hal::SourceWiring above for what the fact is and why it is neither
+// an InstrumentWiring nor a ConnectorWiring entry.
+//
+//   SOURCE_WIRING
+//       WIRE_SOURCE( DcP1, A, 1, 3)
+//       WIRE_SOURCE( AcP1, A, 3, 1)   // phase A
+//       WIRE_SOURCE( AcP1, A, 3, 3)   // phase B
+//   END_SOURCE_WIRING
+//
+// One row per pin, so a source landing on several (AcP1's phases and its
+// neutral/ground return) is several rows under one InstrumentId -- the same
+// shape WIRE_INSTRUMENT already uses for that instrument's four matrix
+// channels, and for the same reason: four independent physical connections,
+// not one four-element chain.
+//
+// No HOP(...), and no Path: there is nothing in the fabric to name. That is
+// the entire content of the fact.
+//
+// Same three-readers-from-one-list expansion as the two tables above -- the
+// runtime hal::sourceWiring, a compile-time entry array, and sourcesAt()/
+// isSourceWired() themselves -- so no rig can record a landing for the
+// runtime table and not for the build-time check. Unlike the connector
+// table, the compile-time array holds whole entries rather than a reduced
+// key struct, because SourceWiringEntry is already structural (see its own
+// comment).
+//
+// A rig with no fixed-wired sources still writes the empty table rather than
+// omitting it: sourcesAt()/isSourceWired() are declared unconditionally
+// above and defined only here, so leaving it out would make any translation
+// unit that asks the question fail to link rather than answer "no".
+//
+#define SOURCE_WIRING                                                           \
+    namespace hal { namespace detail {                                          \
+    constexpr auto buildSourceWiringEntries() -> std::vector<SourceWiringEntry> \
+    {                                                                            \
+        std::vector<SourceWiringEntry> entries;
+
+#define WIRE_SOURCE( instrument, rack, connector, pin) \
+        entries.push_back( SourceWiringEntry{ InstrumentId::instrument, VpcLocation{ VpcRack::rack, connector, pin } });
+
+#define END_SOURCE_WIRING                                                       \
+        return entries;                                                        \
+    }                                                                           \
+    inline constexpr auto sourceWiringEntries =                                 \
+        std::define_static_array( buildSourceWiringEntries());                  \
+    } /* namespace detail */                                                    \
+    inline const SourceWiring sourceWiring = []                                 \
+    {                                                                            \
+        SourceWiring w;                                                         \
+        for( const auto & entry : detail::buildSourceWiringEntries())           \
+        {                                                                        \
+            w.addLanding( entry.instrument, entry.location);                    \
+        }                                                                        \
+        return w;                                                                \
+    }();                                                                         \
+    inline consteval auto sourcesAt( VpcLocation location) -> std::size_t        \
+    {                                                                            \
+        std::size_t count = 0;                                                  \
+        for( const auto & entry : detail::sourceWiringEntries)                  \
+        {                                                                        \
+            if( entry.location == location)                                     \
+            {                                                                    \
+                ++count;                                                         \
+            }                                                                    \
+        }                                                                        \
+        return count;                                                            \
+    }                                                                            \
+    inline consteval auto isSourceWired( VpcLocation location) -> bool           \
+    {                                                                            \
+        return sourcesAt( location) > 0;                                        \
+    }                                                                            \
     }

@@ -28,7 +28,8 @@ auto rigPowerOff() -> bool
     // instant the primary drops, so a power-down that takes the primary first
     // does not power the DUT down at all -- it moves it onto the backup and
     // hides that it did. Every DC rail goes first for that reason; AcP1, this
-    // rig's three-phase primary input (dut::AcInput_A/B/C/N), goes last.
+    // rig's three-phase primary input (dut::AcInput, a BUNDLE of four lines
+    // -- see dut/adapter.inc), goes last.
     //
     // Within the DC group the order carries no claim yet, and this file should
     // not pretend otherwise: which DcP instance is the battery rail, which are

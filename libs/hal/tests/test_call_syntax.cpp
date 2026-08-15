@@ -212,3 +212,71 @@ TEST_F( CallSyntaxFixture, FourWireResistanceRoutesForceAndSenseTogetherThenRele
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 15 })); // sense, instrument side
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    7 }));  // sense, connector side
 }
+
+//
+// ---------------------------------------------------------------------------
+// A cabled rail is still measurable at its pin
+// ---------------------------------------------------------------------------
+// The property core::PointKind was cut back to (see its own comment): a
+// SOURCE_POINT records that a supply is cabled onto a pin, and restricts
+// nothing at the call site.
+//
+// Worth asserting rather than leaving implicit, because the first version of
+// this did the opposite -- it made Measure( ..., at( aRail)) fail to compile,
+// which banned exactly the check suite/scripts/rig_power_on.cpp names as the
+// right way to ask what arrives at the DUT's pin (as against the supply's own
+// readback, which cannot see cable drop or a bad contact). A test that pins
+// the behaviour down is what stops that being "tightened" back.
+//
+// Expressed as a concept with its own bound parameters rather than a bare
+// `requires` against a concrete call -- see the IMPORTANT note at the top of
+// core/tests/test_static_constraints.cpp for why only this form is reliably
+// soft-failed.
+//
+namespace
+{
+    constexpr hal::VpcLocation kBackupSupply{ hal::VpcRack::A, 1, 5 };
+
+    // Same pin, both kinds -- so what follows isolates the kind and nothing
+    // else. The Signal one is what POINT builds, the Source one SOURCE_POINT.
+    constexpr core::AdapterPointTag<kBackupSupply>                            RoutablePin{ "RoutablePin", "as a plain POINT" };
+    constexpr core::AdapterPointTag<kBackupSupply, core::PointKind::Source>   BackupSupply{ "BackupSupply", "28Vdc backup supply" };
+
+    template<typename MeasureT, typename PortT, typename PointT>
+    concept CanMeasureAt = requires( MeasureT measure, PortT port, PointT point)
+    {
+        measure( port, core::at( point));
+    };
+} // namespace
+
+TEST_F( CallSyntaxFixture, ASourcePointIsMeasurableLikeAnyOther)
+{
+    using PortT = decltype( dmm1.voltage());
+
+    static_assert( CanMeasureAt<MeasureEngine, PortT, decltype( RoutablePin)>);
+
+    static_assert( CanMeasureAt<MeasureEngine, PortT, decltype( BackupSupply)>,
+                   "Measure( ..., at( sourcePoint)) must compile -- a rail is cabled so the fabric "
+                   "never carries its load current, which says nothing against a high-impedance tap "
+                   "onto the same pin (see core::PointKind)");
+
+    SUCCEED();
+}
+
+TEST_F( CallSyntaxFixture, ReadingACabledRailAtItsPinGoesThroughTheFabricNotTheSupply)
+{
+    // The measurement the assertion above exists to keep possible, actually
+    // taken: a DMM at the rail's pin, routed like any other reading, which is
+    // a different question from DcP3.measuredVoltage() -- that one never
+    // leaves the instrument (see core::MeasureEngine's point-free overload).
+    connectorWiring.addWire( kBackupSupply, { hal::SwitchDeviceKind::Mux, "Mux1", 6 });
+
+    const auto reading = Measure( dmm1.voltage(), at( BackupSupply));
+
+    EXPECT_EQ( reading, 0.0_V);   // the L4411A stub reads zero; that it read at all is the point
+
+    // Both sides of the composed route released again -- connected just long
+    // enough to take the reading, see core::MeasureEngine.
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 14 }));  // Dmm1's own channel
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux1",    6 }));   // the rail's tap
+}

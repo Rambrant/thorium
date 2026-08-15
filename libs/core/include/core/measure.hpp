@@ -91,9 +91,27 @@ namespace core
             // and for the compile-time upgrade path now that Loc is known at
             // compile time here too.
             //
-            template<auto Loc, quantities::QuantityType QuantityT, typename InstrumentT, SensePath Sense>
+            // Kind is deduced and then ignored, rather than pinned to
+            // PointKind::Signal so that a SOURCE_POINT would fail to match
+            // here. That was this overload's first shape, and it banned the
+            // very measurement a landing pin is worth declaring for: reading
+            // what actually arrives at a cabled rail's DUT pin, which is a
+            // different and stricter question than the supply's own readback
+            // (see suite/scripts/rig_power_on.cpp, and core::PointKind's own
+            // comment). A rail is cabled so the fabric never carries its
+            // load current; a high-impedance tap onto the same pin is not
+            // that, and forbidding it protected nothing.
+            //
+            // Which leaves reachability where it already was -- a runtime
+            // question. Whether this rig taps a given pin at all is a
+            // WIRE_CONNECTOR row, a rig fact, and a point's type carries
+            // only DUT facts; there is nothing for a compile-time check here
+            // to consult. dut/tests/test_wiring_coverage.cpp is where the
+            // two files are checked against each other.
+            //
+            template<auto Loc, PointKind Kind, quantities::QuantityType QuantityT, typename InstrumentT, SensePath Sense>
             [[nodiscard]]
-            auto operator()( Port<QuantityT, InstrumentT, Sense> port, const At<AdapterPointTag<Loc>> & wrapped) -> QuantityT
+            auto operator()( Port<QuantityT, InstrumentT, Sense> port, const At<AdapterPointTag<Loc, Kind>> & wrapped) -> QuantityT
             {
                 const auto & point        = wrapped.point;
                 const auto   instrumentId = port.instrumentId();

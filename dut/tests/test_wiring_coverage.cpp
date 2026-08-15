@@ -5,6 +5,7 @@
 
 #include <array>
 #include <meta>
+#include <optional>
 #include <vector>
 
 //
@@ -30,20 +31,79 @@ namespace thorium_wiring_coverage_check
 {
     //
     // Every POINT in Group, as its VpcLocation -- reflects over Group's
-    // static AdapterPointTag<Loc> members and pulls each one's Loc
+    // static AdapterPointTag<Loc, Kind> members and pulls each one's Loc
     // straight out of the template argument, without needing to splice the
     // point object itself. Homogeneous (every point in one ADAPTER shares
     // Loc's type -- hal::VpcLocation here), unlike core::meta::all<Group>()
     // in core/criterion.hpp, which needs a tuple because CRIT members hold
     // different Predicate types; a plain array is all this needs.
     //
-    template<typename Group>
-    consteval auto adapterPointLocationInfos() -> std::vector<std::meta::info>
+    // Filtered by kind, because the two kinds of point are checked against
+    // opposite tables: a POINT must be reachable through the fabric, a
+    // SOURCE_POINT must not be (see core::PointKind, and hal::SourceWiring
+    // in hal/wiring.hpp). Passing the kind as a parameter rather than
+    // writing two near-identical walks keeps one definition of "what counts
+    // as a point of this adapter" -- a distinction that only matters when a
+    // third kind is added, which is exactly when a duplicated walk would
+    // quietly cover only some of them.
+    //
+    //
+    // True for a nested group that opted into being one physical interface
+    // by inheriting core::AdapterBundleTag -- what BUNDLE builds. Checked
+    // by base rather than by shape so an unrelated nested type can never be
+    // mistaken for one; see that tag's own comment.
+    //
+    consteval auto isBundle( const std::meta::info type) -> bool
+    {
+        for( const auto base : std::meta::bases_of( type, std::meta::access_context::current()))
+        {
+            if( std::meta::type_of( base) == ^^core::AdapterBundleTag)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    //
+    // Recursive, so a LINE inside a BUNDLE is covered by every rule a
+    // top-level POINT is. This matters more than it looks: a grouping
+    // feature whose points quietly escape the coverage and pin-uniqueness
+    // checks would be worse than no grouping at all -- the pins would look
+    // declared and be unverified.
+    //
+    // `visited` guards the recursion rather than assuming members_of()
+    // yields no self-reference: a struct's injected-class-name is a member
+    // of the struct and reflects to the very type being walked, so a bundle
+    // would otherwise recurse into itself forever.
+    //
+    consteval auto adapterPointLocationInfos( const std::meta::info                 groupType,
+                                              const std::optional<core::PointKind>  kind,
+                                              std::vector<std::meta::info> &        visited) -> std::vector<std::meta::info>
     {
         std::vector<std::meta::info> result;
 
-        for( auto member : std::meta::members_of( ^^Group, std::meta::access_context::current()))
+        for( const auto seen : visited)
         {
+            if( seen == groupType)
+            {
+                return result;
+            }
+        }
+
+        visited.push_back( groupType);
+
+        for( auto member : std::meta::members_of( groupType, std::meta::access_context::current()))
+        {
+            if( std::meta::is_type( member) && isBundle( member))
+            {
+                const auto nested = adapterPointLocationInfos( member, kind, visited);
+
+                result.insert( result.end(), nested.begin(), nested.end());
+                continue;
+            }
+
             if( ! std::meta::is_variable( member))
             {
                 continue;
@@ -61,16 +121,47 @@ namespace thorium_wiring_coverage_check
                 continue;
             }
 
-            // template_arguments_of(type)[0] is Loc -- AdapterPointTag's
-            // first template parameter (see core/adapter.hpp).
-            result.push_back( std::meta::template_arguments_of( type)[ 0]);
+            // template_arguments_of(type) is (Loc, Kind) -- AdapterPointTag's
+            // two template parameters, in order (see core/adapter.hpp). Kind
+            // is always present even where POINT left it defaulted, since a
+            // default template argument is still part of the instantiated
+            // type.
+            const auto arguments = std::meta::template_arguments_of( type);
+
+            if( kind && std::meta::extract<core::PointKind>( arguments[ 1]) != *kind)
+            {
+                continue;
+            }
+
+            result.push_back( arguments[ 0]);
         }
 
         return result;
     }
 
+    //
+    // The spelling every check below uses -- the recursion's `visited`
+    // bookkeeping is an implementation detail of the walk, not something a
+    // caller should have to start off correctly.
+    //
+    template<typename Group>
+    consteval auto adapterPointLocationInfos( const std::optional<core::PointKind> kind = std::nullopt) -> std::vector<std::meta::info>
+    {
+        std::vector<std::meta::info> visited;
+
+        return adapterPointLocationInfos( ^^Group, kind, visited);
+    }
+
+    // Every point, both kinds -- for the checks that apply to any pin the
+    // adapter names at all (pin uniqueness below).
     template<typename Group>
     constexpr auto adapterPointLocationRefs = std::define_static_array( adapterPointLocationInfos<Group>());
+
+    template<typename Group>
+    constexpr auto signalPointLocationRefs = std::define_static_array( adapterPointLocationInfos<Group>( core::PointKind::Signal));
+
+    template<typename Group>
+    constexpr auto sourcePointLocationRefs = std::define_static_array( adapterPointLocationInfos<Group>( core::PointKind::Source));
 
     //
     // One static_assert per point (via template for, not a single combined
@@ -81,19 +172,89 @@ namespace thorium_wiring_coverage_check
     template<typename Group>
     consteval auto checkCoverage() -> bool
     {
-        template for( constexpr auto locationRef : adapterPointLocationRefs<Group>)
+        template for( constexpr auto locationRef : signalPointLocationRefs<Group>)
         {
             constexpr auto location = [: locationRef :];
 
             static_assert( hal::isWired( location),
                           "a dut POINT has no matching WIRE_CONNECTOR entry in rig/wiring.inc "
                           "-- see hal::isWired()'s own comment in hal/wiring.hpp");
+
+            //
+            // The adapter must not describe a driven rail as an ordinary
+            // pin. Note this is the *only* direction that is forbidden: a
+            // SOURCE_POINT keeping a WIRE_CONNECTOR row is fine and normal
+            // (see checkSourceCoverage below). What cannot happen is the
+            // rig knowing a supply is cabled to a pin while dut/adapter.inc
+            // presents it as something the DUT merely offers -- anyone
+            // deciding what is safe to do at a pin reads the adapter, not
+            // the rig's table.
+            //
+            static_assert( ! hal::isSourceWired( location),
+                          "a dut POINT is named by a WIRE_SOURCE entry in rig/wiring.inc -- a pin a "
+                          "source is cabled onto must be declared SOURCE_POINT, so the adapter does "
+                          "not describe a driven rail as an ordinary pin");
+        }
+
+        return true;
+    }
+
+    //
+    // The mirror image, for the pins a source is cabled onto.
+    //
+    template<typename Group>
+    consteval auto checkSourceCoverage() -> bool
+    {
+        template for( constexpr auto locationRef : sourcePointLocationRefs<Group>)
+        {
+            constexpr auto location = [: locationRef :];
+
+            static_assert( hal::isSourceWired( location),
+                          "a dut SOURCE_POINT has no matching WIRE_SOURCE entry in rig/wiring.inc "
+                          "-- the DUT says a source is cabled onto this pin and the rig does not "
+                          "say which one");
+
+            //
+            // Deliberately NOT asserted here: that a source point has no
+            // WIRE_CONNECTOR row. An earlier version did, on the assumption
+            // that a cabled pin is unreachable -- which banned the very
+            // measurement these points are worth declaring for. A rail is
+            // cabled so the fabric never carries its load current; a
+            // high-impedance tap onto the same pin is a different thing and
+            // an ordinary one (see core::PointKind, and
+            // suite/scripts/rig_power_on.cpp). Every source point on this
+            // rig is in fact tapped.
+            //
+            // Nor is the converse asserted -- that one must exist. A rail
+            // nobody bothered to tap is a legitimate bench, just one whose
+            // rail can only be checked at the instrument. Whether a tap
+            // exists is a rig fact with no DUT-side counterpart to check it
+            // against, which is precisely why it stays a runtime lookup
+            // (see core::MeasureEngine).
+            //
+
+            //
+            // Two supplies cabled onto one pin is the source-side twin of
+            // two POINTs sharing a pin (checked below): both tables read as
+            // complete, and the rig has its outputs tied together. Counted
+            // rather than compared pairwise for the same reason that check
+            // gives.
+            //
+            // <= 1, not == 1: "none at all" is the first assertion's to
+            // report, and stating it twice would have this one claim a pin
+            // is doubly-cabled when the actual mistake is that it is not
+            // cabled at all.
+            //
+            static_assert( hal::sourcesAt( location) <= 1,
+                          "two WIRE_SOURCE entries in rig/wiring.inc land on one pin -- two source "
+                          "instruments cabled onto the same VPC pin are shorted together");
         }
 
         return true;
     }
 
     constexpr bool dutWiringCovered = checkCoverage<dut>();
+    constexpr bool dutSourcesCovered = checkSourceCoverage<dut>();
 } // namespace thorium_wiring_coverage_check
 
 TEST( WiringCoverage, EveryDutPointHasAConnectorWiringEntry)
@@ -102,6 +263,17 @@ TEST( WiringCoverage, EveryDutPointHasAConnectorWiringEntry)
     // Nothing to run: reaching this line at all means every static_assert
     // above already held. See the file comment.
     //
+    SUCCEED();
+}
+
+TEST( WiringCoverage, SourcePointsAreCabledNotRouted)
+{
+    //
+    // Nothing to run, same as above -- present so the guarantee is in the
+    // test list rather than being an invisible property of the build.
+    //
+    static_assert( thorium_wiring_coverage_check::dutSourcesCovered);
+
     SUCCEED();
 }
 
