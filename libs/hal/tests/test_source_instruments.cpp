@@ -55,7 +55,7 @@ TEST_F( SourceInstrumentFixture, DcConnectAndDisconnectDoNotDisturbAnUnrelatedAl
     // the whole reason connect()/disconnect() are additive rather than
     // route()'s "make this the one live path" behaviour.
     connect( dcP3.dc());
-    connect( acP1.threePhaseWye());
+    connect( acP1.wye());
 
     disconnect( dcP3.dc());
 

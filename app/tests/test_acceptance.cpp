@@ -1335,16 +1335,19 @@ TEST_F( AcceptanceHooks, TheShippedHooksBracketTheRunWithAnOrderedPowerCycle)
 //
 // A replay file is what makes the setup fail on demand -- the rig itself has no
 // way to be told to come up wrong, and this is exactly the case --replay exists
-// for. The four setup readings are all present because the hook checks all four
-// before returning; only the first is out of tolerance.
+// for. All six setup readings are present because the hook checks each one
+// before returning; only the first is out of tolerance. AcP1 contributes three
+// of them, one per phase, keyed with the phase (see core::Port::qualifiedBy).
 //
 TEST_F( AcceptanceHooks, AFailedPowerUpIsStillPoweredBackDown)
 {
     writeFile( mDir / "bad-setup.tsv",
-        "0\t0\tAcP1.Voltage\tAcP1\tVoltage\t100.0\n"    // outside 115 V +/-2 V
-        "1\t0\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
-        "2\t0\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
-        "3\t0\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n");
+        "0\t0\tAcP1.A.Voltage\tAcP1\tVoltage\t100.0\n"    // outside 115 V +/-2 V
+        "1\t0\tAcP1.B.Voltage\tAcP1\tVoltage\t115.0\n"
+        "2\t0\tAcP1.C.Voltage\tAcP1\tVoltage\t115.0\n"
+        "3\t0\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
+        "4\t0\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
+        "5\t0\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n");
 
     EXPECT_EQ( run( { "--replay=bad-setup.tsv", "--quiet" }), 1);
 
@@ -1399,10 +1402,10 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     //
     // Keyed by instrument rather than by point, because these are instrument
     // readbacks with no route -- see core::MeasureEngine's point-free overload.
-    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "AcP1.Voltage\tAcP1\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "AcP1.A.Voltage\tAcP1\tVoltage"));
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "DcP3.Voltage\tDcP3\tVoltage"));
 
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 7);   // four from setup, three from the scripts
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 9);   // six from setup, three from the scripts
 }
 
 //
@@ -1414,17 +1417,20 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
 //
 TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
 {
-    // The four setup readings come first and have to be here too: rigPowerOn()
+    // The six setup readings come first and have to be here too: rigPowerOn()
     // runs before the scripts and checks each one, so a file without them
-    // replays a run whose rig never came up.
+    // replays a run whose rig never came up. Three of the six are AcP1's
+    // phases, keyed individually.
     writeFile( mDir / "passing.tsv",
-        "0\t0\tAcP1.Voltage\tAcP1\tVoltage\t115.0\n"
-        "1\t0\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
-        "2\t0\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
-        "3\t0\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n"
-        "4\t0\tVout\tDmm2\tVoltage\t12.0\n"
-        "5\t0\tOutput5V\tDmm1\tVoltage\t5.0\n"
-        "6\t0\tOutput3V3\tDmm1\tVoltage\t3.3\n");
+        "0\t0\tAcP1.A.Voltage\tAcP1\tVoltage\t115.0\n"
+        "1\t0\tAcP1.B.Voltage\tAcP1\tVoltage\t115.0\n"
+        "2\t0\tAcP1.C.Voltage\tAcP1\tVoltage\t115.0\n"
+        "3\t0\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
+        "4\t0\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
+        "5\t0\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n"
+        "6\t0\tVout\tDmm2\tVoltage\t12.0\n"
+        "7\t0\tOutput5V\tDmm1\tVoltage\t5.0\n"
+        "8\t0\tOutput3V3\tDmm1\tVoltage\t3.3\n");
 
     EXPECT_EQ( run( { "--replay=passing.tsv", "--quiet" }), 0);
 
@@ -1461,10 +1467,11 @@ TEST_F( AcceptanceRecording, EachRepeatPassIsRecorded)
 
     const auto tsv = readFile( mDir / "readings.tsv");
 
-    // Three readings per pass, three passes -- plus the four the setup took,
+    // Three readings per pass, three passes -- plus the six the setup took,
     // once, because the hooks bracket the whole selection rather than each
-    // pass (see AcceptanceHooks above).
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 13);
+    // pass (see AcceptanceHooks above). Six rather than four since rigPowerOn()
+    // reads AcP1 once per phase.
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 15);
 }
 
 //

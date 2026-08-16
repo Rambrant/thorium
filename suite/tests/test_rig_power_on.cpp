@@ -46,7 +46,9 @@ TEST_F( RigPowerOnFixture, BringsEverySourceUpToItsSetpoint)
     EXPECT_EQ( DcP1.outputVoltage(), 28_V);
     EXPECT_EQ( DcP2.outputVoltage(), 28_V);
     EXPECT_EQ( DcP3.outputVoltage(), 24_V);
-    EXPECT_EQ( AcP1.phaseVoltage(),  115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::A), 115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::B), 115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::C), 115_V);
 }
 
 //
@@ -76,13 +78,19 @@ TEST_F( RigPowerOnFixture, ClosesTheIsolationRelaysTheEnergisedSourcesNeed)
 // Injected by the key a point-free reading uses -- "<instrument>.<quantity>",
 // not a point name, since an instrument readback never travels the fabric and
 // so has no point to be keyed by (see core::MeasureEngine's own comment). All
-// four are injected because injection is a mode, not a per-point override: with
+// six are injected because injection is a mode, not a per-point override: with
 // anything queued, a reading with nothing queued for it throws rather than
 // quietly falling back to the live rig.
 //
+// AcP1's three keys carry the phase as well -- "AcP1.B.Voltage" -- because one
+// instrument reports a voltage per phase and an unqualified key would make all
+// three the same slot (see core::Port::qualifiedBy).
+//
 TEST_F( RigPowerOnFixture, FailsWhenARailDoesNotComeUp)
 {
-    Measure.inject( "AcP1.Voltage", Voltage{ 115.0 });
+    Measure.inject( "AcP1.A.Voltage", Voltage{ 115.0 });
+    Measure.inject( "AcP1.B.Voltage", Voltage{ 115.0 });
+    Measure.inject( "AcP1.C.Voltage", Voltage{ 115.0 });
     Measure.inject( "DcP1.Voltage", Voltage{ 28.0 });
     Measure.inject( "DcP2.Voltage", Voltage{ 28.0 });
     Measure.inject( "DcP3.Voltage", Voltage{ 19.4 });   // battery rail low -- 24 V +/-0.1 V

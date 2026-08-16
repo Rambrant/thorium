@@ -134,7 +134,9 @@ TEST_F( SafingFixture, SafeRigDisablesTheAcSourceAndZeroesItsSetpoint)
     hal::safeRig();
 
     EXPECT_FALSE( AcP1.isEnabled());
-    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage().value(), 0.0);
+    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage( hal::Phase::A).value(), 0.0);
+    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage( hal::Phase::B).value(), 0.0);
+    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage( hal::Phase::C).value(), 0.0);
 }
 
 TEST_F( SafingFixture, SafeRigLeavesCurrentLimitsInPlace)

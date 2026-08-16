@@ -37,8 +37,8 @@ auto rigPowerOn() -> bool
     // sequence and Connect( DcP1.dc()) would not compile. Only DcP3 and AcP1
     // have one.
     //
-    Connect( AcP1.threePhaseWye());
-    Apply(   AcP1.threePhaseWye().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 2_A));
+    Connect( AcP1.wye());
+    Apply(   AcP1.wye().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 2_A));
 
     //
     // Read back from the source itself -- no at(...), no point. This asks the
@@ -56,9 +56,19 @@ auto rigPowerOn() -> bool
     // is checked on the line that produces it, so there is no second variable
     // left in scope for the next rail's check to name by accident.
     //
-    allPassed &= Verify( "Primary AC input at nominal",
-                         EQ( 115_V).epsilon( 2_V),
-                         Measure( AcP1.measuredVoltage()));
+    // All three phases, not one. This used to read a single unqualified
+    // measuredVoltage(), which was sound only while the three were equal by
+    // construction -- with per-phase setpoints available (see hal::Ac6677A),
+    // checking phase A alone would pass a rig that had lost B or C entirely.
+    // The Apply above is balanced, so all three are held to the same
+    // criterion; an unbalanced power-up would want one criterion per phase.
+    //
+    for( const auto phase : hal::phases)
+    {
+        allPassed &= Verify( "Primary AC input at nominal, phase " + std::string( hal::to_string( phase)),
+                             EQ( 115_V).epsilon( 2_V),
+                             Measure( AcP1.measuredVoltage( phase)));
+    }
 
     //
     // Backup supply -- dut::BackupSupply, "28Vdc backup supply". The pairing

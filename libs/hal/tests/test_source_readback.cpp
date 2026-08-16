@@ -115,8 +115,8 @@ TEST_F( SourceReadbackFixture, AReadbackWithNoWiringEntryAtAllStillWorks)
     acP1.applyOutput( 115.0_V, 50.0_Hz, 5.0_A);
     acP1.setSimulatedOutputCurrent( 4.8_A);
 
-    EXPECT_DOUBLE_EQ( measure( acP1.measuredVoltage()).value(), 115.0);
-    EXPECT_DOUBLE_EQ( measure( acP1.measuredCurrent()).value(),   4.8);
+    EXPECT_DOUBLE_EQ( measure( acP1.measuredVoltage( hal::Phase::A)).value(), 115.0);
+    EXPECT_DOUBLE_EQ( measure( acP1.measuredCurrent( hal::Phase::A)).value(),   4.8);
 }
 
 //

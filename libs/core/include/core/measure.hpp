@@ -279,7 +279,19 @@ namespace core
                 // keying on the instrument alone would make those two the same
                 // recording slot.
                 //
-                const auto key = instrumentName + "." + std::string( to_string( kind));
+                // The same argument a second time, for an instrument with more
+                // than one output: a three-phase source reports a voltage per
+                // phase, and all three share one InstrumentId, so the port may
+                // also carry a qualifier naming which one -- "AcP1.B.Voltage"
+                // (see core::Port::qualifiedBy and hal::Ac6677A::measuredVoltage).
+                // Ports that name a single output leave it empty and key
+                // exactly as they always did.
+                //
+                const auto qualifier = port.qualifier();
+
+                const auto key = qualifier.empty()
+                                     ? instrumentName + "." + std::string( to_string( kind))
+                                     : instrumentName + "." + std::string( qualifier) + "." + std::string( to_string( kind));
 
                 auto liveRead = [&]() -> QuantityVariant
                 {

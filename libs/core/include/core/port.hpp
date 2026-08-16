@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <string_view>
 
 #include "core/quantity.hpp"
 
@@ -173,14 +174,55 @@ namespace core
             {
                 Port<QuantityT, InstrumentT, SensePath::Required> copy{ mInstrument };
                 copy.setup( mSetup);
+                copy.qualify( mQualifier);
                 return copy;
             }
 
+            //
+            // Names which part of a multi-output instrument this reading comes
+            // from -- one phase of a three-phase source, say (see
+            // hal::Ac6677A::measuredVoltage). Empty for the ordinary case of an
+            // instrument with a single output.
+            //
+            // Set by the instrument's own builder method, not by a script:
+            // Measure( AcP1.measuredVoltage( Phase::B)) is the spelling, and
+            // the string is this header's way of carrying that downstream
+            // without knowing what a phase is. Which is the point -- core has
+            // no idea what distinguishes one output from another, only that
+            // something does, and that a session keying readbacks by name needs
+            // to be told (see core::MeasureEngine's point-free overload, where
+            // an unqualified key would make all three phases one recording
+            // slot).
+            //
+            // A string_view rather than an owned string: every caller passes a
+            // string literal or the result of a constexpr to_string, both of
+            // which outlive the port -- the same assumption AdapterPointTag's
+            // Name and Description already make.
+            //
+            [[nodiscard]]
+            auto qualifiedBy( std::string_view name) const -> Port
+            {
+                auto copy = *this;
+                copy.mQualifier = name;
+                return copy;
+            }
+
+            [[nodiscard]]
+            auto qualifier() const -> std::string_view
+            {
+                return mQualifier;
+            }
+
             // Used only by requiresSensePath() above, to carry an already-built
-            // setup across the type change.
+            // setup and qualifier across the type change.
             auto setup( const MeasureSetup<QuantityT> & setup) -> void
             {
                 mSetup = setup;
+            }
+
+            auto qualify( const std::string_view name) -> void
+            {
+                mQualifier = name;
             }
 
             [[nodiscard]]
@@ -210,5 +252,6 @@ namespace core
         private:
             InstrumentT &            mInstrument;
             MeasureSetup<QuantityT>  mSetup;
+            std::string_view         mQualifier;
     };
 } // namespace core

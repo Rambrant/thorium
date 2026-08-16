@@ -72,7 +72,41 @@ namespace core::meta
 
         template<typename Enum>
         constexpr auto upperNameTable = std::define_static_array( upperNames<Enum>());
+
+        //
+        // The enumerators as *values* rather than as std::meta::info handles
+        // -- what values<Enum> below hands out. An enum is a structural type,
+        // so unlike the name tables above this needs no define_static_string
+        // step to survive into runtime storage.
+        //
+        template<typename Enum>
+        consteval auto enumeratorValues() -> std::vector<Enum>
+        {
+            std::vector<Enum> result;
+
+            for( auto enumerator : enumeratorInfos<Enum>())
+            {
+                result.push_back( std::meta::extract<Enum>( enumerator));
+            }
+
+            return result;
+        }
     } // namespace detail
+
+    //
+    // Every value Enum declares, in declaration order -- for the ordinary
+    // "do this for each of them" loop, which otherwise gets written as a
+    // braced list repeating every enumerator at each call site.
+    //
+    // Same argument as to_string() above, one step further: that one removed
+    // the second spelling of each enumerator's *name*, this removes the
+    // second spelling of the enumerator *list*. A braced list is worse than a
+    // switch in one respect -- a switch at least has -Wswitch to notice a
+    // forgotten case, where a list that has silently stopped covering the
+    // enum looks exactly like one that never did.
+    //
+    template<typename Enum>
+    constexpr auto values = std::define_static_array( detail::enumeratorValues<Enum>());
 
     //
     // Generic enum <-> name, reflecting over Enum's own enumerators rather

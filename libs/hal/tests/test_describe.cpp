@@ -101,7 +101,7 @@ TEST_F( DescribeFixture, UnsetSettingsAreOmittedRatherThanReportedAsZero)
 
 TEST_F( DescribeFixture, AcConfigStatesItsConnectionModeAndSettings)
 {
-    const auto described = describeConfig( acP1.threePhaseWye().phaseVoltage( 230.0_V).frequency( 50.0_Hz).config());
+    const auto described = describeConfig( acP1.wye().phaseVoltage( 230.0_V).frequency( 50.0_Hz).config());
 
     EXPECT_EQ( described.Instrument, "AcP1");
     EXPECT_EQ( described.Settings,   "3-phase wye, phaseVoltage=230 V, frequency=50 Hz");
@@ -162,4 +162,35 @@ TEST_F( DescribeFixture, SafingPostsToTheJournal)
     ASSERT_FALSE( sink.Events.empty());
     EXPECT_EQ( sink.Events[ 0].Method,  core::Verb::Safe);
     EXPECT_EQ( sink.Events[ 0].Subject, "rig");
+}
+
+//
+// A per-phase Apply must not be logged as though it were balanced: a journal
+// showing one "phaseVoltage=115V" for a deliberately unbalanced run describes
+// a test that was never performed. See hal::describeConfig's own comment.
+//
+TEST_F( DescribeFixture, AnUnbalancedAcConfigLogsAllThreePhasesAndSaysItIsPerPhase)
+{
+    const auto described = describeConfig( acP1.wye()
+                                                .phaseVoltage( hal::phaseA( 115.0_V), hal::phaseB( 113.0_V), hal::phaseC( 117.0_V))
+                                                .frequency( 400.0_Hz)
+                                                .config());
+
+    EXPECT_EQ( described.Instrument, "AcP1");
+
+    EXPECT_NE( described.Settings.find( "per-phase"), std::string::npos);
+    EXPECT_NE( described.Settings.find( "A 115"),     std::string::npos);
+    EXPECT_NE( described.Settings.find( "B 113"),     std::string::npos);
+    EXPECT_NE( described.Settings.find( "C 117"),     std::string::npos);
+
+    // One frequency, rendered once -- it has no per-phase form to render.
+    EXPECT_NE( described.Settings.find( "frequency="), std::string::npos);
+}
+
+TEST_F( DescribeFixture, ABalancedAcConfigStillLogsOneVoltage)
+{
+    const auto described = describeConfig( acP1.wye().phaseVoltage( 115.0_V).config());
+
+    EXPECT_EQ( described.Settings.find( "per-phase"), std::string::npos);
+    EXPECT_NE( described.Settings.find( "phaseVoltage=115"), std::string::npos);
 }
