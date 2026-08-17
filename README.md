@@ -116,8 +116,11 @@ The single most important thing to understand about this tree is that it holds
 libs/            THE FRAMEWORK -- portable, knows nothing about this rig or DUT
   core/            units, criteria, predicates, the Measure/Verify/Apply verbs,
                    sessions, the run journal and its log sinks
-  hal/             generic instrument drivers, switching fabric, wiring and
-                   safing mechanism
+  hal/             switching fabric, wiring, and the API drivers are written
+                   against -- the mechanism, not any one instrument
+
+instruments/     THE DRIVERS   -- one directory per instrument, each
+                 independently packageable, each with its own tests
 
 rig/             THIS BENCH'S DATA      -- which instruments, wired how
 dut/             THIS DEVICE'S DATA     -- named test points, tolerance tables
@@ -125,7 +128,9 @@ suite/           THIS SUITE'S CONTENT   -- test scripts and the catalog
 app/             THE RUNNER             -- main.cpp, build targets
 
 tools/           run-tests.sh (the tester's picker)
-cmake/           build helpers
+cmake/           build helpers -- generated criteria tables, the test-target
+                 helper, the install-time manifest, the installed package
+docs/            the slide deck
 ```
 
 `libs/` never depends on anything outside it. A second rig testing a second
@@ -134,9 +139,46 @@ unchanged and brings its own `rig/`, `dut/`, `suite/` and `app/`. Everything
 rig-specific reaches the framework through three CMake file paths and a handful
 of compile definitions — never through an `#include` pointing outwards.
 
-Each layer has its own README with the full rationale:
-[`libs/hal`](libs/hal/README.md) · [`rig`](rig/README.md) ·
-[`dut`](dut/README.md) · [`suite`](suite/README.md)
+### Every README in this tree
+
+Each one carries the full rationale for its own directory — including the
+alternatives that were rejected and what went wrong with them, which is the half
+that cannot be recovered from the code.
+
+**The framework**
+
+| | |
+|---|---|
+| [`libs/hal`](libs/hal/README.md) | The two-target `hal`/`hal_rig` split, the static wiring facts and how a route is composed, adapter points, and what is still a runtime check |
+| [`instruments`](instruments/README.md) | Why each driver is its own packageable directory, and what a driver may assume |
+| [`cmake`](cmake/README.md) | The four build helpers: generated criteria tables, the per-layer test target, the install-time manifest, and the installed CMake package |
+
+**The drivers**
+
+| | |
+|---|---|
+| [`instruments/l4411a`](instruments/l4411a/README.md) | DMM — `Dmm1`/`Dmm2`, including the 4-wire sense path |
+| [`instruments/dso8064`](instruments/dso8064/README.md) | Oscilloscope — `Osc1` |
+| [`instruments/n6701a`](instruments/n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
+| [`instruments/ac6834b`](instruments/ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
+
+**This deployment's content**
+
+| | |
+|---|---|
+| [`rig`](rig/README.md) | This bench's instruments, their wiring, and the three tables a rig supplies |
+| [`dut`](dut/README.md) | This device's test points and criteria variants |
+| [`suite`](suite/README.md) | Test scripts, the catalog, and the setup/teardown hooks |
+
+**Other**
+
+| | |
+|---|---|
+| [`docs`](docs/README.md) | The slide deck, as `.pptx` and a self-contained `.html` |
+
+`libs/core`, `app/`, `tools/` and `dsl/` have no README of their own — their
+rationale lives in the header and `CMakeLists.txt` comments, and for `libs/core`
+in this file's §1.
 
 ### How it is all connected
 

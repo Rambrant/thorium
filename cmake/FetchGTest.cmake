@@ -2,10 +2,21 @@
 # can just do: target_link_libraries(<layer>_tests PRIVATE GTest::gtest_main)
 include(FetchContent)
 
+#
+# SOURCE_DIR only, and no GIT_REPOSITORY/GIT_TAG: GoogleTest is vendored into
+# third_party/, so this "fetch" resolves to a directory already on disk and
+# configuring never touches the network. The version is the directory name and
+# nothing else -- bumping it means unpacking a new third_party/googletest-<v>
+# and changing the path here.
+#
+# There used to be a GIT_TAG v1.15.2 alongside this, which was worse than
+# redundant: SOURCE_DIR means the tag is never consulted, and it named a
+# different version than the one actually vendored, so the only thing it could
+# do was tell a reader the wrong GoogleTest version.
+#
 FetchContent_Declare(
     googletest
     SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/googletest-1.18.0
-    GIT_TAG v1.15.2
 )
 
 # Match the parent project's compiler settings, avoid installing gtest system-wide
