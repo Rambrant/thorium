@@ -211,3 +211,158 @@ TEST( CoreSession, RecordingDumpedToFileReplaysInOrderThenThrowsWhenExhausted)
 
     std::remove( path.string().c_str());
 }
+
+TEST( CoreSession, ScriptedSessionErrorMessageContainsPointName)
+{
+    core::ScriptedSession session;
+
+    try
+    {
+        (void)session.fetch( "MissingPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+        FAIL() << "Expected std::runtime_error";
+    }
+    catch( const std::runtime_error & e)
+    {
+        const std::string message( e.what());
+        EXPECT_TRUE( message.find( "MissingPoint") != std::string::npos) << "Error message: " << message;
+        EXPECT_TRUE( message.find( "nothing programmed") != std::string::npos) << "Error message: " << message;
+    }
+}
+
+TEST( CoreSession, ScriptedSessionErrorMessageOnExhaustionMentionsPointName)
+{
+    core::ScriptedSession session;
+    session.program( "SingleValue", core::sourceOf( std::vector{ Voltage{ 5.0 } }));
+
+    (void)session.fetch( "SingleValue", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+
+    try
+    {
+        (void)session.fetch( "SingleValue", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+        FAIL() << "Expected std::runtime_error";
+    }
+    catch( const std::runtime_error & e)
+    {
+        const std::string message( e.what());
+        EXPECT_TRUE( message.find( "SingleValue") != std::string::npos) << "Error message: " << message;
+        EXPECT_TRUE( message.find( "no programmed value left") != std::string::npos) << "Error message: " << message;
+    }
+}
+
+TEST( CoreSession, ConstantSourceYieldsSameValueForever)
+{
+    auto source = core::constantSource( Voltage{ 42.0 });
+
+    for( int i = 0; i < 10; ++i)
+    {
+        const auto value = source();
+        ASSERT_TRUE( value.has_value());
+        EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>( *value).value(), 42.0);
+    }
+}
+
+TEST( CoreSession, RecordingSessionDelegatesToInnerSession)
+{
+    core::ScriptedSession scripted;
+    scripted.program( "TestPoint", Voltage{ 7.77 });
+
+    core::RecordingSession recording( scripted);
+
+    const auto value = recording.fetch( "TestPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>( value).value(), 7.77);
+    ASSERT_EQ( recording.samples().size(), 1u);
+    EXPECT_EQ( recording.samples()[0].mPointName, "TestPoint");
+}
+
+TEST( CoreSession, RecordingSessionCapturesInstrumentId)
+{
+    core::LiveSession     live;
+    core::RecordingSession recording( live);
+
+    (void)recording.fetch( "Point", "CustomDmm", core::QuantityKind::Voltage, liveVoltage( 1.0));
+
+    ASSERT_EQ( recording.samples().size(), 1u);
+    EXPECT_EQ( recording.samples()[0].mInstrumentId, "CustomDmm");
+}
+
+TEST( CoreSession, RecordingSessionCapturesQuantityKind)
+{
+    core::LiveSession     live;
+    core::RecordingSession recording( live);
+
+    (void)recording.fetch( "Point", "Dmm1", core::QuantityKind::Current, liveVoltage( 1.0));
+
+    ASSERT_EQ( recording.samples().size(), 1u);
+    EXPECT_EQ( recording.samples()[0].mKind, core::QuantityKind::Current);
+}
+
+TEST( CoreSession, SwitchableSessionCanSwitchMultipleTimes)
+{
+    core::LiveSession       live;
+    core::SwitchableSession switchable( live);
+    core::ScriptedSession   scripted1, scripted2;
+
+    scripted1.program( "Point", Voltage{ 1.11 });
+    scripted2.program( "Point", Voltage{ 2.22 });
+
+    switchable.use( scripted1);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        switchable.fetch( "Point", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 1.11);
+
+    switchable.use( scripted2);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        switchable.fetch( "Point", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 2.22);
+
+    switchable.useDefault();
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        switchable.fetch( "Point", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 3.33))).value(), 3.33);
+}
+
+TEST( CoreSession, ScriptedSessionLoadFromNonExistentFileThrows)
+{
+    EXPECT_THROW(
+        core::ScriptedSession::loadFromFile( "nonexistent_file_that_does_not_exist.tsv"),
+        std::runtime_error);
+}
+
+TEST( CoreSession, ScriptedSessionLoadFromFilePreservesMultiplePoints)
+{
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_multi_point.tsv";
+
+    {
+        std::ofstream out( path);
+        out << "0\t1000\tPointA\tDmm1\tVoltage\t1.0\n";
+        out << "1\t1001\tPointB\tDmm1\tCurrent\t2.0\n";
+        out << "2\t1002\tPointA\tDmm1\tVoltage\t3.0\n";
+    }
+
+    auto session = core::ScriptedSession::loadFromFile( path.string());
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "PointA", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 1.0);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Current>(
+        session.fetch( "PointB", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 2.0);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "PointA", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 3.0);
+
+    std::remove( path.string().c_str());
+}
+
+TEST( CoreSession, ScriptedSessionKindMismatchErrorContainsBothKinds)
+{
+    core::ScriptedSession session;
+    session.program( "Point", Voltage{ 1.0 });
+
+    try
+    {
+        (void)session.fetch( "Point", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0));
+        FAIL() << "Expected std::runtime_error";
+    }
+    catch( const std::runtime_error & e)
+    {
+        const std::string message( e.what());
+        EXPECT_TRUE( message.find( "Voltage") != std::string::npos) << "Error message: " << message;
+        EXPECT_TRUE( message.find( "Current") != std::string::npos) << "Error message: " << message;
+    }
+}
