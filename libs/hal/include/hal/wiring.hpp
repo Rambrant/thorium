@@ -87,7 +87,7 @@ namespace hal
     //     them wired at all) are a fixed fact of the bench, not a
     //     per-Apply choice -- if they exist, Connect/Disconnect should
     //     always close/open them together with the force path, the same
-    //     way hal::Ac6677A's phases and ground already do. findAll()
+    //     way hal::Ac6834B's phases and ground already do. findAll()
     //     below deliberately does NOT filter by role for this reason: it
     //     means "every entry registered for this instrument, force and
     //     sense alike, closed together" -- see hal::N6701A's own
@@ -144,7 +144,7 @@ namespace hal
             // why), flattened into one combined Path -- for an instrument
             // fixed-wired with more than one independent physical
             // connection that should always be closed/opened together
-            // (hal::Ac6677A's three phases plus ground/neutral return, or
+            // (hal::Ac6834B's three phases plus ground/neutral return, or
             // a power supply's remote-sense leads if this rig has them).
             // Single-connection instruments with no sense wiring
             // (hal::DSO8064, hal::L4411A) keep using find() above.
@@ -275,7 +275,7 @@ namespace hal
 
             //
             // Every pin this instrument lands on. A list, not one location:
-            // hal::Ac6677A/AcP1 lands on four (three phases plus the
+            // hal::Ac6834B/AcP1 lands on four (three phases plus the
             // neutral/ground return), the same way it already has four
             // independent InstrumentWiring entries. Empty if this
             // instrument is not a fixed-wired source at all -- unlike

@@ -1,4 +1,4 @@
-#include "hal/ac6677a.hpp"
+#include "hal/ac6834b.hpp"
 #include "hal/apply.hpp"
 #include "hal/measure.hpp"
 #include "hal/n6701a.hpp"
@@ -40,7 +40,7 @@ namespace
         hal::ConnectorWiring   connectorWiring;
 
         hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, 3 };
-        hal::Ac6677A      acP1{ hal::InstrumentId::AcP1 };
+        hal::Ac6834B      acP1{ hal::InstrumentId::AcP1 };
 
         ApplyEngine    apply{};
         ConnectEngine  connect{ fabric, instrumentWiring, connectorWiring };

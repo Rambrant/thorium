@@ -31,12 +31,12 @@ namespace
             Apply( DcP1.dc().voltage(  24.0_V).currentLimit( 7.0_A));
             Apply( DcP2.dc().voltage(   5.0_V).currentLimit( 2.0_A));
             Apply( DcP3.dc().voltage(  12.0_V).currentLimit( 1.0_A));
-            Apply( AcP1.wye().phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
+            Apply( AcP1.ac().phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
 
             // Only the three that have a relay at all -- Connect( DcP1.dc())
             // would not compile (see hal::SwitchableIsolation).
             Connect( DcP3.dc());
-            Connect( AcP1.wye());
+            Connect( AcP1.ac());
         }
     };
 } // namespace

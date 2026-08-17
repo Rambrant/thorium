@@ -1,4 +1,4 @@
-# --- hal::Ac6677A -- Keysight AC6677A three-phase AC source ---
+# --- hal::Ac6834B -- Agilent/Keysight 6834B AC Power Source/Analyzer ---
 # One instrument driver, self-contained: its header, its tests, its README,
 # and this file. Nothing outside this directory names any of them -- the tree
 # above discovers this directory and hands libs/hal the path (see the top-level
@@ -9,14 +9,14 @@
 # is -- an instrument driver is a type whose config and Port members are consumed
 # as types by the call site (see core/port.hpp and core/apply.hpp), so its
 # definitions have to be visible to whoever sources through it.
-add_library(hal_ac6677a INTERFACE)
+add_library(hal_ac6834b INTERFACE)
 
-# include/hal/ac6677a.hpp, not include/ac6677a.hpp: the driver stays in namespace
-# hal and keeps its "hal/ac6677a.hpp" spelling at every call site. It *is* a hal
+# include/hal/ac6834b.hpp, not include/ac6834b.hpp: the driver stays in namespace
+# hal and keeps its "hal/ac6834b.hpp" spelling at every call site. It *is* a hal
 # driver -- it implements hal's instrument API and is useless without it -- and
 # renaming it on the way out of libs/hal would have churned every consumer, and
 # every comment referring to it, to say nothing new.
-target_include_directories(hal_ac6677a INTERFACE
+target_include_directories(hal_ac6834b INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
@@ -27,16 +27,16 @@ target_include_directories(hal_ac6677a INTERFACE
 # the explicit check that rejects a driver reaching for hal_rig. (The check is
 # explicit because the cycle it closes is one CMake tolerates silently, which is
 # not what you would guess.)
-target_link_libraries(hal_ac6677a INTERFACE Thorium::hal)
+target_link_libraries(hal_ac6834b INTERFACE Thorium::hal)
 
-add_library(Thorium::hal_ac6677a ALIAS hal_ac6677a)
+add_library(Thorium::hal_ac6834b ALIAS hal_ac6834b)
 
 # How libs/hal learns this directory's target name, rather than deriving one
 # from the directory name -- see its own comment on the property. Appended, so
 # a driver package holding more than one target registers each.
-set_property(GLOBAL APPEND PROPERTY THORIUM_INSTRUMENT_TARGETS hal_ac6677a)
+set_property(GLOBAL APPEND PROPERTY THORIUM_INSTRUMENT_TARGETS hal_ac6834b)
 
-install(TARGETS hal_ac6677a
+install(TARGETS hal_ac6834b
     EXPORT ThoriumTargets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
@@ -50,5 +50,5 @@ if(BUILD_TESTING_LAYERS)
     # which is exactly what would make the directory no longer packageable on
     # its own. If a test here ever genuinely needs the fabric or an Apply, it
     # belongs in rig/tests instead -- see instruments/README.md.
-    add_layer_tests(ac6677a hal_ac6677a ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    add_layer_tests(ac6834b hal_ac6834b ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 endif()

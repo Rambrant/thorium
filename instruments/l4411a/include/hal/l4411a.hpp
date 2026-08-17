@@ -21,7 +21,7 @@ namespace hal
     // facts sharing one C++ type.
     //
     // This retires the old generic hal::Dmm placeholder the same way
-    // hal::N6701A/hal::Ac6677A retired the old generic PowerSupply: once the
+    // hal::N6701A/hal::Ac6834B retired the old generic PowerSupply: once the
     // real model is known, naming the class after it documents the
     // non-portability of its measurement-function set (CONF:VOLT:DC,
     // CONF:RES, CONF:FRES, ...) rather than pretending a DMM driver is as

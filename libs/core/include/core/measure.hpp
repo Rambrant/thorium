@@ -283,7 +283,7 @@ namespace core
                 // than one output: a three-phase source reports a voltage per
                 // phase, and all three share one InstrumentId, so the port may
                 // also carry a qualifier naming which one -- "AcP1.B.Voltage"
-                // (see core::Port::qualifiedBy and hal::Ac6677A::measuredVoltage).
+                // (see core::Port::qualifiedBy and hal::Ac6834B::measuredVoltage).
                 // Ports that name a single output leave it empty and key
                 // exactly as they always did.
                 //

@@ -1,7 +1,7 @@
 #include "hal/safing.hpp"
 
 #include THORIUM_ACTIVE_INSTRUMENTS
-#include "hal/ac6677a.hpp"
+#include "hal/ac6834b.hpp"
 #include "hal/dso8064.hpp"
 #include "hal/instrument.hpp"
 #include "hal/l4411a.hpp"
@@ -28,7 +28,7 @@ namespace
     //
     static_assert( hal::SafeableInstrument< hal::N6701ADirect> );
     static_assert( hal::SafeableInstrument< hal::N6701ARelay> );
-    static_assert( hal::SafeableInstrument< hal::Ac6677A> );
+    static_assert( hal::SafeableInstrument< hal::Ac6834B> );
     static_assert( hal::SafeableInstrument< hal::L4411A> );
     static_assert( hal::SafeableInstrument< hal::DSO8064> );
 
@@ -49,7 +49,7 @@ namespace
     //
     static_assert( std::derived_from< hal::N6701ADirect, hal::InstrumentTag> );
     static_assert( std::derived_from< hal::N6701ARelay,  hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::Ac6677A,      hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::Ac6834B,      hal::InstrumentTag> );
     static_assert( std::derived_from< hal::L4411A,       hal::InstrumentTag> );
     static_assert( std::derived_from< hal::DSO8064,      hal::InstrumentTag> );
 

@@ -181,7 +181,7 @@ namespace core
             //
             // Names which part of a multi-output instrument this reading comes
             // from -- one phase of a three-phase source, say (see
-            // hal::Ac6677A::measuredVoltage). Empty for the ordinary case of an
+            // hal::Ac6834B::measuredVoltage). Empty for the ordinary case of an
             // instrument with a single output.
             //
             // Set by the instrument's own builder method, not by a script:

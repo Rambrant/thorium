@@ -37,8 +37,8 @@ auto rigPowerOn() -> bool
     // sequence and Connect( DcP1.dc()) would not compile. Only DcP3 and AcP1
     // have one.
     //
-    Connect( AcP1.wye());
-    Apply(   AcP1.wye().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 2_A));
+    Connect( AcP1.ac());
+    Apply(   AcP1.ac().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 2_A));
 
     //
     // Read back from the source itself -- no at(...), no point. This asks the
@@ -58,7 +58,7 @@ auto rigPowerOn() -> bool
     //
     // All three phases, not one. This used to read a single unqualified
     // measuredVoltage(), which was sound only while the three were equal by
-    // construction -- with per-phase setpoints available (see hal::Ac6677A),
+    // construction -- with per-phase setpoints available (see hal::Ac6834B),
     // checking phase A alone would pass a rig that had lost B or C entirely.
     // The Apply above is balanced, so all three are held to the same
     // criterion; an unbalanced power-up would want one criterion per phase.

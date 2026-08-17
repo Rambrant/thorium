@@ -155,7 +155,7 @@ namespace core
     // matrix-plus-mux route chosen at the call site (a measuring
     // instrument like hal::DSO8064, which takes an at(...) point), or
     // just an instrument's own fixed channel(s) with nothing left to
-    // choose (hal::N6701A/hal::Ac6677A -- see their own comments on why a
+    // choose (hal::N6701A/hal::Ac6834B -- see their own comments on why a
     // real power rail is hard-wired rather than routed) -- Connect/
     // Disconnect don't need to know which; that's entirely up to what
     // connectDriver/disconnectDriver does for the concrete config type.

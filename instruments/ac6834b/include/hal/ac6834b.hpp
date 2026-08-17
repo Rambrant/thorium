@@ -18,7 +18,7 @@
 
 namespace hal
 {
-    class Ac6677A;
+    class Ac6834B;
 
     //
     // Which of the three phases a setting or a reading belongs to. Named
@@ -27,11 +27,21 @@ namespace hal
     // rig/wiring.inc, dut/adapter.inc) -- the same three wires seen from the
     // instrument side.
     //
-    // The neutral/ground return is deliberately not an enumerator: it is part
-    // of this instrument's fixed wiring (see hal::Ac6677A's own comment on
-    // why it is switched along with the phases) but it is not something a
-    // voltage is programmed onto or read from, so giving it a name here would
-    // put a fourth case into every switch that has only three real answers.
+    // Numbered 1/2/3 by the instrument itself -- INSTrument:NSELect takes
+    // 1|2|3 and the reset phase angles are documented as phase 1 = 0,
+    // phase 2 = 240, phase 3 = 120. A/B/C is the conductor naming, which is
+    // what the DUT side uses and what a bench technician reads off a cable,
+    // so it is what this enum spells; a real driver maps A/B/C onto NSELect
+    // 1/2/3, which is indexOf() + 1.
+    //
+    // The neutral/ground return is deliberately not an enumerator, but the
+    // reason is narrower than it first looks. Nothing is *programmed* onto
+    // it -- there is no neutral voltage or current-limit setpoint -- so it
+    // has no place in any of the per-phase setters, which is what this enum
+    // exists for. It is not unmeasurable, though -- the instrument answers
+    // MEASure:CURRent:NEUTral? on three-phase models, and that reading has a
+    // home of its own: hal::Ac6834B::measuredNeutralCurrent(), which takes no
+    // Phase precisely because the neutral is not one.
     //
     enum class Phase
     {
@@ -145,12 +155,35 @@ namespace hal
     // *type* of what a config holds -- one voltage or three -- so a driver
     // reading it never has to ask which case it is in.
     //
-    // Note what this axis is NOT: the connection topology. Wye and delta are
-    // a different question again, and one this instrument's entry-point
-    // method already answers (see hal::Ac6677A::wye()). Keeping them separate
-    // is why balanced-vs-per-phase is a property the builder acquires rather
-    // than a second entry point -- entry points multiply across the two axes,
-    // where this does not.
+    // This is the only axis the builder has, and deliberately so: it is a
+    // property the chain acquires rather than a second entry-point method
+    // alongside ac(). Entry points multiply against anything else
+    // that ever becomes selectable, where a builder-carried tag does not --
+    // and on this instrument there is nothing else to select anyway (see
+    // hal::Ac6834B on why the phase count is not a setting).
+    //
+    // This split is the instrument's own, not an invention of this header.
+    // The 6834B has INSTrument:COUPle <ALL|NONE>: under COUPle ALL, sending a
+    // command to any phase sends it to all three, and the commands this
+    // affects are exactly those the programming guide marks "Phase
+    // Selectable". Balanced is COUPle ALL; PerPhase is COUPle NONE plus
+    // INSTrument:NSELect per phase. The guide's *RST value for COUPle is ALL,
+    // which is also why ac() starts a Balanced chain rather than a
+    // per-phase one.
+    //
+    // Which settings are phase-selectable is likewise the guide's answer and
+    // not a guess: VOLTage and CURRent (the rms current limit) carry the
+    // designation, FREQuency does not -- see Ac6834BConfig below, where that
+    // asymmetry is the whole reason frequency is a plain scalar.
+    //
+    // One command does not fit this scheme and will need care when it is
+    // added: PHASe, the per-phase angle, is "not influenced by
+    // INSTrument:COUPle ALL. It applies only to the current output phase
+    // selected by INSTrument:NSELect." So phase angle is per-phase *only* --
+    // it can never be broadcast, and a scalar setter for it would be a lie
+    // rather than a convenience. That makes three categories, where this
+    // header currently models two: scalar-only (frequency), scalar-or-
+    // per-phase (voltage, current limit), and per-phase-only (angle).
     //
     struct Balanced {};
     struct PerPhase {};
@@ -158,7 +191,7 @@ namespace hal
     //
     // A setting that may differ per phase: three values under PerPhase, one
     // under Balanced. Frequency deliberately never uses this -- see
-    // Ac6677AConfig below.
+    // Ac6834BConfig below.
     //
     template<typename Symmetry, typename QuantityT>
     using PhaseSetting = std::conditional_t<std::is_same_v<Symmetry, PerPhase>,
@@ -166,28 +199,66 @@ namespace hal
                                             std::optional<QuantityT>>;
 
     //
+    // The range an arbitrary requested voltage actually selects. The
+    // instrument resolves the parameter rather than storing it: "sending a
+    // parameter greater than 150 selects the 300 volt range, otherwise the
+    // 150 volt range is selected", and VOLTage:RANGe? reads back the range,
+    // not what was sent. Modelling that here means range( 115_V) and
+    // range( 150_V) are the same instruction, which is what the hardware
+    // does, and means a readback can never report a value the instrument
+    // would not.
+    //
+    // Not a validation step -- nothing here rejects anything. The current
+    // limit that this range constrains is deliberately left unchecked; see
+    // hal::Ac6834B's list of what is not modeled.
+    //
+    inline constexpr auto LowVoltageRange  = core::quantities::Voltage{ 150.0 };
+    inline constexpr auto HighVoltageRange = core::quantities::Voltage{ 300.0 };
+
+    [[nodiscard]]
+    constexpr auto rangeFor( const core::quantities::Voltage requested) -> core::quantities::Voltage
+    {
+        return requested.value() > LowVoltageRange.value() ? HighVoltageRange : LowVoltageRange;
+    }
+
+    //
     // Symmetric with N6701AConfig (see hal/n6701a.hpp) -- no points here
     // either, and for the same reason: AcP1's three phases (and its
-    // ground/neutral return -- see this header's own comment on Ac6677A)
+    // ground/neutral return -- see this header's own comment on Ac6834B)
     // are each hard-cabled to one fixed VPC pin, not routed through a mux
     // to whichever pins a script names, so there's nothing left for a
     // point argument to carry.
     //
-    // Frequency is a plain scalar under both symmetries, and that is a
-    // statement about the instrument rather than a simplification: the three
-    // phases of one source share a fixed phase relationship, so they share a
-    // frequency by construction. "Phase A at 400 Hz, phase B at 50 Hz" is not
-    // an unbalanced configuration this type declines to express -- it is not
-    // a configuration at all, and a field that could hold it would be a field
-    // no driver could ever honour.
+    // Frequency is a plain scalar under both symmetries, and that is the
+    // instrument's own answer rather than a simplification: in the 6834B's
+    // programming guide, VOLTage and CURRent carry the "Phase Selectable"
+    // designation and FREQuency does not. Physically that is what one would
+    // expect -- three phases of one source share a fixed relationship, so
+    // "phase A at 400 Hz, phase B at 50 Hz" is not an unbalanced
+    // configuration this type declines to express, it is not a configuration
+    // at all -- but the guide settles it rather than the reasoning.
     //
     template<typename Symmetry>
-    struct Ac6677AConfig
+    struct Ac6834BConfig
     {
-        Ac6677A &                                           Instrument;
+        Ac6834B &                                           Instrument;
         PhaseSetting<Symmetry, core::quantities::Voltage>   PhaseVoltage;
         std::optional<core::quantities::Frequency>          Frequency;
         PhaseSetting<Symmetry, core::quantities::Current>   CurrentLimit;
+
+        //
+        // VOLTage:RANGe -- which of the instrument's two output ranges is in
+        // force. Phase Selectable, like PhaseVoltage and CurrentLimit, so it
+        // gets the same treatment.
+        //
+        // Held as a Voltage rather than a two-valued enum because that is what
+        // the command takes: "sending a parameter greater than 150 selects the
+        // 300 volt range, otherwise the 150 volt range is selected". An enum
+        // would read as though the caller picks a range directly, when what
+        // they actually supply is a voltage the instrument then resolves --
+        // see hal::rangeFor().
+        //
+        PhaseSetting<Symmetry, core::quantities::Voltage>   Range;
     };
 
     namespace detail
@@ -230,13 +301,14 @@ namespace hal
         //
         template<typename Symmetry>
         [[nodiscard]]
-        constexpr auto asPerPhase( const Ac6677AConfig<Symmetry> & config) -> Ac6677AConfig<PerPhase>
+        constexpr auto asPerPhase( const Ac6834BConfig<Symmetry> & config) -> Ac6834BConfig<PerPhase>
         {
-            return Ac6677AConfig<PerPhase>{
+            return Ac6834BConfig<PerPhase>{
                 config.Instrument,
                 broadcast( config.PhaseVoltage),
                 config.Frequency,
-                broadcast( config.CurrentLimit)
+                broadcast( config.CurrentLimit),
+                broadcast( config.Range)
             };
         }
     } // namespace detail
@@ -245,7 +317,7 @@ namespace hal
     // Same fluent-builder shape as N6701ABuilder -- see its own comment in
     // hal/n6701a.hpp -- with one addition: a per-phase setter returns a
     // builder of a *different* symmetry, so a chain that names phases
-    // individually ends up holding an Ac6677AConfig<PerPhase> and one that
+    // individually ends up holding an Ac6834BConfig<PerPhase> and one that
     // does not keeps the balanced config it started with.
     //
     // That is what makes balanced-vs-per-phase a type-level fact without
@@ -260,25 +332,25 @@ namespace hal
     // isn't a guess.
     //
     template<typename Symmetry>
-    class Ac6677ABuilder
+    class Ac6834BBuilder
     {
         public:
-            using Config = Ac6677AConfig<Symmetry>;
+            using Config = Ac6834BConfig<Symmetry>;
 
-            explicit Ac6677ABuilder( Ac6677A & instrument) :
-                mConfig{ instrument, std::nullopt, std::nullopt, std::nullopt }
+            explicit Ac6834BBuilder( Ac6834B & instrument) :
+                mConfig{ instrument, std::nullopt, std::nullopt, std::nullopt, std::nullopt }
             {}
 
             // Used by the per-phase setters below to carry an already-built
             // config across the symmetry change.
-            explicit Ac6677ABuilder( Config config) : mConfig( std::move( config)) {}
+            explicit Ac6834BBuilder( Config config) : mConfig( std::move( config)) {}
 
             //
             // All three phases alike. Under PerPhase this broadcasts rather
             // than being unavailable -- see detail::broadcast's own comment.
             //
             [[nodiscard]]
-            auto phaseVoltage( const core::quantities::Voltage v) const -> Ac6677ABuilder
+            auto phaseVoltage( const core::quantities::Voltage v) const -> Ac6834BBuilder
             {
                 auto copy = *this;
                 copy.mConfig.PhaseVoltage = settingOf( v);
@@ -293,21 +365,21 @@ namespace hal
             [[nodiscard]]
             auto phaseVoltage( const PhaseValue<core::quantities::Voltage, Phase::A> a,
                                const PhaseValue<core::quantities::Voltage, Phase::B> b,
-                               const PhaseValue<core::quantities::Voltage, Phase::C> c) const -> Ac6677ABuilder<PerPhase>
+                               const PhaseValue<core::quantities::Voltage, Phase::C> c) const -> Ac6834BBuilder<PerPhase>
             {
                 auto widened = detail::asPerPhase( mConfig);
 
                 widened.PhaseVoltage = PerPhaseValues<core::quantities::Voltage>{ a.Value, b.Value, c.Value };
 
-                return Ac6677ABuilder<PerPhase>{ widened };
+                return Ac6834BBuilder<PerPhase>{ widened };
             }
 
             //
-            // One frequency, no per-phase overload -- see Ac6677AConfig's own
+            // One frequency, no per-phase overload -- see Ac6834BConfig's own
             // comment for why there is nothing here to overload.
             //
             [[nodiscard]]
-            auto frequency( const core::quantities::Frequency f) const -> Ac6677ABuilder
+            auto frequency( const core::quantities::Frequency f) const -> Ac6834BBuilder
             {
                 auto copy = *this;
                 copy.mConfig.Frequency = f;
@@ -315,7 +387,7 @@ namespace hal
             }
 
             [[nodiscard]]
-            auto currentLimit( const core::quantities::Current c) const -> Ac6677ABuilder
+            auto currentLimit( const core::quantities::Current c) const -> Ac6834BBuilder
             {
                 auto copy = *this;
                 copy.mConfig.CurrentLimit = settingOf( c);
@@ -325,13 +397,52 @@ namespace hal
             [[nodiscard]]
             auto currentLimit( const PhaseValue<core::quantities::Current, Phase::A> a,
                                const PhaseValue<core::quantities::Current, Phase::B> b,
-                               const PhaseValue<core::quantities::Current, Phase::C> c) const -> Ac6677ABuilder<PerPhase>
+                               const PhaseValue<core::quantities::Current, Phase::C> c) const -> Ac6834BBuilder<PerPhase>
             {
                 auto widened = detail::asPerPhase( mConfig);
 
                 widened.CurrentLimit = PerPhaseValues<core::quantities::Current>{ a.Value, b.Value, c.Value };
 
-                return Ac6677ABuilder<PerPhase>{ widened };
+                return Ac6834BBuilder<PerPhase>{ widened };
+            }
+
+            //
+            // VOLTage:RANGe -- which output range to program in. Takes the
+            // voltage the range must accommodate, not a range identifier, and
+            // stores what the instrument would actually select (see
+            // hal::rangeFor): .range( 115_V) and .range( 150_V) are one
+            // instruction.
+            //
+            // Named range() rather than voltageRange() to match
+            // core::Port::range() on the measurement side, which means the
+            // same thing -- the full-scale value in force, not a span. There
+            // is only one range on this instrument, so nothing is ambiguous.
+            //
+            // Left unset, nothing is programmed and whatever range the
+            // instrument is already in stays -- the same meaning std::nullopt
+            // carries for every other setpoint here. Note that is NOT the
+            // instrument's own reset state, which is VOLTage:RANGe MAXimum,
+            // i.e. the 300 V range.
+            //
+            [[nodiscard]]
+            auto range( const core::quantities::Voltage accommodating) const -> Ac6834BBuilder
+            {
+                auto copy = *this;
+                copy.mConfig.Range = settingOf( rangeFor( accommodating));
+                return copy;
+            }
+
+            [[nodiscard]]
+            auto range( const PhaseValue<core::quantities::Voltage, Phase::A> a,
+                        const PhaseValue<core::quantities::Voltage, Phase::B> b,
+                        const PhaseValue<core::quantities::Voltage, Phase::C> c) const -> Ac6834BBuilder<PerPhase>
+            {
+                auto widened = detail::asPerPhase( mConfig);
+
+                widened.Range = PerPhaseValues<core::quantities::Voltage>{
+                    rangeFor( a.Value), rangeFor( b.Value), rangeFor( c.Value) };
+
+                return Ac6834BBuilder<PerPhase>{ widened };
             }
 
             [[nodiscard]]
@@ -362,22 +473,71 @@ namespace hal
     };
 
     //
-    // A programmable three-phase AC source. Modeled after the physical
+    // The Agilent/Keysight 6834B AC Power Source/Analyzer: 4500 VA total
+    // (1500 VA per phase), two output ranges (150 V/30 A and 300 V/15 A),
+    // three-phase, GPIB/RS-232 with SCPI. Modeled after the physical
     // instrument deliberately -- see hal::N6701A's own comment in
     // hal/n6701a.hpp for why.
     //
-    // wye() is the entry point, named for the connection topology alone: this
-    // instrument is three-phase and nothing else, so the "threePhase" this
-    // method used to carry said only what the class already says. A
-    // delta-connected variant would be a second method alongside it, not a
-    // change to this one. Whether the three phases are driven alike is a
-    // separate axis and is NOT a second entry point here -- see Balanced/
-    // PerPhase above for why crossing the two would multiply methods.
+    // Everything below that names a SCPI command is taken from the Agilent
+    // "AC Power Solutions" programming guide (part 5962-0889), which covers
+    // models 6811B/6812B/6813B/6814B/6834B/6843A -- not from a datasheet
+    // summary, and not guessed.
     //
-    // Note that phaseVoltage() keeps its prefix where wye() lost one: phase
-    // voltage (line-to-neutral) and line voltage (line-to-line) differ by a
-    // factor of root three on a wye source, so that word is disambiguating
-    // rather than redundant.
+    // ac() is the entry point and its name is a plain description,
+    // not an axis: a 6834B is a three-phase model and has no phase-count
+    // setting. Single-phase and three-phase are different *models* in this
+    // family (the guide says "1-phase models" and "3-phase models"
+    // throughout, and its Instrument subsystem exists to program "the
+    // three-phase output capability of the Agilent 6834B"). An earlier
+    // version of this comment claimed a programmable single/three-phase mode
+    // switch and promised a singlePhase() sibling; that came from a product
+    // page describing the family, and the programming guide does not support
+    // it. There is no such command.
+    //
+    // Which leaves the name genuinely arbitrary -- nothing varies here for it
+    // to distinguish. It has been threePhaseWye(), then wye(), then this; the
+    // wye/delta wiring of the output is not something the programming guide
+    // states either, so no spelling should assert it.
+    //
+    // Note phaseVoltage() keeps its prefix regardless: phase voltage
+    // (line-to-neutral) and line voltage (line-to-line) differ by a factor of
+    // root three, so that word disambiguates rather than repeats.
+    //
+    // Deliberately NOT modeled, all of them real 6834B capabilities and each
+    // an addition rather than a change to what is here:
+    //
+    //   - VOLTage:OFFSet, a programmable DC offset on the AC output --
+    //     another setpoint on this builder, not another builder.
+    //   - PHASe, the per-phase angle (reset defaults 0/240/120). The one
+    //     genuinely per-phase parameter still missing, and what unbalanced
+    //     testing perturbs alongside magnitude. It does NOT fit PhaseSetting
+    //     as voltage does: it is per-phase-only and cannot be broadcast --
+    //     see Balanced/PerPhase above. It also wants an Angle quantity
+    //     core::quantities has not got.
+    //   - MEASure:POWer? -- per-phase power, which IS phase selectable. Only
+    //     its instrument-wide sibling MEASure:POWer:AC:TOTal? is modeled (see
+    //     measuredTotalPower); a per-phase power reading would slot in beside
+    //     measuredVoltage/measuredCurrent.
+    //   - MEASure:CURRent:NEUTral:AC? and :ACDC?, and the neutral's harmonic
+    //     queries. Only the plain MEASure:CURRent:NEUTral? is modeled -- see
+    //     measuredNeutralCurrent.
+    //   - Waveform digitisation, harmonic analysis to the 50th harmonic, and
+    //     THD. Analyser measurements rather than source settings, and not a
+    //     small addition: they need new core::Port quantities, one of which
+    //     (THD) is a bare ratio rather than anything with a unit.
+    //   - Arbitrary and clipped output waveforms.
+    //   - The coupling between VOLTage:RANGe and CURRent. The range itself
+    //     IS modeled (see Ac6834BBuilder::range), but only as a setpoint:
+    //     nothing here checks a current limit against it. The guide is
+    //     explicit that "the maximum current limit that can be programmed at
+    //     a given time depends on the voltage range setting in which the unit
+    //     is presently operating", and that the order coupled commands are
+    //     sent in matters -- so a real driver must both order the two and
+    //     reject the combinations the instrument would. Deliberately left
+    //     out for now: the check is a runtime one (it couples two runtime
+    //     quantities, so no compile-time form is available), and a rig with
+    //     no hardware behind it cannot exercise it.
     //
     // Fixed-wired, same reasoning and same safety motivation as
     // hal::N6701A (see that class's own comment) -- but with four physical
@@ -391,12 +551,12 @@ namespace hal
     // fully isolate it (the same safety motivation for fixed-wiring the
     // phases in the first place), the return conductor is part of that
     // isolation too, not a wire that gets to sit outside the model.
-    // wye() below takes no points -- connectDriver/disconnectDriver
+    // ac() below takes no points -- connectDriver/disconnectDriver
     // close/open all four of this instrument's fixed channels together (see
     // hal::InstrumentWiring::findAll()), phases and ground alike, each its
     // own entry in the rig's wiring.inc under the same InstrumentId.
     //
-    class Ac6677A : public InstrumentTag
+    class Ac6834B : public InstrumentTag
     {
         public:
             //
@@ -404,7 +564,7 @@ namespace hal
             // actually taken from.
             //
             // It exists as a separate object rather than as three sets of
-            // fields on Ac6677A because core::Port binds to a reference and
+            // fields on Ac6834B because core::Port binds to a reference and
             // calls rawMeasure() on it (see core/port.hpp): for
             // Measure( AcP1.measuredVoltage( Phase::B)) to read phase B and
             // not "the" voltage, the thing the port holds has to be phase B.
@@ -439,29 +599,75 @@ namespace hal
                         }
                         else
                         {
-                            static_assert( !sizeof( QuantityT), "Ac6677A reports only its output voltage and current");
+                            static_assert( !sizeof( QuantityT), "Ac6834B reports only its output voltage and current");
                         }
                     }
 
                     [[nodiscard]] auto voltage() const      -> core::quantities::Voltage                   { return mVoltage; }
                     [[nodiscard]] auto currentLimit() const -> std::optional<core::quantities::Current>    { return mCurrentLimit; }
+                    [[nodiscard]] auto range() const        -> std::optional<core::quantities::Voltage>    { return mRange; }
 
                 private:
-                    friend class Ac6677A;
+                    friend class Ac6834B;
 
                     InstrumentId                              mId{};
                     core::quantities::Voltage                 mVoltage{};
                     core::quantities::Current                 mSimOutputCurrent{};
                     std::optional<core::quantities::Current>  mCurrentLimit;
+                    std::optional<core::quantities::Voltage>  mRange;
                     bool                                       mEnabled{ false };
             };
 
-            explicit Ac6677A( const InstrumentId id) : mId( id)
+            //
+            // The neutral conductor's own readback -- MEASure:CURRent:NEUTral?
+            // and nothing else. Deliberately not a Phase (see hal::Phase):
+            // nothing is programmed onto the neutral, so it has no setpoints
+            // and no business in the per-phase setters; it only answers a
+            // current.
+            //
+            // Its own object rather than a case inside Ac6834B::rawMeasure for
+            // the same reason PhaseOutput is one -- see
+            // measuredNeutralCurrent().
+            //
+            class NeutralOutput
+            {
+                public:
+                    [[nodiscard]]
+                    auto id() const -> InstrumentId
+                    {
+                        return mId;
+                    }
+
+                    template<core::quantities::QuantityType QuantityT>
+                    [[nodiscard]]
+                    auto rawMeasure( const core::MeasureSetup<QuantityT> &) -> QuantityT
+                    {
+                        if constexpr( std::is_same_v<QuantityT, core::quantities::Current>)
+                        {
+                            return mEnabled ? mSimNeutralCurrent : core::quantities::Current{};
+                        }
+                        else
+                        {
+                            static_assert( !sizeof( QuantityT), "the neutral conductor reports only a current");
+                        }
+                    }
+
+                private:
+                    friend class Ac6834B;
+
+                    InstrumentId               mId{};
+                    core::quantities::Current  mSimNeutralCurrent{};
+                    bool                        mEnabled{ false };
+            };
+
+            explicit Ac6834B( const InstrumentId id) : mId( id)
             {
                 for( auto & phase : mPhases)
                 {
                     phase.mId = id;
                 }
+
+                mNeutral.mId = id;
             }
 
             [[nodiscard]]
@@ -471,9 +677,9 @@ namespace hal
             }
 
             [[nodiscard]]
-            auto wye() -> Ac6677ABuilder<Balanced>
+            auto ac() -> Ac6834BBuilder<Balanced>
             {
-                return Ac6677ABuilder<Balanced>{ *this };
+                return Ac6834BBuilder<Balanced>{ *this };
             }
 
             //
@@ -515,6 +721,92 @@ namespace hal
             }
 
             //
+            // The three readings that genuinely belong to the whole source
+            // rather than to one phase, and therefore take no Phase argument.
+            //
+            // Which readings those are is the instrument's answer, not a
+            // judgement call: in the programming guide, MEASure:VOLTage and
+            // MEASure:CURRent are marked "Phase Selectable", while
+            // MEASure:FREQuency?, MEASure:POWer:AC:TOTal? and
+            // MEASure:CURRent:NEUTral? are not. So there is a no-argument
+            // frequency, a no-argument total power and a no-argument neutral
+            // current -- and deliberately still no no-argument voltage, because
+            // the instrument has nothing to answer such a query with. That is
+            // the same distinction argued for before the guide was available
+            // (a three-phase total is a different quantity, not this one
+            // under-specified), now settled by the guide rather than by
+            // reasoning.
+            //
+            // MEASure:FREQuency? -- one output frequency, matching a setter
+            // that is likewise scalar-only (see Ac6834BConfig).
+            //
+            [[nodiscard]]
+            auto measuredFrequency() -> core::Port<core::quantities::Frequency, Ac6834B>
+            {
+                return core::Port<core::quantities::Frequency, Ac6834B>{ *this };
+            }
+
+            //
+            // MEASure:POWer:AC:TOTal? -- real total power across all three
+            // phases. Qualified "Total" rather than left bare because
+            // MEASure:POWer? is itself Phase Selectable: per-phase power is a
+            // real future addition, and an unqualified key here would collide
+            // with it in a recording (see core::Port::qualifiedBy).
+            //
+            [[nodiscard]]
+            auto measuredTotalPower() -> core::Port<core::quantities::Power, Ac6834B>
+            {
+                return core::Port<core::quantities::Power, Ac6834B>{ *this }
+                           .qualifiedBy( "Total");
+            }
+
+            //
+            // MEASure:CURRent:NEUTral? -- the current returning through the
+            // neutral conductor, which on a balanced load is near zero and on
+            // an unbalanced one is the thing worth watching.
+            //
+            // Bound to its own object rather than to the instrument, for the
+            // same reason each phase is (see PhaseOutput): core::Port calls
+            // rawMeasure() on whatever it holds, and the neutral's current is
+            // a different reading from any phase's. That also keeps
+            // Ac6834B::rawMeasure free of a Current case that would otherwise
+            // have to mean "neutral" by convention.
+            //
+            [[nodiscard]]
+            auto measuredNeutralCurrent() -> core::Port<core::quantities::Current, NeutralOutput>
+            {
+                return core::Port<core::quantities::Current, NeutralOutput>{ mNeutral }
+                           .qualifiedBy( "N");
+            }
+
+            //
+            // The instrument-wide readings' backing. Only the two quantities
+            // the whole source can answer for; a Current here would be
+            // ambiguous (whose?), which is why the neutral has its own object
+            // above and each phase has one of its own.
+            //
+            template<core::quantities::QuantityType QuantityT>
+            [[nodiscard]]
+            auto rawMeasure( const core::MeasureSetup<QuantityT> &) -> QuantityT
+            {
+                if constexpr( std::is_same_v<QuantityT, core::quantities::Frequency>)
+                {
+                    return mEnabled ? mFrequency.value_or( core::quantities::Frequency{}) : core::quantities::Frequency{};
+                }
+                else if constexpr( std::is_same_v<QuantityT, core::quantities::Power>)
+                {
+                    return mEnabled ? mSimTotalPower : core::quantities::Power{};
+                }
+                else
+                {
+                    static_assert( !sizeof( QuantityT),
+                                   "Ac6834B answers only frequency and total power for the source as a whole -- "
+                                   "voltage and current are per phase (see measuredVoltage/measuredCurrent), and "
+                                   "neutral current is measuredNeutralCurrent()");
+                }
+            }
+
+            //
             // Drop this source to a known idle state, unconditionally --
             // same contract, and the same reasoning for zeroing the
             // setpoint rather than only disabling the output, as
@@ -524,7 +816,8 @@ namespace hal
             //
             auto safe() -> void
             {
-                mEnabled = false;
+                mEnabled          = false;
+                mNeutral.mEnabled = false;
 
                 for( auto & phase : mPhases)
                 {
@@ -536,16 +829,29 @@ namespace hal
             // Test/simulation hooks -- real hardware has no such setters.
             auto applyOutput( const PerPhaseValues<core::quantities::Voltage> &            phaseVoltage,
                               const std::optional<core::quantities::Frequency>             frequency,
-                              const std::optional<PerPhaseValues<core::quantities::Current>> & currentLimit) -> void
+                              const std::optional<PerPhaseValues<core::quantities::Current>> & currentLimit,
+                              const std::optional<PerPhaseValues<core::quantities::Voltage>> & range = std::nullopt) -> void
             {
-                mFrequency = frequency;
-                mEnabled   = true;
+                mFrequency       = frequency;
+                mEnabled         = true;
+                mNeutral.mEnabled = true;
 
                 for( std::size_t index = 0; index < mPhases.size(); ++index)
                 {
                     mPhases[ index].mVoltage      = phaseVoltage[ index];
                     mPhases[ index].mCurrentLimit = currentLimit ? std::optional{ ( *currentLimit)[ index] } : std::nullopt;
                     mPhases[ index].mEnabled      = true;
+
+                    //
+                    // Only overwritten when the config actually carried a
+                    // range: an Apply that says nothing about the range leaves
+                    // the instrument in whichever one it was already in, which
+                    // is what nullopt means everywhere else here too.
+                    //
+                    if( range)
+                    {
+                        mPhases[ index].mRange = ( *range)[ index];
+                    }
                 }
             }
 
@@ -566,7 +872,8 @@ namespace hal
 
             auto removeOutput() -> void
             {
-                mEnabled = false;
+                mEnabled          = false;
+                mNeutral.mEnabled = false;
 
                 for( auto & phase : mPhases)
                 {
@@ -590,6 +897,19 @@ namespace hal
                 }
             }
 
+            // What the instrument-wide readbacks report -- neither is
+            // determined by any setpoint, so like the per-phase current they
+            // are simulation inputs rather than derived values.
+            auto setSimulatedNeutralCurrent( const core::quantities::Current c) -> void
+            {
+                mNeutral.mSimNeutralCurrent = c;
+            }
+
+            auto setSimulatedTotalPower( const core::quantities::Power p) -> void
+            {
+                mSimTotalPower = p;
+            }
+
             [[nodiscard]]
             auto isEnabled() const -> bool
             {
@@ -608,6 +928,17 @@ namespace hal
                 return mPhases[ indexOf( phase)].currentLimit();
             }
 
+            //
+            // The range this phase is programmed into -- what VOLTage:RANGe?
+            // would return, i.e. 150 V or 300 V, never the raw value a caller
+            // passed to range() (see hal::rangeFor).
+            //
+            [[nodiscard]]
+            auto range( const Phase phase) const -> std::optional<core::quantities::Voltage>
+            {
+                return mPhases[ indexOf( phase)].range();
+            }
+
             [[nodiscard]]
             auto frequency() const -> std::optional<core::quantities::Frequency>
             {
@@ -617,7 +948,9 @@ namespace hal
         private:
             InstrumentId                                 mId;
             std::array<PhaseOutput, 3>                   mPhases;
+            NeutralOutput                                mNeutral;
             std::optional<core::quantities::Frequency>   mFrequency;
+            core::quantities::Power                      mSimTotalPower{};
             bool                                          mEnabled{ false };
     };
 
@@ -634,18 +967,19 @@ namespace hal
     // of the same body, purely because it was named.
     //
     template<typename Symmetry>
-    auto applyDriver( const Ac6677AConfig<Symmetry> & config) -> void
+    auto applyDriver( const Ac6834BConfig<Symmetry> & config) -> void
     {
         const auto perPhase = detail::asPerPhase( config);
 
         config.Instrument.applyOutput(
             perPhase.PhaseVoltage.value_or( PerPhaseValues<core::quantities::Voltage>{}),
             perPhase.Frequency,
-            perPhase.CurrentLimit);
+            perPhase.CurrentLimit,
+            perPhase.Range);
     }
 
     template<typename Symmetry>
-    auto removeDriver( const Ac6677AConfig<Symmetry> & config) -> void
+    auto removeDriver( const Ac6834BConfig<Symmetry> & config) -> void
     {
         config.Instrument.removeOutput();
     }
@@ -685,11 +1019,13 @@ namespace hal
 
     //
     // ADL target for the run journal -- see hal/n6701a.hpp's describeConfig for
-    // the same mechanism and hal/describe.hpp for the helpers. "3-phase wye" is
-    // stated rather than implied: this instrument has only one connection mode
-    // today (see this class's own comment on why a delta variant would be a
-    // second builder method), and a log that says which one was used stays
-    // correct rather than becoming ambiguous the moment a second one exists.
+    // the same mechanism and hal/describe.hpp for the helpers. "3-phase" is
+    // stated rather than implied so a reader of the log knows what was
+    // driven without going to look up the model -- not because it could have
+    // been anything else on this instrument (it could not; see this class's
+    // own comment). It stops there and does not claim wye or delta, because
+    // the programming guide does not say which this instrument's three-phase
+    // output is.
     //
     // The same argument now applies to the symmetry, which is why a per-phase
     // config says so and renders all three values. A log that showed only
@@ -697,26 +1033,28 @@ namespace hal
     // test that was never performed.
     //
     template<typename Symmetry>
-    auto describeConfig( const Ac6677AConfig<Symmetry> & config) -> core::SourceDescription
+    auto describeConfig( const Ac6834BConfig<Symmetry> & config) -> core::SourceDescription
     {
         auto settings = [&]() -> std::vector<std::string>
         {
             if constexpr( std::is_same_v<Symmetry, PerPhase>)
             {
                 return {
-                    "3-phase wye, per-phase",
+                    "3-phase, per-phase",
                     detail::describePhaseSetting( "phaseVoltage", config.PhaseVoltage),
                     describeSetting( "frequency", config.Frequency),
-                    detail::describePhaseSetting( "currentLimit", config.CurrentLimit)
+                    detail::describePhaseSetting( "currentLimit", config.CurrentLimit),
+                    detail::describePhaseSetting( "range", config.Range)
                 };
             }
             else
             {
                 return {
-                    "3-phase wye",
+                    "3-phase",
                     describeSetting( "phaseVoltage", config.PhaseVoltage),
                     describeSetting( "frequency",    config.Frequency),
-                    describeSetting( "currentLimit", config.CurrentLimit)
+                    describeSetting( "currentLimit", config.CurrentLimit),
+                    describeSetting( "range",        config.Range)
                 };
             }
         }();
@@ -744,13 +1082,13 @@ namespace hal
     // are driven alike.
     //
     template<typename Symmetry>
-    auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const Ac6677AConfig<Symmetry> & config) -> void
+    auto connectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const Ac6834BConfig<Symmetry> & config) -> void
     {
         fabric.connect( instrumentWiring.findAll( config.Instrument.id()));
     }
 
     template<typename Symmetry>
-    auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const Ac6677AConfig<Symmetry> & config) -> void
+    auto disconnectDriver( SwitchFabric & fabric, const InstrumentWiring & instrumentWiring, const ConnectorWiring &, const Ac6834BConfig<Symmetry> & config) -> void
     {
         fabric.disconnect( instrumentWiring.findAll( config.Instrument.id()));
     }

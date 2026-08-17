@@ -1,4 +1,4 @@
-#include "hal/ac6677a.hpp"
+#include "hal/ac6834b.hpp"
 #include "hal/apply.hpp"
 #include "hal/n6701a.hpp"
 #include "hal/safing.hpp"
@@ -48,7 +48,7 @@ namespace
         // (the one Connect/Disconnect can be called on at all).
         hal::N6701ADirect      dcP1{ hal::InstrumentId::DcP1, 1 };
         hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, 3 };
-        hal::Ac6677A           acP1{ hal::InstrumentId::AcP1 };
+        hal::Ac6834B           acP1{ hal::InstrumentId::AcP1 };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};
@@ -101,10 +101,10 @@ TEST_F( DescribeFixture, UnsetSettingsAreOmittedRatherThanReportedAsZero)
 
 TEST_F( DescribeFixture, AcConfigStatesItsConnectionModeAndSettings)
 {
-    const auto described = describeConfig( acP1.wye().phaseVoltage( 230.0_V).frequency( 50.0_Hz).config());
+    const auto described = describeConfig( acP1.ac().phaseVoltage( 230.0_V).frequency( 50.0_Hz).config());
 
     EXPECT_EQ( described.Instrument, "AcP1");
-    EXPECT_EQ( described.Settings,   "3-phase wye, phaseVoltage=230 V, frequency=50 Hz");
+    EXPECT_EQ( described.Settings,   "3-phase, phaseVoltage=230 V, frequency=50 Hz");
 }
 
 TEST_F( DescribeFixture, ApplyPostsWhatWasAppliedToTheJournal)
@@ -171,7 +171,7 @@ TEST_F( DescribeFixture, SafingPostsToTheJournal)
 //
 TEST_F( DescribeFixture, AnUnbalancedAcConfigLogsAllThreePhasesAndSaysItIsPerPhase)
 {
-    const auto described = describeConfig( acP1.wye()
+    const auto described = describeConfig( acP1.ac()
                                                 .phaseVoltage( hal::phaseA( 115.0_V), hal::phaseB( 113.0_V), hal::phaseC( 117.0_V))
                                                 .frequency( 400.0_Hz)
                                                 .config());
@@ -189,7 +189,7 @@ TEST_F( DescribeFixture, AnUnbalancedAcConfigLogsAllThreePhasesAndSaysItIsPerPha
 
 TEST_F( DescribeFixture, ABalancedAcConfigStillLogsOneVoltage)
 {
-    const auto described = describeConfig( acP1.wye().phaseVoltage( 115.0_V).config());
+    const auto described = describeConfig( acP1.ac().phaseVoltage( 115.0_V).config());
 
     EXPECT_EQ( described.Settings.find( "per-phase"), std::string::npos);
     EXPECT_NE( described.Settings.find( "phaseVoltage=115"), std::string::npos);

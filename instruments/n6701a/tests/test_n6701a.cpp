@@ -1,7 +1,7 @@
 //
 // hal::N6701A's own tests, split out of libs/hal/tests/test_source_instruments.cpp
 // when this driver moved into its own directory. That file held N6701A's and
-// Ac6677A's tests together behind one shared fixture; each driver now has its own
+// Ac6834B's tests together behind one shared fixture; each driver now has its own
 // copy of the fixture, trimmed to the instruments it actually names.
 //
 // Fixture and suite names are deliberately unchanged (SourceInstrumentFixture,
@@ -11,7 +11,7 @@
 // provably behaviour-preserving. Worth doing later, on its own.
 //
 // One test did not come along: DcConnectAndDisconnectDoNotDisturbAnUnrelated-
-// AlreadyConnectedPath, which needs an Ac6677A to supply the unrelated path and
+// AlreadyConnectedPath, which needs an Ac6834B to supply the unrelated path and
 // so genuinely spans two drivers. It stayed in libs/hal/tests/ -- see that
 // file's own comment.
 //

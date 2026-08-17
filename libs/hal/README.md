@@ -74,14 +74,14 @@ call site -- moving a driver out changed its build location and nothing else.
 | `hal::L4411A` | `instruments/l4411a/` |
 | `hal::DSO8064` | `instruments/dso8064/` |
 | `hal::N6701A` | `instruments/n6701a/` |
-| `hal::Ac6677A` | `instruments/ac6677a/` |
+| `hal::Ac6834B` | `instruments/ac6834b/` |
 
 A rig's own instrument list, wiring data, and concrete instrument
 identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP4`/`AcP1`/`fabric` in
 this repo's case) live in `rig/` at the repo root, not here -- see
 `rig/README.md`.
 
-## Two static wiring facts, composed at measurement (or sourcing) time
+## Static wiring facts, composed at measurement (or sourcing) time
 
 An instrument's matrix/mux channel is fixed regardless of which DUT pin is
 being measured (or sourced); a VPC connector pin's channel is fixed
@@ -94,6 +94,19 @@ physical facts are only per instrument and per pin. Both
 `libs/core/include/core/measure.hpp`, `libs/core/include/core/apply.hpp`)
 compose the two into one crosspoint command at the moment a measurement or
 a sourcing call is actually made.
+
+A third table, `hal::SourceWiring`, records which VPC pin each fixed-wired
+source instrument's output is *cabled* onto. It is deliberately not a path and
+is composed with nothing: its entire content is that the fabric is not
+involved. Without it there was no way to say "this pin is not routed", so mux
+channels got invented for landing pins purely to satisfy the coverage check --
+and a fabricated route to a rail is worse than a missing one. A landing pin may
+still carry a mux tap as well (reading a rail where it arrives at the DUT
+catches cable drop that the supply's own readback cannot), so the two tables are
+not mutually exclusive; what `dut/tests/test_wiring_coverage.cpp` does enforce
+is that a pin the rig knows a source is cabled to is declared `SOURCE_POINT`
+rather than `POINT`, so the adapter never describes a driven rail as an
+ordinary pin.
 
 A rig's own `wiring.inc` (`rig/wiring.inc` in this repo, reached from
 `hal/measure.cpp`/`hal/apply.cpp` via `THORIUM_WIRING_TABLE` rather than a
@@ -161,14 +174,14 @@ sources through, the same way `measure.hpp`/`measure.cpp` do for `Measure`:
 `libs/core/include/core/apply.hpp`) instantiated with the same three rig
 types `MeasureEngine` uses. Where `Measure` takes a `core::Port`, `Apply`
 and `Remove` each take a *builder* -- `N6701ABuilder<Loc>` or
-`Ac6677ABuilder` -- built up fluently from an instrument's `.dc(at(...))`
-or `.threePhaseWye()` method:
+`Ac6834BBuilder` -- built up fluently from an instrument's `.dc(at(...))`
+or `.ac()` method:
 
 ```cpp
 Apply(  DcP1.dc().voltage( 24_V).currentLimit( 7_A));
 Remove( DcP1.dc());
 
-Apply(  AcP1.threePhaseWye().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 3_A));
+Apply(  AcP1.ac().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 3_A));
 ```
 
 Neither takes an `at(...)`: a source instrument here is fixed-wired straight to
@@ -179,12 +192,12 @@ output comes up and `Disconnect` opens it after the output goes down, so the
 contacts never move under load -- see `core/apply.hpp`.
 
 Dispatch to the actual instrument (`applyDriver`/`removeDriver`, defined
-alongside each builder in `n6701a.hpp`/`ac6677a.hpp`) happens via ADL on
+alongside each builder in `n6701a.hpp`/`ac6834b.hpp`) happens via ADL on
 the builder's `.config()` type, the same trick `core::MeasureEngine` uses
 for `to_string(instrumentId)` -- `core/apply.hpp` itself has no dependency
 on `hal::` at all.
 
-## Instrument identity (DcP1..DcP4/AcP1) vs. instrument class (N6701A/Ac6677A)
+## Instrument identity (DcP1..DcP4/AcP1) vs. instrument class (N6701A/Ac6834B)
 
 `InstrumentId`'s enumerators are rig data, not hal data -- generated from
 `THORIUM_INSTRUMENT_TABLE` (`rig/instrument.inc` in this repo's case), not
@@ -197,7 +210,7 @@ picks:
   way `Dmm1`/`Dmm2` don't encode which literal DMM model is plugged in.
   A script never needs to know or care that `DcP1` happens to be an N6701A
   channel underneath.
-- **The C++ class** (`hal::N6701A`, `hal::Ac6677A`) is named after the
+- **The C++ class** (`hal::N6701A`, `hal::Ac6834B`) is named after the
   physical instrument model. A real power-supply driver's SCPI dialect and
   channel-addressing scheme is inherently tied to its exact model, so
   naming the class after the model documents that non-portability rather
@@ -222,30 +235,30 @@ would address the mainframe itself (GPIB address, VISA resource string,
 etc.) -- that's deferred for every instrument, not specific to this one,
 until real-driver work begins.
 
-## Why `ThreePhaseWyePoints` has no neutral point
+## Why the AC source's neutral return is part of the model
 
-This rig's AC neutral is hard-wired to ground rather than routed through
-the switching fabric, so `ThreePhaseWyePoints` is just `{ a, b, c }` --
-`Apply`/`Remove` never route or source a neutral connection. `AcInput_N`
-still exists as an ordinary DUT adapter point (see
-`dut/adapter.inc`) for diagnostic `Measure(...)` calls (e.g.
-verifying it actually reads as ground) -- it's simply never part of a
-`ThreePhaseWyePoints`, and `hal::ac6677a.hpp` has no `.n` field to put it in.
+`AcP1` is fixed-wired on **four** channels, not three: phases A, B and C plus
+the neutral/ground return, all closed and opened together by
+`Connect`/`Disconnect`. They are registered under one `InstrumentId`, so
+`hal::InstrumentWiring::findAll()` hands the driver every entry at once (see
+`wiring.hpp`) -- a three-phase source with one phase live and its return open
+is not a state worth being able to reach.
 
-## Why `ThreePhaseWyePoints` isn't templated on its three points
+This reverses an earlier decision, which is worth recording because the
+reasoning behind it stopped applying without looking as though it had. The
+neutral was originally left out of the model altogether: hard-wired to ground,
+outside the switching fabric, never switched, so nothing to represent. That was
+true on its own terms -- and it quietly stopped being the relevant question once
+the three *phases* also became fixed, always-together relays rather than
+mux-routed ones. If opening this instrument's path is meant to isolate it, which
+is the whole safety motivation for fixed-wiring the phases, then the return
+conductor is part of that isolation too, not a wire that gets to sit outside the
+model.
 
-The natural first design -- `template<auto A, auto B, auto C>
-struct ThreePhaseWyePoints` -- doesn't work: `AcP1.threePhaseWye({ .a=...,
-.b=..., .c=... })` builds the argument via designated-initializer aggregate
-initialization, which is not a deduction context for a class template's
-non-type parameters, so none of the three points would ever be deduced.
-`ac6677a.hpp` instead erases each point's `Loc` to a runtime `VpcLocation`
-(`ErasedPhasePoint`) the moment it's wrapped by `phase(at(...))` -- the one
-place the compile-time `Kind == Voltage` check happens, since `phase()`'s
-parameter type only accepts a `Voltage`-tagged point. Losing `Loc` at that
-point costs nothing: `applyDriver`/`removeDriver` only ever need it as a
-runtime value for the connector-wiring lookup anyway, the same way
-`InstrumentWiring::find(InstrumentId)` already works.
+On the DUT side the same four conductors are `dut::AcInput::A/B/C/N` -- a
+`BUNDLE` of four `SOURCE_LINE`s (see `dut/adapter.inc` and `adapter.hpp`),
+grouped because they are one interface rather than four unrelated pins, and
+declared as source points because `AcP1` is cabled onto all four.
 
 ## Dmm's AC mode is stored on the instrument, not the port
 

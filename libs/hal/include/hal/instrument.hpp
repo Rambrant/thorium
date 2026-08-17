@@ -85,7 +85,7 @@ namespace hal
 
     //
     // Empty marker base -- every concrete instrument driver (hal::L4411A,
-    // hal::DSO8064, hal::N6701A<Isolation>, hal::Ac6677A) inherits it
+    // hal::DSO8064, hal::N6701A<Isolation>, hal::Ac6834B) inherits it
     // publicly, and nothing else does. hal::safeRig() (hal/src/safing.cpp)
     // is the only reason this exists: it reflects over the global namespace
     // for every InstrumentTag-derived variable (rig/active_instruments.hpp

@@ -20,7 +20,7 @@ INSTRUMENT_WIRING
     WIRE_INSTRUMENT( DcP4, HOP( Matrix, "Matrix2", 25))
     // AcP1 is fixed-wired on four channels, not one -- phases A/B/C plus
     // the neutral/ground return, all closed and opened together (see
-    // hal::Ac6677A's own comment on why the return is included, and
+    // hal::Ac6834B's own comment on why the return is included, and
     // hal::InstrumentWiring::findAll() for how a script-facing Connect/
     // Disconnect gets all four back from one InstrumentId). Each is its
     // own single-hop entry here -- four independent Paths under one
@@ -67,7 +67,7 @@ END_CONNECTOR_WIRING
 // corroborates with the voltage it applies: DcP1 and DcP2 are brought up at
 // 28 V against points described as "28Vdc backup supply" and "28Vdc
 // secondary backup supply", DcP3 at 24 V against "24Vdc secondary backup
-// supply", and AcP1 as a three-phase wye against the four AcInput lines.
+// supply", and AcP1 as a three-phase source against the four AcInput lines.
 // Re-check when a real rig and DUT exist.
 //
 // A landing pin is NOT thereby unreachable: all eight below also keep their

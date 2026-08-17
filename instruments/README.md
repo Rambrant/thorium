@@ -15,7 +15,7 @@ instruments/
         tests/test_l4411a.cpp
     dso8064/                    # hal::DSO8064 -- four-channel oscilloscope
     n6701a/                     # hal::N6701A  -- one DC supply channel
-    ac6677a/                    # hal::Ac6677A -- three-phase AC source
+    ac6834b/                    # hal::Ac6834B -- three-phase AC source
 ```
 
 ## How a directory here gets built
@@ -84,7 +84,7 @@ That last row is worth reading closely before assuming a file is misplaced: both
 files said as much in their own header comments long before any of this moved.
 
 The split of `test_source_instruments.cpp` is the one place where moving tests was
-not a verbatim lift. It held N6701A's and Ac6677A's tests behind a single shared
+not a verbatim lift. It held N6701A's and Ac6834B's tests behind a single shared
 fixture; each driver now carries its own copy of the fixture, trimmed to the
 instruments it actually names, with the test bodies unchanged. Fixture and suite
 names were deliberately *not* improved at the same time — `TEST_F` takes its suite

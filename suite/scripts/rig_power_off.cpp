@@ -42,7 +42,7 @@ auto rigPowerOff() -> bool
     Remove( DcP1.dc());
     Remove( DcP2.dc());
     Remove( DcP3.dc());
-    Remove( AcP1.wye());
+    Remove( AcP1.ac());
 
     //
     // Outputs off first, relays after. Not tidiness: opening a relay while
@@ -60,7 +60,7 @@ auto rigPowerOff() -> bool
     // in hal/n6701a.hpp).
     //
     Disconnect( DcP3.dc());
-    Disconnect( AcP1.wye());
+    Disconnect( AcP1.ac());
 
     //
     // No catch-all "open whatever else is still closed" step, deliberately.

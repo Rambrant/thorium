@@ -11,7 +11,7 @@
 // knows about.
 //
 // A handful of these points are also where a fixed-wired source instrument
-// (hal::N6701A/hal::DcP1..DcP4, hal::Ac6677A/hal::AcP1) permanently lands --
+// (hal::N6701A/hal::DcP1..DcP4, hal::Ac6834B/hal::AcP1) permanently lands --
 // Output5V and BackupSupply look like DC rails, AcInput_A/B/C/N look like a
 // three-phase-plus-neutral AC input, for instance. hal:: itself has no idea
 // any of that -- DcP1's fixed matrix channel (hal/wiring.inc) is a bare
