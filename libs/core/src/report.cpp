@@ -179,13 +179,29 @@ namespace core
     auto isHumanRelevant( const JournalEvent & event) -> bool
     {
         //
-        // Measure and Verify only -- see core/report.hpp on why the rule lives
-        // here. Note and Warning-carrying events are deliberately excluded
-        // too: a Note is how the runner records something for the machine log
-        // (an uncaught exception's text, say), and the console has already
-        // shown that to the operator by other means.
+        // What the run *observed*, and the checks made on it -- see
+        // core/report.hpp on why the rule lives here. Note and Warning-carrying
+        // events are deliberately excluded too: a Note is how the runner
+        // records something for the machine log (an uncaught exception's text,
+        // say), and the console has already shown that to the operator by other
+        // means.
         //
-        return event.Method == Verb::Measure || event.Method == Verb::Verify;
+        // Read is here for the same reason Measure is, and the boundary is
+        // worth stating because the serial verbs straddle it. A Read is an
+        // observation: a value that came back off the DUT, which a criterion is
+        // about to be checked against, and which a reader of the human log has
+        // to see to follow the verdict beneath it. Setup and Write are
+        // stimulus -- what the bench was told to do -- and belong with Apply
+        // and Connect on the machine stream only.
+        //
+        // That does mean a reply appears without the command that provoked it,
+        // which looks like an omission and is not: a Measure already appears
+        // without the Apply that brought its rail up, for exactly the same
+        // reason. The human log answers "what did the DUT do"; the SARIF stream
+        // carries every verb in order for anyone asking "what did the bench do"
+        // (see core/sarif_sink.hpp).
+        //
+        return event.Method == Verb::Measure || event.Method == Verb::Read || event.Method == Verb::Verify;
     }
 
     auto humanHeaderLines( const RunInfo & info) -> std::vector<ReportLine>
@@ -235,7 +251,7 @@ namespace core
             return {};
         }
 
-        if( event.Method == Verb::Measure)
+        if( event.Method == Verb::Measure || event.Method == Verb::Read)
         {
             //
             // "measure Output5V  5.021 V  (Dmm1)  5Vdc supply port" -- the
@@ -243,11 +259,17 @@ namespace core
             // instrument and the point's own description after it as supporting
             // context.
             //
+            // A Read renders through this same branch, and lines up in the same
+            // columns, because it is the same kind of line: a value that came
+            // back, from an instrument, about a named thing. Only the verb
+            // differs -- "read Console  \"0xF5\\r\"  (Ser1)" -- so the two
+            // never need to be told apart by shape when a script does both.
+            //
             // Padded to the same verb/subject/value columns a verify line uses,
             // so a reading and the check against it line up rather than
             // staggering.
             //
-            auto text = padded( "measure", kVerbWidth)
+            auto text = padded( event.Method == Verb::Read ? "read" : "measure", kVerbWidth)
                       + padded( event.Subject, kSubjectWidth)
                       + padded( event.Value, kValueWidth);
 

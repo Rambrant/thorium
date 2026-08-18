@@ -1,6 +1,7 @@
 #include "core/format.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdio>
 
 namespace core
@@ -30,4 +31,13 @@ namespace core
         return ( written > 0) ? std::string( buffer.data(), static_cast<std::size_t>( written)) : std::string{};
     }
 
+    auto formatByte( const std::byte value) -> std::string
+    {
+        std::array<char, 8> buffer{};
+
+        const auto written = std::snprintf( buffer.data(), buffer.size(), "0x%02X",
+                                            static_cast<unsigned>( std::to_integer<unsigned char>( value)));
+
+        return ( written > 0) ? std::string( buffer.data(), static_cast<std::size_t>( written)) : std::string{};
+    }
 } // namespace core

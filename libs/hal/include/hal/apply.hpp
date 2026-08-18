@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/apply.hpp"
+#include "core/transfer.hpp"
 #include "hal/switch_fabric.hpp"
 #include "hal/wiring.hpp"
 
@@ -13,6 +14,20 @@
 //
 using ApplyEngine  = core::ApplyEngine;
 using RemoveEngine = core::RemoveEngine;
+
+//
+// Setup and Write take no rig facts either, for the same reason: both are pure
+// instrument I/O. Setup configures without energising (see core::SetupEngine on
+// why that is a verb of its own rather than a flavour of Apply), and Write puts
+// a payload out of an already-connected port.
+//
+// Read is NOT here, and that is not an oversight -- it is declared in
+// hal/measure.hpp, alongside Measure, because it reads through the same
+// core::SessionBank and the two globals have to be constructed together. See
+// that header.
+//
+using SetupEngine = core::SetupEngine;
+using WriteEngine = core::WriteEngine;
 
 //
 // The concrete instantiation of core::ConnectEngine/core::DisconnectEngine
@@ -50,3 +65,5 @@ extern ApplyEngine      Apply;
 extern RemoveEngine     Remove;
 extern ConnectEngine    Connect;
 extern DisconnectEngine Disconnect;
+extern SetupEngine      Setup;
+extern WriteEngine      Write;

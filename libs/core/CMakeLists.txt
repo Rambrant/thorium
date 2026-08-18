@@ -5,6 +5,7 @@ add_library(core STATIC
         src/recording.cpp
         src/session.cpp
         src/format.cpp
+        src/bytes.cpp
         src/journal.cpp
         src/criteria_variants.cpp
         src/report.cpp
@@ -20,12 +21,14 @@ add_library(core STATIC
         include/core/adapter.hpp         # header-only
         include/core/at.hpp              # header-only
         include/core/apply.hpp           # header-only
+        include/core/transfer.hpp        # header-only
         include/core/predicates.hpp      # header-only
         include/core/criterion.hpp       # header-only
         include/core/active_criteria.hpp # header-only
         include/core/criteria_variants.hpp
         include/core/meta.hpp            # header-only
         include/core/format.hpp          # header-only apart from src/format.cpp
+        include/core/bytes.hpp           # header-only apart from src/bytes.cpp
         include/core/predicate_text.hpp  # header-only
         include/core/journal.hpp
         include/core/report.hpp

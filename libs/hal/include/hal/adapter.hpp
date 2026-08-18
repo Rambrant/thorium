@@ -107,7 +107,19 @@
 //       END_BUNDLE
 //   END_ADAPTER
 //
-//   Measure( Dmm1.voltage(), at( dut::Console::Tx));
+//   Measure( Dmm1.voltage(), at( dut::Console::Tx));   // one line
+//   Connect( Ser1.rs232(),   at( dut::Console));       // the whole interface
+//
+// Both spellings work, and neither is a special case: a bundle is a nested
+// struct (so dut::Console::Tx is ordinary member lookup) *and* a value of
+// core::AdapterBundle (so at( dut::Console) has something to pass). See that
+// type's own comment for how one name manages to be both, and what it costs.
+//
+// Routing to the bundle closes every LINE in it together, which is what makes
+// it worth naming: an RS232 console is not usable one wire at a time, so the
+// unit a script connects has to be the interface, not the pin. See
+// hal::bundleLocations in hal/bundle.hpp for the walk that recovers the lines,
+// and hal::Racal1260's connectDriver for the one that uses it.
 //
 // A nested struct-as-namespace, reached with :: exactly the way `dut` itself
 // is (see this file's own comment above on why `dut` is a struct rather than
@@ -129,10 +141,20 @@
 // for a bundle of wires would make that removed model look like it came
 // back.
 //
-#define BUNDLE( id, desc)                                          \
-        struct id : ::core::AdapterBundleTag                       \
-        {                                                          \
-            static constexpr ::std::string_view Name        = #id;  \
+// The three declarations are in this order for a reason -- see
+// core::AdapterBundle's own comment, which is where the whole arrangement is
+// explained. In short: the value has to be declared before the struct it names
+// is defined, because once the value exists it hides the class name for
+// ordinary lookup, and `struct id : ...` is an elaborated-type-specifier that
+// looks past it. Reversing the two, or folding the value into END_BUNDLE,
+// breaks either at( dut::Console) or dut::Console::Tx.
+//
+#define BUNDLE( id, desc)                                              \
+        struct id;                                                     \
+        static constexpr ::core::AdapterBundle<id> id{ #id, desc };    \
+        struct id : ::core::AdapterBundleTag                           \
+        {                                                              \
+            static constexpr ::std::string_view Name        = #id;     \
             static constexpr ::std::string_view Description = desc;
 
 #define LINE( id, rack, connector, pin, desc)                                                                                     \

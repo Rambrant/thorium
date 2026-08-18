@@ -37,6 +37,13 @@
 // Matches this rig's real bench fact: some DC rails switchable, some not,
 // same instrument type either way.
 //
+//
+// Ser1 is the one instrument here that is neither a meter nor a source: an
+// RS232 port routed to the DUT through the same matrix everything else uses
+// (see hal::Racal1260, and dut::Console for the interface it talks to). It
+// takes no constructor argument beyond its id -- one instance is one port,
+// the same way one hal::L4411A is one meter.
+//
 INSTRUMENTS
     INSTRUMENT( L4411A,       Dmm1)
     INSTRUMENT( L4411A,       Dmm2)
@@ -46,4 +53,5 @@ INSTRUMENTS
     INSTRUMENT( N6701ARelay,  DcP3, 3)
     INSTRUMENT( N6701ARelay,  DcP4, 4)
     INSTRUMENT( Ac6834B,      AcP1)
+    INSTRUMENT( Racal1260,    Ser1)
 END_INSTRUMENTS

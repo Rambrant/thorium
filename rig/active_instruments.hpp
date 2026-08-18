@@ -5,6 +5,7 @@
 #include "hal/dso8064.hpp"
 #include "hal/n6701a.hpp"
 #include "hal/ac6834b.hpp"
+#include "hal/racal1260.hpp"
 #include "hal/switch_fabric.hpp"
 
 //

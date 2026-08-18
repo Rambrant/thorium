@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -46,6 +47,15 @@ namespace core
     //
     [[nodiscard]]
     auto formatHex( std::uint64_t value) -> std::string;
+
+    //
+    // One octet, always two digits ("0x05", "0xF5"). Distinct from formatHex
+    // above, which is minimum-width: a byte is a fixed-width field, and a
+    // report is read by scanning a column of them, which a value that
+    // sometimes renders one digit wide breaks.
+    //
+    [[nodiscard]]
+    auto formatByte( std::byte value) -> std::string;
 
     //
     // The three value questions a log asks at a core::Verify call site, where
@@ -100,6 +110,16 @@ namespace core
         {
             return static_cast<double>( value);
         }
+        else if constexpr( std::same_as<T, std::byte>)
+        {
+            //
+            // A byte read out of a serial reply is a register readback like any
+            // other, so a machine consumer gets the same numeric column for it
+            // that an int-typed one already had -- see describeValue below on
+            // why std::byte needs naming separately at all.
+            //
+            return static_cast<double>( std::to_integer<unsigned char>( value));
+        }
         else
         {
             return std::nullopt;
@@ -143,6 +163,23 @@ namespace core
         else if constexpr( std::floating_point<T>)
         {
             return formatNumber( static_cast<double>( value));
+        }
+        else if constexpr( std::same_as<T, std::byte>)
+        {
+            //
+            // std::byte is deliberately not an integral type, so it does not
+            // reach the branch above and has to be named here -- without which
+            // a Verify against one octet of a serial reply (see
+            // core::Bytes::at) would fall through to the empty default and log
+            // a criterion's verdict with no value beside it.
+            //
+            // Two digits, always, and no decimal form: a byte is a bit pattern
+            // in a fixed-width field, and "0x05" lines up in a report against
+            // the other bytes of the same frame where "5 (0x5)" does not. The
+            // integral branch's both-bases rendering exists because a register
+            // *width* is not knowable there; here it is, exactly one octet.
+            //
+            return formatByte( value);
         }
         else
         {

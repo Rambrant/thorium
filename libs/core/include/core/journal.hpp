@@ -50,13 +50,33 @@ namespace core
     // dropped to idle here" is exactly as much a part of what a run did as
     // any Apply, and a reader reconstructing the run needs it in order.
     //
+    // Setup/Write/Read are the byte-oriented half, added with serial
+    // communication (see core/transfer.hpp). Each is a genuinely distinct thing
+    // a run did, and collapsing any of them into a neighbour would lose
+    // something a reader needs:
+    //
+    //   - Setup configures an instrument without acting -- a UART's baud rate
+    //     and framing, a scope's timebase. Not Apply, which energises
+    //     something: the whole reason it is separate is that the two have
+    //     different consequences at the bench, and a log in which "the port
+    //     was configured for 9600 8N1" and "the supply was brought up to 24 V"
+    //     are the same word cannot be read for what a run actually did.
+    //   - Write is a stimulus sent to the DUT, Read an answer that came back.
+    //     Two verbs rather than one Transact, because a fire-and-forget write
+    //     and an unsolicited read both happen, and because a reply that never
+    //     arrived has to be visible in the log as a Write with no Read after
+    //     it.
+    //
     enum class Verb
     {
         Measure,
+        Setup,
         Apply,
         Remove,
         Connect,
         Disconnect,
+        Write,
+        Read,
         Verify,
         Safe,
         Note

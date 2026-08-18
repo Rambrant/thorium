@@ -16,6 +16,7 @@ instruments/
     dso8064/                    # hal::DSO8064 -- four-channel oscilloscope
     n6701a/                     # hal::N6701A  -- one DC supply channel
     ac6834b/                    # hal::Ac6834B -- three-phase AC source
+    racal1260/                  # hal::Racal1260 -- matrix-routed RS232 port
 ```
 
 ## How a directory here gets built

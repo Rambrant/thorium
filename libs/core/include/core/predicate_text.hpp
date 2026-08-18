@@ -74,10 +74,10 @@ namespace core::quantities
         // but wrong inside a bit-pattern expression, where the decimal is noise
         // and the hex is the whole point.
         //
-        template<std::integral T>
+        template<BitPattern T>
         auto patternText( const T value) -> std::string
         {
-            return core::formatHex( static_cast<std::uint64_t>( static_cast<std::make_unsigned_t<T>>( value)));
+            return core::formatHex( toBits( value));
         }
     } // namespace detail
 
@@ -114,11 +114,44 @@ namespace core::quantities
         return std::string( symbol) + " " + core::describeValue( predicate.expected) + detail::toleranceText( predicate.tolerance);
     }
 
-    template<std::integral T>
+    template<BitPattern T>
     [[nodiscard]]
     auto describePredicate( const MaskPredicate<T> & predicate) -> std::string
     {
         return "(value & " + detail::patternText( predicate.mask) + ") == " + detail::patternText( predicate.expected);
+    }
+
+    //
+    // Rendered as the sentence the criteria table was written to state, not as
+    // the MASK each is equivalent to -- see BITS_SET's own comment in
+    // core/predicates.hpp. A report saying "bits 0x0C set" is checkable against
+    // a specification by eye; "(value & 0x0C) == 0x0C" makes the reader do the
+    // equivalence themselves, every time.
+    //
+    template<BitPattern T, BitSense Sense>
+    [[nodiscard]]
+    auto describePredicate( const BitsPredicate<T, Sense> & predicate) -> std::string
+    {
+        constexpr std::string_view sense = ( Sense == BitSense::Set) ? "set" : "clear";
+
+        return "bits " + detail::patternText( predicate.mask) + " " + std::string( sense);
+    }
+
+    //
+    // The bit number, not the mask it stands for: BIT_SET<3>() was authored
+    // against a specification that numbers the bit, and "bit 3 set" is what
+    // traces back to it. Both halves are template parameters, so the whole
+    // string is fixed at compile time and a Sense added to the enum without a
+    // word here is a compile error in this function rather than a log line
+    // reading "bit 3 ?".
+    //
+    template<unsigned Bit, BitSense Sense>
+    [[nodiscard]]
+    auto describePredicate( const BitPredicate<Bit, Sense> &) -> std::string
+    {
+        constexpr std::string_view sense = ( Sense == BitSense::Set) ? "set" : "clear";
+
+        return "bit " + std::to_string( Bit) + " " + std::string( sense);
     }
 
     template<typename T, std::size_t N>

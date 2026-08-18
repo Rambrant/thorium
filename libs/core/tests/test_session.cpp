@@ -6,6 +6,8 @@
 
 #include <gtest/gtest.h>
 
+#include <variant>
+
 using namespace core::literals;
 using namespace core::quantities;
 
@@ -286,15 +288,31 @@ TEST( CoreSession, RecordingSessionCapturesInstrumentId)
     EXPECT_EQ( recording.samples()[0].mInstrumentId, "CustomDmm");
 }
 
-TEST( CoreSession, RecordingSessionCapturesQuantityKind)
+//
+// A recorded sample's kind comes from the value it actually holds, and cannot
+// be stated separately from it.
+//
+// This test used to assert the opposite, and it is worth saying why it changed
+// rather than quietly rewriting it: it passed a declared kind of Current
+// alongside a live read that produced a Voltage, and asserted the sample came
+// back saying Current. That was a real state the old two-field RecordedSample
+// could be in -- a row whose kind and value disagreed -- and exactly the defect
+// core::MeasureEngine's own comment describes on the logging path. There is now
+// no second field to disagree, so the question the test can ask is the stronger
+// one: what the sample says it is, is what it holds.
+//
+TEST( CoreSession, ARecordedSamplesKindComesFromItsValue)
 {
-    core::LiveSession     live;
+    core::LiveSession      live;
     core::RecordingSession recording( live);
 
     (void)recording.fetch( "Point", "Dmm1", core::QuantityKind::Current, liveVoltage( 1.0));
 
     ASSERT_EQ( recording.samples().size(), 1u);
-    EXPECT_EQ( recording.samples()[0].mKind, core::QuantityKind::Current);
+
+    const auto & value = std::get<core::QuantityVariant>( recording.samples()[0].mValue);
+
+    EXPECT_EQ( static_cast<core::QuantityKind>( value.index()), core::QuantityKind::Voltage);
 }
 
 TEST( CoreSession, SwitchableSessionCanSwitchMultipleTimes)

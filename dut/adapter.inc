@@ -76,4 +76,37 @@ ADAPTER( "Device X on standard adapter")
         SOURCE_LINE( C,     A, 3, 5, "AC input, phase C")
         SOURCE_LINE( N,     A, 3, 7, "AC input, neutral")
     END_BUNDLE
+
+    //
+    // The DUT's debug console -- the second multi-wire interface on this
+    // adapter, and the first that is routed rather than cabled.
+    //
+    // Ordinary LINEs, not SOURCE_LINEs: nothing on this bench is permanently
+    // wired onto these three pins. A serial port (hal::Racal1260/Ser1 -- see
+    // rig/instrument.inc) is switched onto them through the matrix for as long
+    // as a script holds the connection open, which is what a console is for and
+    // what the AC input above deliberately is not. A matrix carries a
+    // signal-level interface perfectly well; it is load current that has to be
+    // kept off the relays, and there is none here.
+    //
+    // Three pins because a serial link needs a return path, and the return is
+    // part of the interface rather than an incidental ground: routing Tx and Rx
+    // without Gnd is not a degraded link, it is no link at all. That is the
+    // same argument the AcInput bundle above makes for including its neutral,
+    // and the reason both are bundles rather than loose points -- a script
+    // connects the interface, never a wire (see core::ConnectEngine's bundle
+    // overload).
+    //
+    // Tx/Rx are named from the DUT's point of view, which is the convention the
+    // pinout document uses: dut::Console::Tx is the pin the DUT transmits on,
+    // and so the one the bench listens to. Which of Ser1's own matrix channels
+    // meets which of these is a cabling fact and lives in rig/wiring.inc; this
+    // file describes the device, and the device's idea of Tx does not change
+    // with the bench it is plugged into.
+    //
+    BUNDLE( Console, "RS232 debug console")
+        LINE( Tx,   A, 2, 1, "console transmit, DUT to bench")
+        LINE( Rx,   A, 2, 2, "console receive, bench to DUT")
+        LINE( Gnd,  A, 2, 5, "console signal ground")
+    END_BUNDLE
 END_ADAPTER

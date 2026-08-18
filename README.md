@@ -37,7 +37,7 @@ wrong.
 
 ### What is a compile error today
 
-Fifteen classes of mistake, none of which can reach the bench:
+Eighteen classes of mistake, none of which can reach the bench:
 
 | Mistake | What happens |
 |---|---|
@@ -57,6 +57,9 @@ Fifteen classes of mistake, none of which can reach the bench:
 | A new source instrument with no `describeConfig` | no matching function |
 | Sense leads wired without the matching force leads | `dut_tests` fails to build |
 | `.epsilon()` on a type a tolerance is meaningless for | constraint not satisfied |
+| Misspelled bundle — `at( dut::Consol)` | no such member |
+| `Apply( Ser1.rs232())` on a port with no output to energise | no matching `applyDriver` |
+| `BIT_SET<9>()` against a `std::byte` | constraint not satisfied |
 
 Two of those deserve a second look, because they are the interesting ones.
 
@@ -161,6 +164,7 @@ that cannot be recovered from the code.
 | [`instruments/dso8064`](instruments/dso8064/README.md) | Oscilloscope — `Osc1` |
 | [`instruments/n6701a`](instruments/n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
 | [`instruments/ac6834b`](instruments/ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
+| [`instruments/racal1260`](instruments/racal1260/README.md) | RS232 port — `Ser1`, routed to a DUT interface through the matrix |
 
 **This deployment's content**
 
@@ -244,10 +248,11 @@ pin's channel are two independent wiring facts. `Measure` concatenates them at
 the moment of reading, so adding a point costs one wiring line — not one line per
 (instrument, pin) pair.
 
-**One event stream, many renderings.** Every verb — `Measure`, `Apply`, `Remove`,
-`Connect`, `Disconnect`, `Verify`, plus the safing pass — posts to
-`core::Journal`. Sinks decide what to show. Neither filtering nor formatting lives
-at a call site, which is why a third log format needs no change to any verb.
+**One event stream, many renderings.** Every verb — `Measure`, `Setup`, `Apply`,
+`Remove`, `Connect`, `Disconnect`, `Write`, `Read`, `Verify`, plus the safing
+pass — posts to `core::Journal`. Sinks decide what to show. Neither filtering nor
+formatting lives at a call site, which is why a third log format needs no change
+to any verb.
 
 ---
 
@@ -394,6 +399,12 @@ Three files, in this order:
        TEST( ThermalRamp, thermalRampScript, "Ramp the 12V rail and check regulation")
    END_GROUP
    ```
+
+A wholly new `GROUP` costs nothing beyond that third step: `core::catalog::Catalog`
+is built by reflecting over whatever the catalog file declared, in declaration
+order. It used to be a hand-written list, which meant a new group had to be
+acknowledged in framework code *and* mirrored into both test-fixture catalogs,
+so a suite gaining a group could not be a suite-only change.
 
 A script's signature is fixed to `() -> bool` — it takes nothing at all. No rig
 or device handle, because routing is resolved statically inside it; and no group
@@ -553,6 +564,91 @@ What you should *not* do is route a DMM's current terminals through the matrix.
 Signal relays are not rated for load current, and an ammeter closed onto a pin a
 supply is driving is a short across that supply — see §1 on what the fabric does
 and does not protect you from.
+
+### Talk to the DUT over serial
+
+A console dialogue is four verbs, and a route that stays open across all of them.
+
+1. **Declare the interface** in `dut/adapter.inc` as a `BUNDLE` — one `LINE` per
+   wire, the return included:
+   ```cpp
+   BUNDLE( Console, "RS232 debug console")
+       LINE( Tx,   A, 2, 1, "console transmit, DUT to bench")
+       LINE( Rx,   A, 2, 2, "console receive, bench to DUT")
+       LINE( Gnd,  A, 2, 5, "console signal ground")
+   END_BUNDLE
+   ```
+2. **Wire both halves** in `rig/wiring.inc` — `WIRE_INSTRUMENT` rows for the
+   port's own channels, `WIRE_CONNECTOR` rows for the interface's pins. A routed
+   instrument needs both, where a cabled supply needs `WIRE_SOURCE` instead.
+3. **Write the dialogue**:
+   ```cpp
+   Connect( Ser1.rs232(), at( dut::Console));
+   Setup(   Ser1.rs232().baudRate( 9600).wordLength( 8)
+                        .parity( Parity::None).stopBits( StopBits::One));
+
+   Write( Ser1.rs232(), "RD 30\r");
+
+   const auto reply = Read( Ser1.rs232().terminator( "\r").timeout( 500ms));
+
+   allPassed &= Verify( FS_Console_1::FS_Console_Ack,   reply.before( "\r"));
+   allPassed &= Verify( FS_Console_1::FS_Console_Ready, reply.at( 4));
+
+   Disconnect( Ser1.rs232(), at( dut::Console));
+   ```
+
+Four things in that are worth knowing.
+
+**`Connect` takes the interface, not a pin.** All three lines close as one path.
+An RS232 console is not usable a wire at a time, so making the bundle the unit
+means a script cannot express the half-connected case; adding a line to the
+bundle changes what `Connect` closes without touching a call site.
+
+**The route is held open for the whole dialogue.** `Setup`, `Write` and `Read`
+never touch the fabric. This is the one real difference from `Measure`, which
+connects, reads and disconnects inside the single call: a reading is
+instantaneous and independent, where dropping the path between a command and its
+answer would break the exchange.
+
+**`Setup` is not `Apply`.** Configuring a UART changes what a later `Write` means
+and changes nothing at the DUT's pins, so it is a verb of its own — and one the
+oscilloscope will want too. `Apply` on a port that has no output to energise is a
+compile error rather than a call that silently does nothing.
+
+**A reply is `core::Bytes`, not a `std::string`.** Length is its own fact, so an
+embedded NUL is an ordinary byte; elements are `std::byte`, so a locale-aware
+compare is a compile error; and the logs render a text payload as `"ACK\r"` and a
+binary one as `<41 43 4B 0D 08>`, chosen per payload so a reader never has to work
+out which half of a line is an escape.
+
+Criteria hold an expected payload as a `bytes( "ACK")` pattern rather than a
+`Bytes` — a `CRIT` entry is `static constexpr` and `Bytes` allocates — and bit
+patterns as `MASK`, `BITS_SET`/`BITS_CLEAR`, or `BIT_SET<N>()`/`BIT_CLEAR<N>()`:
+
+```cpp
+CRITERIA( FS_Console_1, "Debug console dialogue over RS232")
+    CRIT( FS_Console_Ack,    EQ( bytes( "ACK")),  "Console must acknowledge the status command")
+    CRIT( FS_Console_Ready,  BIT_SET<3>(),        "Status bit 3 (READY) must be set once the rails are up")
+    CRIT( FS_Console_Fault,  BIT_CLEAR<7>(),      "Status bit 7 (FAULT) must be clear")
+END_CRITERIA
+```
+
+The bit number is a template parameter so `BIT_SET<9>()` against a `std::byte` is
+a compile error; written as an argument it could only ever have been a criterion
+that quietly never matched.
+
+**Testing it without a bench** works exactly as it does for a reading, because
+`Read` and `Measure` share one session bank:
+
+```cpp
+Read.inject( "Ser1.Data", { "ACK\r", "0xF5\r" });
+
+EXPECT_TRUE( consoleScript());
+```
+
+`--record` and `--replay` cover both in one file, in one ordered stream — a
+payload row carries `<bytes>` where a reading carries its unit, and its value is
+unspaced hex so a reply containing a tab or a newline still round-trips.
 
 ### Add a unit of measurement
 
@@ -724,9 +820,10 @@ Both are written by default, named for the run's start time, and both carry the
 same traceability header — DUT, serial, operator, criteria variant, framework
 version, content revision, UTC instant, command line.
 
-**`*.rtf` — for people.** Colour-coded, `Measure` and `Verify` only, grouped the
-way the catalog is, descriptions in grey, each check stating what was measured
-*and what was required*:
+**`*.rtf` — for people.** Colour-coded, grouped the way the catalog is,
+descriptions in grey, each check stating what was measured *and what was
+required*. It carries what the run **observed** — `Measure`, `Read` and `Verify`
+— and not what the bench was told to do:
 
 ```
 DeviceX -- Sat 01 Aug 2026 11:13:16 CEST

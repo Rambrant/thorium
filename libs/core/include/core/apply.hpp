@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "core/adapter.hpp"
+#include "core/at.hpp"
 #include "core/journal.hpp"
 
 namespace core
@@ -132,6 +134,48 @@ namespace core
             }
     };
 
+    //
+    // Setup: tell an instrument how to behave, without making it do anything.
+    //
+    // The distinction from Apply is the whole reason this verb exists, and it
+    // is a bench distinction rather than a code one. Apply energises: after it,
+    // the rig is doing something to the DUT that it was not doing before, and
+    // the ordering rules in this file's comment above -- Connect, Apply ...
+    // Remove, Disconnect -- exist because of that. Setup does not: configuring
+    // a UART for 9600 8N1, or a scope for a timebase and a trigger level,
+    // changes what a *later* verb will mean and changes nothing at the DUT's
+    // pins. Collapsing the two would put "the port was configured" and "24 V is
+    // now on the backup rail" behind one word in the log, and would drag
+    // configuration into the hot-switching argument it has no part in.
+    //
+    //     Connect( Ser1.rs232(), at( dut::Console));
+    //     Setup(   Ser1.rs232().baudRate( 9600).wordLength( 8).parity( Parity::None));
+    //     Write(   Ser1.rs232(), "RD 30\r");
+    //
+    // It touches the fabric not at all, exactly like Apply/Remove, so it takes
+    // no wiring and no point -- see this file's comment above on why that
+    // separation was made.
+    //
+    // Dispatched through setupDriver, an ADL customization point of its own
+    // rather than a flag on applyDriver. A driver that has settings but nothing
+    // to energise (a serial port) writes only setupDriver; one that energises
+    // but has nothing to pre-configure writes only applyDriver; and calling a
+    // verb an instrument has no implementation for is "no matching function"
+    // at compile time rather than a silently ignored call.
+    //
+    class SetupEngine
+    {
+        public:
+            template<typename BuilderT>
+            auto operator()( const BuilderT & builder) const -> void
+            {
+                setupDriver( builder.config());
+
+                // With settings -- the settings *are* what a Setup did.
+                detail::postSourceEvent( Verb::Setup, builder.config(), true);
+            }
+    };
+
     class RemoveEngine
     {
         public:
@@ -187,6 +231,48 @@ namespace core
                 detail::postSourceEvent( Verb::Connect, builder.config(), false);
             }
 
+            //
+            // The routed form: an instrument that can reach more than one place
+            // says which, and the destination is a whole multi-wire interface
+            // rather than a pin (see core::AdapterBundle).
+            //
+            // A bundle rather than a point, because the instruments that need
+            // this are the ones no single wire is any use to. An RS232 console
+            // is a transmit line, a receive line and a return; connecting two
+            // of the three is not a degraded link, it is no link. Making the
+            // bundle the unit means a script cannot express the half-connected
+            // case at all, and means adding a line to the interface in
+            // dut/adapter.inc changes what Connect closes without touching a
+            // single call site.
+            //
+            // The bundle's type is forwarded to connectDriver rather than being
+            // expanded here, because how an interface's lines pair up with an
+            // instrument's own channels is the driver's business -- this engine
+            // has no idea which of them is transmit. See hal::Racal1260's
+            // connectDriver, and hal::bundleLocations for the walk it uses.
+            //
+            template<typename BuilderT, typename BundleT>
+            auto operator()( const BuilderT & builder, const At<AdapterBundle<BundleT>> & wrapped) -> void
+            {
+                connectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config(), wrapped.point);
+
+                //
+                // Subject is still the instrument, matching every other
+                // sourcing event, with the interface named in the settings
+                // slot -- a reader filtering the machine log by instrument sees
+                // this Connect alongside the Setup and Write that follow it.
+                //
+                const auto described = describeConfig( builder.config());
+
+                journal().post( JournalRecord{
+                    .Method     = Verb::Connect,
+                    .Subject    = described.Instrument,
+                    .Detail     = std::string( wrapped.point.Description),
+                    .Instrument = described.Instrument,
+                    .Value      = std::string( wrapped.point.Name)
+                });
+            }
+
         private:
             FabricT &                  mFabric;
             const InstrumentWiringT &  mInstrumentWiring;
@@ -209,6 +295,23 @@ namespace core
                 disconnectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config());
 
                 detail::postSourceEvent( Verb::Disconnect, builder.config(), false);
+            }
+
+            // The inverse of ConnectEngine's bundle overload -- see its comment.
+            template<typename BuilderT, typename BundleT>
+            auto operator()( const BuilderT & builder, const At<AdapterBundle<BundleT>> & wrapped) -> void
+            {
+                disconnectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config(), wrapped.point);
+
+                const auto described = describeConfig( builder.config());
+
+                journal().post( JournalRecord{
+                    .Method     = Verb::Disconnect,
+                    .Subject    = described.Instrument,
+                    .Detail     = std::string( wrapped.point.Description),
+                    .Instrument = described.Instrument,
+                    .Value      = std::string( wrapped.point.Name)
+                });
             }
 
         private:

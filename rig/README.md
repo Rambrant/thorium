@@ -17,7 +17,7 @@ for the three `THORIUM_*` compile definitions (declared and validated in
 rig/
     instrument.inc         # THORIUM_INSTRUMENT_TABLE -- this rig's fixed instrument list, and hal::InstrumentId's enumerators
     wiring.inc              # THORIUM_WIRING_TABLE -- this rig's fixed instrument/connector wiring
-    active_instruments.hpp # THORIUM_ACTIVE_INSTRUMENTS -- Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/fabric
+    active_instruments.hpp # THORIUM_ACTIVE_INSTRUMENTS -- Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/Ser1/fabric
 ```
 
 ## instrument.inc
@@ -64,7 +64,7 @@ tables since each is its own translation unit.
 ## active_instruments.hpp
 
 Declares this rig's actual instrument globals (`Dmm1`, `Dmm2`, `Osc1`,
-`DcP1`..`DcP4`, `AcP1` in this repo) plus `hal::fabric`, the switching
+`DcP1`..`DcP4`, `AcP1`, `Ser1` in this repo) plus `hal::fabric`, the switching
 fabric's own global state. A script writes `Dmm1`/`DcP1`/etc directly --
 no factory function, no lookup -- so this file, together with
 `instrument.inc` right alongside it, is this rig's entire contribution to

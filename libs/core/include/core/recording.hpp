@@ -4,28 +4,58 @@
 #include <istream>
 #include <ostream>
 #include <string>
+#include <variant>
 #include <vector>
 
+#include "core/bytes.hpp"
 #include "core/quantity_kind.hpp"
 
 namespace core
 {
     //
-    // One measured value, as it happened during a run. mSequence is a
-    // monotonic per-run counter (what a replay dequeues by, since order is
-    // what determines correctness during playback); mWallClock is wall-clock
-    // time purely for a human reading the file later -- nothing in Thorium
-    // ever dequeues by it.
+    // What one recorded observation actually holds: a measured quantity, or a
+    // byte payload read off a byte-oriented instrument (see
+    // core::ISession::fetchData in core/session.hpp).
+    //
+    // A variant rather than a quantity plus an "is it really bytes" flag beside
+    // it, on purpose. A struct with both fields present and only one of them
+    // meaningful is a shape this file already learned the cost of once: the
+    // kind and the value used to be stored separately here, and a sample whose
+    // kind said Voltage while its value held a Current was expressible and
+    // silently wrong -- see core::MeasureEngine's own comment on the log line
+    // that used to be assembled from exactly that mismatch. A variant cannot be
+    // in that state at all, and the kind is derivable from it (its index)
+    // rather than being a second fact to keep in step.
+    //
+    using RecordedValue = std::variant<QuantityVariant, Bytes>;
+
+    //
+    // One observation, as it happened during a run. mSequence is a monotonic
+    // per-run counter (what a replay dequeues by, since order is what
+    // determines correctness during playback); mWallClock is wall-clock time
+    // purely for a human reading the file later -- nothing in Thorium ever
+    // dequeues by it.
     //
     struct RecordedSample
     {
-        std::uint64_t     mSequence;
-        std::int64_t      mWallClockUnixMillis;
-        std::string       mPointName;
-        std::string       mInstrumentId;
-        QuantityKind      mKind;
-        QuantityVariant   mValue;
+        std::uint64_t   mSequence;
+        std::int64_t    mWallClockUnixMillis;
+        std::string     mPointName;
+        std::string     mInstrumentId;
+        RecordedValue   mValue;
     };
+
+    //
+    // The kind column's value for a byte payload, where a quantity row carries
+    // its QuantityKind's own name.
+    //
+    // Spelled with angle brackets so it cannot ever collide with one. A
+    // QuantityKind enumerator is a C++ identifier, '<' is not a character an
+    // identifier may contain, and so no unit added to core/quantity_kind.hpp in
+    // future can take this token -- a structural guarantee, rather than a
+    // static_assert somebody has to remember to keep pointed at the right list.
+    //
+    inline constexpr std::string_view kPayloadKind = "<bytes>";
 
     //
     // Flat TSV, one row per sample, in the order they were recorded:
@@ -35,6 +65,14 @@ namespace core
     // token (no embedded commas or whitespace to escape), so a plain
     // tab-delimited line is both trivially diffable between two bench runs
     // and trivially parsed back without a real CSV parser.
+    //
+    // A payload row keeps that property by writing its value as unspaced
+    // uppercase hex ("4F4B0D") rather than as the text it may well be. Bytes
+    // renders itself as readable text elsewhere (see core::describeValue), and
+    // deliberately not here: a reply is free to contain a tab, a newline or a
+    // NUL, each of which would end the row early or split it, and a recording
+    // that cannot round-trip an arbitrary payload is no use for replaying the
+    // runs where the payload was the problem.
     //
     auto writeRecording( std::ostream & out, const std::vector<RecordedSample> & samples) -> void;
 

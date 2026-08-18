@@ -603,9 +603,10 @@ TEST_F( AcceptanceCatalog, ListTestsPrintsOneLinePerTestAndWritesNoLog)
 
     EXPECT_TRUE( containsText( outPath(), mOut, "OutputVoltage|SupplyRail|Verify supply rail"));
     EXPECT_TRUE( containsText( outPath(), mOut, "OutputVoltage|FuseRegister|"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "Console|StatusRegister|"));
 
     // Exactly one line per catalog test, nothing else on stdout.
-    EXPECT_EQ( std::count( mOut.begin(), mOut.end(), '\n'), 2);
+    EXPECT_EQ( std::count( mOut.begin(), mOut.end(), '\n'), 3);
 
     EXPECT_FALSE( std::filesystem::exists( mDir / "logs"));
 }
@@ -1072,16 +1073,17 @@ TEST_F( AcceptanceLogFiles, TwoRunsIntoOneDirectoryCoexist)
 
 //
 // The property the flag is named for, and the one worth pinning from outside:
-// the *selection* is what repeats. Two tests over two passes must come back
-// A B A B, not A A B B -- which is what makes a pass a meaningful unit for
-// SETUP/TEARDOWN to bracket and for --until-failure to stop at.
+// the *selection* is what repeats. Three tests over two passes must come back
+// A B C A B C, not A A B B C C -- which is what makes a pass a meaningful unit
+// for SETUP/TEARDOWN to bracket and for --until-failure to stop at.
 //
 TEST_F( AcceptanceRepeat, RepeatRunsTheWholeSelectionEachPassRatherThanEachScript)
 {
     run( { "--repeat=2", "--no-color" });
 
     EXPECT_EQ( verdictOrder( mOut),
-        ( std::vector<std::string>{ "FuseRegister", "SupplyRail", "FuseRegister", "SupplyRail" }));
+        ( std::vector<std::string>{ "FuseRegister", "SupplyRail", "StatusRegister",
+                                    "FuseRegister", "SupplyRail", "StatusRegister" }));
 }
 
 TEST_F( AcceptanceRepeat, RepeatAppliesToASelectionToo)
@@ -1405,15 +1407,30 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "AcP1.A.Voltage\tAcP1\tVoltage"));
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "DcP3.Voltage\tDcP3\tVoltage"));
 
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 9);   // six from setup, three from the scripts
+    //
+    // And the console reply, in the same file and the same stream. A payload
+    // row carries "<bytes>" where a quantity row carries its unit's name, and
+    // its value is unspaced hex rather than the text it may be -- see
+    // core::kPayloadKind on why the token cannot collide with a unit, and
+    // core/recording.hpp on why the value is not written as text.
+    //
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Ser1.Data\tSer1\t<bytes>"));
+
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 10);   // six from setup, four from the scripts
 }
 
 //
 // The point of the whole thing: with a recording behind it, a run's verdict
 // comes from the file rather than from the rig. These values are inside every
-// criterion the two scripts check, so this run PASSES -- where the identical
+// criterion the three scripts check, so this run PASSES -- where the identical
 // invocation against the (unseeded, zero-reading) simulated rig fails. Nothing
 // else in this file can assert a passing run.
+//
+// It is also the one place the two halves of the session seam are exercised
+// together from outside: one file arms both the measurements and the console
+// reply, and the run passes only if both were fed from it. A replay that
+// covered the readings and let the serial read go live would fail here, which
+// is exactly the half-scripted run core::SessionBank exists to make impossible.
 //
 TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
 {
@@ -1421,6 +1438,10 @@ TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
     // runs before the scripts and checks each one, so a file without them
     // replays a run whose rig never came up. Three of the six are AcP1's
     // phases, keyed individually.
+    //
+    // The last row is the console reply: kind "<bytes>", value unspaced hex.
+    // 41 43 4B is "ACK", 0D the terminator, 08 a status byte with READY (bit 3)
+    // set and FAULT (bit 7) clear -- what FS_Console_1 requires.
     writeFile( mDir / "passing.tsv",
         "0\t0\tAcP1.A.Voltage\tAcP1\tVoltage\t115.0\n"
         "1\t0\tAcP1.B.Voltage\tAcP1\tVoltage\t115.0\n"
@@ -1430,7 +1451,8 @@ TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
         "5\t0\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n"
         "6\t0\tVout\tDmm2\tVoltage\t12.0\n"
         "7\t0\tOutput5V\tDmm1\tVoltage\t5.0\n"
-        "8\t0\tOutput3V3\tDmm1\tVoltage\t3.3\n");
+        "8\t0\tOutput3V3\tDmm1\tVoltage\t3.3\n"
+        "9\t0\tSer1.Data\tSer1\t<bytes>\t41434B0D08\n");
 
     EXPECT_EQ( run( { "--replay=passing.tsv", "--quiet" }), 0);
 
@@ -1443,6 +1465,9 @@ TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
     EXPECT_TRUE( containsText( sarif, log, "12 V"));
     EXPECT_TRUE( containsText( sarif, log, "5 V"));
     EXPECT_TRUE( containsText( sarif, log, "3.3 V"));
+
+    // The replayed payload, rendered the way a text payload is written down.
+    EXPECT_TRUE( containsText( sarif, log, "ACK"));
 }
 
 //
@@ -1467,11 +1492,11 @@ TEST_F( AcceptanceRecording, EachRepeatPassIsRecorded)
 
     const auto tsv = readFile( mDir / "readings.tsv");
 
-    // Three readings per pass, three passes -- plus the six the setup took,
-    // once, because the hooks bracket the whole selection rather than each
-    // pass (see AcceptanceHooks above). Six rather than four since rigPowerOn()
-    // reads AcP1 once per phase.
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 15);
+    // Four readings per pass -- three voltages and the console reply -- over
+    // three passes, plus the six the setup took, once, because the hooks
+    // bracket the whole selection rather than each pass (see AcceptanceHooks
+    // above). Six rather than four since rigPowerOn() reads AcP1 once per phase.
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 18);
 }
 
 //

@@ -18,5 +18,7 @@
 
 ApplyEngine      Apply{};
 RemoveEngine     Remove{};
+SetupEngine      Setup{};
+WriteEngine      Write{};
 ConnectEngine    Connect{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };
 DisconnectEngine Disconnect{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };

@@ -75,6 +75,7 @@ call site -- moving a driver out changed its build location and nothing else.
 | `hal::DSO8064` | `instruments/dso8064/` |
 | `hal::N6701A` | `instruments/n6701a/` |
 | `hal::Ac6834B` | `instruments/ac6834b/` |
+| `hal::Racal1260` | `instruments/racal1260/` |
 
 A rig's own instrument list, wiring data, and concrete instrument
 identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP4`/`AcP1`/`fabric` in

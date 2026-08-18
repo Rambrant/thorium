@@ -137,4 +137,51 @@ namespace core
     // and not a container type owning its points.
     //
     struct AdapterBundleTag {};
+
+    //
+    // A bundle as something a call site can *pass*, rather than only name.
+    //
+    // BUNDLE expands to a nested struct, and a struct is a type -- so
+    // at( dut::Console) had nothing to hand to at(), which takes an
+    // expression. This is the value that fixes that: BUNDLE declares one
+    // alongside the struct, carrying the bundle's type as a template
+    // parameter, so at( dut::Console) yields an At<AdapterBundle<...>> that a
+    // routing verb can expand back into the bundle's individual lines (see
+    // hal::bundleLocations in hal/bundle.hpp).
+    //
+    // The variable and the struct deliberately share the name, which is the
+    // one subtle thing here and is worth reading carefully before touching
+    // hal/adapter.hpp's BUNDLE macro. C++ lets a variable hide a class name
+    // declared in the same scope, and qualified lookup -- the name before a
+    // :: -- considers only types, ignoring the variable. So both spellings
+    // keep working and each finds what it should:
+    //
+    //     at( dut::Console)          // ordinary lookup -> this variable
+    //     dut::Console::Tx           // qualified lookup -> the struct
+    //
+    // The one cost is that naming the bundle *as a type* needs the elaborated
+    // form, `struct dut::Console`, since a plain dut::Console in a type
+    // position now finds the variable. Only framework-internal code ever
+    // needs to, because the type travels as this template parameter, and a
+    // call site never spells it at all.
+    //
+    // The alternative was END_BUNDLE( Console) -- a macro taking the name
+    // again, so the value could be declared after the struct was complete.
+    // That was rejected because it costs a property this file's macros
+    // otherwise all have: END_BUNDLE, END_GROUP, END_CRITERIA and END_ADAPTER
+    // each close what was opened without repeating its name, so there is no
+    // second spelling to get wrong. Buying a plain `at( dut::Console)` by
+    // giving that up, in every bundle in every adapter, was the worse trade.
+    //
+    // Name/Description are carried here as well as on the struct, so a log
+    // can say which interface was routed without reflecting over the type.
+    //
+    template<typename BundleT>
+    struct AdapterBundle
+    {
+        using Bundle = BundleT;
+
+        std::string_view Name;
+        std::string_view Description;
+    };
 } // namespace core

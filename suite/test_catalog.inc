@@ -13,3 +13,7 @@ GROUP( OutputVoltage, "Tests validating DUT output voltage rails")
     TEST( FuseRegister, fuseRegisterScript, "Verify fuse register and output voltage")
     TEST( SupplyRail,   supplyRailScript,   "Verify supply rail voltages via matrix")
 END_GROUP
+
+GROUP( Console, "Tests validating the DUT's RS232 debug console")
+    TEST( StatusRegister, consoleScript, "Verify the console acknowledges and reports a healthy status")
+END_GROUP

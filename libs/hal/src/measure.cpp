@@ -18,3 +18,10 @@
 #include THORIUM_WIRING_TABLE
 
 MeasureEngine Measure{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };
+
+//
+// Constructed from Measure's own session bank, and in this same translation
+// unit so that "Measure exists first" is guaranteed rather than hoped for --
+// see hal/measure.hpp's own comment.
+//
+core::ReadEngine Read{ Measure.sessions() };

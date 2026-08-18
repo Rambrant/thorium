@@ -23,3 +23,15 @@ CRITERIA( FS_Supply_1, "Supply rail voltage checks (aged equipment)")
     CRIT( FS_Supply_5V0, EQ( 5.0_V).epsilon( 0.15_V), "5Vdc port within +/-150mV (aged, PLACEHOLDER)")
     CRIT( FS_Supply_3V3, EQ( Voltage{3.3}).epsilon( 0.15_V), "3.3Vdc port within +/-150mV (aged, PLACEHOLDER)")
 END_CRITERIA
+
+//
+// FS_Console_1 is unchanged from production, for the same reason FS_Fuse_6 is:
+// an acknowledgement is a byte sequence and a status flag is a bit, and neither
+// has a thermal or an ageing tolerance to widen. A console that answers
+// something other than ACK at temperature has not drifted -- it has failed.
+//
+CRITERIA( FS_Console_1, "Debug console dialogue over RS232")
+    CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Ack)
+    CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Ready)
+    CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Fault)
+END_CRITERIA

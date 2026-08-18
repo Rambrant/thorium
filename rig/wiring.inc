@@ -30,6 +30,19 @@ INSTRUMENT_WIRING
     WIRE_INSTRUMENT( AcP1, HOP( Matrix, "Matrix2", 23)) // phase B
     WIRE_INSTRUMENT( AcP1, HOP( Matrix, "Matrix2", 26)) // phase C
     WIRE_INSTRUMENT( AcP1, HOP( Matrix, "Matrix2", 27)) // neutral/ground return
+    // Ser1 is fixed-wired on three channels -- transmit, receive and the
+    // signal-ground return -- closed and opened together exactly the way
+    // AcP1's four are, and for the same reason (see hal::InstrumentWiring::
+    // findAll). Unlike AcP1, though, these are only half of Ser1's route: it
+    // is a *routed* instrument, so a Connect composes these with whichever DUT
+    // interface the script named (see hal::Racal1260's routeTo, and the
+    // CONNECTOR_WIRING rows for dut::Console below).
+    //
+    // TODO(bench): invented, like every assignment in this file -- the next
+    // three free Matrix2 channels above AcP1's. Re-check against a real chassis.
+    WIRE_INSTRUMENT( Ser1, HOP( Matrix, "Matrix2", 30)) // transmit
+    WIRE_INSTRUMENT( Ser1, HOP( Matrix, "Matrix2", 31)) // receive
+    WIRE_INSTRUMENT( Ser1, HOP( Matrix, "Matrix2", 32)) // signal-ground return
 END_INSTRUMENT_WIRING
 
 CONNECTOR_WIRING
@@ -51,6 +64,14 @@ CONNECTOR_WIRING
     WIRE_CONNECTOR( A, 3, 3, HOP( Mux, "Mux2", 3))
     WIRE_CONNECTOR( A, 3, 5, HOP( Mux, "Mux2", 4))
     WIRE_CONNECTOR( A, 3, 7, HOP( Mux, "Mux2", 5))
+    // dut::Console's three lines. Routed pins, not cabled ones, which is why
+    // they appear here and NOT in SOURCE_WIRING below -- a console is switched
+    // onto the DUT for the duration of a dialogue and off again afterwards.
+    //
+    // TODO(bench): invented, as above -- the next three free Mux2 channels.
+    WIRE_CONNECTOR( A, 2, 1, HOP( Mux, "Mux2", 6))   // dut::Console::Tx
+    WIRE_CONNECTOR( A, 2, 2, HOP( Mux, "Mux2", 7))   // dut::Console::Rx
+    WIRE_CONNECTOR( A, 2, 5, HOP( Mux, "Mux2", 8))   // dut::Console::Gnd
 END_CONNECTOR_WIRING
 
 //

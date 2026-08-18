@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/measure.hpp"
+#include "core/transfer.hpp"
 #include "hal/switch_fabric.hpp"
 #include "hal/wiring.hpp"
 
@@ -30,3 +31,31 @@ using MeasureEngine = core::MeasureEngine<hal::SwitchFabric, hal::InstrumentWiri
 // rig/wiring.inc in this repo).
 //
 extern MeasureEngine Measure;
+
+//
+// The other verb that observes something:
+//
+//   const auto reply = Read( Ser1.rs232());
+//
+// Declared here rather than in hal/apply.hpp beside Setup/Write, and defined in
+// the same translation unit as Measure, because it is constructed *from*
+// Measure's session bank -- one bank, so a run that measures a rail and reads a
+// console reply produces one ordered recording covering both (see
+// core::SessionBank on why that is a correctness requirement).
+//
+// Being constructed from another global is exactly the situation where
+// initialisation order matters, and across translation units there is no order
+// to rely on. Defining both in hal/measure.cpp is what makes the dependency
+// well-defined rather than a link-order accident.
+//
+// Injection reaches the same bank, so a script unit test arms both seams
+// through whichever verb it is asking about:
+//
+//   Measure.inject( "Output5V", 5.02_V);
+//   Read.inject(    "Ser1.Data", { "ACK\r", "0xF5\r" });
+//
+// while useLive/load/startRecording/dump stay on Measure alone -- see
+// core::ReadEngine's own comment on why they are deliberately not offered
+// twice.
+//
+extern core::ReadEngine Read;

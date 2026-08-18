@@ -61,6 +61,7 @@ add_library(hal STATIC
     include/hal/instrument.hpp     # header-only
     include/hal/wiring.hpp         # header-only
     include/hal/adapter.hpp        # header-only
+    include/hal/bundle.hpp         # header-only
     include/hal/describe.hpp       # header-only
 )
 

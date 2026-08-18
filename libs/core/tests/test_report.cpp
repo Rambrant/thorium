@@ -56,12 +56,54 @@ TEST( CoreReport, HumanStreamCarriesMeasureAndVerifyOnly)
     EXPECT_TRUE( core::isHumanRelevant( eventOf( core::Verb::Measure)));
     EXPECT_TRUE( core::isHumanRelevant( eventOf( core::Verb::Verify)));
 
+    //
+    // An observation, exactly like a Measure: a value that came back off the
+    // DUT and that a criterion is about to be checked against.
+    //
+    EXPECT_TRUE( core::isHumanRelevant( eventOf( core::Verb::Read)));
+
     EXPECT_FALSE( core::isHumanRelevant( eventOf( core::Verb::Apply)));
     EXPECT_FALSE( core::isHumanRelevant( eventOf( core::Verb::Remove)));
     EXPECT_FALSE( core::isHumanRelevant( eventOf( core::Verb::Connect)));
     EXPECT_FALSE( core::isHumanRelevant( eventOf( core::Verb::Disconnect)));
     EXPECT_FALSE( core::isHumanRelevant( eventOf( core::Verb::Safe)));
     EXPECT_FALSE( core::isHumanRelevant( eventOf( core::Verb::Note)));
+
+    //
+    // Stimulus, not observation -- what the bench was told to do, which is the
+    // machine stream's business. Setup in particular is the one that would be
+    // tempting to carry here, since a UART's framing is genuinely interesting
+    // when a reply comes back as garbage; it stays out because a human log that
+    // reports configuration alongside readings stops being a list of what the
+    // DUT did.
+    //
+    EXPECT_FALSE( core::isHumanRelevant( eventOf( core::Verb::Setup)));
+    EXPECT_FALSE( core::isHumanRelevant( eventOf( core::Verb::Write)));
+}
+
+//
+// Same columns as a Measure, so a script that both measures and reads produces
+// a log whose lines still align -- only the verb differs.
+//
+TEST( CoreReport, ReadLineNamesTheInterfaceItsPayloadAndItsInstrument)
+{
+    auto event = eventOf( core::Verb::Read);
+    event.Subject    = "Console";
+    event.Detail     = "RS232 debug console";
+    event.Instrument = "Ser1";
+    event.Value      = "\"0xF5\\r\"";
+
+    const auto lines = core::humanEventLines( event);
+
+    ASSERT_EQ( lines.size(), 1u);
+
+    const auto text = core::plainText( lines.front());
+
+    EXPECT_NE( text.find( "read"),        std::string::npos);
+    EXPECT_NE( text.find( "Console"),     std::string::npos);
+    EXPECT_NE( text.find( "0xF5"),        std::string::npos);
+    EXPECT_NE( text.find( "(Ser1)"),      std::string::npos);
+    EXPECT_EQ( text.find( "measure"),     std::string::npos);
 }
 
 TEST( CoreReport, EventsTheHumanStreamDoesNotCarryProduceNoLines)

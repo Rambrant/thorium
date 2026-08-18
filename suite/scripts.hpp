@@ -72,3 +72,12 @@ auto fuseRegisterScript() -> bool;
 //
 [[nodiscard]]
 auto supplyRailScript() -> bool;
+
+//
+// Talks to the DUT over its RS232 debug console: connects the interface,
+// configures the port, asks for the status register and checks the reply. The
+// byte-oriented counterpart to supplyRailScript's measurement path -- what a
+// script looks like when the DUT answers in bytes rather than in volts.
+//
+[[nodiscard]]
+auto consoleScript() -> bool;
