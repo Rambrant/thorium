@@ -10,3 +10,11 @@ CMakeUserPresets.json
 # docs/ deck render products (regenerate with docs/src/render.sh)
 docs/src/single/
 docs/src/shots/
+
+# docs/ deck build intermediates -- the built deck is committed at docs/, not here
+docs/src/template.pptx
+docs/src/unpacked/
+docs/src/Thorium.pptx
+docs/src/Thorium.html
+docs/src/brand_assets/
+docs/src/__pycache__/

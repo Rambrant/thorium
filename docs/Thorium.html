@@ -59,113 +59,184 @@
 <div class="deck">
   <section class="title active">
   <h1>Thorium</h1>
-  <p class="sub">Hardware test automation that fails at compile time</p><p class="sub">Thomas Rambrant  ·  Knowit Connectivity</p>
+  <p class="sub">Writing hardware tests that cannot lie to you</p><p class="sub">Thomas Rambrant  ·  Knowit Connectivity</p>
   </section>
 <section class="divider">
-  <div class="kicker">The problem</div>
-  <h1>A test rig fails in expensive ways</h1>
+  <div class="kicker">Why bother</div>
+  <h1>A test suite that passes is not the same as a DUT that works</h1>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">2 / 18</div>
+  <div class="num">2 / 25</div>
   </section>
 <section class="">
   <div class="mark"></div>
-  <div class="kicker">The problem</div>
-  <h1>Four ways a test suite lies to you</h1>
-  <ul><li>A mistyped test point measures the wrong pin — and passes</li><li>A criterion compared against the wrong unit — and passes</li><li>A relay path nobody wired up — throws three hours into a soak test</li><li>A tolerance table edited for one variant, not the others</li><li class="gap"></li><li class="note"><span class="a">Every one of these is a static fact.</span></li><li class="note">None of them needs a running rig to discover.</li></ul>
+  <div class="kicker">Why bother</div>
+  <h1>Four ways a suite lies to you</h1>
+  <ul><li>A mistyped test point measures the wrong pin — and passes</li><li>A criterion compared against the wrong unit — and passes</li><li>A relay path nobody wired up — throws three hours into a soak run</li><li>A tolerance edited for one variant, not the others</li><li class="gap"></li><li class="note"><span class="a">Every one of these is a static fact about your test.</span></li><li class="note">None of them needs a powered rig to discover.</li></ul>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">3 / 18</div>
+  <div class="num">3 / 25</div>
   </section>
 <section class="quote">
   <blockquote>If a mistake can be caught by the compiler,<br>it must be caught by the compiler.</blockquote>
-  <div class="cite">Runtime checks are a last resort — and each one is a documented concession.</div>
+  <div class="cite">Runtime checks are a last resort — and every one of them is a documented concession.</div>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">4 / 18</div>
+  <div class="num">4 / 25</div>
   </section>
 <section class="divider">
-  <div class="kicker">How it works</div>
-  <h1>A test script reads like the test specification</h1>
+  <div class="kicker">Act 1</div>
+  <h1>What you get, as the person writing the tests</h1>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">5 / 18</div>
+  <div class="num">5 / 25</div>
   </section>
 <section class="">
   <div class="mark"></div>
-  <div class="kicker">How it works</div>
+  <div class="kicker">Writing a test</div>
+  <h1>Three files, and none of them are machinery</h1>
+  <ul><li><span class="a">The tolerance. </span>A row in your DUT&#x27;s criteria table — value, unit, and the wording from the spec.</li><li><span class="a">The script. </span>Measure, verify, done. Reads like the procedure it came from.</li><li><span class="a">The catalog line. </span>One row naming the group, the id and the description an operator will see.</li><li class="gap"></li><li class="note"><span class="a">Everything else — addresses, relays, units, logging — already exists.</span></li></ul>
+  <div class="foot">Information Classification: INTERNAL</div>
+  <div class="num">6 / 25</div>
+  </section>
+<section class="">
+  <div class="mark"></div>
+  <div class="kicker">Writing a test</div>
   <h1>What a script never mentions</h1>
   <div class="cols"><div class="col"><ul><li class="note"><span class="a">The whole test</span></li><li class="gap"></li></ul><pre>auto rail = Measure(
     Dmm1.voltage(),
-    at( DeviceX::Output5V));
+    at( dut::Output5V));
 
 Verify(
     FS_Supply_1::FS_Supply_5V0,
-    rail);</pre></div><div class="col"><ul><li class="note"><span class="a">Nowhere in it</span></li><li class="gap"></li><li>Instrument address</li><li>Relay path or channel numbers</li><li>Unit conversion</li><li>Tolerance value</li><li>A single logging call</li><li class="gap"></li><li class="note"><span class="a">All resolved elsewhere — most of it by the compiler.</span></li></ul></div></div>
+    rail);</pre></div><div class="col"><ul><li class="note"><span class="a">Nowhere in it</span></li><li class="gap"></li><li>Instrument address</li><li>Relay path or channel numbers</li><li>Unit conversion</li><li>The tolerance value itself</li><li>A single logging call</li><li class="gap"></li><li class="note"><span class="a">All resolved elsewhere — most of it by the compiler.</span></li></ul></div></div>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">6 / 18</div>
+  <div class="num">7 / 25</div>
   </section>
 <section class="">
   <div class="mark"></div>
-  <div class="kicker">How it works</div>
-  <h1>Four sources of truth</h1>
-  <ul><li><span class="a">rig/  </span>which instruments this bench has, and how they are wired</li><li><span class="a">dut/  </span>named test points and tolerance tables</li><li><span class="a">suite/  </span>the test scripts and the catalog that lists them</li><li><span class="a">libs/  </span>the portable framework — knows nothing about either</li><li class="gap"></li><li class="note"><span class="a">A second bench testing a second device is its own repository.</span></li><li class="note">It reuses libs/ untouched and brings its own three.</li></ul>
+  <div class="kicker">Writing a test</div>
+  <h1>Your tables stay tables</h1>
+  <div class="cols"><div class="col"><pre>CRIT( FS_Supply_5V0,
+  EQ( 5.0_V)
+    .epsilon( 0.05_V),
+  &quot;5Vdc port, 50mV&quot;)
+
+POINT( Output5V,
+  A, 1, 3,
+  &quot;5Vdc supply port&quot;)</pre></div><div class="col"><ul><li>Tolerances, test points, the catalog, the rig&#x27;s wiring — flat tabular files</li><li>Meant to be read by a test engineer, close to the spec spreadsheet</li><li>The units are real: 5.0_V is a Voltage, not a double</li><li class="gap"></li><li class="note"><span class="a">Data you edit. The machinery that reads it lives somewhere you never open.</span></li></ul></div></div>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">7 / 18</div>
-  </section>
-<section class="divider">
-  <div class="kicker">The payoff</div>
-  <h1>Fifteen mistakes that now fail the build</h1>
-  <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">8 / 18</div>
-  </section>
-<section class="">
-  <div class="mark"></div>
-  <div class="kicker">The payoff</div>
-  <h1>What the compiler now refuses</h1>
-  <div class="cols"><div class="col"><ul><li>A misspelled test point</li><li>A misspelled criterion</li><li>A criterion in the wrong unit</li><li>A test point nobody wired up</li><li>A tolerance variant missing a limit</li></ul></div><div class="col"><ul><li>A renamed script in the catalog</li><li>Connecting a supply with no relay</li><li>Channel 5 on a 4-channel scope</li><li>A driver with no safe state</li><li>A half-declared unit</li><li>Sense leads wired without force leads</li><li>…and four more</li><li class="gap"></li><li class="note"><span class="a">Seconds, on a laptop — not hours, on the bench.</span></li></ul></div></div>
-  <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">9 / 18</div>
+  <div class="num">8 / 25</div>
   </section>
 <section class="">
   <div class="mark"></div>
-  <div class="kicker">The payoff</div>
-  <h1>Two checks worth a closer look</h1>
-  <ul><li class="note"><span class="a">Wiring coverage. </span>One test file has no assertions at all — the point is that it compiles. It walks every declared test point and demands a matching wiring entry. Forget one and the build stops.</li><li class="gap"></li><li class="note"><span class="a">Tolerance variants. </span>Production, stress-chamber and aged-equipment limits are three tables. A value unchanged from production is written once and referenced — so it cannot drift, and a typo in the reference will not compile.</li></ul>
+  <div class="kicker">Writing a test</div>
+  <h1>What happens when you get it wrong</h1>
+  <div class="cols"><div class="col"><ul><li class="note"><span class="a">You write</span></li><li class="gap"></li><li>dut::Output5Vx</li><li>FS_Supply_5V0x</li><li>EQ( 5.0_A) on a voltage</li><li>A point nobody wired</li><li>A limit in one variant only</li><li>Connect on a relay-less supply</li></ul></div><div class="col"><ul><li class="note"><span class="a">You are told</span></li><li class="gap"></li><li>no such member</li><li>no such member</li><li>no viable predicate</li><li>build stops, names the point</li><li>build stops, names the variant</li><li>no matching function</li><li class="gap"></li><li class="note"><span class="a">Every variant is checked, not just the one you build against.</span></li></ul></div></div>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">10 / 18</div>
+  <div class="num">9 / 25</div>
   </section>
-<section class="divider">
-  <div class="kicker">Evidence</div>
-  <h1>Every run explains itself, twice</h1>
+<section class="">
+  <div class="mark"></div>
+  <div class="kicker">Working</div>
+  <h1>You do not need the rig to write the test</h1>
+  <ul><li><span class="a">Inject. </span>Feed a script the readings you want and check it reaches the verdict you expect.</li><li><span class="a">Record. </span>Capture every reading a real run took, in order.</li><li><span class="a">Replay. </span>Re-run the suite against that file — same verdict, no hardware, no bench time.</li><li class="gap"></li><li class="note"><span class="a">A failure seen once on the bench becomes a test anyone can re-run at a desk.</span></li></ul>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">11 / 18</div>
+  <div class="num">10 / 25</div>
+  </section>
+<section class="">
+  <div class="mark"></div>
+  <div class="kicker">Working</div>
+  <h1>One suite, three sets of limits</h1>
+  <ul><li>Production, stress-chamber and aged-equipment tolerances are three tables</li><li>A limit unchanged from production is written once and referenced — it cannot drift</li><li>All three are compiled in; the operator picks per run</li><li class="gap"></li></ul><pre>run_scripts --criteria=stress</pre><ul><li class="gap"></li><li class="note"><span class="a">An unknown name is fatal and lists the ones that would have worked.</span></li></ul>
+  <div class="foot">Information Classification: INTERNAL</div>
+  <div class="num">11 / 25</div>
+  </section>
+<section class="">
+  <div class="mark"></div>
+  <div class="kicker">Working</div>
+  <h1>Running what you just wrote</h1>
+  <div class="cols"><div class="col"><ul><li class="note"><span class="a">Pick from a menu</span></li><li class="gap"></li></ul><pre>tools/run-tests.sh</pre><ul><li class="gap"></li><li>Group, then one, several or all of its tests</li><li>The catalog only — never build artefacts</li></ul></div><div class="col"><ul><li class="note"><span class="a">Or say exactly what you want</span></li><li class="gap"></li><li>--select=A,B  ·  --repeat=50</li><li>--until-failure  ·  --list-tests</li><li>--record=  ·  --replay=</li><li>--safe drops the rig to idle and exits</li><li class="gap"></li><li class="note"><span class="a">Exit code is 0 only if every selected test passed.</span></li></ul></div></div>
+  <div class="foot">Information Classification: INTERNAL</div>
+  <div class="num">12 / 25</div>
   </section>
 <section class="">
   <div class="mark"></div>
   <div class="kicker">Evidence</div>
   <h1>One event stream, two audiences</h1>
-  <div class="cols"><div class="col"><ul><li class="note"><span class="a">For people</span></li><li class="gap"></li><li>Colour-coded RTF, opens in Word</li><li>Grouped the way the catalog is</li><li>Each check states what was measured and what was required</li><li>Readable while the run is going</li><li>Live on the console too</li></ul></div><div class="col"><ul><li class="note"><span class="a">For tools</span></li><li class="gap"></li><li>SARIF 2.1.0 — an industry format</li><li>Every step, routing and safing</li><li>Each requirement becomes a queryable rule</li><li>Ingested by CI, no custom parser</li></ul></div></div>
+  <div class="cols"><div class="col"><ul><li class="note"><span class="a">For people</span></li><li class="gap"></li><li>Colour-coded RTF, opens in Word</li><li>Grouped the way your catalog is</li><li>Each check states what was measured and what was required</li><li>Readable while the run is still going</li></ul></div><div class="col"><ul><li class="note"><span class="a">For tools</span></li><li class="gap"></li><li>SARIF 2.1.0 — an industry format</li><li>Every step, including routing and safing</li><li>Each requirement becomes a queryable rule</li><li>Ingested by CI with no custom parser</li></ul></div></div>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">12 / 18</div>
+  <div class="num">13 / 25</div>
   </section>
 <section class="">
   <div class="mark"></div>
   <div class="kicker">Evidence</div>
-  <h1>Both logs answer: which run?</h1>
-  <ul><li>Device and serial number  ·  operator  ·  tolerance table</li><li>Framework version  ·  revision of the scripts, device and rig data</li><li>The command line  ·  local time for a person, UTC for a machine</li><li class="gap"></li><li class="note"><span class="a">Stamped in by the build, not typed in by a caller — so a report cannot claim the wrong device or the wrong limits.</span></li></ul>
+  <h1>Both logs answer: which run was this?</h1>
+  <ul><li>Device and serial number  ·  operator  ·  which tolerance table</li><li>Framework version  ·  revision of the scripts, device and rig data</li><li>The command line  ·  local time for a person, UTC for a machine</li><li class="gap"></li><li class="note"><span class="a">Stamped in by the build, not typed in by a caller — so a report cannot claim the wrong device or the wrong limits.</span></li></ul>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">13 / 18</div>
+  <div class="num">14 / 25</div>
+  </section>
+<section class="divider">
+  <div class="kicker">Act 2</div>
+  <h1>The mechanisms that make that possible</h1>
+  <div class="foot">Information Classification: INTERNAL</div>
+  <div class="num">15 / 25</div>
   </section>
 <section class="">
   <div class="mark"></div>
-  <div class="kicker">Evidence</div>
-  <h1>278 tests, and none of them need a rig</h1>
-  <ul><li>Test scripts run with readings injected, or replayed from a real run</li><li>Two test targets exist only to fail the build on inconsistent data</li><li>Seventeen acceptance tests drive the real binary as a subprocess and keep every log they produce</li><li class="gap"></li><li class="note"><span class="a">A developer can change the framework and know within seconds whether a bench would still behave.</span></li></ul>
+  <div class="kicker">Architecture</div>
+  <h1>Framework, drivers, and one bench&#x27;s data</h1>
+  <ul><li><span class="a">libs/  </span>the portable framework — units, criteria, the verbs, the journal</li><li><span class="a">instruments/  </span>one directory per driver, each packageable on its own</li><li><span class="a">rig/ dut/ suite/  </span>this bench, this device, these tests — data, not code</li><li class="gap"></li><li class="note"><span class="a">A second bench testing a second device is its own repository.</span></li><li class="note">It reuses libs/ untouched and brings its own three.</li></ul>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">14 / 18</div>
+  <div class="num">16 / 25</div>
+  </section>
+<section class="">
+  <div class="mark"></div>
+  <div class="kicker">Mechanism</div>
+  <h1>A route is composed, never stored</h1>
+  <ul><li>An instrument&#x27;s channel is fixed, whichever pin you measure</li><li>A connector pin&#x27;s channel is fixed, whichever instrument measures it</li><li>Two independent tables — not one keyed by every (instrument, pin) pair</li><li class="gap"></li><li class="note">A third table names what is not routed at all: <span class="a">which pin each hard-cabled supply lands on, so nobody invents a relay path to a live rail.</span></li></ul>
+  <div class="foot">Information Classification: INTERNAL</div>
+  <div class="num">17 / 25</div>
+  </section>
+<section class="">
+  <div class="mark"></div>
+  <div class="kicker">Mechanism</div>
+  <h1>The point is its type</h1>
+  <div class="cols"><div class="col"><pre>POINT( Output5V,
+       A, 1, 3, ...)
+
+// becomes
+
+AdapterPointTag&lt;
+  VpcLocation{ A, 1, 3 }&gt;</pre></div><div class="col"><ul><li>A test point&#x27;s location is a template argument, not runtime data</li><li>So a point is a struct member — and a typo is “no such member”</li><li>No name lookup at run time: the point is the lookup result</li><li class="gap"></li><li class="note"><span class="a">The same trick gives criteria, scope channels and units their errors.</span></li></ul></div></div>
+  <div class="foot">Information Classification: INTERNAL</div>
+  <div class="num">18 / 25</div>
+  </section>
+<section class="">
+  <div class="mark"></div>
+  <div class="kicker">Mechanism</div>
+  <h1>Derive it, do not assert it</h1>
+  <ul><li>C++26 reflection walks the DUT&#x27;s own declarations at compile time</li><li>Every declared point must have a wiring entry — checked by looking, not by a list</li><li>Enum names, criteria groups and variant tables come from the declarations themselves</li><li class="gap"></li><li class="note"><span class="a">A static_assert that catches a forgotten edit is worse than a design with nothing to forget.</span></li></ul>
+  <div class="foot">Information Classification: INTERNAL</div>
+  <div class="num">19 / 25</div>
+  </section>
+<section class="">
+  <div class="mark"></div>
+  <div class="kicker">Mechanism</div>
+  <h1>Three test files with no assertions in them</h1>
+  <ul><li>Their entire purpose is to compile — reaching the end means the checks held</li><li>Wiring coverage, criteria-variant parity, adapter consistency</li><li>Whatever they prove, they prove for every declaration, not the ones a run happened to reach</li><li class="gap"></li><li class="note"><span class="a">402 tests in all, 45 of them driving the real binary as a subprocess.</span></li></ul>
+  <div class="foot">Information Classification: INTERNAL</div>
+  <div class="num">20 / 25</div>
+  </section>
+<section class="">
+  <div class="mark"></div>
+  <div class="kicker">Mechanism</div>
+  <h1>What is deliberately still runtime</h1>
+  <ul><li>Whether this rig wired a given pin at all</li><li>Whether an instrument answers, and what it answers</li><li class="gap"></li><li class="note">A script&#x27;s translation unit never sees the rig&#x27;s wiring table, on purpose — and constant evaluation cannot reach across translation units the way linking can. <span class="a">So the check runs where both are visible, and fails your build rather than your run.</span></li></ul>
+  <div class="foot">Information Classification: INTERNAL</div>
+  <div class="num">21 / 25</div>
   </section>
 <section class="divider">
   <div class="kicker">Honestly</div>
   <h1>What this buys, and what it costs</h1>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">15 / 18</div>
+  <div class="num">22 / 25</div>
   </section>
 <section class="">
   <div class="mark"></div>
@@ -173,19 +244,19 @@ Verify(
   <h1>Pros and cons</h1>
   <div class="cols"><div class="col"><ul><li class="note"><span class="a">Strengths</span></li><li class="gap"></li><li>Whole classes of mistake cannot reach the bench</li><li>Scripts trace straight to the spec</li><li>Operator view and machine record cannot disagree</li><li>Scripts testable with no hardware</li><li>One tolerance value, three tables</li><li>Reusable across benches</li></ul></div><div class="col"><ul><li class="note"><span class="a">Costs and risks</span></li><li class="gap"></li><li>Experimental C++26; GCC 16 only</li><li>New scripts need a developer, not a spreadsheet</li><li>Wiring changes mean a rebuild</li><li>Few engineers have used reflection</li><li>Instrument drivers still simulated</li><li>Template errors can be verbose</li></ul></div></div>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">16 / 18</div>
+  <div class="num">23 / 25</div>
   </section>
 <section class="">
   <div class="mark"></div>
   <div class="kicker">Honestly</div>
   <h1>Done, and open</h1>
-  <ul><li class="note"><span class="a">Working today. </span>Units and tolerances, routed measurements, a switching fabric, safing, three tolerance variants, session injection and replay, both log streams, the catalog runner and its CLI.</li><li class="gap"></li><li class="note"><span class="a">Next. </span>A real instrument transport. Moving the remaining runtime wiring check to compile time. Deciding whether a second bench is a fork or a package.</li></ul>
+  <ul><li class="note"><span class="a">Working today. </span>Units and tolerances, routed measurements, the switching fabric, safing, three tolerance variants, injection and replay, both log streams, four drivers, the catalog runner and its CLI.</li><li class="gap"></li><li class="note"><span class="a">Next. </span>A real instrument transport, so the drivers talk to hardware instead of a simulation. Then per-phase angle on the AC source, and deciding whether a second bench is a fork or a package.</li></ul>
   <div class="foot">Information Classification: INTERNAL</div>
-  <div class="num">17 / 18</div>
+  <div class="num">24 / 25</div>
   </section>
 <section class="conclusion">
   <div class="kicker">In closing</div>
-  <ul><li class="note">The rig should never find your mistake first.</li><li class="gap"></li><li class="note">The compiler is cheaper, faster and more thorough than a bench — so everything that can be decided before power-on, is.</li></ul>
+  <ul><li class="note">The rig should never find your mistake first.</li><li class="gap"></li><li class="note">You write the test and the tolerance. Everything that can be decided before power-on already has been.</li></ul>
   </section>
 </div>
 <script>
