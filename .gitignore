@@ -18,3 +18,7 @@ docs/src/Thorium.pptx
 docs/src/Thorium.html
 docs/src/brand_assets/
 docs/src/__pycache__/
+
+# docs/api/ generated reference -- regenerate with `doxygen docs/api/Doxyfile`
+docs/api/html/
+docs/api/doxygen.warn

@@ -460,6 +460,11 @@ namespace hal
 // isInstrumentWired() itself. One list of rows, three readers, so no rig can
 // wire a lead for the runtime table and not for the check.
 //
+// buildInstrumentWiringEntries() is constexpr rather than consteval on
+// purpose, and tightening it would not compile -- see CONNECTOR_WIRING's
+// comment below for the full reason, which applies unchanged here: the
+// hal::instrumentWiring IIFE calls this builder at ordinary runtime.
+//
 #define INSTRUMENT_WIRING                                                              \
     namespace hal { namespace detail {                                                  \
     constexpr auto buildInstrumentWiringEntries() -> std::vector<InstrumentWiringEntry> \
@@ -593,6 +598,10 @@ namespace hal
 // omitting it: sourcesAt()/isSourceWired() are declared unconditionally
 // above and defined only here, so leaving it out would make any translation
 // unit that asks the question fail to link rather than answer "no".
+//
+// buildSourceWiringEntries() is constexpr rather than consteval for the same
+// reason its two counterparts are, and tightening it would not compile --
+// see CONNECTOR_WIRING's comment above.
 //
 #define SOURCE_WIRING                                                           \
     namespace hal { namespace detail {                                          \
