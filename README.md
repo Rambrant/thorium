@@ -362,10 +362,26 @@ CRITERIA( FS_Supply_1, "Supply rail voltage checks")
 END_CRITERIA
 ```
 
-Available predicates: `EQ`, `NE`, `LT`, `LE`, `GT`, `GE`, `IN`, `MASK`, `ANY` —
-each with `.epsilon(...)` where a tolerance is meaningful. Write the value with a
-unit literal (`12.0_V`, not `12.0`); that is what makes a unit mismatch a compile
-error, and it is what the log prints as the required limit.
+Available predicates: `EQ`, `NE`, `LT`, `LE`, `GT`, `GE`, `IN`, `MASK`, `ANY`,
+`NONE` — each with `.epsilon(...)` where a tolerance is meaningful. Write the
+value with a unit literal (`12.0_V`, not `12.0`); that is what makes a unit
+mismatch a compile error, and it is what the log prints as the required limit.
+
+`ANY`/`NONE` take a list of values (`ANY( 3.3_V, 5.0_V, 12.0_V)`), one tolerance
+covering the whole list. For a criterion that is a disjunction of *conditions*
+rather than of values — a range or a relation, which is not a value and so cannot
+be an `ANY` option — `ANY_OF` combines whole predicates:
+
+```cpp
+CRIT( FS_Supply_Rail, ANY_OF( IN( 3.0_V, 3.6_V), EQ( 5.0_V)), "3V3 band or 5V rail")
+```
+
+`ANY_OF` is the one predicate with no `.epsilon(...)` of its own: its members need
+not share a value type, so each carries its own tolerance next to the value it
+tolerates. Unlike `ANY`, it cannot reject a mixed-unit list when it is built (a
+`MASK` has no one value type to compare against), so the mismatch surfaces as a
+compile error at the point of use instead — the resulting predicate is callable
+with neither unit.
 
 Then add it to `criteria_stress.inc` and `criteria_aged.inc` — same value as
 production means:

@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <tuple>
 #include <type_traits>
 
 namespace core
@@ -65,6 +66,24 @@ namespace core
             //
             template<typename Pred, typename Eps>
             concept HasEpsilonMethod = requires( Pred pred, Eps eps) { pred.epsilon( eps); };
+
+            //
+            // "this predicate can be asked about this value" -- the same shape
+            // as core::PredicateFor in criterion.hpp, narrowed to one value and
+            // restated here rather than included from there.
+            //
+            // Not an oversight and not duplication for its own sake: the two
+            // files are deliberately independent (see the top of this one --
+            // a criteria file pulls in this vocabulary on its own, and
+            // criterion.hpp includes nothing from here either). Reaching for
+            // PredicateFor would make the vocabulary depend on the machinery
+            // that holds it, to borrow four lines.
+            //
+            template<typename Pred, typename T>
+            concept CallableWith = requires( const Pred & pred, const T & value)
+            {
+                { pred( value) } -> std::convertible_to<bool>;
+            };
         } // namespace detail
 
         //
@@ -483,28 +502,174 @@ namespace core
         // fine but mixing a Voltage in with a Current is a compile error, same
         // as everywhere else in this file.
         //
+        // The membership test is a real EqPredicate per option rather than a
+        // bare `actual == option`, which is what gives ANY the same
+        // `.epsilon(...)` this file's whole family shares -- one tolerance
+        // applied to every option, since a list of options is one criterion
+        // with one margin, not N criteria each with their own. Delegating is
+        // the point rather than an implementation detail: ANY is a disjunction
+        // of EQs, so a second hand-written comparison here would be a second
+        // place for "equal enough" to (eventually, silently) drift away from
+        // what EQ means by it -- the same argument NE's comment makes for
+        // being !EQ rather than its own formula.
+        //
+        // Before this, ANY compared with == unconditionally, which made
+        // `ANY( 3.3_V, 5.0_V)` an exact double comparison on a Quantity --
+        // precisely the "no tolerance at all isn't the safe default" trap the
+        // EQ/NE/... comment above describes, in the one predicate that had no
+        // way to opt out of it.
+        //
         template<typename T, std::size_t N>
         struct AnyPredicate
         {
             std::array<T, N> options;
+            T tolerance = detail::defaultEpsilon<T>();
+
+            constexpr auto epsilon( T eps) const
+                requires Toleranced<T>
+            {
+                auto copy      = *this;
+                copy.tolerance = eps;
+
+                return copy;
+            }
 
             constexpr auto operator()( const T & actual) const -> bool
                 requires std::equality_comparable<T>
             {
                 for( const auto & option : options)
                 {
-                    if( actual == option) { return true; }
+                    if( EqPredicate<T>{ option, tolerance }( actual)) { return true; }
                 }
 
                 return false;
             }
         };
 
+        //
+        // The one rule ANY and NONE share: every option is the exact same type
+        // as the first. Named, and stated once, because NONE is !ANY and
+        // "which option lists are legal" has to mean the same thing for both --
+        // restating the fold on each factory would be two places to keep in
+        // sync for no gain.
+        //
+        // A concept on the factory rather than a check inside it, for the
+        // reason BitPredicate's own comment gives: as a constraint, the
+        // illegal case is refused *and* detectable, so
+        // libs/core/tests/test_static_constraints.cpp can prove
+        // `ANY( 3.3_V, 5.0_A)` is rejected without the proof itself breaking
+        // the build. A violation in a function body would be a hard error that
+        // no requires-expression can soft-fail.
+        //
         template<typename T, typename... Rest>
+        concept SameOptions = ( std::same_as<Rest, T> && ...);
+
+        template<typename T, typename... Rest>
+            requires SameOptions<T, Rest...>
         constexpr auto ANY( T first, Rest... rest)
-            requires ( std::same_as<Rest, T> && ...)
         {
             return AnyPredicate<T, 1 + sizeof...( Rest)>{ { first, rest... } };
+        }
+
+        //
+        // NONE: matches when the value equals none of the options -- exactly
+        // !ANY, and built as NotPredicate{ ANY( ...)} for precisely the reason
+        // NE is built as NotPredicate{ EQ( ...)}. "None of these" is the
+        // complement of "one of these" and nothing more, so a second
+        // implementation walking the same list with the comparison inverted
+        // would only be a second place for the two to disagree -- and the case
+        // where they would disagree first is the interesting one, a
+        // borderline value one epsilon away from an option.
+        //
+        // epsilon() needs no mention here: NotPredicate forwards it to whatever
+        // it wraps when that thing has one (see HasEpsilonMethod), so
+        // `NONE( 3.3_V, 5.0_V).epsilon( 0.05_V)` works because ANY now has a
+        // tolerance, and `NONE( 1, 3).epsilon( 1)` is refused because ANY's is
+        // constrained to Toleranced. Neither fact is restated in this file.
+        //
+        template<typename T, typename... Rest>
+            requires SameOptions<T, Rest...>
+        constexpr auto NONE( T first, Rest... rest)
+        {
+            return NotPredicate{ ANY( first, rest...) };
+        }
+
+        //
+        // ANY_OF: matches when *any one of a list of predicates* matches, where
+        // ANY matches a list of values --
+        //
+        //   ANY_OF( EQ( 5.0_V), IN( 3.0_V, 3.6_V), GT( 12.0_V))
+        //
+        // This is the disjunction ANY cannot express and never could: ANY's
+        // options are values, and a range is not a value. Before it, a
+        // criterion like "either the 3V3 band or exactly 5V" had no spelling in
+        // a criteria table at all, and had to become an ad-hoc lambda in the
+        // script -- the undeclared, untraceable check the tables exist to
+        // replace (same argument as EqPredicate's Bytes overload makes).
+        //
+        // No epsilon() here, deliberately. Each member already carries its own,
+        // stated where the value it tolerates is stated:
+        //
+        //   ANY_OF( EQ( 5.0_V).epsilon( 0.05_V), IN( 3.0_V, 3.6_V).epsilon( 0.1_V))
+        //
+        // A tolerance on the combinator would have to mean "override every
+        // member's", which is both a worse way to write the above and
+        // impossible to type -- the members need not share a value type at all
+        // (a MASK and an EQ can sit side by side), so there is no single Eps to
+        // take.
+        //
+        // On unit safety, and an honest limit. ANY rejects
+        // `ANY( 3.3_V, 5.0_A)` at the factory, via SameOptions. ANY_OF cannot
+        // do the same, because a predicate need not have a value type to
+        // compare: MASK and BIT_SET<N>() are templates over whatever they are
+        // handed, and a rig's own predicate or a lambda has whatever signature
+        // it has. So the check lives on operator() instead -- every member must
+        // accept the value being checked -- and the mixed-unit mistake is still
+        // a compile error, just at the point of use rather than of
+        // construction: ANY_OF( EQ( 3.3_V), IN( 1.0_A, 2.0_A)) builds, and is
+        // then callable with neither a Voltage nor a Current, so no Verify and
+        // no CRIT entry can ever use it. Weaker than ANY's diagnostic, and
+        // asserted in both directions in
+        // libs/core/tests/test_static_constraints.cpp so the limit is on the
+        // record rather than discovered later. The alternative -- a
+        // value-type trait specialized per predicate in this file -- would buy
+        // the earlier error at the cost of a parallel list that silently stops
+        // covering any predicate added without remembering to extend it, which
+        // is the trade this file consistently refuses.
+        //
+        template<typename... Preds>
+        struct AnyOfPredicate
+        {
+            std::tuple<Preds...> predicates;
+
+            template<typename T>
+                requires ( detail::CallableWith<Preds, T> && ...)
+            constexpr auto operator()( const T & actual) const -> bool
+            {
+                //
+                // A fold over ||, so it short-circuits: the first member that
+                // matches is the last one evaluated. That matters beyond speed
+                // -- a member may be a rig's own predicate doing something less
+                // pure than comparing a number.
+                //
+                return std::apply(
+                    [ &actual]( const Preds &... preds) { return ( preds( actual) || ...); },
+                    predicates);
+            }
+        };
+
+        //
+        // At least one member required. An empty ANY_OF() would fold to a
+        // constant false -- a criterion that cannot be satisfied by any
+        // reading, which is the worst shape of mistake this file can permit:
+        // it compiles, it reads like a check, and it fails the run against a
+        // perfectly good DUT.
+        //
+        template<typename... Preds>
+            requires ( sizeof...( Preds) > 0)
+        constexpr auto ANY_OF( Preds... preds)
+        {
+            return AnyOfPredicate<Preds...>{ { preds... } };
         }
     } // namespace quantities
 } // namespace core

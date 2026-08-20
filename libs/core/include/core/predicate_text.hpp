@@ -1,9 +1,12 @@
 #pragma once
 
+#include <array>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 
 #include "core/format.hpp"
@@ -78,6 +81,26 @@ namespace core::quantities
         auto patternText( const T value) -> std::string
         {
             return core::formatHex( toBits( value));
+        }
+
+        //
+        // "[3.3 V, 3.6 V, 5 V]" -- the option list of an ANY, shared with the
+        // NONE overload below rather than written out twice. The two differ
+        // only in the words in front of the list, and a report where "one of"
+        // and "none of" render their options differently would be a defect
+        // nothing else would catch.
+        //
+        template<typename T, std::size_t N>
+        auto optionListText( const std::array<T, N> & options) -> std::string
+        {
+            std::string result = "[";
+
+            for( std::size_t i = 0; i < N; ++i)
+            {
+                result += ( i > 0 ? ", " : "") + core::describeValue( options[ i]);
+            }
+
+            return result + "]";
         }
     } // namespace detail
 
@@ -158,14 +181,8 @@ namespace core::quantities
     [[nodiscard]]
     auto describePredicate( const AnyPredicate<T, N> & predicate) -> std::string
     {
-        std::string result = "one of [";
-
-        for( std::size_t i = 0; i < N; ++i)
-        {
-            result += ( i > 0 ? ", " : "") + core::describeValue( predicate.options[ i]);
-        }
-
-        return result + "]";
+        return "one of " + detail::optionListText( predicate.options)
+                         + detail::toleranceText( predicate.tolerance);
     }
 
     //
@@ -183,6 +200,21 @@ namespace core::quantities
     }
 
     //
+    // NONE( ...) is NotPredicate{ ANY( ...)} for the reason NE is
+    // NotPredicate{ EQ( ...)} (see core/predicates.hpp), and gets its own
+    // overload for the same reason NE does: the generic negation below would
+    // render it "not (one of [3.3 V, 5 V])", which is a reader having to invert
+    // a list in their head against a specification that just says none of them.
+    //
+    template<typename T, std::size_t N>
+    [[nodiscard]]
+    auto describePredicate( const NotPredicate<AnyPredicate<T, N>> & predicate) -> std::string
+    {
+        return "none of " + detail::optionListText( predicate.predicate.options)
+                          + detail::toleranceText( predicate.predicate.tolerance);
+    }
+
+    //
     // Any other negation, provided the thing being negated can describe itself.
     // Constrained rather than unconditional: a NotPredicate wrapping a lambda
     // has nothing to say, and saying "not ()" would be worse than saying
@@ -197,6 +229,42 @@ namespace core::quantities
     auto describePredicate( const NotPredicate<Pred> & predicate) -> std::string
     {
         return "not (" + describePredicate( predicate.predicate) + ")";
+    }
+
+    //
+    // "any of [= 5 V, in [3 V .. 3.6 V]]" -- each member rendered by its own
+    // overload, so a nested predicate reads exactly as it would alone and
+    // ANY_OF has no opinion about any of them.
+    //
+    // "any of" rather than ANY's "one of", because the two are different
+    // criteria and a report has to be able to say which one ran: "one of" is
+    // followed by values, "any of" by conditions.
+    //
+    // Constrained on every member being describable, and degrading as a whole
+    // when one is not -- see describeCriterion() on the empty-string contract.
+    // Half a disjunction is not a weaker description of the criterion, it is a
+    // different and stricter criterion, and printing it would misreport what
+    // the run enforced.
+    //
+    // Declared last, after every overload above, for the reason the generic
+    // negation is: an ANY_OF may hold any of them.
+    //
+    template<typename... Preds>
+        requires ( requires( const Preds & inner) { describePredicate( inner); } && ...)
+    [[nodiscard]]
+    auto describePredicate( const AnyOfPredicate<Preds...> & predicate) -> std::string
+    {
+        std::string result = "any of [";
+        bool        first  = true;
+
+        std::apply(
+            [ &result, &first]( const Preds &... preds)
+            {
+                (( result += ( first ? "" : ", ") + describePredicate( preds), first = false), ...);
+            },
+            predicate.predicates);
+
+        return result + "]";
     }
 } // namespace core::quantities
 

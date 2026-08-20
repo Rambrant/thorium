@@ -52,6 +52,20 @@ namespace
     template<typename First, typename... Rest>
     concept Anyable = requires( First first, Rest... rest) { ANY( first, rest...); };
 
+    template<typename First, typename... Rest>
+    concept Noneable = requires( First first, Rest... rest) { NONE( first, rest...); };
+
+    template<typename... Preds>
+    concept AnyOfable = requires( Preds... preds) { ANY_OF( preds...); };
+
+    //
+    // Whether a predicate can be *asked about* a value at all -- which is where
+    // ANY_OF's unit safety lives, since it cannot be checked when the ANY_OF is
+    // built. See ANY_OF's own comment in core/predicates.hpp.
+    //
+    template<typename Pred, typename T>
+    concept CallableWithValue = requires( const Pred & pred, const T & value) { pred( value); };
+
     template<typename T>
     concept ThreeWayComparablePredicate = requires( T a, T b) { LT( a)( b); };
 
@@ -84,6 +98,7 @@ namespace
     static_assert( !HasEpsilon<RangePredicate<int>, int> );
     static_assert( !HasEpsilon<RelationalPredicate<int, Relation::Lt>, int> );
     static_assert( !HasEpsilon<NotPredicate<EqPredicate<int>>,         int> );
+    static_assert( !HasEpsilon<AnyPredicate<int, 2>,                   int> );
 
     //
     // The Adhoc-criterion bug this file guards against: a raw double cannot
@@ -93,6 +108,7 @@ namespace
     static_assert( !HasEpsilon<EqPredicate<Power>,                  double> );
     static_assert( !HasEpsilon<RangePredicate<Voltage>,             double> );
     static_assert( !HasEpsilon<RelationalPredicate<Power, Relation::Lt>, double> );
+    static_assert( !HasEpsilon<AnyPredicate<Voltage, 3>,            double> );
 
     //
     // Distinct Quantity<Tag> units are distinct types on purpose -- a
@@ -154,10 +170,44 @@ namespace
 
     //
     // ANY requires every option to be the exact same type as the first --
-    // consistent with EQ/IN/etc. never mixing units.
+    // consistent with EQ/IN/etc. never mixing units. NONE is !ANY and shares
+    // the rule through the one SameOptions concept, so it cannot drift into
+    // accepting a list ANY would reject.
     //
     static_assert( !Anyable<Voltage, Current> );
     static_assert( !Anyable<double, int> );
+    static_assert( !Noneable<Voltage, Current> );
+    static_assert( !Noneable<double, int> );
+
+    //
+    // ANY_OF's honest limit, on the record in both directions.
+    //
+    // A mixed-unit ANY_OF *builds* -- unlike ANY, which rejects it at the
+    // factory -- because a predicate need not have a value type to compare
+    // against (MASK and BIT_SET<N>() are templates over whatever they are
+    // handed). The mistake is still a compile error, just later: the resulting
+    // predicate is callable with neither of the units it mixes, so no Verify
+    // and no CRIT entry can use it. The positive mirror underneath is what
+    // makes that meaningful rather than vacuous -- a single-unit ANY_OF *is*
+    // callable.
+    //
+    static_assert(  AnyOfable<EqPredicate<Voltage>, RangePredicate<Current>> );
+    static_assert( !CallableWithValue<AnyOfPredicate<EqPredicate<Voltage>, RangePredicate<Current>>, Voltage> );
+    static_assert( !CallableWithValue<AnyOfPredicate<EqPredicate<Voltage>, RangePredicate<Current>>, Current> );
+    static_assert(  CallableWithValue<AnyOfPredicate<EqPredicate<Voltage>, RangePredicate<Voltage>>, Voltage> );
+
+    //
+    // An empty ANY_OF() would be a criterion no reading can satisfy -- it
+    // compiles, it reads like a check, and it fails the run against a good DUT.
+    //
+    static_assert( !AnyOfable<> );
+
+    //
+    // No epsilon() on ANY_OF: its members need not share a value type, so there
+    // is no single Eps to take, and each member already carries its own next to
+    // the value it tolerates.
+    //
+    static_assert( !HasEpsilon<AnyOfPredicate<EqPredicate<Voltage>, RangePredicate<Voltage>>, Voltage> );
 
     //
     // NE only needs equality, not an ordering: LT is impossible for
@@ -180,11 +230,17 @@ namespace
     static_assert(  HasEpsilon<RelationalPredicate<double,     Relation::Lt>, double> );
     static_assert(  HasEpsilon<NotPredicate<EqPredicate<double>>,       double> );
     static_assert(  HasEpsilon<NotPredicate<EqPredicate<Power>>,  Power> );
+    static_assert(  HasEpsilon<AnyPredicate<double, 2>,     double> );
+    static_assert(  HasEpsilon<AnyPredicate<Voltage, 3>,  Voltage> );
     static_assert(  EqComparable<Voltage> );
     static_assert(  Subtractable<Voltage> );
     static_assert(  QuantityConstructibleFrom<V_Type, double> );
     static_assert(  Maskable<unsigned int> );
     static_assert(  Anyable<Voltage, Voltage, Voltage> );
+    static_assert(  Noneable<Voltage, Voltage, Voltage> );
+    static_assert(  AnyOfable<EqPredicate<Voltage>> );
+    static_assert(  HasEpsilon<NotPredicate<AnyPredicate<Voltage, 2>>, Voltage> );
+    static_assert( !HasEpsilon<NotPredicate<AnyPredicate<int, 2>>,         int> );
     static_assert(  ThreeWayComparablePredicate<Voltage> );
 
     //
