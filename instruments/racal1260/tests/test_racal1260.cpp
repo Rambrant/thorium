@@ -11,17 +11,23 @@
 // uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //
-// The one that is worth stating out loud: this is an RS232 port, and it is
-// NOT reached over a serial port. hal::Serial is a cable from the PC; the
-// framing this driver configures is what it speaks at the DUT through the
-// matrix, and the chassis holding it is on GPIB.
+// Two kinds of hardware provide a matrix-routed RS232 port -- a PC port
+// cabled into the matrix, or a serial module in the switching chassis -- and
+// this driver does not know which one this rig has, so it accepts either. It
+// is the one driver here whose set is wider than one panel, and the reason is
+// missing bench knowledge rather than a model with two panels; see the
+// constructor's own comment.
+//
+// What it still rejects is the part that is known: nothing about this
+// instrument is reached over a network or USB.
 //
 namespace
 {
+    static_assert(   std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Serial> );
     static_assert(   std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Gpib> );
     static_assert(   std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Simulated> );
-    static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Serial> );
     static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Lan> );
+    static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Usb> );
     static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId> );
 } // namespace
 

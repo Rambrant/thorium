@@ -7,12 +7,16 @@ to the DUT through the matrix. Header-only, `namespace hal`, included as
 Target: `hal_racal1260` / `Thorium::hal_racal1260`. Depends on `Thorium::hal`
 only.
 
-Reachable over `Gpib` only — the chassis holding this module is what the PC
-has an interface to. Note it is an RS232 port that is *not* reached over one:
-`hal::Serial` is a cable from the PC, while the framing this driver configures
-is what it speaks at the DUT through the matrix. The two directions are
-unrelated, and the constructor constraint is what keeps a rig row from
-confusing them.
+Reachable over `Serial` or `Gpib` — the one driver here whose set is wider than
+one panel, because a matrix-routed RS232 port is either a port on the PC with
+its conductors cabled into the matrix or a serial module in the switching
+chassis commanded over that chassis's bus, and which this bench has is unknown
+for the same reason the model name below is a placeholder. Narrow it when the
+bench is known.
+
+Either way, the framing this driver configures is what the port speaks *out* at
+the DUT, not how the PC reaches it. Under the `Serial` arrangement those are the
+same physical port, which is when that distinction is easiest to lose.
 
 > **The model name is a placeholder.** This driver is modelled on how a
 > matrix-routed serial resource behaves, not on a datasheet. The legacy test

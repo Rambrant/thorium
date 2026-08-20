@@ -263,6 +263,16 @@ which on a bench is halfway into an unattended run. This is the same argument
 VISA spelling can build one from these fields; it could not get these fields
 back out of a string.
 
+Each struct names the **protocol a driver speaks**, not the cabling it reaches
+the instrument through -- worth stating because the two diverged years ago. A
+bench's GPIB interface is usually a USB-attached controller these days rather
+than a card in the PC, and an instrument behind one is still at a `Gpib`
+address: it answers to 488 commands at a primary address, and the USB cable is
+the controller's business. `Usb` means something narrower, USBTMC -- the
+instrument itself is the USB device. The rule of thumb: if unplugging the box
+removes one instrument, `Usb`; if it removes a whole bus worth of them, that
+bus's kind.
+
 **A constructor value, not a template parameter.** The rule this codebase
 follows is: template parameter when it changes what compiles, constructor
 argument when it does not. `hal::N6701A`'s `Isolation` is a template parameter
@@ -286,12 +296,23 @@ unconditionally, which is what driver tests construct with.
 | `hal::DSO8064` | `Gpib`, `Lan`, `Usb` |
 | `hal::N6701A` | `Gpib`, `Lan`, `Usb` |
 | `hal::Ac6834B` | `Gpib`, `Serial` |
-| `hal::Racal1260` | `Gpib` |
+| `hal::Racal1260` | `Serial`, `Gpib` |
 
-Note `hal::Racal1260`: it is an RS232 port and it is *not* reached over one.
-`hal::Serial` is a cable from the PC; the framing that driver configures is
-what it speaks at the DUT through the matrix. Its own constraint is what stops
-a rig row from confusing the two directions.
+`hal::Racal1260` is the only row with two, and the reason is worth knowing: a
+matrix-routed RS232 port is either a port on the PC with its conductors cabled
+into the matrix (`Serial`) or a serial module in the switching chassis
+commanded over that chassis's bus (`Gpib`), and which one this bench has is not
+known -- the model name is a placeholder too, see that driver's README. So the
+set is wide because the knowledge is missing, not because the panel has two
+connectors, and narrowing it is a one-line change once the bench is known. The
+other four each name exactly one panel.
+
+That driver is also where the two directions are easiest to confuse. The
+framing it configures (baud rate, parity, stop bits) is what the port speaks
+*out* at the DUT; the address is how the PC reaches the port. Under the
+`Serial` arrangement those are the same physical port, which is precisely when
+keeping them apart matters -- a baud rate is a DUT-facing decision, a device
+path is not.
 
 ### What still has no address
 

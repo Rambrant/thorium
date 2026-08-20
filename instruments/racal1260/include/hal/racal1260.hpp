@@ -226,22 +226,35 @@ namespace hal
     {
         public:
             //
-            // GPIB. This port is a module in the same VXI chassis the rig's
-            // matrix cards live in (see hal::SwitchDeviceKind's own comment on
-            // the RACAL 1260 in hal/switch_fabric.hpp), and the chassis is what
-            // the PC has an interface to -- so the address here is the
-            // chassis's, exactly as DcP1..DcP4 share their mainframe's.
+            // Serial or GPIB, and which one is a bench fact this driver
+            // genuinely does not know -- see this directory's README, which
+            // says the same about the model name. Two different arrangements
+            // both produce "an RS232 port routed to the DUT through the
+            // matrix", and they are reached differently:
             //
-            // Note which serial port this is NOT: hal::Serial in
-            // hal/address.hpp is a port on the PC, and this instrument is not
-            // reached over one. The RS232 framing this driver configures
-            // (BaudRate/Parity/StopBits above) is what it speaks *out* at the
-            // DUT, down the matrix. The two directions are unrelated, and the
-            // constraint on this constructor is what stops a rig row from
-            // confusing them.
+            //   - a port on the PC, its three conductors cabled into the
+            //     matrix: Serial, and the thing addressed and the thing
+            //     switched are then one and the same port
+            //   - a serial-interface module in the switching chassis,
+            //     commanded over that chassis's own bus: Gpib, the way
+            //     DcP1..DcP4 are commanded through their shared mainframe
+            //
+            // Both are listed because this constraint is meant to say what is
+            // known about the hardware, and here that is "either" -- the other
+            // four drivers each name exactly one panel because each one's is
+            // known. Narrowing this to whichever the bench turns out to have is
+            // a one-line change, and worth making then.
+            //
+            // What does not differ between the two: the framing this driver
+            // configures (BaudRate/Parity/StopBits above) is what the port
+            // speaks *out* at the DUT, never how the PC reaches the port. On
+            // the first arrangement those are physically the same port, which
+            // is exactly when the distinction is easiest to lose -- the baud
+            // rate a test sets is a DUT-facing decision, and hal::Serial's
+            // device path is not.
             //
             template<typename AddressT>
-                requires ReachableOver<AddressT, Gpib>
+                requires ReachableOver<AddressT, Serial, Gpib>
             Racal1260( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 
             // Where the PC reaches this port -- see hal/address.hpp.

@@ -44,13 +44,23 @@ namespace hal
     //
 
     //
-    // IEEE-488. Board is which GPIB interface card in the PC (0 for the
-    // usual single-interface machine), Primary the instrument's own address
-    // on that bus -- set by DIP switches or a front-panel menu on the
-    // instrument, which is why this is a rig fact and not a discoverable one.
-    // Secondary addressing is rare enough on modern instruments to be
-    // optional, but a plug-in card cage that subdivides one primary address
-    // does use it.
+    // IEEE-488. board is which GPIB interface the PC has (0 for the usual
+    // single-interface machine) -- the index the 488 layer assigns it, not a
+    // slot: these days the interface is far more likely a USB-attached
+    // controller hanging off the side of the rack than a card inside the PC,
+    // and the two are the same "gpib0" to everything above them. primary is
+    // the instrument's own address on that bus, set by DIP switches or a
+    // front-panel menu on the instrument, which is why it is a rig fact and
+    // not a discoverable one. Secondary addressing is rare enough on modern
+    // instruments to be optional, but a plug-in card cage that subdivides one
+    // primary address does use it.
+    //
+    // Which makes this the clearest example of what these structs name: the
+    // protocol the driver speaks, not the cabling it reaches the instrument
+    // through. An instrument on a USB-GPIB controller is at a Gpib address --
+    // it answers to 488 commands at a primary address, and the USB cable is
+    // the controller's business, invisible to everything here. It is not a Usb
+    // address, which means something else entirely (see below).
     //
     struct Gpib
     {
@@ -77,13 +87,18 @@ namespace hal
     };
 
     //
-    // A serial port on the PC itself -- "/dev/ttyUSB0", "COM3". Note this is
-    // the port the *driver* talks through, which is a different thing from
-    // hal::Racal1260's RS232 framing (see hal/racal1260.hpp): that is a port
-    // this rig switches onto the DUT and configures as part of a test, this
-    // is how the PC reaches whichever instrument owns it. Ser1 is addressed
-    // over GPIB and speaks RS232 to the DUT, which is exactly the pair those
-    // two facts can form.
+    // A serial port on the PC itself -- "/dev/ttyUSB0", "COM3". This is the
+    // port the *driver* talks through, which stays a different fact from
+    // hal::Racal1260's RS232 framing (see hal/racal1260.hpp) even when the two
+    // land on the same hardware: the framing is what gets switched onto the
+    // DUT and configured as part of a test, this is how the PC reaches
+    // whatever provides it.
+    //
+    // Ser1 on this rig is the case where they do coincide -- one PC port,
+    // addressed here and framed there -- and its driver also accepts Gpib for
+    // the arrangement where a chassis module provides the port instead. Which
+    // of the two the bench has is not yet known; see that driver's own
+    // constructor comment.
     //
     struct Serial
     {
@@ -92,10 +107,16 @@ namespace hal
         friend constexpr auto operator==( const Serial &, const Serial &) -> bool = default;
     };
 
+    // USBTMC -- the instrument itself is the USB device, speaking the USB
+    // Test & Measurement Class, which is a different thing from "reached
+    // through something that happens to be on USB" (see Gpib above: an
+    // instrument behind a USB-GPIB controller is at a Gpib address). If
+    // unplugging the box removes one instrument, this is the right kind; if it
+    // removes a whole bus worth of them, that bus's kind is.
     //
-    // USBTMC. Identified by the instrument's own serial number rather than by
-    // a bus/device number, because the latter is reassigned on every replug
-    // and would make this table wrong the first time somebody moved a cable.
+    // Identified by the instrument's own serial number rather than by a
+    // bus/device number, because the latter is reassigned on every replug and
+    // would make this table wrong the first time somebody moved a cable.
     //
     struct Usb
     {

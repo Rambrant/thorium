@@ -60,11 +60,25 @@
 //
 // TODO(bench): every address below is invented, exactly as every channel in
 // wiring.inc is -- there is no physical bench yet. They are internally
-// consistent (one mainframe address for the four DC modules, the 1260
-// chassis's own address for the RS232 module in it, LXI hostnames for the
-// three LAN instruments) and no more than that. Re-check against a real rack.
-// Deliberately not hal::Simulated{}, which would read as a decision rather
-// than a gap -- see that type's own comment in hal/address.hpp.
+// consistent (one mainframe address for the four DC modules, LXI hostnames for
+// the three LAN instruments) and no more than that. Re-check against a real
+// rack. Deliberately not hal::Simulated{}, which would read as a decision
+// rather than a gap -- see that type's own comment in hal/address.hpp.
+//
+// Ser1's row is Serial on purpose, and for a reason that is not a claim about
+// the bench: it is this table's one worked example of a PC-attached serial
+// device, kept deliberately so that the three bus kinds a rig is likely to
+// meet -- a GPIB box, an LXI hostname, a device path -- are all exercised by
+// something real here rather than only described in hal/address.hpp.
+//
+// The underlying bench fact is still open, and the driver says so: it accepts
+// Serial *or* Gpib, because a matrix-routed RS232 port can be either a port on
+// this PC with its conductors cabled into the matrix or a serial module in the
+// switching chassis commanded over the chassis bus (see hal::Racal1260's own
+// constructor comment). If it turns out to be the latter, this row becomes the
+// chassis's bus address and that constraint narrows to Gpib -- and this table
+// loses its Serial example, which is a reason to write one somewhere else, not
+// a reason to keep this row wrong.
 //
 INSTRUMENTS
     INSTRUMENT( L4411A,       Dmm1, Lan( "bench-dmm1"))
@@ -75,5 +89,5 @@ INSTRUMENTS
     INSTRUMENT( N6701ARelay,  DcP3, Gpib( 0, 14), 3)
     INSTRUMENT( N6701ARelay,  DcP4, Gpib( 0, 14), 4)
     INSTRUMENT( Ac6834B,      AcP1, Gpib( 0, 5))
-    INSTRUMENT( Racal1260,    Ser1, Gpib( 0, 9))
+    INSTRUMENT( Racal1260,    Ser1, Serial( "/dev/ttyUSB0"))
 END_INSTRUMENTS
