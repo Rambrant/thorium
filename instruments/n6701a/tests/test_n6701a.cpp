@@ -113,7 +113,7 @@ namespace
             // (and nothing would ever look it up, since their config type
             // has no connectDriver to call find() from in the first
             // place).
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Matrix2, 24 });
         }
     };
 } // namespace
@@ -156,7 +156,7 @@ TEST_F( SourceInstrumentFixture, DcConnectClosesExactlyTheOneFixedChannel)
 {
     connect( dcP3.dc());
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
 }
 
 TEST( SourceInstrument, DcConnectClosesRemoteSenseLeadsTogetherWithForceWhenTheyAreWired)
@@ -173,21 +173,21 @@ TEST( SourceInstrument, DcConnectClosesRemoteSenseLeadsTogetherWithForceWhenThey
     hal::ConnectorWiring   connectorWiring;
     hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
 
-    instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 });
-    instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 25 }, hal::WireRole::Sense);
+    instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Matrix2, 24 });
+    instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Matrix2, 25 }, hal::WireRole::Sense);
 
     ConnectEngine    connect{    fabric, instrumentWiring, connectorWiring };
     DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };
 
     connect( dcP3.dc());
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 })); // force
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 25 })); // sense
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 })); // force
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 25 })); // sense
 
     disconnect( dcP3.dc());
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 25 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 25 }));
 }
 
 TEST_F( SourceInstrumentFixture, DcApplyCanBeCalledBeforeConnectIsEverMade)
@@ -196,10 +196,10 @@ TEST_F( SourceInstrumentFixture, DcApplyCanBeCalledBeforeConnectIsEverMade)
     // supply doesn't require the DUT to be wired up yet.
     apply( dcP3.dc().voltage( 24.0_V));
     EXPECT_TRUE( dcP3.isEnabled());
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
 
     connect( dcP3.dc());
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
 }
 
 TEST_F( SourceInstrumentFixture, DcRemoveDisablesTheInstrumentWithoutTouchingTheFabric)
@@ -214,7 +214,7 @@ TEST_F( SourceInstrumentFixture, DcRemoveDisablesTheInstrumentWithoutTouchingThe
     // Remove doesn't disconnect -- that's Disconnect's job, called on its
     // own schedule (e.g. immediately, for a safety interlock, without
     // waiting on some other Remove-driven ramp-down).
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
 }
 
 TEST_F( SourceInstrumentFixture, DcBuilderChainReturnsUpdatedCopiesWithoutMutatingTheOriginal)

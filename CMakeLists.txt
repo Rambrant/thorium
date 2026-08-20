@@ -225,6 +225,7 @@ endif()
 set(THORIUM_ACTIVE_INSTRUMENTS "${CMAKE_SOURCE_DIR}/rig/active_instruments.hpp" CACHE FILEPATH "" FORCE)
 set(THORIUM_INSTRUMENT_TABLE "${CMAKE_SOURCE_DIR}/rig/instrument.inc" CACHE FILEPATH "" FORCE)
 set(THORIUM_WIRING_TABLE "${CMAKE_SOURCE_DIR}/rig/wiring.inc" CACHE FILEPATH "" FORCE)
+set(THORIUM_DEVICE_TABLE "${CMAKE_SOURCE_DIR}/rig/devices.inc" CACHE FILEPATH "" FORCE)
 
 # --- Which instrument drivers are available to build against ---
 # The fourth thing a rig supplies libs/hal, alongside the three files above:
@@ -276,7 +277,7 @@ add_subdirectory(libs/hal)
 #
 # One thing this does NOT give a consumer: a hal that works for their rig
 # out of the box. hal's THORIUM_ACTIVE_INSTRUMENTS/THORIUM_INSTRUMENT_TABLE/
-# THORIUM_WIRING_TABLE (see libs/hal/CMakeLists.txt) are baked in via
+# THORIUM_WIRING_TABLE/THORIUM_DEVICE_TABLE (see libs/hal/CMakeLists.txt) are baked in via
 # #include at hal's OWN compile time, so an installed libhal.a is only ever
 # built for the one rig that supplied those three paths when IT was
 # configured -- this repo's rig/, in this build. A different rig consuming

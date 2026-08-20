@@ -38,12 +38,12 @@ namespace
 
         SourceInstrumentFixture()
         {
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Matrix2, 24 });
 
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 23 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 26 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 27 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 22 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 23 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 26 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 27 });
         }
     };
 } // namespace
@@ -59,6 +59,6 @@ TEST_F( SourceInstrumentFixture, DcConnectAndDisconnectDoNotDisturbAnUnrelatedAl
 
     disconnect( dcP3.dc());
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 }));
-    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
+    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 22 }));
 }

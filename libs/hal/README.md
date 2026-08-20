@@ -7,16 +7,17 @@ written against, and the `Measure` and `Apply`/`Remove` objects every test
 script calls through. Meant to be
 linked by many rigs testing many DUTs, not just this repo's -- so nothing
 here knows what "Device X" is (DUT-specific data lives under `dut/`,
-see its README) or what instruments a given rig actually has, how they're
-wired, or what to call them (that's `rig/`, see its own README). A rig
-supplies those as three file paths at configure time -- see
-`THORIUM_ACTIVE_INSTRUMENTS`/`THORIUM_INSTRUMENT_TABLE`/
-`THORIUM_WIRING_TABLE` in this directory's `CMakeLists.txt` -- the same
+see its README) or what instruments a given rig actually has, what switching
+hardware sits between them, how they're wired, or what to call any of it
+(that's `rig/`, see its own README). A rig supplies those as four file paths
+at configure time -- see `THORIUM_ACTIVE_INSTRUMENTS`/
+`THORIUM_INSTRUMENT_TABLE`/`THORIUM_DEVICE_TABLE`/`THORIUM_WIRING_TABLE` in
+this directory's `CMakeLists.txt` -- the same
 compile-definition-swap mechanism `core/active_criteria.hpp` already uses
 for `THORIUM_CRITERIA_VARIANT_TABLES`. This repo's own top-level `CMakeLists.txt`
-sets those three to point at `rig/`, since this repo is (for now) both the
+sets those four to point at `rig/`, since this repo is (for now) both the
 library and its one rig; a separate rig repo pulling this library in later
-would set the same three variables pointing at its own `rig/`-equivalent
+would set the same four variables pointing at its own `rig/`-equivalent
 instead.
 
 The concrete driver classes no longer live here at all. Each of the four is its
@@ -56,6 +57,7 @@ libs/hal/
     include/hal/
         address.hpp        # Gpib/Lan/Serial/Usb/Simulated -- how the PC reaches an instrument
         vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
+        switch_device.hpp  # SwitchDeviceKind, SwitchDeviceId (from THORIUM_DEVICE_TABLE), kindOf/addressOf
         switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
         instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_TABLE
         wiring.hpp         # InstrumentWiring/ConnectorWiring + WIRE macros
@@ -321,15 +323,76 @@ carried its mainframe slot before any driver needed it, so that the rig table
 can state the fact at all. Two gaps are worth knowing about before real-driver
 work starts:
 
-- **The switching fabric.** `SwitchFabric`'s cards are named by bare string
-  (`"Matrix2"`, `"Mux1"`), and closing a relay on real hardware is a GPIB/VXI
-  write to a card that needs addressing exactly as an instrument does. It is
-  declared in `rig/active_instruments.hpp` outside the `INSTRUMENT()` table, so
-  it did not get a column. `hal::Address` lives in generic `hal` rather than in
-  a driver package partly so the fabric can use it when that is done.
 - **The run journal.** An address is per-run inventory rather than per-`Apply`,
   so `describeConfig` was deliberately left alone; `hal::to_string(Address)`
   exists for whoever writes the inventory line.
+
+The switching fabric used to be on that list and no longer is: its cards are
+declared in `rig/devices.inc` with an address each, reachable through
+`hal::addressOf` -- see the section below.
+
+## The switching devices are declared, not named in strings
+
+`switch_device.hpp` generates `hal::SwitchDeviceId` from `THORIUM_DEVICE_TABLE`
+the same way `instrument.hpp` generates `hal::InstrumentId` from the instrument
+table, and carries two facts per device: what kind of card it is, and where the
+PC commands it.
+
+```cpp
+SWITCH_DEVICES
+    SWITCH_DEVICE( Matrix, Matrix2, Gpib( 0, 7, 1))
+    SWITCH_DEVICE( Mux,    Mux1,    Gpib( 0, 7, 2))
+END_SWITCH_DEVICES
+```
+
+**They are not instruments.** A shared `InstrumentId` was the obvious
+alternative and it would cost the guarantee `SwitchElementId`'s own comment has
+carried from the start: a switch element "has no quantity type and nothing to
+read -- so the type system can never let a script try to `Measure` a mux
+channel". `InstrumentId` is what a recorded sample and a wiring entry identify
+a *reading* by, and a mux channel produces none. The same line is already drawn
+in how the globals are declared -- `Dmm1` unqualified because a script writes
+it, `hal::fabric` qualified because nothing but the measure/apply assembly ever
+names it.
+
+**Two holes it closed**, beyond giving the cards addresses. `SwitchElementId`
+used to be `{ kind, device-name-as-string, channel }`:
+
+- a mistyped `HOP( Matrix, "Matrix22", 14)` was accepted, and the fabric would
+  create that element, close it, open it and route nothing -- it had no idea
+  which cards existed. `HOP( Matrix22, 14)` is now a compile error.
+- `kind` rode on every hop rather than on the card, so
+  `HOP( Matrix, "Matrix2", 14)` and `HOP( Mux, "Matrix2", 14)` were **two
+  distinct elements for one physical crosspoint**, each with its own use count.
+  Connect through one and disconnect through the other and the relay never
+  opened, with nothing complaining. `kind` is now stated once per card and
+  cannot be contradicted.
+
+One honest consequence: an element can only name a card the rig declares, so on
+a rig with no RF selector there is no way to construct an `RfMux` element at
+all. Two `switch_fabric` tests used to demonstrate kind-independence with a
+phantom `"RfMux1"`; they now use the cards this rig has, and the kind-level
+claim (`RfMux` renders as `"RfMux"`, not as `"Mux"`) is asserted directly
+against the enum instead. That is the check working, not coverage lost -- but
+it is worth knowing where it went.
+
+**Naming.** This codebase keeps three words doing three jobs, and the split is
+load-bearing: **driver** is the code that speaks to hardware (`hal::L4411A`),
+**instrument** is the hardware a script names (`Dmm1` and `Dmm2` are two
+instruments sharing one driver), and **switch device** is the plumbing only
+wiring names. Collapsing them all into "drivers" would make "two instruments,
+one driver" unsayable. "Devices" as the umbrella is worse still here, since
+`dut/` is the Device Under Test. There is no umbrella noun, deliberately -- what
+instruments and switch devices actually share is not a category but a
+mechanism, `hal::Address`.
+
+One rename is coming, though, and it isn't this one. `SwitchFabric`'s uniform
+`close(id)`/`open(id)` won't survive real hardware -- a RACAL 1260 matrix card
+and an Agilent E1472A RF selector don't speak the same commands -- so each card
+model eventually wants its own driver package, built exactly the way
+`instruments/l4411a/` is. At that point the tree holds drivers for things that
+aren't instruments, and `instruments/` -> `drivers/` becomes the honest name.
+Worth doing when the first card driver lands, not before.
 
 ## Why the AC source's neutral return is part of the model
 

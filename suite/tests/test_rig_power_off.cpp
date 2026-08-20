@@ -71,9 +71,9 @@ TEST_F( RigPowerOffFixture, EverySourceItNamesEndsUpDisabled)
 //
 TEST_F( RigPowerOffFixture, EveryIsolationRelayItClosedEndsUpOpen)
 {
-    constexpr hal::SwitchElementId dcP3Path{ hal::SwitchDeviceKind::Matrix, "Matrix2", 24 };
-    constexpr hal::SwitchElementId acP1PhaseA{ hal::SwitchDeviceKind::Matrix, "Matrix2", 22 };
-    constexpr hal::SwitchElementId acP1Neutral{ hal::SwitchDeviceKind::Matrix, "Matrix2", 27 };
+    constexpr hal::SwitchElementId dcP3Path{ hal::SwitchDeviceId::Matrix2, 24 };
+    constexpr hal::SwitchElementId acP1PhaseA{ hal::SwitchDeviceId::Matrix2, 22 };
+    constexpr hal::SwitchElementId acP1Neutral{ hal::SwitchDeviceId::Matrix2, 27 };
 
     energiseEverything();
 
@@ -99,7 +99,7 @@ TEST_F( RigPowerOffFixture, EveryIsolationRelayItClosedEndsUpOpen)
 //
 TEST_F( RigPowerOffFixture, ARouteItNeverMadeIsLeftAlone)
 {
-    constexpr hal::SwitchElementId someoneElsesRoute{ hal::SwitchDeviceKind::Mux, "Mux1", 3 };
+    constexpr hal::SwitchElementId someoneElsesRoute{ hal::SwitchDeviceId::Mux1, 3 };
 
     energiseEverything();
     hal::fabric.close( someoneElsesRoute);

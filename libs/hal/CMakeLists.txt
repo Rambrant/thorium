@@ -2,22 +2,25 @@
 # hal is a generic instrument-driver + switching-fabric library -- meant to
 # be linked by many rigs testing many DUTs, not just this repo's (see
 # README.md) -- so it cannot hardcode which instruments a given rig has,
-# how they're wired, or what to call them. Whoever configures a build that
-# includes this directory supplies that as three file paths: this repo's own
+# how they're wired, what switching hardware sits between them, or what to
+# call any of it. Whoever configures a build that includes this directory
+# supplies that as four file paths: this repo's own
 # top-level CMakeLists.txt does it below (pointing at ./rig/), the same way
 # a separate rig's own top-level CMakeLists.txt would after pulling this
 # library in via add_subdirectory/FetchContent. Same compile-definition-
 # swap mechanism core/active_criteria.hpp already uses for
 # THORIUM_CRITERIA_VARIANT_TABLES/THORIUM_TEST_CATALOG -- see rig/README.md for
-# what each of these three files actually contains.
+# what each of these four files actually contains.
 set(THORIUM_ACTIVE_INSTRUMENTS "" CACHE FILEPATH
     "Path to the linking rig's active_instruments.hpp (its concrete instrument globals + fabric)")
 set(THORIUM_INSTRUMENT_TABLE "" CACHE FILEPATH
     "Path to the linking rig's instrument.inc (its fixed instrument list, and hal::InstrumentId's enumerators)")
 set(THORIUM_WIRING_TABLE "" CACHE FILEPATH
     "Path to the linking rig's wiring.inc (its fixed instrument/connector wiring)")
+set(THORIUM_DEVICE_TABLE "" CACHE FILEPATH
+    "Path to the linking rig's devices.inc (its switching devices, and hal::SwitchDeviceId's enumerators)")
 
-foreach(_thorium_rig_var THORIUM_ACTIVE_INSTRUMENTS THORIUM_INSTRUMENT_TABLE THORIUM_WIRING_TABLE)
+foreach(_thorium_rig_var THORIUM_ACTIVE_INSTRUMENTS THORIUM_INSTRUMENT_TABLE THORIUM_WIRING_TABLE THORIUM_DEVICE_TABLE)
     if(NOT ${_thorium_rig_var} OR NOT EXISTS "${${_thorium_rig_var}}")
         message(FATAL_ERROR
             "${_thorium_rig_var} must point at an existing file -- hal is a generic "
@@ -53,12 +56,14 @@ endforeach()
 #
 add_library(hal STATIC
     src/address.cpp
+    src/switch_device.cpp
     src/vpc_location.cpp
     src/switch_fabric.cpp
     src/instrument.cpp
     src/wiring.cpp
     include/hal/address.hpp        # header-only
     include/hal/vpc_location.hpp   # header-only
+    include/hal/switch_device.hpp  # header-only
     include/hal/switch_fabric.hpp  # header-only
     include/hal/instrument.hpp     # header-only
     include/hal/wiring.hpp         # header-only
@@ -100,8 +105,16 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 # driver header, which is precisely why generic hal can carry it and why
 # hal::InstrumentId exists before any driver does. THORIUM_ACTIVE_INSTRUMENTS
 # and THORIUM_WIRING_TABLE belong to hal_rig below, for the opposite reason.
+# THORIUM_DEVICE_TABLE is PUBLIC for exactly the same reason as the instrument
+# table beside it: hal/switch_device.hpp is a public header and expands it
+# itself, to generate hal::SwitchDeviceId's enumerators plus each device's
+# kind and address. That is also why the device list could not simply be
+# another block inside rig/wiring.inc -- THORIUM_WIRING_TABLE is PRIVATE to
+# hal_rig below, and an enum that hal::SwitchElementId is built from has to be
+# visible wherever that header is included.
 target_compile_definitions(hal PUBLIC
     THORIUM_INSTRUMENT_TABLE="${THORIUM_INSTRUMENT_TABLE}"
+    THORIUM_DEVICE_TABLE="${THORIUM_DEVICE_TABLE}"
 )
 
 # --- The rig's instrument drivers ---

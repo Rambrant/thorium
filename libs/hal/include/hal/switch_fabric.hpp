@@ -3,52 +3,29 @@
 #include <cstdint>
 #include <map>
 #include <string>
-#include <string_view>
 #include <vector>
+
+#include "hal/switch_device.hpp"
 
 namespace hal
 {
-    //
-    // Which kind of switching hardware a SwitchElementId's channel lives on.
-    // Purely descriptive -- every kind is commanded identically (open/close
-    // a channel) -- kept so a route's path reads clearly and so error
-    // messages can say "Matrix2 channel 14" rather than an opaque pair.
-    //
-    // RfMux is a genuinely separate physical device from Mux, not just a
-    // naming distinction: RF signal paths need controlled impedance
-    // (typically 50 ohm) end to end, which an LF matrix/mux card's relays
-    // aren't built to preserve -- an RF signal routed through an LF mux
-    // would see reflections/loss a real RF measurement can't tolerate. So
-    // the two never share hardware, and a route through the fabric mixes
-    // them only in the sense that hal::Path can hold either kind of
-    // SwitchElementId in the same chain -- e.g. an LF mux hop narrowing
-    // down to a matrix column is a different case from an RF signal's own,
-    // separate RfMux chain; nothing in this file enforces that an RF point
-    // is only ever reached through RfMux hops (see this project's decision
-    // not to build a compile-time-checked point-category gate for that
-    // kind of DUT-specific judgment call) -- that's left to whoever wires
-    // the rig's wiring.inc (rig/wiring.inc in this repo) and writes the
-    // test getting it right, the same way it already is for Matrix vs Mux
-    // today.
-    //
-    enum class SwitchDeviceKind
-    {
-        Matrix, // RACAL 1260 VXI matrix card
-        Mux,    // LF multiplexer -- VXI modules configured as 8x12->1 or 2x48->1 2-wire multiplexers
-        RfMux   // HF/RF selector -- Agilent E1472A VXI modules, each 6 x 1x4 multiplexers
-    };
-
     //
     // One switchable channel: a specific channel on a specific matrix card or
     // mux. This is deliberately just plumbing -- unlike hal::Instrument, it
     // has no quantity type and nothing to read -- so the type system can never
     // let a script try to Measure a mux channel.
     //
+    // Two fields, not three. What kind of hardware the channel lives on is a
+    // property of the device and is stated once where the device is declared
+    // (see hal::kindOf and rig/devices.inc), so no two hops can disagree about
+    // one card -- which they could, and silently, when each hop carried its own
+    // kind alongside a device name in a bare string. hal/switch_device.hpp's
+    // own comment spells out both failure modes that removed.
+    //
     struct SwitchElementId
     {
-        SwitchDeviceKind kind;
-        std::string_view device;  // e.g. "Matrix2", "Mux1"
-        std::uint16_t    channel;
+        SwitchDeviceId device;
+        std::uint16_t  channel;
 
         friend constexpr auto operator==( SwitchElementId, SwitchElementId) -> bool = default;
         friend constexpr auto operator<=>( SwitchElementId, SwitchElementId) = default;
@@ -77,11 +54,11 @@ namespace hal
 
     //
     // The switching fabric sitting between the instruments and the VPC array:
-    // every RACAL 1260 matrix card, LF mux, and Agilent E1472A RF selector in
-    // the signal chain, addressed uniformly by SwitchElementId. On real
-    // hardware close()/open() would be GPIB/VXI writes to the relevant card;
-    // here they just track state so routing logic can be exercised and
-    // asserted on.
+    // every card the rig's devices.inc declares (see hal/switch_device.hpp),
+    // addressed uniformly by SwitchElementId. On real hardware close()/open()
+    // would be GPIB/VXI writes to the relevant card -- hal::addressOf() is
+    // where that card's address comes from -- while here they just track state
+    // so routing logic can be exercised and asserted on.
     //
     // Each element's state is a use count, not a plain bool: a physical
     // relay is either open or closed, but two independent callers can both

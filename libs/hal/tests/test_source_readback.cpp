@@ -52,7 +52,7 @@ namespace
 
         SourceReadbackFixture()
         {
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Matrix2, 24 });
 
             core::journal().clearSinks();
             core::journal().add( sink);
@@ -97,7 +97,7 @@ TEST_F( SourceReadbackFixture, AReadbackNeverTouchesTheFabric)
     apply(   dcP3.dc().voltage( 24.0_V));
     connect( dcP3.dc());
 
-    const auto channel = hal::SwitchElementId{ hal::SwitchDeviceKind::Matrix, "Matrix2", 24 };
+    const auto channel = hal::SwitchElementId{ hal::SwitchDeviceId::Matrix2, 24 };
 
     ASSERT_TRUE( fabric.isClosed( channel));
 

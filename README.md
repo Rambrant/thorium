@@ -282,13 +282,26 @@ all derived from this list — safing reflects over `InstrumentTag`-derived glob
 rather than reading the file again, so a new instrument is safed because it
 exists.
 
-### Wire an instrument to the switching fabric
+### Add a switching device to the rig
 
-`rig/wiring.inc`, `INSTRUMENT_WIRING` block. `HOP( deviceKind, deviceName,
-channel)`, where `deviceKind` is `Matrix` or `Mux`:
+`rig/devices.inc` — one line per matrix card, mux or RF selector, naming what
+kind of hardware it is and where the PC commands it:
 
 ```cpp
-WIRE_INSTRUMENT( Dmm3, HOP( Matrix, "Matrix2", 18))
+SWITCH_DEVICE( Mux, Mux3, Gpib( 0, 7, 4))
+```
+
+That generates `hal::SwitchDeviceId::Mux3`, which is what wiring rows below name
+— so a card nothing declares cannot be routed through, and a card's kind is
+stated once rather than repeated (and possibly contradicted) at every hop.
+
+### Wire an instrument to the switching fabric
+
+`rig/wiring.inc`, `INSTRUMENT_WIRING` block. `HOP( device, channel)`, where
+`device` is a `SwitchDeviceId` from `devices.inc`:
+
+```cpp
+WIRE_INSTRUMENT( Dmm3, HOP( Matrix2, 18))
 ```
 
 Several entries under one id are closed and opened together — that is how a
@@ -302,7 +315,7 @@ instrument.
 Same file, `CONNECTOR_WIRING` block — `rack, connector, pin` then the hop:
 
 ```cpp
-WIRE_CONNECTOR( A, 1, 7, HOP( Mux, "Mux1", 7))
+WIRE_CONNECTOR( A, 1, 7, HOP( Mux1, 7))
 ```
 
 `WIRE_CONNECTOR_SENSE` for the sense side. **Wire sense without force and

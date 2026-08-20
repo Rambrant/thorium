@@ -13,7 +13,13 @@ namespace hal
         // an even older two-kind ternary. Adding a fourth SwitchDeviceKind
         // needs no matching update here at all now, unlike either of those.
         //
-        return std::string( core::meta::to_string( id.kind)) + " " +
-               std::string( id.device) + " channel " + std::to_string( id.channel);
+        // The rendering is unchanged ("Matrix Matrix2 channel 14") even though
+        // both halves of it now come from the device rather than from the
+        // element: the kind via hal::kindOf (rig/devices.inc states it once
+        // per card), the name via reflection over SwitchDeviceId, where it
+        // used to be a string the element carried around.
+        //
+        return std::string( core::meta::to_string( kindOf( id.device))) + " " +
+               std::string( to_string( id.device)) + " channel " + std::to_string( id.channel);
     }
 } // namespace hal

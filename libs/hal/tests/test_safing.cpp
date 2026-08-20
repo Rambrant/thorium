@@ -88,8 +88,8 @@ namespace
         // Two arbitrary elements standing in for whatever a dead test
         // might have left closed. Their identity doesn't matter -- see
         // FabricIsOpenedWithoutConsultingWhoClosedWhat below.
-        static constexpr hal::SwitchElementId someElement{ hal::SwitchDeviceKind::Matrix, "Matrix2", 24 };
-        static constexpr hal::SwitchElementId otherElement{ hal::SwitchDeviceKind::Mux, "Mux1", 3 };
+        static constexpr hal::SwitchElementId someElement{ hal::SwitchDeviceId::Matrix2, 24 };
+        static constexpr hal::SwitchElementId otherElement{ hal::SwitchDeviceId::Mux1, 3 };
 
         auto energiseEverything() const -> void
         {

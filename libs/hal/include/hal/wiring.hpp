@@ -433,15 +433,15 @@ namespace hal
 // leads -- most don't).
 //
 //   INSTRUMENT_WIRING
-//       WIRE_INSTRUMENT( Dmm1, HOP( Matrix, "Matrix2", 14))
-//       WIRE_INSTRUMENT( Osc1, HOP( Mux, "Mux22", 65), HOP( Matrix, "Matrix2", 10))
-//       WIRE_INSTRUMENT_SENSE( Dmm1, HOP( Matrix, "Matrix2", 15))
+//       WIRE_INSTRUMENT( Dmm1, HOP( Matrix2, 14))
+//       WIRE_INSTRUMENT( Osc1, HOP( Mux2, 65), HOP( Matrix2, 10))
+//       WIRE_INSTRUMENT_SENSE( Dmm1, HOP( Matrix2, 15))
 //   END_INSTRUMENT_WIRING
 //
 //   CONNECTOR_WIRING
-//       WIRE_CONNECTOR( A, 1, 3, HOP( Mux, "Mux1", 3))
-//       WIRE_CONNECTOR( A, 3, 1, HOP( Mux, "Mux31", 9), HOP( Mux, "Mux22", 65), HOP( Matrix, "Matrix11", 0))
-//       WIRE_CONNECTOR_SENSE( A, 1, 3, HOP( Mux, "Mux1", 4))
+//       WIRE_CONNECTOR( A, 1, 3, HOP( Mux1, 3))
+//       WIRE_CONNECTOR( A, 3, 1, HOP( Mux1, 9), HOP( Mux2, 65), HOP( Matrix2, 0))
+//       WIRE_CONNECTOR_SENSE( A, 1, 3, HOP( Mux1, 4))
 //   END_CONNECTOR_WIRING
 //
 // HOP(...) below builds one SwitchElementId -- the one thing every
@@ -449,8 +449,15 @@ namespace hal
 // several, so a one-hop entry and a multi-hop chain read the same way at
 // each individual hop.
 //
-#define HOP( deviceKind, device, channel) \
-    hal::SwitchElementId{ hal::SwitchDeviceKind::deviceKind, device, channel }
+// Two arguments, and both are checked. The device is a hal::SwitchDeviceId
+// enumerator, so it has to be a card the rig's devices.inc declares -- a
+// mistyped one is a compile error rather than a route to a card that isn't
+// there -- and there is no kind argument any more, because the kind is
+// something that file states once per card (see hal/switch_device.hpp for what
+// carrying it per hop used to allow).
+//
+#define HOP( device, channel) \
+    hal::SwitchElementId{ hal::SwitchDeviceId::device, channel }
 
 //
 // INSTRUMENT_WIRING's expansion builds three things from the one set of

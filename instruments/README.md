@@ -24,8 +24,8 @@ instruments/
 Three steps, each deliberately in a different place:
 
 1. The **top-level `CMakeLists.txt`** globs `instruments/*/CMakeLists.txt` and
-   collects the directory paths into `THORIUM_INSTRUMENT_DIRS` — the fourth
-   thing a rig supplies `libs/hal`, alongside the three `.inc`/`.hpp` file paths
+   collects the directory paths into `THORIUM_INSTRUMENT_DIRS` — the fifth
+   thing a rig supplies `libs/hal`, alongside the four `.inc`/`.hpp` file paths
    it already supplied. `libs/` still reaches nothing outside itself.
 2. **`libs/hal/CMakeLists.txt`** `add_subdirectory()`s each of them, at the one
    point in the configure where it can: after `hal` (which every driver compiles

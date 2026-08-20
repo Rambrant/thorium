@@ -63,10 +63,10 @@ namespace
             // ground return (see hal::Ac6834B's own comment on why the
             // return is included), all under the same InstrumentId so
             // hal::InstrumentWiring::findAll() returns all four together.
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 23 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 26 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 27 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 22 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 23 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 26 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 27 });
         }
     };
 } // namespace
@@ -76,17 +76,17 @@ TEST_F( SourceInstrumentFixture, AcApplyProgramsTheInstrumentWithoutTouchingTheF
     apply( acP1.ac().phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
 
     EXPECT_TRUE( acP1.isEnabled());
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 22 }));
 }
 
 TEST_F( SourceInstrumentFixture, AcConnectClosesAllFourFixedChannelsPhasesAndGround)
 {
     connect( acP1.ac());
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 })); // phase A
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 23 })); // phase B
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 26 })); // phase C
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 27 })); // ground/neutral
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 22 })); // phase A
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 23 })); // phase B
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 26 })); // phase C
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 27 })); // ground/neutral
 }
 
 TEST_F( SourceInstrumentFixture, AcDisconnectOpensAllFourFixedChannelsTogether)
@@ -94,10 +94,10 @@ TEST_F( SourceInstrumentFixture, AcDisconnectOpensAllFourFixedChannelsTogether)
     connect( acP1.ac());
     disconnect( acP1.ac());
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 22 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 23 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 26 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 27 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 22 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 23 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 26 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 27 }));
 }
 
 TEST_F( SourceInstrumentFixture, AcApplySetsPhaseVoltageFrequencyAndCurrentLimit)

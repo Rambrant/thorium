@@ -69,14 +69,14 @@ namespace
         Racal1260Fixture()
         {
             // The port's own three channels -- transmit, receive, return.
-            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 30 });
-            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 31 });
-            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceKind::Matrix, "Matrix2", 32 });
+            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Matrix2, 30 });
+            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Matrix2, 31 });
+            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Matrix2, 32 });
 
             // The interface's three pins.
-            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 1 }, { hal::SwitchDeviceKind::Mux, "Mux2", 6 });
-            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 2 }, { hal::SwitchDeviceKind::Mux, "Mux2", 7 });
-            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 5 }, { hal::SwitchDeviceKind::Mux, "Mux2", 8 });
+            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 1 }, { hal::SwitchDeviceId::Mux2, 6 });
+            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 2 }, { hal::SwitchDeviceId::Mux2, 7 });
+            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 5 }, { hal::SwitchDeviceId::Mux2, 8 });
         }
     };
 } // namespace
@@ -141,13 +141,13 @@ TEST_F( Racal1260Fixture, ConnectingTheInterfaceClosesEveryLineOnBothSides)
     hal::connectDriver( fabric, instrumentWiring, connectorWiring,
                         ser1.rs232().config(), core::at( Console).point);
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 30 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 31 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 32 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 30 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 31 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 32 }));
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux, "Mux2", 6 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux, "Mux2", 7 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceKind::Mux, "Mux2", 8 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Mux2, 6 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Mux2, 7 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Mux2, 8 }));
 }
 
 //
@@ -163,10 +163,10 @@ TEST_F( Racal1260Fixture, DisconnectingOpensExactlyWhatWasClosed)
     hal::connectDriver(    fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
     hal::disconnectDriver( fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 30 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Matrix, "Matrix2", 32 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux2",    6 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceKind::Mux,    "Mux2",    8 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 30 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 32 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux2,    6 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux2,    8 }));
 }
 
 //

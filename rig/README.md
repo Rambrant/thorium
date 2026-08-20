@@ -1,14 +1,15 @@
 # rig/ -- this rig's data, and nothing else
 
 This directory holds *only* facts specific to this one physical rig -- which
-instruments it has, how they're wired to the VPC90 connector array and to
-each other, and what to call them -- expressed the same way `dut/`
+instruments it has, what switching hardware sits between them, how they're
+wired to the VPC90 connector array and to each other, and what to call all
+of it -- expressed the same way `dut/`
 expresses DUT-specific data: flat, macro-driven `.inc` files (plus one
 concrete header) with no library of its own. The mechanism that makes sense
 of this data (`hal::InstrumentWiring`, `hal::SwitchFabric`, the driver
 classes themselves, the `INSTRUMENTS`/`INSTRUMENT_WIRING`/etc macros) all
 lives in `libs/hal/` -- see its README for why that split is possible, and
-for the three `THORIUM_*` compile definitions (declared and validated in
+for the four `THORIUM_*` compile definitions (declared and validated in
 `libs/hal/CMakeLists.txt`) this directory's files are handed to hal through.
 
 ## Layout
@@ -16,6 +17,7 @@ for the three `THORIUM_*` compile definitions (declared and validated in
 ```
 rig/
     instrument.inc         # THORIUM_INSTRUMENT_TABLE -- this rig's fixed instrument list, and hal::InstrumentId's enumerators
+    devices.inc             # THORIUM_DEVICE_TABLE -- this rig's switching devices, and hal::SwitchDeviceId's enumerators
     wiring.inc              # THORIUM_WIRING_TABLE -- this rig's fixed instrument/connector wiring
     active_instruments.hpp # THORIUM_ACTIVE_INSTRUMENTS -- Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/Ser1/fabric
 ```
@@ -65,6 +67,41 @@ derived globals instead (see that struct's own comment in
 `hal/instrument.hpp`), which is what it does now. Every concrete driver
 type inherits `InstrumentTag`, so safing doesn't need this file, or a
 hand-maintained second list, at all.
+
+## devices.inc
+
+The switching hardware between the instruments and the VPC array -- one
+`SWITCH_DEVICE(kind, id, address)` per card, naming what kind of device it is
+(`Matrix`/`Mux`/`RfMux`) and where the PC commands it:
+
+```cpp
+SWITCH_DEVICES
+    SWITCH_DEVICE( Matrix, Matrix2, Gpib( 0, 7, 1))
+    SWITCH_DEVICE( Mux,    Mux1,    Gpib( 0, 7, 2))
+END_SWITCH_DEVICES
+```
+
+Read twice, exactly as `instrument.inc` is: once by `hal/switch_device.hpp` to
+generate `hal::SwitchDeviceId`'s enumerators, once to carry each device's kind
+and address. It could not simply be another block inside `wiring.inc` --
+`THORIUM_WIRING_TABLE` is `PRIVATE` to `hal_rig`, and an enum that
+`hal::SwitchElementId` is built from has to be visible in a public header.
+
+These are **not** instruments, and that is deliberate rather than an oversight.
+A switching device measures nothing and sources nothing; no test script ever
+names one, only `wiring.inc` does, and `hal::InstrumentId` is what a *reading*
+is identified by. See `hal/switch_device.hpp` for the argument in full.
+
+Two things this file buys beyond the addresses, both of which were real holes:
+
+- **A card name is now checked.** `HOP` takes a `SwitchDeviceId`, so a mistyped
+  `Matrix22` is a compile error. It used to be a bare string, and the fabric
+  would happily create that element, close it, open it, and route nothing.
+- **A card has one kind.** `kind` used to ride on every hop, so
+  `HOP( Matrix, "Matrix2", 14)` and `HOP( Mux, "Matrix2", 14)` were two
+  distinct elements for one physical crosspoint, each with its own use count in
+  `hal::SwitchFabric` -- connect through one, disconnect through the other, and
+  the relay never opened.
 
 ## wiring.inc
 

@@ -7,17 +7,23 @@
 // together at measurement time -- see core/measure.hpp -- rather than
 // stored per (instrument, pin) combination.
 //
+// HOP( device, channel) names a card declared in rig/devices.inc, not a
+// string: every device below has to be one this rig says it has, and what kind
+// of card it is comes from that declaration rather than being repeated here
+// (see hal/switch_device.hpp for what the string-and-kind-per-hop form used to
+// allow through).
+//
 INSTRUMENT_WIRING
-    WIRE_INSTRUMENT( Dmm1, HOP( Matrix, "Matrix2", 14))
-    WIRE_INSTRUMENT( Dmm2, HOP( Matrix, "Matrix2", 16))
-    WIRE_INSTRUMENT( Osc1, HOP( Matrix, "Matrix2", 10))
+    WIRE_INSTRUMENT( Dmm1, HOP( Matrix2, 14))
+    WIRE_INSTRUMENT( Dmm2, HOP( Matrix2, 16))
+    WIRE_INSTRUMENT( Osc1, HOP( Matrix2, 10))
     // DcP1/DcP2 have no entry here at all -- they're hal::N6701ADirect,
     // wired straight through with no isolation relay, nothing for
     // Connect/Disconnect to close or open (see hal::N6701A's own comment
     // on DirectWiring). Only DcP3/DcP4 (hal::N6701ARelay) have a real
     // fixed channel.
-    WIRE_INSTRUMENT( DcP3, HOP( Matrix, "Matrix2", 24))
-    WIRE_INSTRUMENT( DcP4, HOP( Matrix, "Matrix2", 25))
+    WIRE_INSTRUMENT( DcP3, HOP( Matrix2, 24))
+    WIRE_INSTRUMENT( DcP4, HOP( Matrix2, 25))
     // AcP1 is fixed-wired on four channels, not one -- phases A/B/C plus
     // the neutral/ground return, all closed and opened together (see
     // hal::Ac6834B's own comment on why the return is included, and
@@ -26,10 +32,11 @@ INSTRUMENT_WIRING
     // own single-hop entry here -- four independent Paths under one
     // InstrumentId, not one four-element Path -- see findAll()'s own
     // comment for why that distinction matters.
-    WIRE_INSTRUMENT( AcP1, HOP( Matrix, "Matrix2", 22)) // phase A
-    WIRE_INSTRUMENT( AcP1, HOP( Matrix, "Matrix2", 23)) // phase B
-    WIRE_INSTRUMENT( AcP1, HOP( Matrix, "Matrix2", 26)) // phase C
-    WIRE_INSTRUMENT( AcP1, HOP( Matrix, "Matrix2", 27)) // neutral/ground return
+    WIRE_INSTRUMENT( AcP1, HOP( Matrix2, 22)) // phase A
+    WIRE_INSTRUMENT( AcP1, HOP( Matrix2, 23)) // phase B
+    WIRE_INSTRUMENT( AcP1, HOP( Matrix2, 26)) // phase C
+    WIRE_INSTRUMENT( AcP1, HOP( Matrix2, 27)) // neutral/ground return
+
     // Ser1 is fixed-wired on three channels -- transmit, receive and the
     // signal-ground return -- closed and opened together exactly the way
     // AcP1's four are, and for the same reason (see hal::InstrumentWiring::
@@ -40,17 +47,17 @@ INSTRUMENT_WIRING
     //
     // TODO(bench): invented, like every assignment in this file -- the next
     // three free Matrix2 channels above AcP1's. Re-check against a real chassis.
-    WIRE_INSTRUMENT( Ser1, HOP( Matrix, "Matrix2", 30)) // transmit
-    WIRE_INSTRUMENT( Ser1, HOP( Matrix, "Matrix2", 31)) // receive
-    WIRE_INSTRUMENT( Ser1, HOP( Matrix, "Matrix2", 32)) // signal-ground return
+    WIRE_INSTRUMENT( Ser1, HOP( Matrix2, 30)) // transmit
+    WIRE_INSTRUMENT( Ser1, HOP( Matrix2, 31)) // receive
+    WIRE_INSTRUMENT( Ser1, HOP( Matrix2, 32)) // signal-ground return
 END_INSTRUMENT_WIRING
 
 CONNECTOR_WIRING
-    WIRE_CONNECTOR( A, 1, 3, HOP( Mux, "Mux1", 3))
-    WIRE_CONNECTOR( A, 1, 6, HOP( Mux, "Mux1", 4))
-    WIRE_CONNECTOR( A, 1, 2, HOP( Mux, "Mux2", 1))
-    WIRE_CONNECTOR( A, 1, 4, HOP( Mux, "Mux1", 5))
-    WIRE_CONNECTOR( A, 1, 5, HOP( Mux, "Mux1", 6))
+    WIRE_CONNECTOR( A, 1, 3, HOP( Mux1, 3))
+    WIRE_CONNECTOR( A, 1, 6, HOP( Mux1, 4))
+    WIRE_CONNECTOR( A, 1, 2, HOP( Mux2, 1))
+    WIRE_CONNECTOR( A, 1, 4, HOP( Mux1, 5))
+    WIRE_CONNECTOR( A, 1, 5, HOP( Mux1, 6))
     // TODO(bench): these two channel numbers are the next free Mux1 channels,
     // chosen rather than read off a rig -- as is every assignment in this file
     // (there is no physical bench yet; see SOURCE_WIRING's own TODO below).
@@ -58,20 +65,20 @@ CONNECTOR_WIRING
     // in an otherwise-real table. What they now say is consistent with the
     // rest: BackupSupply_2/BatterySupply are cabled rails (SOURCE_WIRING
     // below) that also carry a tap, exactly as BackupSupply on A-1-6 does.
-    WIRE_CONNECTOR( A, 1, 7, HOP( Mux, "Mux1", 7))
-    WIRE_CONNECTOR( A, 1, 8, HOP( Mux, "Mux1", 8))
-    WIRE_CONNECTOR( A, 3, 1, HOP( Mux, "Mux2", 2))
-    WIRE_CONNECTOR( A, 3, 3, HOP( Mux, "Mux2", 3))
-    WIRE_CONNECTOR( A, 3, 5, HOP( Mux, "Mux2", 4))
-    WIRE_CONNECTOR( A, 3, 7, HOP( Mux, "Mux2", 5))
+    WIRE_CONNECTOR( A, 1, 7, HOP( Mux1, 7))
+    WIRE_CONNECTOR( A, 1, 8, HOP( Mux1, 8))
+    WIRE_CONNECTOR( A, 3, 1, HOP( Mux2, 2))
+    WIRE_CONNECTOR( A, 3, 3, HOP( Mux2, 3))
+    WIRE_CONNECTOR( A, 3, 5, HOP( Mux2, 4))
+    WIRE_CONNECTOR( A, 3, 7, HOP( Mux2, 5))
     // dut::Console's three lines. Routed pins, not cabled ones, which is why
     // they appear here and NOT in SOURCE_WIRING below -- a console is switched
     // onto the DUT for the duration of a dialogue and off again afterwards.
     //
     // TODO(bench): invented, as above -- the next three free Mux2 channels.
-    WIRE_CONNECTOR( A, 2, 1, HOP( Mux, "Mux2", 6))   // dut::Console::Tx
-    WIRE_CONNECTOR( A, 2, 2, HOP( Mux, "Mux2", 7))   // dut::Console::Rx
-    WIRE_CONNECTOR( A, 2, 5, HOP( Mux, "Mux2", 8))   // dut::Console::Gnd
+    WIRE_CONNECTOR( A, 2, 1, HOP( Mux2, 6))   // dut::Console::Tx
+    WIRE_CONNECTOR( A, 2, 2, HOP( Mux2, 7))   // dut::Console::Rx
+    WIRE_CONNECTOR( A, 2, 5, HOP( Mux2, 8))   // dut::Console::Gnd
 END_CONNECTOR_WIRING
 
 //

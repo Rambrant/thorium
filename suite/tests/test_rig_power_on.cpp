@@ -59,9 +59,9 @@ TEST_F( RigPowerOnFixture, BringsEverySourceUpToItsSetpoint)
 //
 TEST_F( RigPowerOnFixture, ClosesTheIsolationRelaysTheEnergisedSourcesNeed)
 {
-    constexpr hal::SwitchElementId dcP3Path{ hal::SwitchDeviceKind::Matrix, "Matrix2", 24 };
-    constexpr hal::SwitchElementId acP1PhaseA{ hal::SwitchDeviceKind::Matrix, "Matrix2", 22 };
-    constexpr hal::SwitchElementId acP1Neutral{ hal::SwitchDeviceKind::Matrix, "Matrix2", 27 };
+    constexpr hal::SwitchElementId dcP3Path{ hal::SwitchDeviceId::Matrix2, 24 };
+    constexpr hal::SwitchElementId acP1PhaseA{ hal::SwitchDeviceId::Matrix2, 22 };
+    constexpr hal::SwitchElementId acP1Neutral{ hal::SwitchDeviceId::Matrix2, 27 };
 
     EXPECT_TRUE( rigPowerOn());
 
@@ -104,7 +104,7 @@ TEST_F( RigPowerOnFixture, FailsWhenARailDoesNotComeUp)
 //
 TEST_F( RigPowerOnFixture, WhatItBringsUpThePowerDownTakesBackDown)
 {
-    constexpr hal::SwitchElementId acP1PhaseA{ hal::SwitchDeviceKind::Matrix, "Matrix2", 22 };
+    constexpr hal::SwitchElementId acP1PhaseA{ hal::SwitchDeviceId::Matrix2, 22 };
 
     ASSERT_TRUE( rigPowerOn());
     ASSERT_TRUE( AcP1.isEnabled());
