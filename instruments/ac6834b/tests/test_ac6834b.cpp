@@ -14,6 +14,29 @@
 
 #include <gtest/gtest.h>
 
+#include <concepts>
+
+//
+// This model's back panel, as the constructor constraint actually sees it --
+// checked in both directions, since a check that only ever passes proves
+// nothing about what it rejects (the same shape hal/tests/test_safing.cpp
+// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// hal::ReachableOver mechanism itself).
+//
+// GPIB or RS-232 and nothing else on this source -- and note that
+// hal::Serial here is the PC's own port, which is why it is the one driver
+// in this rig that accepts it.
+//
+namespace
+{
+    static_assert(   std::constructible_from< hal::Ac6834B, hal::InstrumentId, hal::Gpib> );
+    static_assert(   std::constructible_from< hal::Ac6834B, hal::InstrumentId, hal::Serial> );
+    static_assert(   std::constructible_from< hal::Ac6834B, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< hal::Ac6834B, hal::InstrumentId, hal::Lan> );
+    static_assert( ! std::constructible_from< hal::Ac6834B, hal::InstrumentId, hal::Usb> );
+    static_assert( ! std::constructible_from< hal::Ac6834B, hal::InstrumentId> );
+} // namespace
+
 #include <type_traits>
 
 using namespace core::literals;
@@ -27,7 +50,7 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::Ac6834B           acP1{ hal::InstrumentId::AcP1 };
+        hal::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};

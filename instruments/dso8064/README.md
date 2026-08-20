@@ -5,6 +5,8 @@ included as `"hal/dso8064.hpp"`.
 
 Target: `hal_dso8064` / `Thorium::hal_dso8064`. Depends on `Thorium::hal` only.
 
+Reachable over `Gpib`, `Lan` or `Usb` (see `hal/address.hpp`).
+
 ## What it measures
 
 Readings are reached through a channel view — `osc1.channel<1>()` — and the

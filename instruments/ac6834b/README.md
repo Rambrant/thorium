@@ -9,6 +9,9 @@ part of the 681xB/6834B/6843A AC Power Solutions family.
 
 Target: `hal_ac6834b` / `Thorium::hal_ac6834b`. Depends on `Thorium::hal` only.
 
+Reachable over `Gpib` or `Serial` — the GPIB/RS-232 pair above, where
+`hal::Serial` means a port on the PC (see `hal/address.hpp`).
+
 ## Sourcing
 
 `ac()` returns an immutable builder — `.phaseVoltage()`,

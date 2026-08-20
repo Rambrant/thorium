@@ -12,9 +12,15 @@ four `hal::InstrumentId`s and no shared state at this layer — the same way `Dm
 and `Dmm2` don't share state. The channel number is a constructor argument:
 
 ```cpp
-hal::N6701ADirect dcP1{ hal::InstrumentId::DcP1, 1 };
-hal::N6701ADirect dcP2{ hal::InstrumentId::DcP2, 2 };
+hal::N6701ADirect dcP1{ hal::InstrumentId::DcP1, hal::Gpib( 0, 14), 1 };
+hal::N6701ADirect dcP2{ hal::InstrumentId::DcP2, hal::Gpib( 0, 14), 2 };
 ```
+
+The address is the *mainframe's*, so every channel of one box repeats it while
+the slot is what tells them apart. Reachable over `Gpib`, `Lan` or `Usb` (see
+`hal/address.hpp`); the slot is deliberately not a field on the address, since
+an optional slot on a generic address type could be left off here or handed to
+a DMM without anything objecting, where a constructor parameter cannot.
 
 ## Isolation is a type parameter, and that's the interesting part
 

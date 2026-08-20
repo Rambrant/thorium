@@ -23,12 +23,12 @@ rig/
 ## instrument.inc
 
 This rig's fixed, concrete instrument list -- one `INSTRUMENT(type, id,
-...)` per instrument, naming its C++ driver type, the global it's addressed
-by (id doubles as both the global's name and its `hal::InstrumentId` --
-there is no rig where those differ, so there's no separate parameter for
-it), and any constructor arguments (e.g. `hal::N6701A`'s slot number).
-Included from two different places, each with `INSTRUMENT` defined for its
-own purpose:
+address, ...)` per instrument, naming its C++ driver type, the global it's
+addressed by (id doubles as both the global's name and its
+`hal::InstrumentId` -- there is no rig where those differ, so there's no
+separate parameter for it), how the PC reaches it, and any constructor
+arguments (e.g. `hal::N6701A`'s slot number). Included from two different
+places, each with `INSTRUMENT` defined for its own purpose:
 
 - `active_instruments.hpp` below declares each id as an actual global
 - `hal/instrument.hpp` keeps only each id, to generate `hal::InstrumentId`'s
@@ -37,6 +37,20 @@ own purpose:
 Both reads see this exact list, so an instrument added here can never
 desync from its own identity enumerator -- there's nothing left to desync
 from.
+
+The `address` column is the control side -- `Gpib(0, 14)`,
+`Lan("bench-dmm1")`, `Serial("/dev/ttyUSB0")` -- as against the signal side
+`wiring.inc` describes below. See `hal/address.hpp` for the types, and note
+two things about the column: it is mandatory (a row that omits it fails to
+preprocess, in *both* readers), and which bus kinds a given row may use is
+fixed by its driver rather than by this file, so `Gpib(...)` on an L4411A --
+an LXI box with no GPIB connector -- is a compile error rather than a run
+that dies on its first reading.
+
+`DcP1`..`DcP4` all carry the same address on purpose: four modules behind one
+mainframe interface is one address and four slots, and the slot stays a
+separate constructor argument rather than a field on the address (see
+`active_instruments.hpp`'s own comment for that argument in full).
 
 Only one of those two is a macro-redefinition-and-re-`#include` this
 codebase couldn't replace with reflection -- see `hal/instrument.hpp`'s own

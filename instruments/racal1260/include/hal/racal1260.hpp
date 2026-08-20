@@ -11,6 +11,7 @@
 #include "core/bytes.hpp"
 #include "core/transfer.hpp"
 
+#include "hal/address.hpp"
 #include "hal/bundle.hpp"
 #include "hal/describe.hpp"
 #include "hal/instrument.hpp"
@@ -224,7 +225,31 @@ namespace hal
     class Racal1260 : public InstrumentTag
     {
         public:
-            explicit Racal1260( const InstrumentId id) : mId( id) {}
+            //
+            // GPIB. This port is a module in the same VXI chassis the rig's
+            // matrix cards live in (see hal::SwitchDeviceKind's own comment on
+            // the RACAL 1260 in hal/switch_fabric.hpp), and the chassis is what
+            // the PC has an interface to -- so the address here is the
+            // chassis's, exactly as DcP1..DcP4 share their mainframe's.
+            //
+            // Note which serial port this is NOT: hal::Serial in
+            // hal/address.hpp is a port on the PC, and this instrument is not
+            // reached over one. The RS232 framing this driver configures
+            // (BaudRate/Parity/StopBits above) is what it speaks *out* at the
+            // DUT, down the matrix. The two directions are unrelated, and the
+            // constraint on this constructor is what stops a rig row from
+            // confusing them.
+            //
+            template<typename AddressT>
+                requires ReachableOver<AddressT, Gpib>
+            Racal1260( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+
+            // Where the PC reaches this port -- see hal/address.hpp.
+            [[nodiscard]]
+            auto address() const -> const Address &
+            {
+                return mAddress;
+            }
 
             [[nodiscard]]
             auto id() const -> InstrumentId
@@ -367,6 +392,7 @@ namespace hal
 
         private:
             InstrumentId                mId;
+            Address                     mAddress;
             std::optional<unsigned>     mBaudRate;
             std::optional<unsigned>     mWordLength;
             std::optional<Parity>       mParity;

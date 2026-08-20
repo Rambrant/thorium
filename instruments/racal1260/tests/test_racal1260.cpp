@@ -2,6 +2,29 @@
 
 #include <gtest/gtest.h>
 
+#include <concepts>
+
+//
+// This model's back panel, as the constructor constraint actually sees it --
+// checked in both directions, since a check that only ever passes proves
+// nothing about what it rejects (the same shape hal/tests/test_safing.cpp
+// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// hal::ReachableOver mechanism itself).
+//
+// The one that is worth stating out loud: this is an RS232 port, and it is
+// NOT reached over a serial port. hal::Serial is a cable from the PC; the
+// framing this driver configures is what it speaks at the DUT through the
+// matrix, and the chassis holding it is on GPIB.
+//
+namespace
+{
+    static_assert(   std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Gpib> );
+    static_assert(   std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Serial> );
+    static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Lan> );
+    static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId> );
+} // namespace
+
 #include <chrono>
 
 #include "core/at.hpp"
@@ -35,7 +58,7 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::Racal1260         ser1{ hal::InstrumentId::Ser1 };
+        hal::Racal1260         ser1{ hal::InstrumentId::Ser1, hal::Simulated{} };
 
         Racal1260Fixture()
         {

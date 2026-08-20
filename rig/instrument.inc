@@ -41,17 +41,39 @@
 // Ser1 is the one instrument here that is neither a meter nor a source: an
 // RS232 port routed to the DUT through the same matrix everything else uses
 // (see hal::Racal1260, and dut::Console for the interface it talks to). It
-// takes no constructor argument beyond its id -- one instance is one port,
-// the same way one hal::L4411A is one meter.
+// takes no constructor argument beyond its id and address -- one instance is
+// one port, the same way one hal::L4411A is one meter.
+//
+// The third column is how the *PC* reaches each instrument -- the control
+// side, as against the signal side wiring.inc describes (see hal/address.hpp
+// for the distinction, and rig/active_instruments.hpp for why it is a fixed
+// column rather than one more constructor argument). Which bus kinds a given
+// row may use is fixed by its driver, not by this file: an L4411A is an LXI
+// box with no GPIB connector, so Gpib( ...) on one of the Dmm rows is a
+// compile error rather than a run that dies on its first reading.
+//
+// DcP1..DcP4 all carry the same address, and that repetition is the point:
+// they are four modules behind one mainframe interface, so there is one
+// address and four slots, not four addresses. If a second shared box ever
+// appears here, the thing to add is a named constant above this table for
+// each chassis -- not a slot field on the address.
+//
+// TODO(bench): every address below is invented, exactly as every channel in
+// wiring.inc is -- there is no physical bench yet. They are internally
+// consistent (one mainframe address for the four DC modules, the 1260
+// chassis's own address for the RS232 module in it, LXI hostnames for the
+// three LAN instruments) and no more than that. Re-check against a real rack.
+// Deliberately not hal::Simulated{}, which would read as a decision rather
+// than a gap -- see that type's own comment in hal/address.hpp.
 //
 INSTRUMENTS
-    INSTRUMENT( L4411A,       Dmm1)
-    INSTRUMENT( L4411A,       Dmm2)
-    INSTRUMENT( DSO8064,      Osc1)
-    INSTRUMENT( N6701ADirect, DcP1, 1)
-    INSTRUMENT( N6701ADirect, DcP2, 2)
-    INSTRUMENT( N6701ARelay,  DcP3, 3)
-    INSTRUMENT( N6701ARelay,  DcP4, 4)
-    INSTRUMENT( Ac6834B,      AcP1)
-    INSTRUMENT( Racal1260,    Ser1)
+    INSTRUMENT( L4411A,       Dmm1, Lan( "bench-dmm1"))
+    INSTRUMENT( L4411A,       Dmm2, Lan( "bench-dmm2"))
+    INSTRUMENT( DSO8064,      Osc1, Lan( "bench-osc1"))
+    INSTRUMENT( N6701ADirect, DcP1, Gpib( 0, 14), 1)
+    INSTRUMENT( N6701ADirect, DcP2, Gpib( 0, 14), 2)
+    INSTRUMENT( N6701ARelay,  DcP3, Gpib( 0, 14), 3)
+    INSTRUMENT( N6701ARelay,  DcP4, Gpib( 0, 14), 4)
+    INSTRUMENT( Ac6834B,      AcP1, Gpib( 0, 5))
+    INSTRUMENT( Racal1260,    Ser1, Gpib( 0, 9))
 END_INSTRUMENTS

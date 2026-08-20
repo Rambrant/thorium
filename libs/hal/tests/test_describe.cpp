@@ -46,9 +46,9 @@ namespace
         // Same instrument set and wiring as test_source_instruments.cpp's
         // fixture: DcP1 direct-wired (Apply/Remove only), DcP3 relay-isolated
         // (the one Connect/Disconnect can be called on at all).
-        hal::N6701ADirect      dcP1{ hal::InstrumentId::DcP1, 1 };
-        hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, 3 };
-        hal::Ac6834B           acP1{ hal::InstrumentId::AcP1 };
+        hal::N6701ADirect      dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
+        hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};

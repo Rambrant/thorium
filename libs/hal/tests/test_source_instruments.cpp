@@ -30,8 +30,8 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, 3 };
-        hal::Ac6834B           acP1{ hal::InstrumentId::AcP1 };
+        hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ConnectEngine    connect{    fabric, instrumentWiring, connectorWiring };
         DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };

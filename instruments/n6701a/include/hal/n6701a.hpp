@@ -8,6 +8,7 @@
 #include "core/port.hpp"
 #include "core/quantity.hpp"
 
+#include "hal/address.hpp"
 #include "hal/describe.hpp"
 #include "hal/instrument.hpp"
 #include "hal/switch_fabric.hpp"
@@ -174,7 +175,25 @@ namespace hal
     class N6701A : public InstrumentTag
     {
         public:
-            N6701A( const InstrumentId id, const int channel) : mId( id), mChannel( channel) {}
+            //
+            // GPIB, LAN or USB, and one address for the whole mainframe: the
+            // four modules DcP1..DcP4 model are four endpoints behind ONE
+            // interface, so all four rows in a rig's instrument.inc carry the
+            // same address and differ in the slot argument below (see
+            // hal::ReachableOver in hal/address.hpp, and rig/
+            // active_instruments.hpp for why the slot is a separate argument
+            // rather than a field on the address).
+            //
+            template<typename AddressT>
+                requires ReachableOver<AddressT, Gpib, Lan, Usb>
+            N6701A( const InstrumentId id, const AddressT address, const int channel) : mId( id), mAddress( address), mChannel( channel) {}
+
+            // Where the PC reaches this mainframe -- see hal/address.hpp.
+            [[nodiscard]]
+            auto address() const -> const Address &
+            {
+                return mAddress;
+            }
 
             [[nodiscard]]
             auto id() const -> InstrumentId
@@ -327,6 +346,7 @@ namespace hal
 
         private:
             InstrumentId                              mId;
+            Address                                   mAddress;
             int                                        mChannel;
             core::quantities::Voltage                 mOutputVoltage{};
             core::quantities::Current                 mSimOutputCurrent{};
@@ -337,7 +357,7 @@ namespace hal
     //
     // A rig's instrument.inc (rig/instrument.inc in this repo) names
     // instruments by these aliases, not by N6701A<...> directly -- partly
-    // readability, partly mechanical: the INSTRUMENT(type, name, id, ...)
+    // readability, partly mechanical: the INSTRUMENT(type, id, address, ...)
     // macro in the rig's active_instruments.hpp splits its arguments on
     // top-level commas, and N6701A<RelayIsolated> would be split at the
     // angle brackets' own comma-free content just fine here, but a bare

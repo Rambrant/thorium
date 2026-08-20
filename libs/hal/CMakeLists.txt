@@ -52,10 +52,12 @@ endforeach()
 # rather than by reviewers noticing.
 #
 add_library(hal STATIC
+    src/address.cpp
     src/vpc_location.cpp
     src/switch_fabric.cpp
     src/instrument.cpp
     src/wiring.cpp
+    include/hal/address.hpp        # header-only
     include/hal/vpc_location.hpp   # header-only
     include/hal/switch_fabric.hpp  # header-only
     include/hal/instrument.hpp     # header-only

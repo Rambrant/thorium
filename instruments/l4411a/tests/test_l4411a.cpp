@@ -16,12 +16,40 @@
 
 #include <gtest/gtest.h>
 
+#include <concepts>
+
+//
+// This model's back panel, as the constructor constraint actually sees it --
+// checked in both directions, since a check that only ever passes proves
+// nothing about what it rejects (the same shape hal/tests/test_safing.cpp
+// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// hal::ReachableOver mechanism itself).
+//
+// An L4411A is an LXI box: LAN and USB, no GPIB connector at all, so a
+// rig row addressing one over GPIB does not compile.
+//
+namespace
+{
+    static_assert(   std::constructible_from< hal::L4411A, hal::InstrumentId, hal::Lan> );
+    static_assert(   std::constructible_from< hal::L4411A, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< hal::L4411A, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< hal::L4411A, hal::InstrumentId, hal::Gpib> );
+    static_assert( ! std::constructible_from< hal::L4411A, hal::InstrumentId, hal::Serial> );
+
+    //
+    // And an address is not optional: an instrument the PC cannot reach is
+    // not an instrument a rig has -- see rig/active_instruments.hpp on why
+    // the INSTRUMENT() column is mandatory rather than defaulted.
+    //
+    static_assert( ! std::constructible_from< hal::L4411A, hal::InstrumentId> );
+} // namespace
+
 using namespace core::literals;
 using namespace core::quantities;
 
 TEST( HalInstrument, L4411AExposesBothVoltageAndCurrentPorts)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
     dmm1.setSimulatedVoltage( 5.02_V);
     dmm1.setSimulatedCurrent( 0.5_A);
 
@@ -31,8 +59,8 @@ TEST( HalInstrument, L4411AExposesBothVoltageAndCurrentPorts)
 
 TEST( HalInstrument, TwoL4411AsAreDistinguishableByInstrumentId)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
-    hal::L4411A dmm2{ hal::InstrumentId::Dmm2 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    hal::L4411A dmm2{ hal::InstrumentId::Dmm2, hal::Simulated{} };
 
     EXPECT_EQ( dmm1.voltage().instrumentId(), hal::InstrumentId::Dmm1);
     EXPECT_EQ( dmm2.voltage().instrumentId(), hal::InstrumentId::Dmm2);
@@ -40,7 +68,7 @@ TEST( HalInstrument, TwoL4411AsAreDistinguishableByInstrumentId)
 
 TEST( HalInstrument, L4411AAcVoltagePortReadsTheAcSimulatedReading)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
     dmm1.setSimulatedVoltage( 5.0_V);
     dmm1.setSimulatedAcVoltage( 230.0_V);
 
@@ -49,7 +77,7 @@ TEST( HalInstrument, L4411AAcVoltagePortReadsTheAcSimulatedReading)
 
 TEST( HalInstrument, L4411AAcCurrentPortReadsTheAcSimulatedReading)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
     dmm1.setSimulatedCurrent( 0.5_A);
     dmm1.setSimulatedAcCurrent( 1.2_A);
 
@@ -58,7 +86,7 @@ TEST( HalInstrument, L4411AAcCurrentPortReadsTheAcSimulatedReading)
 
 TEST( HalInstrument, L4411AVoltageAfterAcVoltageSwitchesBackToDcMode)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
     dmm1.setSimulatedVoltage( 5.0_V);
     dmm1.setSimulatedAcVoltage( 230.0_V);
 
@@ -73,7 +101,7 @@ TEST( HalInstrument, L4411AModeIsSharedAcrossPortHandlesHeldPastAModeSwitch)
     // port handle obtained before a mode switch still reads whichever mode
     // is current when rawMeasure() is eventually called, not the mode active
     // when the handle was created.
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
     dmm1.setSimulatedVoltage( 5.0_V);
     dmm1.setSimulatedAcVoltage( 230.0_V);
 
@@ -85,7 +113,7 @@ TEST( HalInstrument, L4411AModeIsSharedAcrossPortHandlesHeldPastAModeSwitch)
 
 TEST( HalInstrument, L4411AResistancePortReadsTheTwoWireSimulatedReading)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
     dmm1.setSimulatedResistance( 100.0_Ohm);
     dmm1.setSimulatedFourWireResistance( 99.5_Ohm);
 
@@ -94,7 +122,7 @@ TEST( HalInstrument, L4411AResistancePortReadsTheTwoWireSimulatedReading)
 
 TEST( HalInstrument, L4411AFourWireResistancePortReadsTheFourWireSimulatedReading)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
     dmm1.setSimulatedResistance( 100.0_Ohm);
     dmm1.setSimulatedFourWireResistance( 99.5_Ohm);
 
@@ -103,7 +131,7 @@ TEST( HalInstrument, L4411AFourWireResistancePortReadsTheFourWireSimulatedReadin
 
 TEST( HalInstrument, L4411AResistanceAfterFourWireResistanceSwitchesBackToTwoWireMode)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
     dmm1.setSimulatedResistance( 100.0_Ohm);
     dmm1.setSimulatedFourWireResistance( 99.5_Ohm);
 
@@ -120,7 +148,7 @@ TEST( HalInstrument, L4411AResistanceAfterFourWireResistanceSwitchesBackToTwoWir
 //
 TEST( HalInstrument, L4411AFourWireResistanceRequiresTheSensePathButTwoWireDoesNot)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
 
     static_assert( decltype( dmm1.resistance())::SenseUse         == core::SensePath::NotUsed);
     static_assert( decltype( dmm1.fourWireResistance())::SenseUse == core::SensePath::Required);
@@ -142,7 +170,7 @@ TEST( HalInstrument, L4411AFourWireResistanceRequiresTheSensePathButTwoWireDoesN
 //
 TEST( HalInstrument, PortRangeNplcAndFrequencyChainWithoutAffectingTheReading)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1 };
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
     dmm1.setSimulatedVoltage( 5.02_V);
 
     auto port = dmm1.voltage().range( 20.0_V).nplc( 10).frequency( 50.0_Hz);
@@ -151,4 +179,17 @@ TEST( HalInstrument, PortRangeNplcAndFrequencyChainWithoutAffectingTheReading)
     EXPECT_EQ( port.setup().Range,     std::optional{ 20.0_V});
     EXPECT_EQ( port.setup().Nplc,      std::optional{ 10});
     EXPECT_EQ( port.setup().Frequency, std::optional{ 50.0_Hz});
+}
+
+//
+// The address survives construction and reads back as what the rig declared
+// -- the whole of what this driver does with it today, exactly as
+// hal::N6701A's mainframe slot was carried for a while before anything read
+// it. When a real driver opens a session, this is the value it opens.
+//
+TEST( HalInstrument, L4411ACarriesTheAddressItWasDeclaredWith)
+{
+    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Lan( "bench-dmm1") };
+
+    EXPECT_EQ( to_string( dmm1.address()), "Lan bench-dmm1:5025");
 }

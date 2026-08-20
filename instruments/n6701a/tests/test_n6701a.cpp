@@ -20,6 +20,31 @@
 
 #include <gtest/gtest.h>
 
+#include <concepts>
+
+//
+// This model's back panel, as the constructor constraint actually sees it --
+// checked in both directions, since a check that only ever passes proves
+// nothing about what it rejects (the same shape hal/tests/test_safing.cpp
+// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// hal::ReachableOver mechanism itself).
+//
+// The mainframe's interfaces, plus the argument the address deliberately
+// does not carry: the slot stays a constructor parameter of its own, so a
+// module declared without one does not compile (see rig/
+// active_instruments.hpp on why it was not folded into the address).
+//
+namespace
+{
+    static_assert(   std::constructible_from< hal::N6701ARelay,  hal::InstrumentId, hal::Gpib, int> );
+    static_assert(   std::constructible_from< hal::N6701ADirect, hal::InstrumentId, hal::Lan,  int> );
+    static_assert(   std::constructible_from< hal::N6701ARelay,  hal::InstrumentId, hal::Usb,  int> );
+    static_assert(   std::constructible_from< hal::N6701ARelay,  hal::InstrumentId, hal::Simulated, int> );
+    static_assert( ! std::constructible_from< hal::N6701ARelay,  hal::InstrumentId, hal::Serial, int> );
+    static_assert( ! std::constructible_from< hal::N6701ARelay,  hal::InstrumentId, hal::Gpib> );
+    static_assert( ! std::constructible_from< hal::N6701ARelay,  hal::InstrumentId, int> );
+} // namespace
+
 using namespace core::literals;
 using namespace core::quantities;
 
@@ -69,13 +94,13 @@ namespace
         // instrument.inc's real assignment. Apply/Remove only; there is
         // no Connect/Disconnect to call on these at all (see
         // CanConnectN6701A above).
-        hal::N6701ADirect      dcP1{ hal::InstrumentId::DcP1, 1 };
-        hal::N6701ADirect      dcP2{ hal::InstrumentId::DcP2, 2 };
+        hal::N6701ADirect      dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
+        hal::N6701ADirect      dcP2{ hal::InstrumentId::DcP2, hal::Simulated{}, 2 };
 
         // DcP3: has a real isolation relay -- matches instrument.inc's
         // real assignment. This is the one Connect/Disconnect tests below
         // exercise.
-        hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, 3 };
+        hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};
@@ -105,7 +130,7 @@ TEST_F( SourceInstrumentFixture, DcApplyProgramsTheInstrumentWithoutTouchingTheF
 
 TEST( SourceInstrument, DcApplyWithOnlyVoltageLeavesCurrentLimitUnset)
 {
-    hal::N6701ADirect dcP1{ hal::InstrumentId::DcP1, 1 };
+    hal::N6701ADirect dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
 
     // Programs the instrument directly -- applyDriver needs no fabric/
     // wiring at all, so there's no separate "fixture-based" path to
@@ -146,7 +171,7 @@ TEST( SourceInstrument, DcConnectClosesRemoteSenseLeadsTogetherWithForceWhenThey
     hal::SwitchFabric      fabric;
     hal::InstrumentWiring  instrumentWiring;
     hal::ConnectorWiring   connectorWiring;
-    hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, 3 };
+    hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
 
     instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 24 });
     instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceKind::Matrix, "Matrix2", 25 }, hal::WireRole::Sense);
@@ -219,4 +244,22 @@ TEST_F( SourceInstrumentFixture, TwoN6701AChannelsAreProgrammedIndependently)
 
     EXPECT_FALSE( dcP1.isEnabled());
     EXPECT_TRUE( dcP2.isEnabled());
+}
+
+//
+// One mainframe, four modules: the address is the box's and is therefore the
+// same for every module in it, while the slot is what tells them apart. That
+// is the reason the two are separate constructor arguments rather than one
+// combined "where is it" value -- see rig/active_instruments.hpp's own
+// comment, and rig/instrument.inc, where all four DcP rows repeat the one
+// address deliberately.
+//
+TEST( SourceInstrument, DcModulesInOneMainframeShareItsAddressAndDifferOnlyInSlot)
+{
+    hal::N6701ADirect dcP1{ hal::InstrumentId::DcP1, hal::Gpib( 0, 14), 1 };
+    hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, hal::Gpib( 0, 14), 3 };
+
+    EXPECT_EQ( dcP1.address(), dcP3.address());
+    EXPECT_EQ( to_string( dcP1.address()), "Gpib 0::14");
+    EXPECT_NE( dcP1.channel(), dcP3.channel());
 }

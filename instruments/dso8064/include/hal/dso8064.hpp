@@ -7,6 +7,7 @@
 #include "core/quantity.hpp"
 #include "core/quantity_kind.hpp"
 
+#include "hal/address.hpp"
 #include "hal/instrument.hpp"
 
 namespace hal
@@ -146,7 +147,22 @@ namespace hal
 
             enum class Mode { Vpp, Vmax, Vmin, Vrms, Vaverage, Frequency, Period, RiseTime, FallTime };
 
-            explicit DSO8064( const InstrumentId id) : mId( id) {}
+            //
+            // GPIB, LAN or USB -- all three are on this model's back panel,
+            // and which one a given rig cabled is a rig fact rather than a
+            // driver one (see hal::ReachableOver in hal/address.hpp, and
+            // rig/instrument.inc for this repo's choice).
+            //
+            template<typename AddressT>
+                requires ReachableOver<AddressT, Gpib, Lan, Usb>
+            DSO8064( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+
+            // Where the PC reaches this scope -- see hal/address.hpp.
+            [[nodiscard]]
+            auto address() const -> const Address &
+            {
+                return mAddress;
+            }
 
             [[nodiscard]]
             auto id() const -> InstrumentId
@@ -329,6 +345,7 @@ namespace hal
             }
 
             InstrumentId               mId;
+            Address                    mAddress;
             Mode                       mMode{ Mode::Vpp};
             unsigned                   mChannel{ 1};
             std::array<ChannelData, 4> mChannels;

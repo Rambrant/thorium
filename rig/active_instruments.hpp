@@ -1,5 +1,6 @@
 #pragma once
 
+#include "hal/address.hpp"
 #include "hal/instrument.hpp"
 #include "hal/l4411a.hpp"
 #include "hal/dso8064.hpp"
@@ -24,8 +25,8 @@
 // script writes directly, not hal-internal plumbing.
 //
 //   INSTRUMENTS
-//       INSTRUMENT( L4411A, Dmm1)
-//       INSTRUMENT( N6701A, DcP1, 1)
+//       INSTRUMENT( L4411A, Dmm1, Lan( "bench-dmm1"))
+//       INSTRUMENT( N6701A, DcP1, Gpib( 0, 14), 1)
 //   END_INSTRUMENTS
 //
 // INSTRUMENT takes the global's name and its InstrumentId as one token
@@ -35,6 +36,30 @@
 // (see hal/instrument.hpp's own comment on the same token feeding its
 // enum's enumerators from this exact file).
 //
+// address is a fixed column rather than one more of the trailing
+// constructor arguments, because it is the one thing every instrument has
+// -- an instrument the PC cannot reach is not an instrument this rig has --
+// and a mandatory parameter is what makes leaving it out a compile error
+// rather than a default nobody notices, the same choice hal::safeRig makes
+// by calling safe() unconditionally instead of only where a driver offers
+// it. It is written unqualified in the table (Gpib( 0, 14), not
+// hal::Gpib( 0, 14)) and qualified here, exactly as type is, so the table
+// stays free of namespace noise. Parentheses rather than braces: the
+// preprocessor splits macro arguments on top-level commas and does not
+// treat braces as grouping, so Gpib{ 0, 14 } would arrive here as two
+// arguments -- C++20's parenthesized aggregate initialization is what lets
+// an address with more than one field be one macro argument at all.
+//
+// Anything after address is handed to the driver's constructor untouched --
+// hal::N6701A's mainframe slot is the only such argument on this rig. That
+// slot is deliberately NOT folded into the address, even though "GPIB 14,
+// slot 3" is how you would say aloud where DcP3 is: one address is one box
+// on the bus (DcP1..DcP4 share a mainframe and so share an address), the
+// slot picks an endpoint inside it, and an optional slot field on a generic
+// address type could be omitted on an N6701A or supplied to a DMM without
+// anything objecting. A constructor parameter the driver itself declares
+// cannot be either.
+//
 // This file, together with instrument.inc/wiring.inc right alongside it,
 // is this rig's entire contribution to what would otherwise be a generic
 // hal:: library with no instruments plugged into it at all -- see
@@ -43,8 +68,8 @@
 //
 #define INSTRUMENTS
 
-#define INSTRUMENT( type, id, ...) \
-    inline hal::type id{ hal::InstrumentId::id __VA_OPT__(,) __VA_ARGS__ };
+#define INSTRUMENT( type, id, address, ...) \
+    inline hal::type id{ hal::InstrumentId::id, hal::address __VA_OPT__(,) __VA_ARGS__ };
 
 #define END_INSTRUMENTS
 

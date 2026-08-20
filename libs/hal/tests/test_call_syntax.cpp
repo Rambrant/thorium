@@ -53,9 +53,9 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, 3 };
-        hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
-        hal::L4411A  dmm1{ hal::InstrumentId::Dmm1 };
+        hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
+        hal::L4411A  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};

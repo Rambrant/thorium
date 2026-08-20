@@ -13,6 +13,28 @@
 
 #include <gtest/gtest.h>
 
+#include <concepts>
+
+//
+// This model's back panel, as the constructor constraint actually sees it --
+// checked in both directions, since a check that only ever passes proves
+// nothing about what it rejects (the same shape hal/tests/test_safing.cpp
+// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// hal::ReachableOver mechanism itself).
+//
+// All three remote interfaces are on this scope's back panel; a PC serial
+// port is not one of them.
+//
+namespace
+{
+    static_assert(   std::constructible_from< hal::DSO8064, hal::InstrumentId, hal::Gpib> );
+    static_assert(   std::constructible_from< hal::DSO8064, hal::InstrumentId, hal::Lan> );
+    static_assert(   std::constructible_from< hal::DSO8064, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< hal::DSO8064, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< hal::DSO8064, hal::InstrumentId, hal::Serial> );
+    static_assert( ! std::constructible_from< hal::DSO8064, hal::InstrumentId> );
+} // namespace
+
 using namespace core::literals;
 using namespace core::quantities;
 
@@ -38,7 +60,7 @@ namespace
 
 TEST( HalInstrument, DSO8064VppPortReturnsSimulatedReading)
 {
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
 
     auto port = osc1.channel<1>().vpp();
@@ -54,7 +76,7 @@ TEST( HalInstrument, DSO8064PortOutlivesTheTemporaryChannelViewThatCreatedIt)
     // statement -- Port must bind to the real, long-lived DSO8064&, not to
     // that temporary, or this reads garbage (or crashes) instead of 3.3.
     // See hal/dso8064.hpp's own comment on DSO8064Channel for why.
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
 
     auto port = osc1.channel<1>().vpp();  // the channel view temporary is gone after this line
@@ -64,7 +86,7 @@ TEST( HalInstrument, DSO8064PortOutlivesTheTemporaryChannelViewThatCreatedIt)
 
 TEST( HalInstrument, DSO8064ExposesTheWholeAmplitudeFamily)
 {
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
     osc1.setSimulatedVmax( 1, 1.9_V);
     osc1.setSimulatedVmin( 1, -1.4_V);
@@ -82,7 +104,7 @@ TEST( HalInstrument, DSO8064ExposesTheWholeAmplitudeFamily)
 
 TEST( HalInstrument, DSO8064ChannelsAreIndependentlyAddressedSimulatedData)
 {
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
     osc1.setSimulatedVpp( 3, 5.0_V);
 
@@ -92,7 +114,7 @@ TEST( HalInstrument, DSO8064ChannelsAreIndependentlyAddressedSimulatedData)
 
 TEST( HalInstrument, DSO8064ExposesTheTimingFamily)
 {
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
     osc1.setSimulatedFrequency( 3, 1.0_kHz);
     osc1.setSimulatedPeriod( 3, 1.0_ms);
     osc1.setSimulatedRiseTime( 3, Time{ 12e-9});
@@ -108,7 +130,7 @@ TEST( HalInstrument, DSO8064ExposesTheTimingFamily)
 
 TEST( HalInstrument, DSO8064RiseTimeDefaultsToTenNinetyThresholds)
 {
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
 
     auto port = osc1.channel<1>().riseTime();
 
@@ -120,7 +142,7 @@ TEST( HalInstrument, DSO8064RiseTimeDefaultsToTenNinetyThresholds)
 
 TEST( HalInstrument, DSO8064RiseTimeThresholdsAreOverridable)
 {
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
 
     auto port = osc1.channel<1>().riseTime().lowThreshold( 0.2).highThreshold( 0.8);
 
@@ -130,7 +152,7 @@ TEST( HalInstrument, DSO8064RiseTimeThresholdsAreOverridable)
 
 TEST( HalInstrument, DSO8064DefaultsToVppMode)
 {
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
 
     EXPECT_EQ( osc1.mode(), hal::DSO8064::Mode::Vpp);
 }
@@ -141,7 +163,7 @@ TEST( HalInstrument, DSO8064ModeIsSharedAcrossPortHandlesHeldPastAModeSwitch)
     // test: a port handle obtained before a mode switch still reads
     // whichever mode is current when rawMeasure() is eventually called, not
     // the mode active when the handle was created.
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
     osc1.setSimulatedVrms( 1, 1.2_V);
 
@@ -157,7 +179,7 @@ TEST( HalInstrument, DSO8064ChannelIsSharedAcrossPortHandlesHeldPastAChannelSwit
     // (see hal/dso8064.hpp's own comment on DSO8064Channel for why), so a
     // port handle obtained on channel 1 still reads whichever channel is
     // current at rawMeasure() time if channel 3 gets selected afterward.
-    hal::DSO8064 osc1{ hal::InstrumentId::Osc1 };
+    hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
     osc1.setSimulatedVpp( 3, 5.0_V);
 

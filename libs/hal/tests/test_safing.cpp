@@ -236,7 +236,7 @@ TEST( Safing, SourceSafeIsIndependentOfRemoveAndNeedsNoFabricOrWiring)
     // script was driving. safe() is called when that is exactly what
     // nobody knows, so it is reachable on a bare instrument with no
     // engine, no fabric, and no wiring table in sight.
-    hal::N6701ARelay dcP3{ hal::InstrumentId::DcP3, 3 };
+    hal::N6701ARelay dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
 
     dcP3.applyOutput( 24.0_V, 7.0_A);
     ASSERT_TRUE( dcP3.isEnabled());
@@ -289,7 +289,7 @@ TEST( Safing, DirectWiredSupplySafesTheSameWayARelayIsolatedOneDoes)
     // (see hal::SwitchableIsolation) -- it says nothing about whether the
     // output can be dropped. Both kinds safe identically, which is why
     // safe() is unconstrained where connectDriver is not.
-    hal::N6701ADirect dcP1{ hal::InstrumentId::DcP1, 1 };
+    hal::N6701ADirect dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
 
     dcP1.applyOutput( 24.0_V, std::nullopt);
     dcP1.safe();

@@ -11,6 +11,7 @@
 #include "core/port.hpp"
 #include "core/quantity.hpp"
 
+#include "hal/address.hpp"
 #include "hal/describe.hpp"
 #include "hal/instrument.hpp"
 #include "hal/switch_fabric.hpp"
@@ -660,7 +661,18 @@ namespace hal
                     bool                        mEnabled{ false };
             };
 
-            explicit Ac6834B( const InstrumentId id) : mId( id)
+            //
+            // GPIB or RS-232, which is the whole of this model's remote
+            // interface (see this class's own comment) -- no LAN and no USB,
+            // so a rig row addressing it over either fails to compile rather
+            // than at open time; see hal::ReachableOver in hal/address.hpp.
+            // hal::Serial here means the PC's own serial port, the cable this
+            // source is commanded down -- not anything the DUT sees, and
+            // nothing to do with hal::Racal1260's RS232 framing.
+            //
+            template<typename AddressT>
+                requires ReachableOver<AddressT, Gpib, Serial>
+            Ac6834B( const InstrumentId id, const AddressT address) : mId( id), mAddress( address)
             {
                 for( auto & phase : mPhases)
                 {
@@ -668,6 +680,13 @@ namespace hal
                 }
 
                 mNeutral.mId = id;
+            }
+
+            // Where the PC reaches this source -- see hal/address.hpp.
+            [[nodiscard]]
+            auto address() const -> const Address &
+            {
+                return mAddress;
             }
 
             [[nodiscard]]
@@ -947,6 +966,7 @@ namespace hal
 
         private:
             InstrumentId                                 mId;
+            Address                                      mAddress;
             std::array<PhaseOutput, 3>                   mPhases;
             NeutralOutput                                mNeutral;
             std::optional<core::quantities::Frequency>   mFrequency;

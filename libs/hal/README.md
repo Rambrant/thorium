@@ -54,6 +54,7 @@ so they link `hal`.
 ```
 libs/hal/
     include/hal/
+        address.hpp        # Gpib/Lan/Serial/Usb/Simulated -- how the PC reaches an instrument
         vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
         switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
         instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_TABLE
@@ -231,10 +232,83 @@ addressed channels" pattern exists before the first real driver needs it.
 This is a different axis from `InstrumentWiring`'s matrix channel -- that's
 which crosspoint a module's output leads land on in the switching fabric;
 `mChannel` is which slot the module occupies inside the mainframe. Neither
-table knows about the other, and nothing here yet models how a script
-would address the mainframe itself (GPIB address, VISA resource string,
-etc.) -- that's deferred for every instrument, not specific to this one,
-until real-driver work begins.
+table knows about the other, and neither is the mainframe's own address on
+the bus -- that is a third axis, and the section below is about it.
+
+## How the PC reaches an instrument, and why that is a value
+
+`address.hpp` holds one struct per bus kind -- `Gpib`, `Lan`, `Serial`, `Usb`,
+`Simulated` -- and a rig gives every instrument one in the third column of its
+`INSTRUMENT()` row:
+
+```
+INSTRUMENT( L4411A,       Dmm1, Lan( "bench-dmm1"))
+INSTRUMENT( N6701ARelay,  DcP3, Gpib( 0, 14), 3)
+```
+
+This is the *control* side, and it is a different fact from everything in
+`wiring.inc`, which is entirely about the *signal* side -- what leaves the
+instrument's terminals and where the DUT sees it. Re-cabling a supply's output
+to another VPC pin does not change its GPIB address; moving the rack to
+another subnet does not move a relay.
+
+Three decisions in it are worth stating, because each had a plausible
+alternative:
+
+**One struct per bus kind, not a VISA resource string.** `"GPIB0::14::INSTR"`
+is a runtime typo the rig can only discover when the session refuses to open,
+which on a bench is halfway into an unattended run. This is the same argument
+`hal::Parity`/`hal::StopBits` already make against the legacy test language's
+`"BaudRate=9600 StopBits=1 WordLength=8 Parity=NONE"`. A driver that wants the
+VISA spelling can build one from these fields; it could not get these fields
+back out of a string.
+
+**A constructor value, not a template parameter.** The rule this codebase
+follows is: template parameter when it changes what compiles, constructor
+argument when it does not. `hal::N6701A`'s `Isolation` is a template parameter
+because `DirectWiring` genuinely removes `Connect`/`Disconnect` from the API.
+An address removes nothing -- a driver's interface is identical whichever
+number a technician set on the rear-panel switch -- and templating on it would
+multiply `N6701ADirect`/`N6701ARelay` (aliases that exist purely to keep
+`instrument.inc` readable) by one per bus kind.
+
+**The bus *kind* is still checked at compile time.** Each driver's constructor
+is constrained by `hal::ReachableOver` naming its own back panel, so
+`INSTRUMENT( L4411A, Dmm1, Gpib( 0, 14))` fails with "no matching constructor"
+-- an L4411A is an LXI box and has no GPIB connector, so that row is not a
+misconfiguration to find on the bench, it is a sentence about hardware that
+does not exist. `hal::Simulated` satisfies every driver's constraint
+unconditionally, which is what driver tests construct with.
+
+| Driver | Reachable over |
+|---|---|
+| `hal::L4411A` | `Lan`, `Usb` |
+| `hal::DSO8064` | `Gpib`, `Lan`, `Usb` |
+| `hal::N6701A` | `Gpib`, `Lan`, `Usb` |
+| `hal::Ac6834B` | `Gpib`, `Serial` |
+| `hal::Racal1260` | `Gpib` |
+
+Note `hal::Racal1260`: it is an RS232 port and it is *not* reached over one.
+`hal::Serial` is a cable from the PC; the framing that driver configures is
+what it speaks at the DUT through the matrix. Its own constraint is what stops
+a rig row from confusing the two directions.
+
+### What still has no address
+
+Nothing reads these yet -- the drivers carry them the way `hal::N6701A`
+carried its mainframe slot before any driver needed it, so that the rig table
+can state the fact at all. Two gaps are worth knowing about before real-driver
+work starts:
+
+- **The switching fabric.** `SwitchFabric`'s cards are named by bare string
+  (`"Matrix2"`, `"Mux1"`), and closing a relay on real hardware is a GPIB/VXI
+  write to a card that needs addressing exactly as an instrument does. It is
+  declared in `rig/active_instruments.hpp` outside the `INSTRUMENT()` table, so
+  it did not get a column. `hal::Address` lives in generic `hal` rather than in
+  a driver package partly so the fabric can use it when that is done.
+- **The run journal.** An address is per-run inventory rather than per-`Apply`,
+  so `describeConfig` was deliberately left alone; `hal::to_string(Address)`
+  exists for whoever writes the inventory line.
 
 ## Why the AC source's neutral return is part of the model
 

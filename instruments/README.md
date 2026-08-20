@@ -100,6 +100,21 @@ part of the arrangement: an `INTERFACE` header-only target, the
 `namespace hal` unchanged at every call site, the global-property registration,
 the export/install rules, and a test target linking the published API only.
 
+Constrain the constructor to the bus kinds the model's back panel actually has,
+the way `l4411a/` does:
+
+```cpp
+template<typename AddressT>
+    requires ReachableOver<AddressT, Lan, Usb>
+L4411A( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+```
+
+That list is a claim about hardware, so it belongs with the driver rather than
+with the rig — a rig row addressing this model over a connector it does not have
+then fails to compile instead of failing to open. `hal::Simulated` is in every
+driver's set without being listed, and is what a driver's own tests construct
+with. See `hal/address.hpp`.
+
 Then add an `INSTRUMENT()` line to `rig/instrument.inc` and an `#include` to
 `rig/active_instruments.hpp` — the driver is available after the copy, and part
 of the rig after those two lines.

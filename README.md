@@ -263,15 +263,19 @@ Each recipe below is complete. Where a step is missable, the build says so.
 ### Add an instrument to the rig
 
 `rig/instrument.inc` — one line. The id is both the global's name and its
-`hal::InstrumentId` enumerator; trailing arguments are the driver's constructor
-arguments.
+`hal::InstrumentId` enumerator; the third column is how the PC reaches the
+instrument; trailing arguments are the driver's constructor arguments.
 
 ```cpp
 INSTRUMENTS
-    INSTRUMENT( L4411A,       Dmm3)          // a third DMM
-    INSTRUMENT( N6701ARelay,  DcP5, 5)       // mainframe slot 5, relay-isolated
+    INSTRUMENT( L4411A,       Dmm3, Lan( "bench-dmm3"))     // a third DMM
+    INSTRUMENT( N6701ARelay,  DcP5, Gpib( 0, 14), 5)        // mainframe slot 5, relay-isolated
 END_INSTRUMENTS
 ```
+
+The address is mandatory, and which bus kinds a row may use is fixed by its
+driver — `Gpib(...)` on an L4411A is a compile error, because an LXI box has no
+GPIB connector (see `hal/address.hpp`).
 
 Nothing else. `hal::InstrumentId`, the global handle, and the safing sweep are
 all derived from this list — safing reflects over `InstrumentTag`-derived globals

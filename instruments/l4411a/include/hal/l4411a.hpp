@@ -6,6 +6,7 @@
 #include "core/quantity.hpp"
 #include "core/quantity_kind.hpp"
 
+#include "hal/address.hpp"
 #include "hal/instrument.hpp"
 
 namespace hal
@@ -47,7 +48,32 @@ namespace hal
             enum class Mode           { Dc, Ac };
             enum class ResistanceMode { TwoWire, FourWire };
 
-            explicit L4411A( const InstrumentId id) : mId( id) {}
+            //
+            // LAN or USB, and nothing else: that is what the LXI packaging
+            // this model *is* (see this class's own comment) amounts to on
+            // the back panel -- no GPIB connector, unlike the rack-mount
+            // 34411A it otherwise shares everything with. So a rig row
+            // addressing one of its Dmms over GPIB fails to compile rather
+            // than failing to open, see hal::ReachableOver in hal/address.hpp
+            // -- which is also where the reasoning lives for why the bus
+            // *kind* is checked here and the address itself is just a value
+            // this driver carries.
+            //
+            template<typename AddressT>
+                requires ReachableOver<AddressT, Lan, Usb>
+            L4411A( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+
+            //
+            // Where the PC reaches this meter -- nothing reads it yet, the
+            // same way hal::N6701A's mainframe slot was carried before any
+            // driver needed it, because the alternative is a rig table that
+            // cannot say the thing at all.
+            //
+            [[nodiscard]]
+            auto address() const -> const Address &
+            {
+                return mAddress;
+            }
 
             [[nodiscard]]
             auto id() const -> InstrumentId
@@ -206,6 +232,7 @@ namespace hal
 
         private:
             InstrumentId                  mId;
+            Address                       mAddress;
             Mode                          mMode{ Mode::Dc };
             ResistanceMode                mResistanceMode{ ResistanceMode::TwoWire };
             core::quantities::Voltage     mSimVoltage{};

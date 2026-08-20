@@ -26,9 +26,13 @@ namespace hal
     //
     // instrument.inc is read here with INSTRUMENT redefined to keep only
     // the id token -- the same file rig/active_instruments.hpp declares the
-    // real instrument globals from (INSTRUMENT(type, id, ...), one token
-    // for both the global's name and its identity -- see that file's own
-    // comment on why there's no separate name parameter to ignore here).
+    // real instrument globals from (INSTRUMENT(type, id, address, ...), one
+    // token for both the global's name and its identity -- see that file's
+    // own comment on why there's no separate name parameter to ignore here).
+    // The macro is spelled with all of that file's fixed columns even though
+    // this read discards every one of them but the id: a row that forgot its
+    // address column is then a "macro requires 3 arguments" error in both
+    // readers rather than only in the one that builds the globals.
     // There used to be a separate rig/instrument_id.inc for just this list;
     // folding it into this one expansion instead means an instrument added
     // to instrument.inc can never desync from its own InstrumentId
@@ -68,7 +72,7 @@ namespace hal
 #undef END_INSTRUMENTS
 
 #define INSTRUMENTS
-#define INSTRUMENT( type, id, ...) id,
+#define INSTRUMENT( type, id, address, ...) id,
 #define END_INSTRUMENTS
 
     enum class InstrumentId
