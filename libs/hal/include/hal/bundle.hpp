@@ -12,7 +12,7 @@ namespace hal
     // Every LINE in a bundle, as the VpcLocation it lands on -- what a routing
     // verb needs to turn Connect( Ser1.rs232(), at( dut::Console)) into the set
     // of connector channels to close (see core::ConnectEngine's bundle overload
-    // in core/apply.hpp).
+    // in core/route.hpp).
     //
     // Reflection over the bundle's own members, rather than anything the BUNDLE
     // macro accumulates. That is the whole reason bundles route as a unit at

@@ -12,7 +12,7 @@ namespace hal
 {
     //
     // Shared helpers for the describeConfig() overloads each source instrument
-    // provides for the run journal (see core/apply.hpp's own comment on that
+    // provides for the run journal (see core/describe.hpp's own comment on that
     // customization point, and hal/n6701a.hpp / hal/ac6834b.hpp for the
     // overloads themselves).
     //

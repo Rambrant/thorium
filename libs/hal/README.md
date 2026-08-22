@@ -64,7 +64,8 @@ libs/hal/
         adapter.hpp        # ADAPTER/POINT/END_ADAPTER macros
         describe.hpp       # the describe customization point drivers hook into
         measure.hpp        # MeasureEngine alias + extern Measure
-        apply.hpp           # ApplyEngine/RemoveEngine aliases + extern Apply/Remove
+        source.hpp         # Apply/Remove/Setup/Write -- the instrument-I/O verbs
+        route.hpp          # Connect/Disconnect -- the fabric-only verbs
         safing.hpp         # safeRig()
 ```
 
@@ -94,10 +95,11 @@ and `hal::ConnectorWiring` (see `wiring.hpp`) store exactly those two
 independent facts -- not one combined table keyed by (instrument, pin),
 which would need an entry per *combination* even though the underlying
 physical facts are only per instrument and per pin. Both
-`core::MeasureEngine` and `core::ApplyEngine`/`core::RemoveEngine` (see
-`libs/core/include/core/measure.hpp`, `libs/core/include/core/apply.hpp`)
+`core::MeasureEngine` and `core::ConnectEngine`/`core::DisconnectEngine` (see
+`libs/core/include/core/measure.hpp`, `libs/core/include/core/route.hpp`)
 compose the two into one crosspoint command at the moment a measurement or
-a sourcing call is actually made.
+a routing call is actually made. `Apply`/`Remove` compose nothing: they are
+instrument I/O and never touch the fabric at all.
 
 A third table, `hal::SourceWiring`, records which VPC pin each fixed-wired
 source instrument's output is *cabled* onto. It is deliberately not a path and
@@ -113,7 +115,7 @@ rather than `POINT`, so the adapter never describes a driven rail as an
 ordinary pin.
 
 A rig's own `wiring.inc` (`rig/wiring.inc` in this repo, reached from
-`hal/measure.cpp`/`hal/apply.cpp` via `THORIUM_WIRING_TABLE` rather than a
+`hal/measure.cpp`/`hal/route.cpp` via `THORIUM_WIRING_TABLE` rather than a
 hardcoded path -- see this directory's own `CMakeLists.txt`) holds the
 actual data, built via
 `INSTRUMENT_WIRING`/`WIRE_INSTRUMENT`/`END_INSTRUMENT_WIRING` and
@@ -123,7 +125,7 @@ table, unlike `CRITERIA` (several groups per file), so these macros build
 one fixed, namespaced global (`hal::instrumentWiring`/`hal::connectorWiring`)
 rather than taking a name. `ADAPTER` is the same one-per-build case and takes
 no name either.
-Both `hal/measure.cpp` and `hal/apply.cpp` `#include` it, since each is its
+Both `hal/measure.cpp` and `hal/route.cpp` `#include` it, since each is its
 own translation unit needing its own declaration of the (inline) tables --
 see `wiring.inc`'s own comment.
 
@@ -172,14 +174,15 @@ into this instantiation.
 
 ## Apply / Remove -- the sourcing counterpart to Measure
 
-`apply.hpp`/`apply.cpp` assemble the `Apply`/`Remove` objects every script
+`source.hpp`/`source.cpp` assemble the `Apply`/`Remove` objects every script
 sources through, the same way `measure.hpp`/`measure.cpp` do for `Measure`:
 `core::ApplyEngine`/`core::RemoveEngine` (see
-`libs/core/include/core/apply.hpp`) instantiated with the same three rig
-types `MeasureEngine` uses. Where `Measure` takes a `core::Port`, `Apply`
-and `Remove` each take a *builder* -- `N6701ABuilder<Loc>` or
-`Ac6834BBuilder` -- built up fluently from an instrument's `.dc(at(...))`
-or `.ac()` method:
+`libs/core/include/core/source.hpp`), which -- unlike `MeasureEngine` --
+take no rig types at all, since routing moved out from under them into
+`route.hpp`/`route.cpp` (`Connect`/`Disconnect`). Where `Measure` takes a
+`core::Port`, `Apply` and `Remove` each take a *builder* --
+`N6701ABuilder<Loc>` or `Ac6834BBuilder` -- built up fluently from an
+instrument's `.dc(at(...))` or `.ac()` method:
 
 ```cpp
 Apply(  DcP1.dc().voltage( 24_V).currentLimit( 7_A));
@@ -193,12 +196,12 @@ its VPC pin (or four, for `AcP1`), so there is no point left to choose -- see
 `hal::N6701A`'s own comment on why a real power rail is cabled rather than
 routed. Where a relay does exist in the path, `Connect` closes it before the
 output comes up and `Disconnect` opens it after the output goes down, so the
-contacts never move under load -- see `core/apply.hpp`.
+contacts never move under load -- see `core/source.hpp`.
 
 Dispatch to the actual instrument (`applyDriver`/`removeDriver`, defined
 alongside each builder in `n6701a.hpp`/`ac6834b.hpp`) happens via ADL on
 the builder's `.config()` type, the same trick `core::MeasureEngine` uses
-for `to_string(instrumentId)` -- `core/apply.hpp` itself has no dependency
+for `to_string(instrumentId)` -- `core/source.hpp` itself has no dependency
 on `hal::` at all.
 
 ## Instrument identity (DcP1..DcP4/AcP1) vs. instrument class (N6701A/Ac6834B)

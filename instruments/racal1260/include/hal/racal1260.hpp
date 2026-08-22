@@ -7,8 +7,8 @@
 #include <utility>
 #include <vector>
 
-#include "core/apply.hpp"
 #include "core/bytes.hpp"
+#include "core/describe.hpp"
 #include "core/transfer.hpp"
 
 #include "hal/address.hpp"
@@ -417,7 +417,7 @@ namespace hal
     };
 
     //
-    // ADL target for core::SetupEngine -- see core/apply.hpp's own comment on
+    // ADL target for core::SetupEngine -- see core/source.hpp's own comment on
     // the setupDriver customization point, and on why configuring is a verb of
     // its own rather than a flavour of Apply.
     //
@@ -449,7 +449,7 @@ namespace hal
     }
 
     //
-    // ADL target for the run journal -- see core/apply.hpp's own comment on the
+    // ADL target for the run journal -- see core/describe.hpp's own comment on the
     // describeConfig customization point.
     //
     // Framing is reported field by field rather than as the "9600 8N1" shorthand

@@ -7,7 +7,7 @@
 #
 # INTERFACE, not STATIC: the driver is header-only, as every driver in this tree
 # is -- an instrument driver is a type whose config and Port members are consumed
-# as types by the call site (see core/port.hpp and core/apply.hpp), so its
+# as types by the call site (see core/port.hpp and core/source.hpp), so its
 # definitions have to be visible to whoever sources through it.
 add_library(hal_ac6834b INTERFACE)
 

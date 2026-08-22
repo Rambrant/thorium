@@ -29,7 +29,7 @@ auto rigPowerOn() -> bool
     // teardown's Remove-then-Disconnect, read the other way round: a relay
     // closing onto an already-live supply arcs on contact bounce much as one
     // opening under load arcs on break, so the contacts move while the path is
-    // dead in both directions. See core/apply.hpp, which states the rule and
+    // dead in both directions. See core/source.hpp, which states the rule and
     // says why nothing enforces it.
     //
     // DcP1/DcP2 below get no Connect at all: they are hal::N6701ADirect, wired

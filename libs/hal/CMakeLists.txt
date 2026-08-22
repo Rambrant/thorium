@@ -33,12 +33,14 @@ endforeach()
 # This library used to be a single "hal" target, and that hid a real
 # asymmetry. Four of its translation units (vpc_location, switch_fabric,
 # instrument, wiring) compile against nothing but core and their own
-# generic headers. The other three (apply, measure, safing) open the
+# generic headers. Three others (route, measure, safing) open the
 # linking rig's active_instruments.hpp -- which declares that rig's
 # instrument globals, and so #includes that rig's concrete driver headers.
 # One target meant one compile-time dependency set, so the generic four
 # inherited the rig coupling of the other three whether they used it or
-# not.
+# not. (src/source.cpp is the one file on the rig-coupled side that opens
+# neither -- it is there for the boundary reason given below, not a
+# technical one.)
 #
 # That distinction is what makes an instruments/ tree possible at all. A
 # driver has to compile against hal (it needs InstrumentId, the Port
@@ -177,18 +179,27 @@ foreach(_thorium_instrument_target IN LISTS THORIUM_INSTRUMENT_TARGETS)
 endforeach()
 
 # --- hal_rig: the half that knows which instruments this rig actually has ---
-# apply/measure/safing all expand THORIUM_ACTIVE_INSTRUMENTS, so all three
+# route/measure/safing all expand THORIUM_ACTIVE_INSTRUMENTS, so all three
 # reach the rig's concrete driver globals (Dmm1, DcP1, ...) and therefore the
 # driver headers behind them -- see this file's own comment on the split above.
 # hal::safeRig() goes furthest: it reflects over the global namespace for every
 # hal::InstrumentTag-derived variable, which only works once those globals have
 # actually been declared (see hal/src/safing.cpp).
+#
+# src/source.cpp expands neither table -- Apply/Remove/Setup/Write hold no
+# state at all (see core/source.hpp) -- and so would compile perfectly well in
+# generic hal. It is here on purpose: hal is exactly what a driver is allowed
+# to assume, and a driver reaching for an Apply is the mistake the check above
+# exists to catch. Letting these four cross into hal would hand that reach to
+# every driver, for no gain beyond one fewer file in this list.
 add_library(hal_rig STATIC
     src/measure.cpp
-    src/apply.cpp
+    src/route.cpp
+    src/source.cpp
     src/safing.cpp
     include/hal/measure.hpp        # header-only
-    include/hal/apply.hpp          # header-only
+    include/hal/route.hpp          # header-only
+    include/hal/source.hpp         # header-only
     include/hal/safing.hpp         # header-only
 )
 
@@ -204,7 +215,7 @@ target_compile_definitions(hal_rig PUBLIC
     THORIUM_ACTIVE_INSTRUMENTS="${THORIUM_ACTIVE_INSTRUMENTS}"
 )
 
-# PRIVATE, unlike the two above: rig/wiring.inc is expanded by src/apply.cpp
+# PRIVATE, unlike the two above: rig/wiring.inc is expanded by src/route.cpp
 # and src/measure.cpp and nowhere else at all -- it builds file-local wiring
 # tables inside those two translation units, and no header exposes it.
 target_compile_definitions(hal_rig PRIVATE

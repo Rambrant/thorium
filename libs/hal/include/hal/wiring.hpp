@@ -53,7 +53,7 @@ namespace hal
     // performing the check -- unlike an ordinary runtime call, constant
     // evaluation can't reach across translation units the way linking can --
     // so find<Loc>() could only ever fire where wiring.inc is already
-    // visible (hal/measure.cpp, hal/apply.cpp), never at the actual script
+    // visible (hal/measure.cpp, hal/route.cpp), never at the actual script
     // call sites where a typo would matter. Threading it through anyway
     // would mean exposing this rig's wiring table through a header
     // everywhere Measure()/Connect() are called, undoing that isolation on

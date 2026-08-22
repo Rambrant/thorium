@@ -1,4 +1,4 @@
-#include "hal/apply.hpp"
+#include "hal/route.hpp"
 
 #include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/wiring.hpp"
@@ -14,11 +14,11 @@
 // is generic hal code, shared by every rig, so it cannot name any one
 // rig's wiring.inc directly.
 //
+// The sourcing verbs need none of this and are defined next door in
+// hal/source.cpp -- see core/source.hpp on why the fabric half is the only
+// half with rig facts to be handed.
+//
 #include THORIUM_WIRING_TABLE
 
-ApplyEngine      Apply{};
-RemoveEngine     Remove{};
-SetupEngine      Setup{};
-WriteEngine      Write{};
 ConnectEngine    Connect{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };
 DisconnectEngine Disconnect{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };

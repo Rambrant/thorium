@@ -20,7 +20,9 @@ add_library(core STATIC
         include/core/measure.hpp         # header-only
         include/core/adapter.hpp         # header-only
         include/core/at.hpp              # header-only
-        include/core/apply.hpp           # header-only
+        include/core/source.hpp          # header-only
+        include/core/route.hpp           # header-only
+        include/core/describe.hpp        # header-only
         include/core/transfer.hpp        # header-only
         include/core/predicates.hpp      # header-only
         include/core/criterion.hpp       # header-only

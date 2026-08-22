@@ -16,7 +16,8 @@
 // file's own comment.
 //
 #include "hal/n6701a.hpp"
-#include "hal/apply.hpp"
+#include "hal/route.hpp"
+#include "hal/source.hpp"
 
 #include <gtest/gtest.h>
 

@@ -313,7 +313,7 @@ namespace core
         // constructed on first use, which is what keeps it from depending on
         // static-initialisation order against the verb engines that post to
         // it (Measure/Apply/Connect are themselves namespace-scope globals --
-        // see hal/src/measure.cpp and hal/src/apply.cpp).
+        // see hal/src/measure.cpp, hal/src/source.cpp and hal/src/route.cpp).
         //
         static Journal instance;
 

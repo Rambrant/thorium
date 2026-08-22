@@ -759,15 +759,41 @@ build/debug/app/run_scripts --dut-serial=SN-000123
 Presets are a platform × build-type matrix — `macos-debug`, `macos-release`,
 `windows-debug`, `windows-release` — composed from two hidden halves so that a
 compiler path is written once rather than once per build type. The platform half
-picks the compiler and generator (Ninja on macOS, MinGW Makefiles on Windows);
-the build-type half picks `Debug`/`Release` and the directory, `build/debug` or
-`build/release`. Both platforms land in the same directory, so every command in
-this README works unchanged on either.
+picks the compiler -- the only place in the tree one is named -- and pins the
+preset to its host; the build-type half picks
+`Debug`/`Release` and the directory, `build/debug` or `build/release`. Both
+platforms build with the same generator (Ninja) into the same directory, so
+every command in this README works unchanged on either.
 
-`cmake --list-presets` shows only the ones whose generator exists on the host, so
-the Windows pair is invisible on macOS and vice versa. Note that `-Werror`
-applies to Release as well, so an optimiser-only warning fails that build rather
-than being reported.
+`cmake --list-presets` shows only the pair matching the host: each platform half
+carries a `condition` on `${hostSystemName}`, so the Windows presets are
+invisible on macOS and vice versa, and naming the wrong host's preset explicitly
+is an error rather than an attempt to run MinGW paths through Homebrew's GCC.
+
+**Ninja is a prerequisite on both hosts**, and has to be on `PATH` when the
+preset is configured. CMake resolves a generator's build program before it reads
+a line of this project, so a missing ninja fails with `unable to find a build
+program corresponding to "Ninja"` and nothing more helpful — no compiler check,
+no version banner, no mention of a preset:
+
+```bash
+brew install ninja                  # macOS
+winget install Ninja-build.Ninja    # Windows -- some MinGW distributions
+                                    # already ship one in C:/mingw64/bin
+```
+
+An IDE is the usual reason this bites on one host and not the other: CLion (like
+Visual Studio) configures with a ninja it bundles, so a build tree the IDE
+maintains happily can be unbuildable from a terminal on that same machine. To
+borrow the IDE's copy instead of installing one, name it once — it lands in that
+tree's cache and later configures of the tree reuse it:
+
+```bash
+cmake --preset macos-debug -DCMAKE_MAKE_PROGRAM=/path/to/bundled/ninja
+```
+
+Note that `-Werror` applies to Release as well, so an optimiser-only warning
+fails that build rather than being reported.
 
 | Flag | Effect |
 |---|---|
@@ -919,23 +945,38 @@ one rig — a different bench builds hal from source against its own tables.
 hand-maintained parallel lists — enum names, criteria iteration, the safing sweep,
 the quantity tables — that would otherwise each be a place to forget something.
 
+The requirement is checked at configure time, right after the compiler banner,
+because the alternative is an `unrecognized command line option '-freflection'`
+from the middle of a translation unit. The usual way to trip it is configuring
+without a preset — a bare `cmake -B`, or an IDE profile that manages its own
+build directory and its own toolchain — since the presets are what name GCC in
+the first place.
+
 ---
 
 ## 6. Tests
 
 ```bash
-ctest --test-dir build/debug --output-on-failure     # all 317 tests
-ctest --test-dir build/debug -LE acceptance          # unit tests only (280)
-ctest --test-dir build/debug -L  acceptance -V       # the CLI tour (37)
+ctest --test-dir build/debug --output-on-failure     # everything
+ctest --test-dir build/debug -LE acceptance          # unit tests only
+ctest --test-dir build/debug -L  acceptance -V       # the CLI tour
+ctest --test-dir build/debug -N                      # count and name them, run nothing
 ```
 
-| Target | Tests | Covers |
-|---|---|---|
-| `core_tests` | 172 | units, predicates, criteria, sessions, journal, all three log sinks |
-| `hal_tests` | 98 | drivers, switching fabric, wiring, safing, `describeConfig` |
-| `dut_tests` | 4 | the DUT profile — including the wiring-coverage build check |
-| `scripts_tests` | 6 | the test scripts, injected; plus the variant parity build check |
-| `acceptance_tests` | 37 | the `run_scripts` binary as a subprocess — flags, log files, exit codes |
+| Target | Covers |
+|---|---|
+| `core_tests` | units, predicates, criteria, sessions, journal, all three log sinks |
+| `hal_tests` | drivers, switching fabric, wiring, safing, `describeConfig` |
+| `dut_tests` | the DUT profile — including the wiring-coverage build check |
+| `scripts_tests` | the test scripts, injected; plus the variant parity build check |
+| `acceptance_tests` | the `run_scripts` binary as a subprocess — flags, log files, exit codes |
+
+No test counts in this section, deliberately. `-N` prints the current ones —
+`Total Tests:`, and it honours `-L`/`-LE`, so the split costs one more command
+rather than a table that has to be trusted. A count written down here is a claim
+about a number that changes every time anyone adds a test, and it went stale
+exactly that way: it advertised 317 for long enough that the real figure passed
+490.
 
 The acceptance tests are worth knowing about separately: they run the real binary
 with real flags and keep everything under `<build>/app/acceptance/<suite>.<test>/` —

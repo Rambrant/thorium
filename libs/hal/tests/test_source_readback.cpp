@@ -1,7 +1,8 @@
 #include "hal/ac6834b.hpp"
-#include "hal/apply.hpp"
 #include "hal/measure.hpp"
 #include "hal/n6701a.hpp"
+#include "hal/route.hpp"
+#include "hal/source.hpp"
 
 #include <gtest/gtest.h>
 

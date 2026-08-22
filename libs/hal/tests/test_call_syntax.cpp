@@ -6,7 +6,8 @@
 // with a second instrument, then tear down -- so this file stitches those
 // together, using the real hal engines (MeasureEngine/ApplyEngine/
 // ConnectEngine/DisconnectEngine/RemoveEngine from hal/measure.hpp and
-// hal/apply.hpp) end to end, exactly the call syntax a script would write,
+// hal/source.hpp and hal/route.hpp) end to end, exactly the call syntax a
+// script would write,
 // just against a local fixture rather than the rig's real global fabric/
 // wiring/instruments (see rig/active_instruments.hpp) so tests don't share
 // state with each other.
@@ -22,8 +23,9 @@
 #include "hal/n6701a.hpp"
 #include "hal/dso8064.hpp"
 #include "hal/l4411a.hpp"
-#include "hal/apply.hpp"
 #include "hal/measure.hpp"
+#include "hal/route.hpp"
+#include "hal/source.hpp"
 
 #include <gtest/gtest.h>
 

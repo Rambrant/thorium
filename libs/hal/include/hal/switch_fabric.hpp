@@ -106,7 +106,7 @@ namespace hal
             // other currently-closed element (and every other use of these
             // same elements) untouched. This is what core::ConnectEngine/
             // DisconnectEngine and core::MeasureEngine call (see
-            // core/apply.hpp, core/measure.hpp): a source instrument's own
+            // core/route.hpp, core/measure.hpp): a source instrument's own
             // relay path shouldn't tear down some other already-live route
             // (another instrument's supply, say) just because it's being
             // connected, disconnected, or briefly shared with a

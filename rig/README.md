@@ -108,7 +108,7 @@ Two things this file buys beyond the addresses, both of which were real holes:
 This rig's two static wiring facts (see `hal/wiring.hpp`'s own comment):
 which matrix/mux channel each instrument is hard-wired to, and which
 matrix/mux channel each VPC connector pin is hard-wired to. Read by
-`hal/measure.cpp` and `hal/apply.cpp`, each needing its own declaration of
+`hal/measure.cpp` and `hal/route.cpp`, each needing its own declaration of
 the resulting (inline) `hal::instrumentWiring`/`hal::connectorWiring`
 tables since each is its own translation unit.
 

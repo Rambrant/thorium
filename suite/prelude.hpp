@@ -42,7 +42,8 @@
 //
 #include "rig/active_instruments.hpp"
 #include "hal/measure.hpp"
-#include "hal/apply.hpp"
+#include "hal/source.hpp"
+#include "hal/route.hpp"
 
 //
 // The verdict verb, unqualified -- so a script writes Verify( ...) next to

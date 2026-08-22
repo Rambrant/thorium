@@ -1,13 +1,5 @@
 cmake_minimum_required(VERSION 3.30)
 
-if(APPLE)
-    set(CMAKE_C_COMPILER "/opt/homebrew/bin/gcc-16")
-    set(CMAKE_CXX_COMPILER "/opt/homebrew/bin/g++-16")
-elseif(WIN32)
-    set(CMAKE_C_COMPILER "C:/mingw64/bin/gcc.exe")
-    set(CMAKE_CXX_COMPILER "C:/mingw64/bin/g++.exe")
-endif()
-
 project(Thorium LANGUAGES CXX VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 26)
@@ -21,6 +13,36 @@ endif()
 
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER} (${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION})")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
+# --- Which compiler is a preset's business; which *kind* of compiler is this file's ---
+# This file used to name the toolchain itself, in an if(APPLE)/elseif(WIN32)
+# block before project() that set CMAKE_C/CXX_COMPILER to Homebrew's GCC or to
+# C:/mingw64. That duplicated what CMakePresets.json's two platform halves
+# already say, and duplicated it in the weaker position: a preset's cache entry
+# wins, so on every configure that went through a preset -- which is what
+# README.md tells you to do, and the only way to get the right generator -- the
+# block was dead code that still read as authoritative. A compiler path is now
+# written in exactly one place, per host, in CMakePresets.json.
+#
+# What stays here is the requirement rather than the path, because it is not a
+# host fact and no preset should be able to disagree with it: -freflection and
+# -fcontracts below are GCC 16+ only, so a configure holding anything else is
+# already doomed. Failing here says which compiler arrived and where to change
+# it; failing later says `unrecognized command line option '-freflection'` from
+# the middle of a translation unit.
+#
+# The likely way to land here is configuring without a preset at all -- a bare
+# cmake -B, or an IDE profile that manages its own build directory. Point it at
+# a preset (cmake --list-presets), or give it the compiler explicitly.
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16)
+    message(FATAL_ERROR
+        "Thorium needs GCC 16 or newer: it is built on C++26 reflection "
+        "(-freflection) and contracts (-fcontracts), which nothing else "
+        "implements yet. This configure got ${CMAKE_CXX_COMPILER_ID} "
+        "${CMAKE_CXX_COMPILER_VERSION} (${CMAKE_CXX_COMPILER}), which was not "
+        "chosen by any of this repo's presets -- see cmake --list-presets and "
+        "README.md, or set CMAKE_CXX_COMPILER yourself.")
+endif()
 
 # -freflection and -fcontracts are experimental C++26 features (GCC 16+ only)
 # and require -std=c++26 (set above). -fcontracts must ALSO be passed at

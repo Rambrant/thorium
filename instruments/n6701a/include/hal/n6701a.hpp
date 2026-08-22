@@ -4,7 +4,7 @@
 #include <string>
 #include <type_traits>
 
-#include "core/apply.hpp"
+#include "core/describe.hpp"
 #include "core/port.hpp"
 #include "core/quantity.hpp"
 
@@ -369,7 +369,7 @@ namespace hal
     using N6701ARelay  = N6701A<RelayIsolated>;
 
     //
-    // ADL targets for core::ApplyEngine/RemoveEngine -- see core/apply.hpp's
+    // ADL targets for core::ApplyEngine/RemoveEngine -- see core/source.hpp's
     // own comment on the applyDriver/removeDriver customization points.
     // Programs -- or disables -- the instrument's simulated output only;
     // the fabric path is a separate concern, see connectDriver/
@@ -392,7 +392,7 @@ namespace hal
     }
 
     //
-    // ADL target for the run journal -- see core/apply.hpp's own comment on the
+    // ADL target for the run journal -- see core/describe.hpp's own comment on the
     // describeConfig customization point, and hal::describeSetting in
     // hal/describe.hpp for the optional-field helper. Found the same way
     // applyDriver above is, and required for the same reason: only this config's
@@ -419,7 +419,7 @@ namespace hal
 
     //
     // ADL targets for core::ConnectEngine/DisconnectEngine -- see
-    // core/apply.hpp's own comment on the connectDriver/disconnectDriver
+    // core/route.hpp's own comment on the connectDriver/disconnectDriver
     // customization points. Closes -- or opens -- every fixed path
     // registered for this instrument, together (see
     // hal::InstrumentWiring::findAll() and hal::WireRole's own comment on

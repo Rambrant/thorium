@@ -6,6 +6,11 @@
       "name": "macos",
       "hidden": true,
       "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
       "cacheVariables": {
         "CMAKE_C_COMPILER": "/opt/homebrew/bin/gcc-16",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-16"
@@ -16,6 +21,11 @@
       "name": "windows",
       "hidden": true,
       "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
       "cacheVariables": {
         "CMAKE_C_COMPILER": "C:/mingw64/bin/gcc.exe",
         "CMAKE_CXX_COMPILER": "C:/mingw64/bin/g++.exe"

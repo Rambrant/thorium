@@ -1,5 +1,6 @@
 #include "hal/ac6834b.hpp"
-#include "hal/apply.hpp"
+#include "hal/route.hpp"
+#include "hal/source.hpp"
 #include "hal/n6701a.hpp"
 #include "hal/safing.hpp"
 
@@ -16,7 +17,7 @@ using namespace core::quantities;
 //
 // The hal side of the run journal: each source instrument's describeConfig
 // (the ADL customization point core::ApplyEngine and friends log through -- see
-// core/apply.hpp), plus the guarantee that the engines actually post what those
+// core/describe.hpp), plus the guarantee that the engines actually post what those
 // overloads produce.
 //
 // That second half is the one worth an integration test rather than only a unit

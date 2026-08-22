@@ -37,7 +37,7 @@ extern MeasureEngine Measure;
 //
 //   const auto reply = Read( Ser1.rs232());
 //
-// Declared here rather than in hal/apply.hpp beside Setup/Write, and defined in
+// Declared here rather than in hal/source.hpp beside Setup/Write, and defined in
 // the same translation unit as Measure, because it is constructed *from*
 // Measure's session bank -- one bank, so a run that measures a rail and reads a
 // console reply produces one ordered recording covering both (see

@@ -24,7 +24,8 @@ namespace core
     // Neither filtering nor formatting lives at the call site, so adding a
     // third stream later (JUnit XML, a live socket, whatever) needs no change
     // to Measure/Apply/Verify at all -- which matters because those call sites
-    // are spread across core/measure.hpp, core/apply.hpp, core/verify.cpp and
+    // are spread across core/measure.hpp, core/source.hpp, core/route.hpp,
+    // core/verify.cpp and
     // hal/src/safing.cpp, and a per-sink `if` in each of them is exactly the
     // list that falls behind the next sink added.
     //
@@ -33,7 +34,7 @@ namespace core
     // test script takes no parameters at all, so there is no room for a
     // logger one (see core/test_catalog.hpp on why), and the verbs
     // a script calls -- Measure, Apply, Verify -- are themselves globals for
-    // the same reason (see hal/src/measure.cpp, hal/src/apply.cpp). A journal
+    // the same reason (see hal/src/measure.cpp, hal/src/source.cpp). A journal
     // threaded by parameter would have to stop somewhere, and the place it
     // would stop is precisely the layer that needs it.
     //

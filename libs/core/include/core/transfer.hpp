@@ -4,8 +4,8 @@
 #include <string_view>
 #include <utility>
 
-#include "core/apply.hpp"
 #include "core/bytes.hpp"
+#include "core/describe.hpp"
 #include "core/journal.hpp"
 #include "core/session.hpp"
 
@@ -42,7 +42,7 @@ namespace core
     //
     // Neither touches the switching fabric. The route is held open by Connect
     // for as long as the dialogue lasts -- see core::ConnectEngine's bundle
-    // overload in core/apply.hpp -- which is the one real difference from how
+    // overload in core/route.hpp -- which is the one real difference from how
     // Measure works. A Measure connects, reads and disconnects within the call,
     // because a reading is instantaneous and independent. A console dialogue is
     // neither: dropping the path between a command and its acknowledgement
@@ -71,7 +71,7 @@ namespace core
 
                 //
                 // Logged after the driver call, for the reason every engine in
-                // core/apply.hpp gives: if the instrument refused the write,
+                // core/source.hpp gives: if the instrument refused the write,
                 // nothing went out and nothing should claim it did.
                 //
                 const auto described = describeConfig( builder.config());
