@@ -8,11 +8,14 @@
 // suite/tests/test_supply_rail_script.cpp, and for the same reason.
 //
 #include "core/bytes.hpp"
+#include "core/journal.hpp"
 #include "hal/measure.hpp"
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 using core::Bytes;
@@ -40,13 +43,62 @@ namespace
     // fixture that cleaned up only half of them would leak canned replies into
     // whichever test ran next.
     //
+    //
+    // Registered on the one process-wide journal so a test can assert what the
+    // script *recorded*, not only what it returned. Which matters for exactly
+    // one thing here: a check that could not be made has to reach the report
+    // naming the criterion it was about, and the return value cannot show that.
+    //
+    class CapturingSink : public core::IJournalSink
+    {
+        public:
+            auto onEvent( const core::JournalEvent & event) -> void override
+            {
+                Events.push_back( event);
+            }
+
+            std::vector<core::JournalEvent> Events;
+    };
+
     struct ConsoleFixture : ::testing::Test
     {
         protected:
+            void SetUp() override
+            {
+                core::journal().clearSinks();
+                core::journal().add( Journal);
+            }
+
             void TearDown() override
             {
+                core::journal().clearSinks();
+
                 Measure.useLive();
             }
+
+            //
+            // Criterion ids as strings, because this file deliberately does not
+            // include the criteria tables (see the header comment above) -- and
+            // because what is being asserted is what a report reader sees, which
+            // is the string either way.
+            //
+            [[nodiscard]]
+            auto uncheckedCriteria() const -> std::vector<std::string>
+            {
+                std::vector<std::string> ids;
+
+                for( const auto & event : Journal.Events)
+                {
+                    if( event.Value == "<unchecked>")
+                    {
+                        ids.push_back( event.Subject);
+                    }
+                }
+
+                return ids;
+            }
+
+            CapturingSink Journal;
     };
 } // namespace
 
@@ -95,6 +147,44 @@ TEST_F( ConsoleFixture, ATruncatedReplyFailsRatherThanThrowing)
     Read.inject( "Ser1.Data", Bytes( "ACK\r"));
 
     EXPECT_FALSE( consoleScript());
+}
+
+//
+// And it says so about *both* status criteria, by name. A truncated reply is
+// not evidence that the DUT is unready or faulted -- it is evidence of nothing
+// at all -- so each criterion is recorded as unchecked rather than as failed,
+// and a consumer tracking either one across runs sees that this run could not
+// answer it (see core::Fail in core/verify.hpp).
+//
+// Worth a test of its own rather than trusting the line above, because the
+// return value is false either way. This path used to post a single ad-hoc
+// check naming neither criterion, while the comment beside it claimed both were
+// recorded.
+//
+TEST_F( ConsoleFixture, ATruncatedReplyRecordsBothStatusCriteriaAsUnchecked)
+{
+    Read.inject( "Ser1.Data", Bytes( "ACK\r"));
+
+    EXPECT_FALSE( consoleScript());
+
+    const auto unchecked = uncheckedCriteria();
+
+    ASSERT_EQ( unchecked.size(), 2u);
+
+    EXPECT_NE( std::ranges::find( unchecked, std::string( "FS_Console_Ready")), unchecked.end());
+    EXPECT_NE( std::ranges::find( unchecked, std::string( "FS_Console_Fault")), unchecked.end());
+
+    //
+    // The one fact in the reason that is not already in the criteria table: how
+    // much the DUT actually sent.
+    //
+    const auto reasons = std::ranges::count_if( Journal.Events,
+        []( const core::JournalEvent & event)
+        {
+            return event.Detail.find( "4 bytes") != std::string::npos;
+        });
+
+    EXPECT_EQ( reasons, 2);
 }
 
 TEST_F( ConsoleFixture, ASilentDutFailsRatherThanThrowing)

@@ -645,7 +645,7 @@ A console dialogue is four verbs, and a route that stays open across all of them
    Disconnect( Ser1.rs232(), at( dut::Console));
    ```
 
-Four things in that are worth knowing.
+Five things in that are worth knowing.
 
 **`Connect` takes the interface, not a pin.** All three lines close as one path.
 An RS232 console is not usable a wire at a time, so making the bundle the unit
@@ -664,6 +664,28 @@ oscilloscope uses for all of its trigger, timebase, acquisition and channel
 settings. `Apply` on an instrument that has no output to energise is a compile
 error rather than a call that silently does nothing, on a serial port and on a
 scope alike.
+
+**A reply too short to check is `Fail`, not a contrived `Verify`.** `reply.at( 4)`
+is guarded in the real script — a silent DUT is a failed check, not a crash out of
+`core::Bytes::at` — and what the guard's other branch records is *both* status
+criteria, by name, as unchecked:
+
+```cpp
+allPassed &= Fail( FS_Console_1::FS_Console_Ready, reason);
+allPassed &= Fail( FS_Console_1::FS_Console_Fault, reason);
+```
+
+```
+verify  FS_Console_1::FS_Console_Ready  <unchecked>  bit 3 set  [FAIL]  console reply is 0 bytes, too short to hold a status byte
+```
+
+Recorded rather than skipped, because a report in which a check simply does not
+appear reads as a run that did not need it. Recorded as *unchecked* rather than
+failed, because a truncated reply is not evidence that the DUT is unready — it is
+evidence of nothing, and the row says so while still stating what was required.
+`Fail` is not a `Verb` of its own: it posts as a `Verify` with no value, so both
+logs and every sink already handle it. See `core/verify.hpp`, which also records
+why this is a verb rather than an always-false `FAIL` predicate.
 
 **A reply is `core::Bytes`, not a `std::string`.** Length is its own fact, so an
 embedded NUL is an ordinary byte; elements are `std::byte`, so a locale-aware

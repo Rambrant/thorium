@@ -68,6 +68,13 @@ namespace core
     //     arrived has to be visible in the log as a Write with no Read after
     //     it.
     //
+    // There is deliberately no Fail. A check that could not be made -- no
+    // capture, no reply to read the byte out of -- posts as a Verify with
+    // Passed = false and a placeholder where the value would be (see core::Fail
+    // in core/verify.hpp). Everything that already tells a failed check from a
+    // passing one therefore handles it: an enumerator of its own would have
+    // bought a parallel branch in every consumer listed above and nothing else.
+    //
     enum class Verb
     {
         Measure,

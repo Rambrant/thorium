@@ -51,4 +51,36 @@ namespace core::detail
             .Passed        = passed
         });
     }
+
+    //
+    // "<unchecked>" -- eleven characters, which fits the human report's value
+    // column (kValueWidth in core/src/report.cpp) exactly the way "<no
+    // reading>" does in the absent-reading Verify overload. A longer
+    // placeholder would push the limit and the verdict rightwards on this one
+    // row and stagger it against the checks either side of it.
+    //
+    // A placeholder rather than an empty column, for the same reason that
+    // overload gives: a [FAIL] beside an empty value reads like a formatting
+    // bug, when the absence of the value IS the finding.
+    //
+    void reportNotChecked( const std::string_view group,
+                            const std::string_view id,
+                            const std::string_view description,
+                            const std::string_view criterionText )
+    {
+        constexpr std::string_view UncheckedValue = "<unchecked>";
+
+        reportResult( group, id, description, UncheckedValue,
+                      std::nullopt, {}, criterionText, false);
+    }
 } // namespace core::detail
+
+namespace core
+{
+    auto Fail( const std::string_view reason) -> bool
+    {
+        detail::reportNotChecked( {}, {}, reason, {});
+
+        return false;
+    }
+} // namespace core

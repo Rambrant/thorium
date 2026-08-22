@@ -166,10 +166,11 @@ auto acDropoutScript() -> bool
     // qualifier: they key as "Output5V.Vbase" and "Output5V.Vmin" rather than
     // both as "Output5V" (see core::MeasureEngine).
     //
-    // The criterion is checked either way -- reported as failed, not skipped
-    // -- because a report in which a check simply does not appear reads as a
-    // run that did not need it. Same argument consoleScript makes about a
-    // reply too short to hold a status byte.
+    // Something is recorded either way -- never nothing -- because a report in
+    // which a check simply does not appear reads as a run that did not need it.
+    // Same argument consoleScript makes about a reply too short to hold a
+    // status byte. What differs is which of the two the else branch below
+    // records: a verdict, or a Fail saying the check could not be made.
     //
     if( captured)
     {
@@ -211,16 +212,14 @@ auto acDropoutScript() -> bool
     else
     {
         //
-        // Deliberately an ad-hoc Verify rather than FS_Transient_5V0_Dip
-        // against a NaN. The criterion means "the rail dipped no more than
-        // this much", and nothing here measured how far the rail dipped --
-        // recording it as failed would be recording a finding about the DUT
-        // that this run does not have. What did happen is that the check
-        // could not be made, and that is what this says.
+        // Deliberately the prose form of Fail rather than
+        // FS_Transient_5V0_Dip. The criterion means "the rail dipped no more
+        // than this much", and nothing here measured how far the rail dipped
+        // -- naming it, even as unchecked, would attach this run's silence to
+        // a requirement it has nothing to say about. What did happen is that
+        // the check could not be made, and that is what this says.
         //
-        allPassed &= Verify( "5Vdc rail dip on AC dropout -- not measured, the capture did not complete",
-                             core::quantities::EQ( true),
-                             false);
+        allPassed &= Fail( "5Vdc rail dip on AC dropout -- not measured, the capture did not complete");
     }
 
     //

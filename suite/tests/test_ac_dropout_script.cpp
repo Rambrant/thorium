@@ -14,11 +14,15 @@
 #include "hal/acquire.hpp"
 #include "hal/measure.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 #include "core/criteria_variants.hpp"
+#include "core/journal.hpp"
 
 using core::quantities::Voltage;
 
@@ -39,12 +43,32 @@ namespace
     constexpr auto kMinimum  = "Output5V.Vmin";
     constexpr auto kCapture  = "Osc1.Acquisition";
 
+    //
+    // Registered so a test can assert what the script *recorded* and not only
+    // what it returned -- which for the missing-capture path is the whole
+    // question: the return value is false either way, and what matters is which
+    // criterion the log does and does not attach that to.
+    //
+    class CapturingSink : public core::IJournalSink
+    {
+        public:
+            auto onEvent( const core::JournalEvent & event) -> void override
+            {
+                Events.push_back( event);
+            }
+
+            std::vector<core::JournalEvent> Events;
+    };
+
     struct AcDropoutFixture : ::testing::Test
     {
         protected:
 
             void SetUp() override
             {
+                core::journal().clearSinks();
+                core::journal().add( Journal);
+
                 core::resetCriteriaVariantForTesting();
             }
 
@@ -58,9 +82,36 @@ namespace
             //
             void TearDown() override
             {
+                core::journal().clearSinks();
+
                 Measure.useLive();
                 core::resetCriteriaVariantForTesting();
             }
+
+            //
+            // Every check the run recorded that it could not actually make,
+            // as "criteria group::id" -- empty for one attached to no criterion
+            // at all, which is a distinction two tests below turn on.
+            //
+            [[nodiscard]]
+            auto uncheckedSubjects() const -> std::vector<std::string>
+            {
+                std::vector<std::string> subjects;
+
+                for( const auto & event : Journal.Events)
+                {
+                    if( event.Value == "<unchecked>")
+                    {
+                        subjects.push_back( event.SubjectGroup.empty()
+                                                ? std::string{}
+                                                : event.SubjectGroup + "::" + event.Subject);
+                    }
+                }
+
+                return subjects;
+            }
+
+            CapturingSink Journal;
 
             //
             // A healthy run: rail at nominal, capture lands, rail dips 120 mV.
@@ -207,4 +258,39 @@ TEST_F( AcDropoutFixture, NoVariantMakesAMissingCaptureAcceptable)
 
         EXPECT_FALSE( acDropoutScript()) << "a missing capture must fail under '" << variant << "'";
     }
+}
+
+//
+// What a missing capture records, as against merely that it fails.
+//
+// The dip criterion is deliberately *not* named. FS_Transient_5V0_Dip means
+// "the rail dipped no more than this much", and a run whose capture never
+// completed measured nothing about how far the rail dipped -- naming it, even
+// as unchecked, would attach this run's silence to a requirement it has no
+// evidence either way about. So exactly one unattributed unchecked row is
+// recorded, carrying the reason as its prose (see core::Fail in
+// core/verify.hpp, and the script's own comment on the branch).
+//
+// FS_Transient_Captured is a different matter and is checked for real on this
+// path: "did the capture land" is a question this run does have an answer to.
+//
+TEST_F( AcDropoutFixture, AMissingCaptureIsRecordedAgainstNoDipCriterion)
+{
+    Measure.inject( kBaseline, Voltage{ 5.00 });
+    Await.inject(   kCapture,  false);
+
+    EXPECT_FALSE( acDropoutScript());
+
+    const auto unchecked = uncheckedSubjects();
+
+    ASSERT_EQ( unchecked.size(), 1u);
+    EXPECT_EQ( unchecked.front(), "") << "the dip criterion must not be named by a run that did not measure a dip";
+
+    const auto captured = std::ranges::count_if( Journal.Events,
+        []( const core::JournalEvent & event)
+        {
+            return event.Subject == "FS_Transient_Captured";
+        });
+
+    EXPECT_EQ( captured, 1) << "whether the capture landed is still a real verdict";
 }

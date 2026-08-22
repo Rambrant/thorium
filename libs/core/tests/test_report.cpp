@@ -106,6 +106,47 @@ TEST( CoreReport, ReadLineNamesTheInterfaceItsPayloadAndItsInstrument)
     EXPECT_EQ( text.find( "measure"),     std::string::npos);
 }
 
+//
+// A check that could not be made (core::Fail) is a Verify event with no value
+// and no tolerance-defying number behind it, so it renders through the same
+// branch and lines up in the same columns as the checks around it -- which is
+// the whole reason it posts as a Verb::Verify rather than as a verb of its own
+// (see core/verify.hpp).
+//
+// The event is built by hand here, as every other rendering test in this file
+// does; what Fail actually posts is pinned in core/tests/test_verify.cpp.
+//
+TEST( CoreReport, AnUncheckedCriterionRendersAsAFailedCheckWithNoValue)
+{
+    auto event = eventOf( core::Verb::Verify);
+    event.Subject       = "FS_Console_Ready";
+    event.SubjectGroup  = "FS_Console_1";
+    event.Detail        = "console reply is 4 bytes, too short to hold a status byte";
+    event.Value         = "<unchecked>";
+    event.CriterionText = "bits 0x08 set";
+    event.Passed        = false;
+
+    const auto lines = core::humanEventLines( event);
+
+    ASSERT_EQ( lines.size(), 1u);
+
+    const auto text = core::plainText( lines.front());
+
+    EXPECT_NE( text.find( "verify"),           std::string::npos);
+    EXPECT_NE( text.find( "FS_Console_Ready"), std::string::npos);
+    EXPECT_NE( text.find( "<unchecked>"),      std::string::npos);
+    EXPECT_NE( text.find( "[FAIL]"),           std::string::npos);
+
+    //
+    // Both of these matter beside the verdict: what was required is still
+    // stated, so the row can be read without the criteria table open, and the
+    // reason is what says the [FAIL] is an absence of evidence rather than a
+    // finding about the DUT.
+    //
+    EXPECT_NE( text.find( "bits 0x08 set"), std::string::npos);
+    EXPECT_NE( text.find( "too short"),     std::string::npos);
+}
+
 TEST( CoreReport, EventsTheHumanStreamDoesNotCarryProduceNoLines)
 {
     EXPECT_TRUE( core::humanEventLines( eventOf( core::Verb::Connect)).empty());

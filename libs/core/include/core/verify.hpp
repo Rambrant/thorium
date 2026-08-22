@@ -40,6 +40,19 @@ namespace core
                             std::string_view      unit,
                             std::string_view      criterionText,
                             bool                  passed );
+
+        //
+        // The same post, for a check that was never made: no value, no number,
+        // no unit, and passed = false. Its own function rather than a
+        // reportResult call with four empty arguments at each of the Fail
+        // overloads below, because the placeholder that stands in for the
+        // missing value is a report-layout decision and belongs in exactly one
+        // place -- see verify.cpp.
+        //
+        void reportNotChecked( std::string_view group,
+                                std::string_view id,
+                                std::string_view description,
+                                std::string_view criterionText );
     } // namespace detail
 
     //
@@ -285,6 +298,142 @@ namespace core
                        "reading's unit -- every variant of a criterion has to accept the same "
                        "measurement. Check that this CRIT's entry agrees in every "
                        "dut/criteria_*.inc, not just the one this build defaults to.");
+
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Fail: a check that could not be made
+    // -----------------------------------------------------------------------
+    //
+    // Every Verify above is a statement about a value. This is for the case
+    // where there is no value at all -- the capture never triggered, the reply
+    // was too short to hold the byte the check was about -- and something still
+    // has to reach the report, because a check that simply does not appear
+    // reads as a run that did not need it.
+    //
+    // Before this existed, that was written as a predicate contrived to be
+    // false:
+    //
+    //     Verify( "5Vdc rail dip -- not measured, the capture did not complete",
+    //             EQ( true), false);
+    //
+    // Two call sites had one (suite/scripts/ac_dropout_script.cpp and
+    // suite/scripts/console_script.cpp, the latter with a >= 5 against a reply
+    // length). Both said in their own comments that what happened is that the
+    // check could not be made -- and both then put that contrivance in the
+    // report's limit column, which is where a reader looks for what the DUT was
+    // required to do.
+    //
+    // Deliberately not a FAIL *predicate*, which is the other way to spell it.
+    // Predicates are the criteria tables' vocabulary -- core::quantities is
+    // what dut/criteria_*.inc draws from -- so an always-false one would be
+    // legal in a CRIT entry, and a table row that no reading can satisfy is
+    // exactly what core/predicates.hpp refuses to let an empty ANY_OF() become
+    // ("it compiles, it reads like a check, and it fails the run against a
+    // perfectly good DUT"). It would also have to accept every T to be usable
+    // with no value, which would make it the one predicate that *satisfies* the
+    // variant-mismatch static_asserts above instead of tripping them.
+    //
+    // Not a new Verb either: a Fail posts as Verb::Verify with Passed = false,
+    // so every sink already handles it -- SarifSink's Verify branches give it a
+    // real result, core::isHumanRelevant already lets it through, and the human
+    // log lines it up in the same columns as the checks around it. A new
+    // enumerator would have bought a parallel list in each of those places and
+    // nothing else.
+    //
+    // Returns bool, always false, for the same reason Verify returns one: a
+    // script folds it into its verdict (allPassed &= Fail( ...)), and a void
+    // Fail would force that line to be written as two. Not [[nodiscard]],
+    // matching Verify -- a dropped verdict is the same mistake in both, and
+    // singling this one out would suggest it is a different one.
+    //
+
+    //
+    // The ad-hoc form: prose, and nothing else. For a check that has no named
+    // criterion to be about, or -- as in ac_dropout_script -- one whose named
+    // criterion would be the wrong thing to record, because the criterion is a
+    // claim about how far a rail dipped and nothing here measured that.
+    //
+    auto Fail( std::string_view reason) -> bool;
+
+    //
+    // The named form: this criterion, specifically, could not be checked. For
+    // when the criterion's identity is worth keeping in the report -- a
+    // consumer tracking FS_Console_Ready across runs wants to see that this run
+    // could not answer it, rather than an unattributed line saying something
+    // nearby went wrong.
+    //
+    // The reason takes the description slot, displacing the criterion's own
+    // prose. That is the trade, and it is deliberate: the description is the
+    // one column a sentence fits in (see the three-argument Verify above on why
+    // prose cannot go in the subject column), and the reason is the only thing
+    // this event knows that the criteria table does not already say. The
+    // tolerance is still rendered, so the row still states what was required --
+    // what is missing from it is only the value that never arrived.
+    //
+    // No unit, unlike the absent-reading Verify above: that one knows Unit from
+    // the optional<Quantity<Unit>> it was handed, and this one has no reading
+    // type to take one from.
+    //
+    template<typename Predicate>
+    auto Fail( const Criterion<Predicate> & criterion, const std::string_view reason) -> bool
+    {
+        detail::reportNotChecked( criterion.group, criterion.id, reason,
+                                  describeCriterion( criterion.predicate));
+
+        return false;
+    }
+
+    namespace detail
+    {
+        //
+        // The selected variant's Criterion, failed -- the same fold, and the
+        // same reason for it, as verifySelectedVariant above: the variants hold
+        // different predicate types, so there is no common signature to switch
+        // on and each arm is its own instantiation anyway.
+        //
+        // Only the predicate's *text* differs between variants here (group and
+        // id are lifted out of the MultiCriterion, and the description slot
+        // carries the reason rather than any variant's prose), but it differs
+        // for the same reason a verdict would: a log has to quote the tolerance
+        // that was actually in force.
+        //
+        template<typename Multi, std::size_t... I>
+        auto failSelectedVariant( const Multi &          multi,
+                                  const std::string_view reason,
+                                  const std::size_t      wanted,
+                                  std::index_sequence<I...>) -> bool
+        {
+            return ( ( I == wanted && ( Fail( std::get<I>( multi.variants), reason), true)) || ...);
+        }
+    } // namespace detail
+
+    //
+    // What a CRIT in a merged table actually is (see core/criterion.hpp), so
+    // this is the overload a script reaches -- FS_Console_1::FS_Console_Ready
+    // is a MultiCriterion, not a Criterion.
+    //
+    template<typename... Variants>
+    auto Fail( const MultiCriterion<Variants...> & criterion, const std::string_view reason) -> bool
+    {
+        const bool matched = detail::failSelectedVariant(
+            criterion, reason, activeCriteriaVariant(),
+            std::make_index_sequence<sizeof...( Variants)>{});
+
+        if( ! matched)
+        {
+            //
+            // Out of range, which cannot happen through selectCriteriaVariant
+            // (it validates against the same generated list these tuples are
+            // built from) -- but the failure mode if it ever did is that
+            // nothing at all reaches the log, which is the one outcome this
+            // verb exists to prevent. The criterion still names itself; only
+            // the tolerance is missing, because there was no variant to take
+            // one from.
+            //
+            detail::reportNotChecked( criterion.group, criterion.id, reason, {});
+        }
 
         return false;
     }

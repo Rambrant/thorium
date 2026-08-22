@@ -47,11 +47,15 @@
 #include "hal/acquire.hpp"
 
 //
-// The verdict verb, unqualified -- so a script writes Verify( ...) next to
+// The verdict verbs, unqualified -- so a script writes Verify( ...) next to
 // Measure( ...), rather than core::Verify( ...) next to a bare Measure. That
 // asymmetry was an accident of which header happened to bring what into scope,
 // and the two scripts in this suite had already drifted to opposite sides of
 // it.
+//
+// Fail comes with it, and has to: it is what a script writes where a check
+// could not be made at all, so it appears in the same bodies and on the same
+// footing as Verify (see core/verify.hpp).
 //
 // A using-declaration in a header, deliberately, and confined to this one:
 // core/active_test_catalog.hpp does not include this file, so nothing outside a
@@ -62,6 +66,7 @@
 #include "core/verify.hpp"
 
 using core::Verify;
+using core::Fail;
 
 //
 // The tolerances -- every variant merged into the one table a script names

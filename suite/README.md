@@ -38,7 +38,7 @@ use for instruments or criteria tables.
 `prelude.hpp` is the other half of that split and is what a script actually
 includes -- everything a script body is written against, in one line:
 `scripts.hpp` itself, the rig's instrument globals, `Measure`/`Apply`/
-`Verify`, the merged criteria tables, and the adapter points. A script
+`Verify`/`Fail`, the merged criteria tables, and the adapter points. A script
 therefore begins with exactly
 
 ```cpp

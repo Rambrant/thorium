@@ -1,6 +1,7 @@
 #include "../prelude.hpp"
 
 #include <chrono>
+#include <string>
 
 //
 // Ask the DUT's debug console for its status register and check what came back.
@@ -67,11 +68,21 @@ auto consoleScript() -> bool
     else
     {
         //
-        // No status byte to check. Both criteria are recorded as failed rather
-        // than skipped, because a report in which a check simply does not appear
-        // reads as a run that did not need it.
+        // No status byte to check. Both criteria are recorded rather than
+        // skipped, because a report in which a check simply does not appear
+        // reads as a run that did not need it -- and recorded as unchecked
+        // rather than as failed, because neither criterion is a claim this run
+        // has any evidence about. Fail names them, so a consumer tracking
+        // either one across runs sees that this run could not answer it.
         //
-        allPassed &= Verify( "Console reply carries a status byte", core::quantities::GE( std::size_t{ 5 }), reply.size());
+        // The reason carries the size the DUT actually sent, which is the one
+        // fact here that is not already in the criteria table.
+        //
+        const auto reason = "console reply is " + std::to_string( reply.size())
+                          + " bytes, too short to hold a status byte";
+
+        allPassed &= Fail( FS_Console_1::FS_Console_Ready, reason);
+        allPassed &= Fail( FS_Console_1::FS_Console_Fault, reason);
     }
 
     Disconnect( Ser1.rs232(), at( dut::Console));
