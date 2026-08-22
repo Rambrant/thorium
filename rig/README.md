@@ -190,10 +190,24 @@ stop being packageable on its own — see `instruments/README.md`).
 | `test_source_instruments.cpp` | `Connect`/`Disconnect` being additive, which takes a DC supply and an AC source in one test |
 | `test_describe.cpp` | that the engines actually post `describeConfig`'s output to the journal |
 | `test_source_readback.cpp` | a source measuring its own output, and leaving the fabric untouched |
+| `test_wiring_uniqueness.cpp` | that no two endpoints in `wiring.inc` claim one relay — the only file here that expands this rig's real tables |
 
-The last two are the ones that look misplaced and aren't: "did `Apply` reach the
-log" is a claim about the engine-and-driver pair, which neither side can assert
-about itself.
+`test_describe.cpp` and `test_source_readback.cpp` are the ones that look
+misplaced and aren't: "did `Apply` reach the log" is a claim about the
+engine-and-driver pair, which neither side can assert about itself.
+
+`test_wiring_uniqueness.cpp` is the odd one in a different way — it drives no
+engine and runs nothing, it is a `static_assert` sweep over `wiring.inc`, the
+same shape `dut/tests/test_wiring_coverage.cpp` has. It is here rather than
+there because it involves no DUT: it checks this rig's table against itself.
+The rule is that **an element that identifies an endpoint may not appear in
+another entry** — not that no element appears twice, since this rig's ten
+routed pins deliberately share one crosspoint (that is what
+`hal::SwitchFabric`'s use counting is for). "Identifies" means hop zero, which
+makes the endpoint-first ordering of a `Path` load-bearing rather than merely
+conventional; see `hal::WiringHop`. One rule, three mistakes caught: two pins
+on one mux channel, a pin and an instrument on one relay, and a trunk hop
+written as some other endpoint's own relay.
 
 `rig_tests` is the only test target that links `hal_rig`. `hal_tests` links
 generic `hal`, and each driver's tests link that driver alone, so a test written

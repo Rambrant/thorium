@@ -412,6 +412,15 @@ This rig now owns an E1472A, so the element-level spelling is back -- but the
 enum-level assertion stays, because it is the one that covers a kind no rig
 here happens to own.
 
+**Whose relay is this.** Each wiring table also flattens itself into
+`hal::instrumentWiringHops`/`hal::connectorWiringHops` — one `hal::WiringHop`
+per hop per row, carrying the owner, the row index and whether it is hop zero.
+That exists for one check, `rig/tests/test_wiring_uniqueness.cpp`: an element
+that identifies an endpoint must not appear in another entry. Not "no element
+twice" — sharing a trunk hop is normal and this repo's rig does it ten times
+over — which is why hop zero has to be distinguishable, and therefore why a
+`Path` being written **endpoint-first** is now a rule rather than a habit.
+
 **Naming.** This codebase keeps three words doing three jobs, and the split is
 load-bearing: **driver** is the code that speaks to hardware (`hal::L4411A`),
 **instrument** is the hardware a script names (`Dmm1` and `Dmm2` are two

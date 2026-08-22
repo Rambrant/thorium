@@ -345,6 +345,82 @@ namespace hal
     [[nodiscard]]
     consteval auto isSourceWired( VpcLocation location) -> bool;
 
+    //
+    // ---------------------------------------------------------------------
+    // Who owns a fabric element
+    // ---------------------------------------------------------------------
+    // Every table above answers "what does this endpoint's route close". The
+    // question nothing could ask was the other direction -- "whose relay is
+    // this" -- and it is the one a copy-pasted row gets wrong: two
+    // WIRE_CONNECTOR entries on one mux channel leave both tables looking
+    // complete while a measurement at one pin quietly reads the other. That
+    // is the exact twin of two POINTs sharing a VPC pin, which
+    // dut/tests/test_wiring_coverage.cpp has caught for a while; this is the
+    // data that lets the fabric side be checked the same way (see
+    // rig/tests/test_wiring_uniqueness.cpp, which does the checking).
+    //
+    // "Whose" is not simply "appears in one entry only", because a real rig
+    // shares relays on purpose: this rig's ten routed pins all pass through
+    // the one crosspoint that puts the mux common on the measurement bus, and
+    // hal::SwitchFabric's use counting exists precisely so several routes can
+    // hold one relay at once. What cannot be shared is the relay at the
+    // *endpoint* end of a path -- the one that says "this pin, not its
+    // neighbour".
+    //
+    // Which makes a convention load-bearing that was until now only implied
+    // by every table written so far: **a Path is written endpoint-first**.
+    // Hop zero is the element nearest the instrument or the pin, and each hop
+    // after it is one step further along the shared trunk. HOP( Mux1, 3),
+    // CROSSPOINT( Matrix1, 0, 3, 0) is the DUT pin's own mux channel and then
+    // the crosspoint everything shares -- not the other way round. Written
+    // backwards, a rig gets a spurious failure from the check rather than
+    // silence, which is the right way for a convention to be wrong.
+    //
+    enum class WiringSide
+    {
+        Instrument,
+        Connector
+    };
+
+    //
+    // A tagged pair rather than a variant, because this has to survive
+    // std::define_static_array and std::variant is not a structural type
+    // (see detail::ConnectorWiringKey's own comment for the same constraint
+    // biting one field over). `instrument` is meaningful when side is
+    // Instrument and `location` when it is Connector; the other holds
+    // whatever its type default is and means nothing.
+    //
+    struct WiringOwner
+    {
+        WiringSide   side;
+        InstrumentId instrument;
+        VpcLocation  location;
+        WireRole     role;
+
+        friend constexpr auto operator==( WiringOwner, WiringOwner) -> bool = default;
+    };
+
+    //
+    // One hop of one entry, flattened out of the tables above so the whole
+    // rig can be walked element by element. `entry` is the row's index within
+    // its own table, which with `owner.side` identifies the row -- and a row,
+    // not an owner, is the unit here: hal::Ac6834B's AcP1 has four rows of its
+    // own and they must not collide with each other either, which comparing
+    // owners would have allowed.
+    //
+    // `identifies` marks hop zero -- the endpoint's own relay, per the
+    // convention above.
+    //
+    struct WiringHop
+    {
+        WiringOwner     owner;
+        std::size_t     entry;
+        SwitchElementId element;
+        bool            identifies;
+
+        friend constexpr auto operator==( WiringHop, WiringHop) -> bool = default;
+    };
+
     namespace detail
     {
         //
@@ -406,6 +482,51 @@ namespace hal
             }
 
             return keys;
+        }
+
+        //
+        // The same entries flattened one level, into one WiringHop per hop
+        // rather than one row per entry -- see hal::WiringHop above for what
+        // the flattening is for. Two overloads rather than a template for the
+        // same reason keysOf has two: the owner is built differently on each
+        // side, and that difference is the whole content of the function.
+        //
+        [[nodiscard]]
+        consteval auto hopsOf( const std::vector<InstrumentWiringEntry> & entries) -> std::vector<WiringHop>
+        {
+            std::vector<WiringHop> hops;
+
+            for( std::size_t index = 0; index < entries.size(); ++index)
+            {
+                const auto & entry = entries[ index];
+                const auto   owner = WiringOwner{ WiringSide::Instrument, entry.instrument, VpcLocation{}, entry.role };
+
+                for( std::size_t hop = 0; hop < entry.path.size(); ++hop)
+                {
+                    hops.push_back( WiringHop{ owner, index, entry.path[ hop], hop == 0 });
+                }
+            }
+
+            return hops;
+        }
+
+        [[nodiscard]]
+        consteval auto hopsOf( const std::vector<ConnectorWiringEntry> & entries) -> std::vector<WiringHop>
+        {
+            std::vector<WiringHop> hops;
+
+            for( std::size_t index = 0; index < entries.size(); ++index)
+            {
+                const auto & entry = entries[ index];
+                const auto   owner = WiringOwner{ WiringSide::Connector, InstrumentId{}, entry.location, entry.role };
+
+                for( std::size_t hop = 0; hop < entry.path.size(); ++hop)
+                {
+                    hops.push_back( WiringHop{ owner, index, entry.path[ hop], hop == 0 });
+                }
+            }
+
+            return hops;
         }
     } // namespace detail
 } // namespace hal
@@ -480,12 +601,14 @@ namespace hal
     hal::bank<hal::SwitchDeviceId::device, bankNumber, channel>()
 
 //
-// INSTRUMENT_WIRING's expansion builds three things from the one set of
+// INSTRUMENT_WIRING's expansion builds four things from the one set of
 // WIRE_INSTRUMENT/WIRE_INSTRUMENT_SENSE lines, not one -- the same shape
 // CONNECTOR_WIRING uses below, and for the same reasons: the ordinary runtime
-// hal::instrumentWiring, a compile-time instrument/role key table, and
-// isInstrumentWired() itself. One list of rows, three readers, so no rig can
-// wire a lead for the runtime table and not for the check.
+// hal::instrumentWiring, a compile-time instrument/role key table,
+// isInstrumentWired() itself, and hal::instrumentWiringHops (the same rows
+// flattened one hop at a time, for the ownership check -- see hal::WiringHop).
+// One list of rows, four readers, so no rig can wire a lead for the runtime
+// table and not for the checks.
 //
 // buildInstrumentWiringEntries() is constexpr rather than consteval on
 // purpose, and tightening it would not compile -- see CONNECTOR_WIRING's
@@ -510,6 +633,8 @@ namespace hal
     inline constexpr auto instrumentWiringKeys =                                       \
         std::define_static_array( keysOf( buildInstrumentWiringEntries()));            \
     } /* namespace detail */                                                            \
+    inline constexpr auto instrumentWiringHops =                                        \
+        std::define_static_array( detail::hopsOf( detail::buildInstrumentWiringEntries())); \
     inline const InstrumentWiring instrumentWiring = []                                 \
     {                                                                                   \
         InstrumentWiring w;                                                            \
@@ -533,10 +658,10 @@ namespace hal
     }
 
 //
-// CONNECTOR_WIRING's expansion builds three things from the one set of
-// WIRE_CONNECTOR/WIRE_CONNECTOR_SENSE lines below, not two: the ordinary
-// runtime hal::connectorWiring (unchanged from before), a compile-time
-// location/role key table, and isWired() itself -- see this file's own
+// CONNECTOR_WIRING's expansion builds four things from the one set of
+// WIRE_CONNECTOR/WIRE_CONNECTOR_SENSE lines below: the ordinary runtime
+// hal::connectorWiring (unchanged from before), a compile-time location/role
+// key table, isWired() itself, and hal::connectorWiringHops -- see this file's own
 // comment on WireRole/isWired above for why the key table needs its own
 // builder rather than reusing hal::connectorWiring's storage.
 // buildConnectorWiringEntries() is the one place __VA_ARGS__ (the HOP(...)
@@ -570,6 +695,8 @@ namespace hal
     inline constexpr auto connectorWiringKeys =                                     \
         std::define_static_array( keysOf( buildConnectorWiringEntries()));          \
     } /* namespace detail */                                                        \
+    inline constexpr auto connectorWiringHops =                                     \
+        std::define_static_array( detail::hopsOf( detail::buildConnectorWiringEntries())); \
     inline const ConnectorWiring connectorWiring = []                               \
     {                                                                                \
         ConnectorWiring w;                                                          \

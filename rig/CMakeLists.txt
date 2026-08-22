@@ -17,4 +17,14 @@
 # driver headers these files include come with it -- nothing to add here.
 if(BUILD_TESTING_LAYERS)
     add_layer_tests(rig hal_rig ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+
+    # test_wiring_uniqueness.cpp expands this rig's own wiring.inc -- the only
+    # file here that checks the real table rather than building a small local
+    # one -- and reaches it by a plain quoted #include, repo-root-relative, the
+    # way dut/tests/test_wiring_coverage.cpp reaches the same file. Note it does
+    # NOT go through THORIUM_WIRING_TABLE: that definition is PRIVATE to
+    # hal_rig, deliberately (see libs/hal/CMakeLists.txt), and a test naming
+    # this repo's own rig by path is stating a fact about this directory rather
+    # than reaching for a generic mechanism.
+    target_include_directories(rig_tests PRIVATE ${CMAKE_SOURCE_DIR})
 endif()
