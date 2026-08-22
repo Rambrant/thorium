@@ -11,8 +11,8 @@
 // uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //
-// Two kinds of hardware provide a matrix-routed RS232 port -- a PC port
-// cabled into the matrix, or a serial module in the switching chassis -- and
+// Two kinds of hardware provide a switched RS232 port -- a PC port cabled
+// into the fabric, or a serial module in the switching chassis -- and
 // this driver does not know which one this rig has, so it accepts either. It
 // is the one driver here whose set is wider than one panel, and the reason is
 // missing bench knowledge rather than a model with two panels; see the
@@ -69,14 +69,14 @@ namespace
         Racal1260Fixture()
         {
             // The port's own three channels -- transmit, receive, return.
-            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Matrix2, 30 });
-            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Matrix2, 31 });
-            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Matrix2, 32 });
+            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Spst1, 16 });
+            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Spst1, 17 });
+            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Spst1, 18 });
 
             // The interface's three pins.
-            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 1 }, { hal::SwitchDeviceId::Mux2, 6 });
-            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 2 }, { hal::SwitchDeviceId::Mux2, 7 });
-            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 5 }, { hal::SwitchDeviceId::Mux2, 8 });
+            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 1 }, { hal::SwitchDeviceId::Spdt1, 0 });
+            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 2 }, { hal::SwitchDeviceId::Spdt1, 1 });
+            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 5 }, { hal::SwitchDeviceId::Spdt1, 2 });
         }
     };
 } // namespace
@@ -141,19 +141,19 @@ TEST_F( Racal1260Fixture, ConnectingTheInterfaceClosesEveryLineOnBothSides)
     hal::connectDriver( fabric, instrumentWiring, connectorWiring,
                         ser1.rs232().config(), core::at( Console).point);
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 30 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 31 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 32 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 16 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 17 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 18 }));
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Mux2, 6 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Mux2, 7 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Mux2, 8 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 0 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 1 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 2 }));
 }
 
 //
 // Disconnect must open exactly what Connect closed -- which is why both compose
 // their path through the one routeTo() rather than each building its own. A
-// crosspoint left latched after a Disconnect is a rig in a state no log
+// relay left latched after a Disconnect is a rig in a state no log
 // describes.
 //
 TEST_F( Racal1260Fixture, DisconnectingOpensExactlyWhatWasClosed)
@@ -163,10 +163,10 @@ TEST_F( Racal1260Fixture, DisconnectingOpensExactlyWhatWasClosed)
     hal::connectDriver(    fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
     hal::disconnectDriver( fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 30 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 32 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux2,    6 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux2,    8 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 16 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 18 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 0 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 2 }));
 }
 
 //

@@ -39,8 +39,8 @@
 //
 //
 // Ser1 is the one instrument here that is neither a meter nor a source: an
-// RS232 port routed to the DUT through the same matrix everything else uses
-// (see hal::Racal1260, and dut::Console for the interface it talks to). It
+// RS232 port switched onto the DUT through the same fabric everything else
+// uses (see hal::Racal1260, and dut::Console for the interface it talks to). It
 // takes no constructor argument beyond its id and address -- one instance is
 // one port, the same way one hal::L4411A is one meter.
 //
@@ -72,8 +72,8 @@
 // something real here rather than only described in hal/address.hpp.
 //
 // The underlying bench fact is still open, and the driver says so: it accepts
-// Serial *or* Gpib, because a matrix-routed RS232 port can be either a port on
-// this PC with its conductors cabled into the matrix or a serial module in the
+// Serial *or* Gpib, because a switched RS232 port can be either a port on
+// this PC with its conductors cabled into the fabric or a serial module in the
 // switching chassis commanded over the chassis bus (see hal::Racal1260's own
 // constructor comment). If it turns out to be the latter, this row becomes the
 // chassis's bus address and that constraint narrows to Gpib -- and this table

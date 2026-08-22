@@ -6,7 +6,7 @@
 // name; what is measured there is chosen at the Measure() call site by which
 // instrument port is pointed at it, so the same pin can be read for voltage,
 // current or frequency without being redeclared. Which instrument actually
-// measures it, and by which matrix/mux path, is a separate rig-level fact --
+// measures it, and through which switching path, is a separate rig-level fact --
 // see hal::InstrumentWiring/hal::ConnectorWiring -- not something this data
 // knows about.
 //
@@ -14,7 +14,7 @@
 // (hal::N6701A/hal::DcP1..DcP4, hal::Ac6834B/hal::AcP1) permanently lands --
 // Output5V and BackupSupply look like DC rails, AcInput_A/B/C/N look like a
 // three-phase-plus-neutral AC input, for instance. hal:: itself has no idea
-// any of that -- DcP1's fixed matrix channel (hal/wiring.inc) is a bare
+// any of that -- DcP1's fixed channel (hal/wiring.inc) is a bare
 // SwitchElementId with no notion of "Output5V" attached (see hal::N6701A's
 // own comment on why) -- so if that association matters to a reader here,
 // it belongs as a comment on the specific POINT() below, once it's known
@@ -83,11 +83,11 @@ ADAPTER( "Device X on standard adapter")
     //
     // Ordinary LINEs, not SOURCE_LINEs: nothing on this bench is permanently
     // wired onto these three pins. A serial port (hal::Racal1260/Ser1 -- see
-    // rig/instrument.inc) is switched onto them through the matrix for as long
-    // as a script holds the connection open, which is what a console is for and
-    // what the AC input above deliberately is not. A matrix carries a
-    // signal-level interface perfectly well; it is load current that has to be
-    // kept off the relays, and there is none here.
+    // rig/instrument.inc) is switched onto them for as long as a script holds
+    // the connection open, which is what a console is for and what the AC
+    // input above deliberately is not. Signal-level relays carry an interface
+    // like this perfectly well; it is load current that has to be kept off
+    // them, and there is none here.
     //
     // Three pins because a serial link needs a return path, and the return is
     // part of the interface rather than an incidental ground: routing Tx and Rx
@@ -99,7 +99,7 @@ ADAPTER( "Device X on standard adapter")
     //
     // Tx/Rx are named from the DUT's point of view, which is the convention the
     // pinout document uses: dut::Console::Tx is the pin the DUT transmits on,
-    // and so the one the bench listens to. Which of Ser1's own matrix channels
+    // and so the one the bench listens to. Which of Ser1's own channels
     // meets which of these is a cabling fact and lives in rig/wiring.inc; this
     // file describes the device, and the device's idea of Tx does not change
     // with the bench it is plugged into.

@@ -5,7 +5,7 @@
 TEST( HalInstrumentWiring, FindReturnsASingleHopPathForTheCommonCase)
 {
     hal::InstrumentWiring wiring;
-    hal::SwitchElementId  channel{ hal::SwitchDeviceId::Matrix2, 14 };
+    hal::SwitchElementId  channel{ hal::SwitchDeviceId::Matrix1, 0 };
 
     wiring.addWire( hal::InstrumentId::Dmm1, channel);
 
@@ -27,8 +27,8 @@ TEST( HalInstrumentWiring, AddWireWithAPathModelsAMultiHopChain)
     // with several elements, not several addWire() calls (that's
     // findAll()'s shape, for independent connections -- see below).
     hal::InstrumentWiring wiring;
-    hal::SwitchElementId  isolationRelay{ hal::SwitchDeviceId::Mux1, 1 };
-    hal::SwitchElementId  matrixColumn{ hal::SwitchDeviceId::Matrix2, 22 };
+    hal::SwitchElementId  isolationRelay{ hal::SwitchDeviceId::Spst1, 0 };
+    hal::SwitchElementId  matrixColumn{ hal::SwitchDeviceId::Matrix1, 300 };
 
     wiring.addWire( hal::InstrumentId::AcP1, hal::Path{ isolationRelay, matrixColumn });
 
@@ -38,8 +38,8 @@ TEST( HalInstrumentWiring, AddWireWithAPathModelsAMultiHopChain)
 TEST( HalInstrumentWiring, FindAllFlattensEveryIndependentPathIntoOne)
 {
     hal::InstrumentWiring wiring;
-    hal::SwitchElementId  phaseA{ hal::SwitchDeviceId::Matrix2, 22 };
-    hal::SwitchElementId  phaseB{ hal::SwitchDeviceId::Matrix2, 23 };
+    hal::SwitchElementId  phaseA{ hal::SwitchDeviceId::Spst1, 0 };
+    hal::SwitchElementId  phaseB{ hal::SwitchDeviceId::Spst1, 1 };
 
     wiring.addWire( hal::InstrumentId::AcP1, phaseA);
     wiring.addWire( hal::InstrumentId::AcP1, phaseB);
@@ -52,9 +52,9 @@ TEST( HalInstrumentWiring, FindAllFlattensMultiHopEntriesTooNotJustSingleHopOnes
     // findAll() combines *every* matching entry's Path -- including entries
     // that are themselves multi-hop chains, not just single elements.
     hal::InstrumentWiring wiring;
-    hal::SwitchElementId  isolationRelay{ hal::SwitchDeviceId::Mux1, 1 };
-    hal::SwitchElementId  phaseA{ hal::SwitchDeviceId::Matrix2, 22 };
-    hal::SwitchElementId  ground{ hal::SwitchDeviceId::Matrix2, 27 };
+    hal::SwitchElementId  isolationRelay{ hal::SwitchDeviceId::Spst1, 8 };
+    hal::SwitchElementId  phaseA{ hal::SwitchDeviceId::Spst1, 0 };
+    hal::SwitchElementId  ground{ hal::SwitchDeviceId::Spst1, 3 };
 
     wiring.addWire( hal::InstrumentId::AcP1, hal::Path{ isolationRelay, phaseA });
     wiring.addWire( hal::InstrumentId::AcP1, ground);
@@ -89,17 +89,20 @@ TEST( HalConnectorWiring, FindThrowsWhenAPinIsNotWired)
 
 TEST( HalConnectorWiring, AddWireWithAPathModelsAMultiMuxChain)
 {
-    // The INI-file shape that motivated this: a connector reached through
-    // two muxes narrowing down before a matrix row, all one fixed Path.
+    // The INI-file shape that motivated this: a connector reached through a
+    // mux and a changeover narrowing down before a matrix column, all one
+    // fixed Path. Longer than anything rig/wiring.inc currently needs (two
+    // hops is this rig's deepest) -- the mechanism is what is under test, not
+    // the depth.
     hal::ConnectorWiring wiring;
     hal::VpcLocation     location{ hal::VpcRack::A, 3, 1 };
-    hal::SwitchElementId mux1{ hal::SwitchDeviceId::Mux1, 9 };
-    hal::SwitchElementId mux2{ hal::SwitchDeviceId::Mux2, 65 };
-    hal::SwitchElementId matrixRow{ hal::SwitchDeviceId::Matrix2, 0 };
+    hal::SwitchElementId mux{ hal::SwitchDeviceId::Mux1, 9 };
+    hal::SwitchElementId changeover{ hal::SwitchDeviceId::Spdt1, 5 };
+    hal::SwitchElementId matrixColumn{ hal::SwitchDeviceId::Matrix1, 300 };
 
-    wiring.addWire( location, hal::Path{ mux1, mux2, matrixRow });
+    wiring.addWire( location, hal::Path{ mux, changeover, matrixColumn });
 
-    EXPECT_EQ( wiring.find( location), (hal::Path{ mux1, mux2, matrixRow }));
+    EXPECT_EQ( wiring.find( location), (hal::Path{ mux, changeover, matrixColumn }));
 }
 
 TEST( HalConnectorWiring, HopsOnDevicesOfDifferentKindsComposeThroughTheDeclarativeWiringMacros)
@@ -108,22 +111,29 @@ TEST( HalConnectorWiring, HopsOnDevicesOfDifferentKindsComposeThroughTheDeclarat
     // name, and now cannot: HOP takes a device, and what kind of card that
     // device is is something rig/devices.inc states once. So a chain crossing
     // kinds reads exactly like one that doesn't, no separate macro needed --
-    // which would hold for an RF hop too, on a rig declaring an RF selector.
+    // an RF hop included, which this rig can now actually write.
+    //
+    // Three spellings, one type: HOP for a card numbered flat, CROSSPOINT for
+    // a matrix's <group><row><column>, BANK for a banked RF mux's
+    // <bank><channel>. Each produces an ordinary hal::SwitchElementId, which
+    // is what the expectation below spells out -- the structured forms are a
+    // way of writing a channel number, not a different kind of hop.
     hal::ConnectorWiring wiring;
     hal::VpcLocation     location{ hal::VpcRack::A, 5, 1 };
 
-    wiring.addWire( location, hal::Path{ HOP( Mux1, 2), HOP( Matrix2, 30) });
+    wiring.addWire( location, hal::Path{ HOP( Mux1, 2), CROSSPOINT( Matrix1, 0, 3, 0), BANK( RfMux1, 2, 1) });
 
     EXPECT_EQ( wiring.find( location), ( hal::Path{
         hal::SwitchElementId{ hal::SwitchDeviceId::Mux1,    2 },
-        hal::SwitchElementId{ hal::SwitchDeviceId::Matrix2, 30 } }));
+        hal::SwitchElementId{ hal::SwitchDeviceId::Matrix1, 300 },
+        hal::SwitchElementId{ hal::SwitchDeviceId::RfMux1,  21 } }));
 }
 
 TEST( HalInstrumentWiring, FindOnlyEverReturnsForceRoleEntriesNotSense)
 {
     hal::InstrumentWiring wiring;
-    hal::SwitchElementId  force{ hal::SwitchDeviceId::Matrix2, 14 };
-    hal::SwitchElementId  sense{ hal::SwitchDeviceId::Matrix2, 15 };
+    hal::SwitchElementId  force{ hal::SwitchDeviceId::Matrix1, 0 };
+    hal::SwitchElementId  sense{ hal::SwitchDeviceId::Matrix1, 1000 };
 
     wiring.addWire( hal::InstrumentId::Dmm1, force);
     wiring.addWire( hal::InstrumentId::Dmm1, sense, hal::WireRole::Sense);
@@ -134,8 +144,8 @@ TEST( HalInstrumentWiring, FindOnlyEverReturnsForceRoleEntriesNotSense)
 TEST( HalInstrumentWiring, FindSenseReturnsOnlyTheSenseRoleEntry)
 {
     hal::InstrumentWiring wiring;
-    hal::SwitchElementId  force{ hal::SwitchDeviceId::Matrix2, 14 };
-    hal::SwitchElementId  sense{ hal::SwitchDeviceId::Matrix2, 15 };
+    hal::SwitchElementId  force{ hal::SwitchDeviceId::Matrix1, 0 };
+    hal::SwitchElementId  sense{ hal::SwitchDeviceId::Matrix1, 1000 };
 
     wiring.addWire( hal::InstrumentId::Dmm1, force);
     wiring.addWire( hal::InstrumentId::Dmm1, sense, hal::WireRole::Sense);
@@ -146,7 +156,7 @@ TEST( HalInstrumentWiring, FindSenseReturnsOnlyTheSenseRoleEntry)
 TEST( HalInstrumentWiring, FindSenseThrowsWhenNoSenseEntryIsRegistered)
 {
     hal::InstrumentWiring wiring;
-    wiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceId::Matrix2, 14 });
+    wiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceId::Matrix1, 0 });
 
     // Dmm1 has a Force entry but no Sense one -- a 4-wire measurement
     // attempted on it should fail loudly, not silently fall back to force.
@@ -159,8 +169,8 @@ TEST( HalInstrumentWiring, FindAllIgnoresRoleAndReturnsForceAndSenseTogether)
     // lookup -- see its own comment -- so unlike find()/findSense(), it
     // deliberately does not filter by role at all.
     hal::InstrumentWiring wiring;
-    hal::SwitchElementId  force{ hal::SwitchDeviceId::Matrix2, 20 };
-    hal::SwitchElementId  sense{ hal::SwitchDeviceId::Matrix2, 21 };
+    hal::SwitchElementId  force{ hal::SwitchDeviceId::Matrix1, 300 };
+    hal::SwitchElementId  sense{ hal::SwitchDeviceId::Matrix1, 1300 };
 
     wiring.addWire( hal::InstrumentId::DcP3, force);
     wiring.addWire( hal::InstrumentId::DcP3, sense, hal::WireRole::Sense);
@@ -179,8 +189,8 @@ TEST( HalInstrumentWiring, WireInstrumentSenseMacroTagsTheEntryAsSense)
     // reads, so they can no longer write straight into an InstrumentWiring.
     std::vector<InstrumentWiringEntry> entries;
 
-    WIRE_INSTRUMENT(       Dmm1, HOP( Matrix2, 14));
-    WIRE_INSTRUMENT_SENSE( Dmm1, HOP( Matrix2, 15));
+    WIRE_INSTRUMENT(       Dmm1, HOP( Matrix1, 0));
+    WIRE_INSTRUMENT_SENSE( Dmm1, CROSSPOINT( Matrix1, 1, 0, 0));
 
     ASSERT_EQ( entries.size(), 2u);
     EXPECT_EQ( entries[ 0].role, WireRole::Force);
@@ -189,8 +199,8 @@ TEST( HalInstrumentWiring, WireInstrumentSenseMacroTagsTheEntryAsSense)
     hal::InstrumentWiring w;
     for( const auto & entry : entries) w.addWire( entry.instrument, entry.path, entry.role);
 
-    EXPECT_EQ( w.find( hal::InstrumentId::Dmm1),      (hal::Path{ { hal::SwitchDeviceId::Matrix2, 14 } }));
-    EXPECT_EQ( w.findSense( hal::InstrumentId::Dmm1), (hal::Path{ { hal::SwitchDeviceId::Matrix2, 15 } }));
+    EXPECT_EQ( w.find( hal::InstrumentId::Dmm1),      (hal::Path{ { hal::SwitchDeviceId::Matrix1, 0 } }));
+    EXPECT_EQ( w.findSense( hal::InstrumentId::Dmm1), (hal::Path{ { hal::SwitchDeviceId::Matrix1, 1000 } }));
 }
 
 TEST( HalConnectorWiring, FindSenseReturnsOnlyTheSenseRoleEntry)

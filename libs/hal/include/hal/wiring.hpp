@@ -433,15 +433,15 @@ namespace hal
 // leads -- most don't).
 //
 //   INSTRUMENT_WIRING
-//       WIRE_INSTRUMENT( Dmm1, HOP( Matrix2, 14))
-//       WIRE_INSTRUMENT( Osc1, HOP( Mux2, 65), HOP( Matrix2, 10))
-//       WIRE_INSTRUMENT_SENSE( Dmm1, HOP( Matrix2, 15))
+//       WIRE_INSTRUMENT( Dmm1, CROSSPOINT( Matrix1, 0, 0, 0))
+//       WIRE_INSTRUMENT( Ser1, HOP( Spst1, 16))
+//       WIRE_INSTRUMENT_SENSE( Dmm1, CROSSPOINT( Matrix1, 1, 0, 0))
 //   END_INSTRUMENT_WIRING
 //
 //   CONNECTOR_WIRING
-//       WIRE_CONNECTOR( A, 1, 3, HOP( Mux1, 3))
-//       WIRE_CONNECTOR( A, 3, 1, HOP( Mux1, 9), HOP( Mux2, 65), HOP( Matrix2, 0))
-//       WIRE_CONNECTOR_SENSE( A, 1, 3, HOP( Mux1, 4))
+//       WIRE_CONNECTOR( A, 1, 3, HOP( Mux1, 0), CROSSPOINT( Matrix1, 0, 3, 0))
+//       WIRE_CONNECTOR( A, 1, 2, BANK( RfMux1, 0, 1))
+//       WIRE_CONNECTOR_SENSE( A, 1, 3, HOP( Mux1, 1))
 //   END_CONNECTOR_WIRING
 //
 // HOP(...) below builds one SwitchElementId -- the one thing every
@@ -454,10 +454,30 @@ namespace hal
 // mistyped one is a compile error rather than a route to a card that isn't
 // there -- and there is no kind argument any more, because the kind is
 // something that file states once per card (see hal/switch_device.hpp for what
-// carrying it per hop used to allow).
+// carrying it per hop used to allow). The channel is checked against the
+// card's own numbering, which is a fact the model column in that same file
+// carries: HOP( Spdt1, 300) on an 80-channel relay card is now a compile
+// error naming the card and the channels it does have (see hal::hop).
+//
+// CROSSPOINT(...) and BANK(...) are that same hop written the way a composite
+// channel number is actually made up -- <group><row><column> on a matrix,
+// <bank><channel> on a banked RF mux. Preferred over HOP wherever a card has
+// one: the parts say at the call site what the digits mean, and a leading
+// zero in the packed form (0300) is an octal literal, which the parts cannot
+// be. A card whose spec carries no such scheme rejects them both.
 //
 #define HOP( device, channel) \
-    hal::SwitchElementId{ hal::SwitchDeviceId::device, channel }
+    hal::hop<hal::SwitchDeviceId::device, channel>()
+
+#define CROSSPOINT( device, group, row, column) \
+    hal::crosspoint<hal::SwitchDeviceId::device, group, row, column>()
+
+// The parameter is bankNumber rather than bank because a macro parameter
+// substitutes everywhere in its own replacement list -- including into
+// hal::bank -- and a macro that eats the name of the function it expands to
+// fails in a way the error message does not mention.
+#define BANK( device, bankNumber, channel) \
+    hal::bank<hal::SwitchDeviceId::device, bankNumber, channel>()
 
 //
 // INSTRUMENT_WIRING's expansion builds three things from the one set of

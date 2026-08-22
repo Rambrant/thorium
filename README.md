@@ -304,16 +304,20 @@ exists.
 
 ### Add a switching device to the rig
 
-`rig/devices.inc` — one line per matrix card, mux or RF selector, naming what
-kind of hardware it is and where the PC commands it:
+`rig/devices.inc` — one line per card, naming which card it is, where the PC
+commands it, and (for a chassis whose cards share one address) which card of
+that chassis it is:
 
 ```cpp
-SWITCH_DEVICE( Mux, Mux3, Gpib( 0, 7, 4))
+SWITCH_DEVICE( Racal1260_35, Mux2, Gpib( 0, 7), Card( 5))
 ```
 
-That generates `hal::SwitchDeviceId::Mux3`, which is what wiring rows below name
-— so a card nothing declares cannot be routed through, and a card's kind is
-stated once rather than repeated (and possibly contradicted) at every hop.
+That generates `hal::SwitchDeviceId::Mux2`, which is what wiring rows below name
+— so a card nothing declares cannot be routed through. The model column carries
+what the datasheet says: the kind (a 1260-35 is a mux, on every rig that owns
+one) and the channel space, so a channel that card does not have fails to build.
+A card model `hal::SwitchDeviceModel` does not list yet is added there, beside
+its channel predicate.
 
 ### Wire an instrument to the switching fabric
 
@@ -321,8 +325,13 @@ stated once rather than repeated (and possibly contradicted) at every hop.
 `device` is a `SwitchDeviceId` from `devices.inc`:
 
 ```cpp
-WIRE_INSTRUMENT( Dmm3, HOP( Matrix2, 18))
+WIRE_INSTRUMENT( Dmm3, CROSSPOINT( Matrix1, 0, 3, 0))
 ```
+
+`CROSSPOINT( device, group, row, column)` and `BANK( device, bank, channel)` are
+`HOP` written the way a card numbers a composite channel — preferred wherever a
+card has one, since the parts say what the digits mean and the packed form of
+group 0 row 3 column 00 is `0300`, which C++ reads as octal.
 
 Several entries under one id are closed and opened together — that is how a
 three-phase source's four conductors move as a unit. For a 4-wire (Kelvin)

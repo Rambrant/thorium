@@ -706,7 +706,7 @@ namespace hal
             // interface -- see hal::N6701A::measuredVoltage() for the reasoning,
             // which is the same here and matters more: 115 V at 5 A is not a
             // signal, so there is no version of this reading that travels
-            // through the switching matrix.
+            // through the signal switching.
             //
             // Per phase, and the phase is named at the call site rather than
             // defaulted. It used to be neither -- one measuredVoltage() with

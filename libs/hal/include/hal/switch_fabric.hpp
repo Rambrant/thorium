@@ -35,6 +35,107 @@ namespace hal
     auto to_string( SwitchElementId id) -> std::string;
 
     //
+    // The three checked spellings of "channel N of card C" -- what HOP,
+    // CROSSPOINT and BANK expand to (see hal/wiring.hpp for the macros, and a
+    // rig's own wiring.inc for the tables written in them).
+    //
+    // Function templates rather than a braced SwitchElementId{ ... } because
+    // the channel has to be a *constant* for anything to be checked about it,
+    // and a template argument is the only place a value is one. That is the
+    // whole of the difference: hop<Mux1, 3>() is the same two fields it always
+    // was, plus a static_assert the rig cannot skip.
+    //
+    // constexpr, deliberately not consteval, even though every real call site
+    // is a constant. A rig's CONNECTOR_WIRING expands inside
+    // detail::buildConnectorWiringEntries(), which is constexpr because
+    // hal::connectorWiring calls it at ordinary runtime -- and a consteval
+    // call anywhere in that body would promote the whole builder to an
+    // immediate function and break that call (see hal/wiring.hpp's own
+    // comment on why the builder is constexpr). The static_assert fires at
+    // instantiation either way, which is what the check needs.
+    //
+    // What the check catches is not a typo in the card's name -- SwitchDeviceId
+    // already made that a compile error -- but a channel number that card does
+    // not have: HOP( Spdt1, 300) on an 80-channel relay card, or a 1260-45
+    // crosspoint written with a column of 30 on a card whose columns stop at
+    // 15. Before there was a model column there was nothing to check it
+    // against, and such a hop produced a fabric element for a relay that does
+    // not exist: closed, opened, and routing nothing, with every table
+    // reading as complete.
+    //
+    template<SwitchDeviceId Device, std::uint16_t Channel>
+    [[nodiscard]]
+    constexpr auto hop() -> SwitchElementId
+    {
+        static_assert( hasChannel( Device, Channel),
+                       std::string( "not a channel of this card -- ") + std::string( partOf( Device)) +
+                       " has " + std::string( channelsOf( Device)));
+
+        return SwitchElementId{ Device, Channel };
+    }
+
+    //
+    // The same hop, written as the card numbers it. A 1260-45 channel is
+    // <group><row><column> -- 2312 is group 2, row 3, column 12 -- and a
+    // rig writing that as one four-digit literal has two problems the parts
+    // don't: it says nothing at the call site about which crosspoint it is,
+    // and a leading zero makes it octal. CROSSPOINT( Matrix1, 0, 3, 0) has
+    // neither, and reads as the thing the wiring diagram shows.
+    //
+    // Only a card whose spec carries the scheme can be written this way, so
+    // CROSSPOINT on a mux is a compile error rather than arithmetic that
+    // happens to produce a number. Same for BANK below, which is the
+    // E1472A's <bank><channel>.
+    //
+    template<SwitchDeviceId Device, unsigned Group, unsigned Row, unsigned Column>
+    [[nodiscard]]
+    constexpr auto crosspoint() -> SwitchElementId
+    {
+        static_assert( specOf( modelOf( Device)).Crosspoint != nullptr,
+                       std::string( "this card has no group/row/column numbering -- ") +
+                       std::string( partOf( Device)) + " has " + std::string( channelsOf( Device)));
+
+        //
+        // Guarded so a card without the scheme fails on the assertion above
+        // and nothing else: the call below would otherwise be a null function
+        // pointer invoked during constant evaluation, which reports as its own
+        // error on top of the one worth reading.
+        //
+        if constexpr( specOf( modelOf( Device)).Crosspoint != nullptr)
+        {
+            return hop<Device, specOf( modelOf( Device)).Crosspoint( Group, Row, Column)>();
+        }
+        else
+        {
+            return SwitchElementId{ Device, 0 };
+        }
+    }
+
+    template<SwitchDeviceId Device, unsigned Bank, unsigned Channel>
+    [[nodiscard]]
+    constexpr auto bank() -> SwitchElementId
+    {
+        static_assert( specOf( modelOf( Device)).BankChannel != nullptr,
+                       std::string( "this card has no bank/channel numbering -- ") +
+                       std::string( partOf( Device)) + " has " + std::string( channelsOf( Device)));
+
+        //
+        // Guarded so a card without the scheme fails on the assertion above
+        // and nothing else: the call below would otherwise be a null function
+        // pointer invoked during constant evaluation, which reports as its own
+        // error on top of the one worth reading.
+        //
+        if constexpr( specOf( modelOf( Device)).BankChannel != nullptr)
+        {
+            return hop<Device, specOf( modelOf( Device)).BankChannel( Bank, Channel)>();
+        }
+        else
+        {
+            return SwitchElementId{ Device, 0 };
+        }
+    }
+
+    //
     // A route through the fabric between two fixed points is rarely just
     // one relay -- the real wiring behind hal::InstrumentWiring/
     // hal::ConnectorWiring's entries can be a chain of several (a mux

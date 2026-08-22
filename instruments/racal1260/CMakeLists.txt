@@ -1,4 +1,4 @@
-# --- hal::Racal1260 -- Racal 1260-series matrix-routed RS232 port ---
+# --- hal::Racal1260 -- Racal 1260-series switched RS232 port ---
 # One instrument driver, self-contained: its header, its tests, its README,
 # and this file. Nothing outside this directory names any of them -- the tree
 # above discovers this directory and hands libs/hal the path (see the top-level

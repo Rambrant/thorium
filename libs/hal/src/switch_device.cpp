@@ -18,4 +18,18 @@ namespace hal
     {
         return core::meta::to_string( device);
     }
+
+    //
+    // The same reflection over the model enum, and worth keeping distinct
+    // from hal::partOf(): this is the enumerator's own spelling
+    // ("Racal1260_45"), that is the part number the datasheet uses ("Racal
+    // Instruments 1260-45A"). Neither can be derived from the other -- a
+    // C++ identifier cannot hold a hyphen or a space, and a part number is
+    // not this codebase's to choose -- which is exactly why the spec table
+    // carries the second one as data.
+    //
+    auto to_string( const SwitchDeviceModel model) -> std::string_view
+    {
+        return core::meta::to_string( model);
+    }
 } // namespace hal

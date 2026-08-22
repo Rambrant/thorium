@@ -60,8 +60,8 @@ namespace
 
         DescribeFixture()
         {
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Matrix2, 24 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 22 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Spst1, 4 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 0 });
 
             // The journal is process-wide (see core/journal.hpp on why), so
             // each test has to leave it as it found it.

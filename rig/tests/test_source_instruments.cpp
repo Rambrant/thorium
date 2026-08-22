@@ -37,12 +37,12 @@ namespace
 
         SourceInstrumentFixture()
         {
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Matrix2, 24 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Spst1, 4 });
 
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 22 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 23 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 26 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Matrix2, 27 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 0 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 1 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 2 });
+            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 3 });
         }
     };
 } // namespace
@@ -58,6 +58,6 @@ TEST_F( SourceInstrumentFixture, DcConnectAndDisconnectDoNotDisturbAnUnrelatedAl
 
     disconnect( dcP3.dc());
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
-    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 22 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
+    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceId::Spst1, 0 }));
 }

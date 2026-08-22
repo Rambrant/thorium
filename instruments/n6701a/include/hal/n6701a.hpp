@@ -126,18 +126,18 @@ namespace hal
     // (e.g. "VOLT 24,(@2)"), kept here now even though nothing reads it yet,
     // so the pattern for "one shared box, several independently-addressed
     // channels" exists before the first real driver needs it. This is a
-    // different axis from InstrumentId/hal::InstrumentWiring's matrix
-    // channel: that's which crosspoint this module's output leads land on
+    // different axis from InstrumentId/hal::InstrumentWiring's fabric
+    // channel: that's which relay this module's output lead passes through
     // in the switching fabric; mChannel is which slot this module occupies
     // inside the mainframe. Neither table knows about the other.
     //
     // Fixed-wired, on purpose: a real DC rail is hard-cabled straight to one
     // VPC pin rather than routed through a mux to whichever pin a script
-    // picks, for the same safety reason a matrix wouldn't be trusted to
-    // carry real load current or pick the wrong destination for a supply
+    // picks, for the same safety reason a signal matrix wouldn't be trusted
+    // to carry real load current or pick the wrong destination for a supply
     // output. dc() below takes no point at all -- if there's a relay in
     // this instrument's path at all (RelayIsolated), it's exactly one --
-    // its own matrix channel, see connectDriver -- not the instrument-
+    // its own isolation relay, see connectDriver -- not the instrument-
     // channel-plus-connector-channel pair a routed instrument like
     // hal::DSO8064A has. Which DUT point that fixed channel corresponds to
     // (e.g. "Output5V") is a fact the DUT adapter documents about itself
@@ -222,7 +222,7 @@ namespace hal
             //
             // A real N6701A measures the voltage it is holding and the current
             // it is delivering; that is how rail current is read on this rig,
-            // since the switching matrix carries signals and a rail at several
+            // since the signal switching carries signals and a rail at several
             // amps is not a signal (see this class's own comment on why the
             // output is hard-wired). There is no at(...) at the call site and
             // the fabric is never touched -- see core::MeasureEngine's

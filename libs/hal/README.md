@@ -63,7 +63,7 @@ libs/hal/
     include/hal/
         address.hpp        # Gpib/Lan/Serial/Usb/Simulated -- how the PC reaches an instrument
         vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
-        switch_device.hpp  # SwitchDeviceKind, SwitchDeviceId (from THORIUM_DEVICE_TABLE), kindOf/addressOf
+        switch_device.hpp  # SwitchDeviceKind/Model + card specs, SwitchDeviceId (from THORIUM_DEVICE_TABLE), kindOf/addressOf/cardOf/hasChannel
         switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
         instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_TABLE
         wiring.hpp         # InstrumentWiring/ConnectorWiring + WIRE macros
@@ -345,15 +345,40 @@ declared in `rig/devices.inc` with an address each, reachable through
 
 `switch_device.hpp` generates `hal::SwitchDeviceId` from `THORIUM_DEVICE_TABLE`
 the same way `instrument.hpp` generates `hal::InstrumentId` from the instrument
-table, and carries two facts per device: what kind of card it is, and where the
-PC commands it.
+table, and carries three facts per device: which card it is, where the PC
+commands it, and -- for a chassis that addresses its cards inside the protocol
+rather than on the bus -- which card of that chassis it is.
 
 ```cpp
 SWITCH_DEVICES
-    SWITCH_DEVICE( Matrix, Matrix2, Gpib( 0, 7, 1))
-    SWITCH_DEVICE( Mux,    Mux1,    Gpib( 0, 7, 2))
+    SWITCH_DEVICE( Racal1260_45,  Matrix1, Gpib( 0, 7),    Card( 1))
+    SWITCH_DEVICE( AgilentE1472A, RfMux1,  Gpib( 0, 9, 3), NoCard)
 END_SWITCH_DEVICES
 ```
+
+**The first column is the card, not the kind.** What kind of thing a 1260-45 is
+(a matrix) and which channels exist on it (`0000`-`3315`, written
+`<group><row><column>`) are datasheet facts, so they come from
+`hal::SwitchDeviceModel` rather than from the rig -- which means a rig cannot
+say an E1472A is a matrix, and `HOP( Spdt1, 300)` on an 80-channel relay card
+is a compile error naming the card and the channels it does have. What the rig
+states is what only a bench knows: which cards are in the rack, where they are,
+and what to call them.
+
+Three spellings build a hop, all producing the same `hal::SwitchElementId`:
+`HOP( Mux1, 3)` for a card numbered flat, `CROSSPOINT( Matrix1, 0, 3, 0)` for a
+matrix's `<group><row><column>`, `BANK( RfMux1, 0, 1)` for a banked RF mux's
+`<bank><channel>`. Prefer the structured two wherever a card has one: the parts
+say at the call site what the digits mean, and the packed form of group 0 row 3
+column 00 is `0300`, which C++ reads as octal.
+
+**`Card( n)` is not a GPIB secondary**, and the distinction is on the wire. The
+four Racal cards in this rig sit behind one Option 01T smart controller: the PC
+opens the controller's single GPIB address and writes `CLOSE 3.0115`, where the
+leading `3` is the card's own SW1 address. So they share one `hal::Gpib` and
+differ in `Card( n)` -- the shape `DcP1..DcP4` already have with their mainframe
+slot. The E1472A is an ordinary VXI servant behind a command module, which does
+map its logical address to a real secondary, so it carries one and `NoCard`.
 
 **They are not instruments.** A shared `InstrumentId` was the obvious
 alternative and it would cost the guarantee `SwitchElementId`'s own comment has
@@ -380,11 +405,12 @@ used to be `{ kind, device-name-as-string, channel }`:
 
 One honest consequence: an element can only name a card the rig declares, so on
 a rig with no RF selector there is no way to construct an `RfMux` element at
-all. Two `switch_fabric` tests used to demonstrate kind-independence with a
-phantom `"RfMux1"`; they now use the cards this rig has, and the kind-level
-claim (`RfMux` renders as `"RfMux"`, not as `"Mux"`) is asserted directly
-against the enum instead. That is the check working, not coverage lost -- but
-it is worth knowing where it went.
+all. Two `switch_fabric` tests demonstrated kind-independence with a phantom
+`"RfMux1"` until that stopped being constructible, and moved the kind-level
+claim (`RfMux` renders as `"RfMux"`, not as `"Mux"`) onto the enum directly.
+This rig now owns an E1472A, so the element-level spelling is back -- but the
+enum-level assertion stays, because it is the one that covers a kind no rig
+here happens to own.
 
 **Naming.** This codebase keeps three words doing three jobs, and the split is
 load-bearing: **driver** is the code that speaks to hardware (`hal::L4411A`),
@@ -397,12 +423,17 @@ instruments and switch devices actually share is not a category but a
 mechanism, `hal::Address`.
 
 One rename is coming, though, and it isn't this one. `SwitchFabric`'s uniform
-`close(id)`/`open(id)` won't survive real hardware -- a RACAL 1260 matrix card
-and an Agilent E1472A RF selector don't speak the same commands -- so each card
-model eventually wants its own driver package, built exactly the way
-`instruments/l4411a/` is. At that point the tree holds drivers for things that
-aren't instruments, and `instruments/` -> `drivers/` becomes the honest name.
-Worth doing when the first card driver lands, not before.
+`close(id)`/`open(id)` won't survive real hardware -- a Racal 1260 matrix card
+answers `CLOSE 1.0300` through its chassis controller and an Agilent E1472A
+takes SCPI on its own address -- so each card model eventually wants its own
+driver package, built exactly the way `instruments/l4411a/` is.
+`hal::SwitchDeviceModel` and its spec table are where that starts: the part
+number, the kind and the channel space are already stated per card, in one
+place, which is what a driver would be constructed from. At that point the
+spec rows move out to those packages (and a new rig stops needing an enumerator
+here at all), the tree holds drivers for things that aren't instruments, and
+`instruments/` -> `drivers/` becomes the honest name. Worth doing when the
+first card driver lands, not before.
 
 ## Why the AC source's neutral return is part of the model
 

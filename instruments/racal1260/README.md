@@ -1,15 +1,15 @@
 # hal::Racal1260
 
 An RS232 port on a Racal 1260-series switching/instrumentation chassis, routed
-to the DUT through the matrix. Header-only, `namespace hal`, included as
+onto the DUT through the switching fabric. Header-only, `namespace hal`, included as
 `"hal/racal1260.hpp"`.
 
 Target: `hal_racal1260` / `Thorium::hal_racal1260`. Depends on `Thorium::hal`
 only.
 
 Reachable over `Serial` or `Gpib` — the one driver here whose set is wider than
-one panel, because a matrix-routed RS232 port is either a port on the PC with
-its conductors cabled into the matrix or a serial module in the switching
+one panel, because a switched RS232 port is either a port on the PC with
+its conductors cabled into the fabric or a serial module in the switching
 chassis commanded over that chassis's bus, and which this bench has is unknown
 for the same reason the model name below is a placeholder. Narrow it when the
 bench is known.
@@ -19,7 +19,7 @@ the DUT, not how the PC reaches it. Under the `Serial` arrangement those are the
 same physical port, which is when that distinction is easiest to lose.
 
 > **The model name is a placeholder.** This driver is modelled on how a
-> matrix-routed serial resource behaves, not on a datasheet. The legacy test
+> switched serial resource behaves, not on a datasheet. The legacy test
 > script it was reconstructed from named its serial resource only as
 > `Rs.Normal Type=RS232`, which says what that ATE called it and nothing about
 > which box provided it. Rename the directory, the class and the header when the
@@ -130,6 +130,6 @@ that this driver needs `WIRE_CONNECTOR` rows where `hal::N6701A` and
 where a console is switched onto the DUT and off again.
 
 Which of this port's channels meets which DUT line is not asserted anywhere in
-this driver, deliberately. A crosspoint matrix has no notion of transmit and
+this driver, deliberately. A relay has no notion of transmit and
 receive — it closes the crosspoints it is given, and which of them forms the
 outbound path is a fact about how the bench was cabled.

@@ -69,12 +69,13 @@ namespace
         CallSyntaxFixture()
         {
             // Same shape as the rig's real wiring.inc entries -- DcP3's one
-            // fixed channel on Matrix2/24, Osc1 routed through Matrix2/10
-            // -- just declared locally so this fixture doesn't depend on
-            // (or pollute) the rig's real global wiring tables.
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Matrix2, 24 });
-            instrumentWiring.addWire( hal::InstrumentId::Osc1, { hal::SwitchDeviceId::Matrix2, 10 });
-            instrumentWiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceId::Matrix2, 14 });
+            // fixed isolation relay on Spst1/4, Osc1 on its own crosspoint
+            // onto the measurement bus -- just declared locally so this
+            // fixture doesn't depend on (or pollute) the rig's real global
+            // wiring tables.
+            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Spst1, 4 });
+            instrumentWiring.addWire( hal::InstrumentId::Osc1, { hal::SwitchDeviceId::Matrix1, 200 });
+            instrumentWiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceId::Matrix1, 0 });
 
             connectorWiring.addWire( kOutput5V, { hal::SwitchDeviceId::Mux1, 3 });
             connectorWiring.addWire( kClockOut, { hal::SwitchDeviceId::Mux1, 4 });
@@ -84,7 +85,7 @@ namespace
             // channel -- only ever touched by a 4-wire reading (see
             // core::MeasureEngine's own comment on the sense path);
             // a plain 2-wire resistance() call never looks these up.
-            instrumentWiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceId::Matrix2, 15 }, hal::WireRole::Sense);
+            instrumentWiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceId::Matrix1, 1000 }, hal::WireRole::Sense);
             connectorWiring.addWire( kResistancePoint, { hal::SwitchDeviceId::Mux1, 7 }, hal::WireRole::Sense);
         }
     };
@@ -106,7 +107,7 @@ TEST_F( CallSyntaxFixture, SourceThenMeasureTheSamePhysicalRailTwoDifferentWays)
 
     EXPECT_DOUBLE_EQ( reading.value(), 5.0);
     EXPECT_TRUE( dcP3.isEnabled());
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
 }
 
 TEST_F( CallSyntaxFixture, MeasureConnectsThenDisconnectsAroundEachReading)
@@ -114,7 +115,7 @@ TEST_F( CallSyntaxFixture, MeasureConnectsThenDisconnectsAroundEachReading)
     osc1.setSimulatedVpp( 3, 3.3_V);
 
     // Osc1 isn't connected before this call...
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 10 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix1, 200 }));
 
     const auto reading = Measure( osc1.channel<3>().vpp(), at( Output5V));
 
@@ -123,7 +124,7 @@ TEST_F( CallSyntaxFixture, MeasureConnectsThenDisconnectsAroundEachReading)
     // core/tests/test_measure.cpp documents at the core::MeasureEngine
     // level, exercised here through the real hal engine instead of a mock.
     EXPECT_DOUBLE_EQ( reading.value(), 3.3);
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 10 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix1, 200 }));
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux1,    3 }));
 }
 
@@ -156,7 +157,7 @@ TEST_F( CallSyntaxFixture, DisconnectAndRemoveTearDownIndependentlyOfMeasure)
     remove(     dcP3.dc());
 
     EXPECT_FALSE( dcP3.isEnabled());
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
 }
 
 TEST_F( CallSyntaxFixture, DcSourceAndScopeUseCompletelyDisjointFabricChannelsNow)
@@ -166,8 +167,8 @@ TEST_F( CallSyntaxFixture, DcSourceAndScopeUseCompletelyDisjointFabricChannelsNo
     // the other's use of that shared mux channel alone -- see
     // hal::SwitchFabric's use-count-based connect()/disconnect(). Now that
     // DcP3's own connect() never touches the mux at all, there's no
-    // overlap left to protect: DcP3's path is Matrix2/24 alone; Osc1's
-    // Measure() path is Matrix2/10 plus Mux1/3. Disjoint sets, not shared
+    // overlap left to protect: DcP3's path is Spst1/4 alone; Osc1's
+    // Measure() path is Matrix1/200 plus Mux1/3. Disjoint sets, not shared
     // ones, even though both ultimately land on the same physical pin.
     connect( dcP3.dc());
 
@@ -175,14 +176,14 @@ TEST_F( CallSyntaxFixture, DcSourceAndScopeUseCompletelyDisjointFabricChannelsNo
     (void)Measure( osc1.channel<3>().vpp(), at( Output5V));
 
     // dcP3's own connect is still up, and Measure()'s internal connect/
-    // disconnect around the reading never touched Matrix2/24 at all.
-    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 10 }));
+    // disconnect around the reading never touched Spst1/4 at all.
+    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix1, 200 }));
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux1,    3 }));
 
     disconnect( dcP3.dc());
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 24 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
 }
 
 TEST_F( CallSyntaxFixture, TwoWireResistanceNeverTouchesTheSenseChannels)
@@ -194,7 +195,7 @@ TEST_F( CallSyntaxFixture, TwoWireResistanceNeverTouchesTheSenseChannels)
     EXPECT_DOUBLE_EQ( reading.value(), 100.0);
     // Sense channels were never closed at all -- not even briefly -- since
     // a plain 2-wire reading's Port is typed core::SensePath::NotUsed.
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 15 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix1, 1000 }));
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux1,    7 }));
 }
 
@@ -210,9 +211,9 @@ TEST_F( CallSyntaxFixture, FourWireResistanceRoutesForceAndSenseTogetherThenRele
     // (instrument + connector) -- were closed together for the reading,
     // then released together, exactly like the force-only case but with
     // two more elements in the same Path.
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 14 })); // force, instrument side
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix1, 0 })); // force, instrument side
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux1,    6 }));  // force, connector side
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 15 })); // sense, instrument side
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix1, 1000 })); // sense, instrument side
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux1,    7 }));  // sense, connector side
 }
 
@@ -280,6 +281,6 @@ TEST_F( CallSyntaxFixture, ReadingACabledRailAtItsPinGoesThroughTheFabricNotTheS
 
     // Both sides of the composed route released again -- connected just long
     // enough to take the reading, see core::MeasureEngine.
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix2, 14 }));  // Dmm1's own channel
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix1, 0 }));  // Dmm1's own channel
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux1,    6 }));   // the rail's tap
 }

@@ -7,7 +7,7 @@
 TEST( HalSwitchFabric, CloseThenIsClosedReflectsState)
 {
     hal::SwitchFabric fabric;
-    hal::SwitchElementId ch{ hal::SwitchDeviceId::Matrix2, 14 };
+    hal::SwitchElementId ch{ hal::SwitchDeviceId::Matrix1, 0 };
 
     EXPECT_FALSE( fabric.isClosed( ch));
 
@@ -21,7 +21,7 @@ TEST( HalSwitchFabric, CloseThenIsClosedReflectsState)
 TEST( HalSwitchFabric, OpenAllClearsEveryElement)
 {
     hal::SwitchFabric fabric;
-    hal::SwitchElementId a{ hal::SwitchDeviceId::Matrix2, 14 };
+    hal::SwitchElementId a{ hal::SwitchDeviceId::Matrix1, 0 };
     hal::SwitchElementId b{ hal::SwitchDeviceId::Mux1,    3 };
 
     fabric.close( a);
@@ -36,8 +36,8 @@ TEST( HalSwitchFabric, ConnectTwiceThenDisconnectOnceLeavesTheSharedElementClose
 {
     hal::SwitchFabric fabric;
     hal::SwitchElementId shared{ hal::SwitchDeviceId::Mux1, 6 };
-    hal::SwitchElementId supplyOnly{ hal::SwitchDeviceId::Matrix2, 22 };
-    hal::SwitchElementId dmmOnly{ hal::SwitchDeviceId::Matrix2, 14 };
+    hal::SwitchElementId supplyOnly{ hal::SwitchDeviceId::Spst1, 0 };
+    hal::SwitchElementId dmmOnly{ hal::SwitchDeviceId::Matrix1, 0 };
 
     // A supply parked on `shared` (e.g. Connect(Ac1...) holding 115V live)...
     fabric.connect( { supplyOnly, shared });
@@ -58,8 +58,8 @@ TEST( HalSwitchFabric, DisconnectingBothUsersFinallyOpensTheSharedElement)
 {
     hal::SwitchFabric fabric;
     hal::SwitchElementId shared{ hal::SwitchDeviceId::Mux1, 6 };
-    hal::SwitchElementId supplyOnly{ hal::SwitchDeviceId::Matrix2, 22 };
-    hal::SwitchElementId dmmOnly{ hal::SwitchDeviceId::Matrix2, 14 };
+    hal::SwitchElementId supplyOnly{ hal::SwitchDeviceId::Spst1, 0 };
+    hal::SwitchElementId dmmOnly{ hal::SwitchDeviceId::Matrix1, 0 };
 
     fabric.connect( { supplyOnly, shared });
     fabric.connect( { dmmOnly, shared });
@@ -75,7 +75,7 @@ TEST( HalSwitchFabric, DisconnectingBothUsersFinallyOpensTheSharedElement)
 TEST( HalSwitchFabric, OpenWithoutAMatchingCloseIsHarmless)
 {
     hal::SwitchFabric fabric;
-    hal::SwitchElementId ch{ hal::SwitchDeviceId::Matrix2, 14 };
+    hal::SwitchElementId ch{ hal::SwitchDeviceId::Matrix1, 0 };
 
     fabric.open( ch); // never closed -- must not underflow or throw
     EXPECT_FALSE( fabric.isClosed( ch));
@@ -83,9 +83,9 @@ TEST( HalSwitchFabric, OpenWithoutAMatchingCloseIsHarmless)
 
 TEST( HalSwitchFabric, ToStringDescribesTheElement)
 {
-    hal::SwitchElementId ch{ hal::SwitchDeviceId::Matrix2, 14 };
+    hal::SwitchElementId ch{ hal::SwitchDeviceId::Matrix1, 0 };
 
-    EXPECT_EQ( to_string( ch), "Matrix Matrix2 channel 14");
+    EXPECT_EQ( to_string( ch), "Matrix Matrix1 channel 0");
 }
 
 //
@@ -93,18 +93,18 @@ TEST( HalSwitchFabric, ToStringDescribesTheElement)
 // is: nothing in SwitchFabric treats the kinds differently -- close/open/
 // isClosed work identically whatever kind of card the channel is on.
 //
-// This used to be written with an RfMux element, to make the point about the
-// kind SwitchFabric is least likely to have been written with in mind. It
-// cannot be any more, and that is the change working rather than coverage
-// quietly lost: an element now names a device the rig declared, this rig
-// declares no RF selector (see rig/devices.inc), so no hal::SwitchElementId
-// on this rig can be on one. The kind-level claims that used to ride on a
-// phantom device are made directly against hal::SwitchDeviceKind below.
+// Written with an RfMux element again, which is the kind SwitchFabric is
+// least likely to have been written with in mind. That spelling was
+// impossible for a while and the reason is worth keeping: an element names a
+// device the rig declared, and this rig declared no RF selector, so there was
+// no way to construct one -- the claim moved to hal::SwitchDeviceKind, where
+// it could still be made. rig/devices.inc now has an Agilent E1472A in it, so
+// the claim can be made where it belongs again.
 //
-TEST( HalSwitchFabric, AMuxChannelIsAnOrdinarySwitchElementLikeAMatrixCrosspoint)
+TEST( HalSwitchFabric, AnRfChannelIsAnOrdinarySwitchElementLikeAMatrixCrosspoint)
 {
     hal::SwitchFabric fabric;
-    hal::SwitchElementId mux{ hal::SwitchDeviceId::Mux1, 2 };
+    hal::SwitchElementId mux{ hal::SwitchDeviceId::RfMux1, 21 };
 
     EXPECT_FALSE( fabric.isClosed( mux));
 
@@ -122,39 +122,44 @@ TEST( HalSwitchFabric, ToStringTakesTheKindFromTheDeviceNotFromTheElement)
     // reflection over SwitchDeviceId. Two channels on cards of different
     // kinds is what shows that, and it is also the property that used to be
     // spelled per hop and could therefore disagree with itself.
-    hal::SwitchElementId matrix{ hal::SwitchDeviceId::Matrix2, 14 };
+    hal::SwitchElementId matrix{ hal::SwitchDeviceId::Matrix1, 300 };
     hal::SwitchElementId mux{ hal::SwitchDeviceId::Mux1, 2 };
+    hal::SwitchElementId rf{ hal::SwitchDeviceId::RfMux1, 21 };
 
-    EXPECT_EQ( to_string( matrix), "Matrix Matrix2 channel 14");
+    EXPECT_EQ( to_string( matrix), "Matrix Matrix1 channel 300");
     EXPECT_EQ( to_string( mux),    "Mux Mux1 channel 2");
+    EXPECT_EQ( to_string( rf),     "RfMux RfMux1 channel 21");
 
-    EXPECT_EQ( hal::kindOf( hal::SwitchDeviceId::Matrix2), hal::SwitchDeviceKind::Matrix);
+    EXPECT_EQ( hal::kindOf( hal::SwitchDeviceId::Matrix1), hal::SwitchDeviceKind::Matrix);
     EXPECT_EQ( hal::kindOf( hal::SwitchDeviceId::Mux1),    hal::SwitchDeviceKind::Mux);
+    EXPECT_EQ( hal::kindOf( hal::SwitchDeviceId::RfMux1),  hal::SwitchDeviceKind::RfMux);
 }
 
 TEST( HalSwitchFabric, EveryDeviceKindRendersAsItsOwnName)
 {
     // The bug this guards against: a kind silently printing as "Mux" because
     // to_string() only ever checked for Matrix and treated everything else as
-    // Mux -- true right up until RfMux became a third kind. Made against the
-    // enum rather than through an element, which is the only way to state it
-    // for a kind no rig-declared device has; see the comment above.
+    // Mux -- true right up until RfMux became a third kind, and now two kinds
+    // further on. Made against the enum rather than through an element, so it
+    // covers every kind hal has rather than every kind this rig happens to
+    // own.
     EXPECT_EQ( core::meta::to_string( hal::SwitchDeviceKind::Matrix), "Matrix");
     EXPECT_EQ( core::meta::to_string( hal::SwitchDeviceKind::Mux),    "Mux");
     EXPECT_EQ( core::meta::to_string( hal::SwitchDeviceKind::RfMux),  "RfMux");
+    EXPECT_EQ( core::meta::to_string( hal::SwitchDeviceKind::Spdt),   "Spdt");
+    EXPECT_EQ( core::meta::to_string( hal::SwitchDeviceKind::Spst),   "Spst");
 }
 
 TEST( HalSwitchFabric, ConnectAcceptsAPathMixingDeviceKinds)
 {
     // hal::Path never distinguished device kinds -- it's just a vector of
-    // SwitchElementId -- so a chain spanning mux hops and a matrix column in
-    // one route needs no new mechanism at all. Nor would an RF chain, on a rig
-    // that declared an RF selector.
+    // SwitchElementId -- so a chain spanning a mux hop, a changeover and a
+    // matrix column in one route needs no new mechanism at all.
     hal::SwitchFabric fabric;
     hal::Path path{
         { hal::SwitchDeviceId::Mux1,    3 },
-        { hal::SwitchDeviceId::Mux2,    7 },
-        { hal::SwitchDeviceId::Matrix2, 30 }
+        { hal::SwitchDeviceId::Spdt1, 7 },
+        { hal::SwitchDeviceId::Matrix1, 300 }
     };
 
     fabric.connect( path);

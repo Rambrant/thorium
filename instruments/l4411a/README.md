@@ -52,5 +52,5 @@ rig/active_instruments.hpp  #include "hal/l4411a.hpp"
 rig/wiring.inc              which fabric channels its force and sense leads land on
 ```
 
-The wiring is rig data and lives nowhere in this directory: which matrix channel
+The wiring is rig data and lives nowhere in this directory: which fabric channel
 a DMM's leads reach is a fact about the bench, not about the model.

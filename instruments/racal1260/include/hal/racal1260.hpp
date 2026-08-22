@@ -87,9 +87,9 @@ namespace hal
     // routed to is chosen per Connect call (see connectDriver below), not
     // stored on the config. That is the difference between this instrument and
     // hal::N6701A, whose output is cabled to one pin and so has nothing to
-    // choose -- a matrix-routed port can reach any interface the fabric wires
-    // up, and which one it reached is a fact about a moment in the script
-    // rather than about the instrument.
+    // choose -- a switched port can reach any interface the fabric wires up,
+    // and which one it reached is a fact about a moment in the script rather
+    // than about the instrument.
     //
     struct Racal1260Config
     {
@@ -195,10 +195,11 @@ namespace hal
 
     //
     // One RS232 port on a Racal 1260-series switching/instrumentation chassis,
-    // routed to the DUT through the same matrix everything else on this rig
-    // goes through.
+    // switched onto the DUT through the same fabric everything else on this
+    // rig goes through -- three changeover relays on this bench, though which
+    // cards a rig uses is nothing this driver knows or should.
     //
-    // PLACEHOLDER NAME. This class is modelled on how a matrix-routed serial
+    // PLACEHOLDER NAME. This class is modelled on how a switched serial
     // resource behaves, not on a datasheet: the bench this repo describes does
     // not exist yet, and the legacy test script this was reconstructed from
     // named its serial resource only as "Rs.Normal Type=RS232", which says what
@@ -216,9 +217,9 @@ namespace hal
     //
     // Routed, not cabled -- the opposite of hal::N6701A, and the reason this
     // driver has a connectDriver taking a destination at all. A console is a
-    // signal-level interface: the matrix carries it perfectly well, there is no
+    // signal-level interface: the fabric carries it perfectly well, there is no
     // load current to keep off the relays, and one port being switchable
-    // between several DUT interfaces is exactly what a matrix is for. So
+    // between several DUT interfaces is exactly what switching is for. So
     // Connect takes the interface (see connectDriver below), and Setup/Write/
     // Read take none -- the route is already held open by then.
     //
@@ -229,11 +230,11 @@ namespace hal
             // Serial or GPIB, and which one is a bench fact this driver
             // genuinely does not know -- see this directory's README, which
             // says the same about the model name. Two different arrangements
-            // both produce "an RS232 port routed to the DUT through the
-            // matrix", and they are reached differently:
+            // both produce "an RS232 port switched onto the DUT through the
+            // fabric", and they are reached differently:
             //
             //   - a port on the PC, its three conductors cabled into the
-            //     matrix: Serial, and the thing addressed and the thing
+            //     switching: Serial, and the thing addressed and the thing
             //     switched are then one and the same port
             //   - a serial-interface module in the switching chassis,
             //     commanded over that chassis's own bus: Gpib, the way
@@ -480,7 +481,7 @@ namespace hal
     // This is the routed connectDriver the other drivers in this repo do not
     // have: hal::N6701A and hal::Ac6834B close their own fixed channels and
     // never consult the connector side at all, because their outputs are cabled
-    // to a known pin. Here both halves matter -- the port's own matrix channels
+    // to a known pin. Here both halves matter -- the port's own fixed channels
     // and the channels the DUT interface's lines are wired to -- and the route
     // is their concatenation, exactly the composition core::MeasureEngine
     // performs for a routed reading.
@@ -493,15 +494,15 @@ namespace hal
     // connector side.
     //
     // The pairing of which instrument channel meets which DUT line is left to
-    // the wiring tables and is not asserted here, deliberately. A crosspoint
-    // matrix has no notion of transmit and receive; it closes the crosspoints it
-    // is given, and which of them forms the outbound path is a fact about how
-    // the bench was cabled -- a rig/wiring.inc fact, checked by
-    // dut/tests/test_wiring_coverage.cpp, not something a driver can know.
+    // the wiring tables and is not asserted here, deliberately. A relay has no
+    // notion of transmit and receive; it closes what it is given, and which of
+    // those forms the outbound path is a fact about how the bench was cabled --
+    // a rig/wiring.inc fact, checked by dut/tests/test_wiring_coverage.cpp, not
+    // something a driver can know.
     //
     //
-    // The composed route: this port's own fixed matrix channels, plus the
-    // channel every line of the destination interface is wired to.
+    // The composed route: this port's own fixed channels, plus the channel
+    // every line of the destination interface is wired to.
     //
     // findAll rather than find on the instrument side, for the same reason
     // hal::N6701A's connectDriver uses it: a serial port is at least two wires
@@ -511,7 +512,7 @@ namespace hal
     // Shared by connect and disconnect rather than written twice, because the
     // two must compose the identical path -- a disconnect that opened a
     // different set of channels from the one the connect closed would leave
-    // crosspoints latched with nothing in the code saying so.
+    // relays latched with nothing in the code saying so.
     //
     template<typename BundleT>
     [[nodiscard]]

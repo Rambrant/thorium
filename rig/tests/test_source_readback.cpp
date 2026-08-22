@@ -15,9 +15,10 @@
 // A source measuring its own output, over its own interface -- the reading that
 // needs no routing (see core::MeasureEngine's point-free operator()).
 //
-// This is how rail current is read on a rig whose switching matrix carries
-// signals only: 115 V at 5 A never reaches the matrix, so there is no routed
-// measurement of it to make. The tests below pin down the two properties that
+// This is how rail current is read on a rig whose matrix and muxes carry
+// signals only: 115 V at 5 A never reaches them -- a rail's own relay is on
+// the power card (Spst1, see rig/wiring.inc), and its output is cabled -- so
+// there is no routed measurement of it to make. The tests below pin down the two properties that
 // makes this worth having as its own overload rather than a convenience --
 // that it reads the instrument, and that it leaves the fabric completely alone.
 //
@@ -53,7 +54,7 @@ namespace
 
         SourceReadbackFixture()
         {
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Matrix2, 24 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Spst1, 4 });
 
             core::journal().clearSinks();
             core::journal().add( sink);
@@ -98,7 +99,7 @@ TEST_F( SourceReadbackFixture, AReadbackNeverTouchesTheFabric)
     apply(   dcP3.dc().voltage( 24.0_V));
     connect( dcP3.dc());
 
-    const auto channel = hal::SwitchElementId{ hal::SwitchDeviceId::Matrix2, 24 };
+    const auto channel = hal::SwitchElementId{ hal::SwitchDeviceId::Spst1, 4 };
 
     ASSERT_TRUE( fabric.isClosed( channel));
 

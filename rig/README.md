@@ -18,10 +18,10 @@ for the four `THORIUM_*` compile definitions (declared and validated in
 rig/
     CMakeLists.txt         # no library -- just rig_tests, over the four files below
     instrument.inc         # THORIUM_INSTRUMENT_TABLE -- this rig's fixed instrument list, and hal::InstrumentId's enumerators
-    devices.inc             # THORIUM_DEVICE_TABLE -- this rig's switching devices, and hal::SwitchDeviceId's enumerators
-    wiring.inc              # THORIUM_WIRING_TABLE -- this rig's fixed instrument/connector wiring
+    devices.inc            # THORIUM_DEVICE_TABLE -- this rig's switching cards, and hal::SwitchDeviceId's enumerators
+    wiring.inc             # THORIUM_WIRING_TABLE -- this rig's fixed instrument/connector wiring
     active_instruments.hpp # THORIUM_ACTIVE_INSTRUMENTS -- Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/Ser1/fabric
-    tests/                  # the integration tests that need this rig rather than a mechanism
+    tests/                 # the integration tests that need this rig rather than a mechanism
 ```
 
 ## instrument.inc
@@ -73,46 +73,96 @@ hand-maintained second list, at all.
 ## devices.inc
 
 The switching hardware between the instruments and the VPC array -- one
-`SWITCH_DEVICE(kind, id, address)` per card, naming what kind of device it is
-(`Matrix`/`Mux`/`RfMux`) and where the PC commands it:
+`SWITCH_DEVICE(model, id, address, card)` per card, naming which card it is,
+where the PC commands it, and which card of its chassis it is:
 
 ```cpp
 SWITCH_DEVICES
-    SWITCH_DEVICE( Matrix, Matrix2, Gpib( 0, 7, 1))
-    SWITCH_DEVICE( Mux,    Mux1,    Gpib( 0, 7, 2))
+    SWITCH_DEVICE( Racal1260_45,  Matrix1, Gpib( 0, 7),    Card( 1))
+    SWITCH_DEVICE( Racal1260_35,  Mux1,    Gpib( 0, 7),    Card( 2))
+    SWITCH_DEVICE( AgilentE1472A, RfMux1,  Gpib( 0, 9, 3), NoCard)
 END_SWITCH_DEVICES
 ```
 
+This rig's five cards, and what each is for:
+
+| Id | Card | Kind | Job |
+|---|---|---|---|
+| `Matrix1` | Racal Instruments 1260-45A | matrix | the instrument crossbar -- quad 4x16, group 0 column 00 is the LF measurement bus |
+| `Mux1` | Racal Instruments 1260-35 | mux | the DUT fan-in -- one of 96 channels per routed pin, onto the one common |
+| `Spst1` | Racal Instruments 1260-18 | SPST | the power path -- 152 Form A relays, one in each switched supply lead |
+| `Spdt1` | Racal Instruments 1260-17 | SPDT | the console changeover -- 80 Form C relays, bench line or parked network |
+| `RfMux1` | Agilent E1472A | RF mux | the HF path to the scope -- six 1x4 banks in 50 ohm |
+
 Read twice, exactly as `instrument.inc` is: once by `hal/switch_device.hpp` to
-generate `hal::SwitchDeviceId`'s enumerators, once to carry each device's kind
-and address. It could not simply be another block inside `wiring.inc` --
-`THORIUM_WIRING_TABLE` is `PRIVATE` to `hal_rig`, and an enum that
-`hal::SwitchElementId` is built from has to be visible in a public header.
+generate `hal::SwitchDeviceId`'s enumerators, once to carry each device's
+model, address and card number. It could not simply be another block inside
+`wiring.inc` -- `THORIUM_WIRING_TABLE` is `PRIVATE` to `hal_rig`, and an enum
+that `hal::SwitchElementId` is built from has to be visible in a public header.
 
 These are **not** instruments, and that is deliberate rather than an oversight.
 A switching device measures nothing and sources nothing; no test script ever
 names one, only `wiring.inc` does, and `hal::InstrumentId` is what a *reading*
 is identified by. See `hal/switch_device.hpp` for the argument in full.
 
-Two things this file buys beyond the addresses, both of which were real holes:
+Three things this file buys beyond the addresses, all of which were real holes:
 
-- **A card name is now checked.** `HOP` takes a `SwitchDeviceId`, so a mistyped
+- **A card name is checked.** `HOP` takes a `SwitchDeviceId`, so a mistyped
   `Matrix22` is a compile error. It used to be a bare string, and the fabric
   would happily create that element, close it, open it, and route nothing.
-- **A card has one kind.** `kind` used to ride on every hop, so
-  `HOP( Matrix, "Matrix2", 14)` and `HOP( Mux, "Matrix2", 14)` were two
-  distinct elements for one physical crosspoint, each with its own use count in
-  `hal::SwitchFabric` -- connect through one, disconnect through the other, and
-  the relay never opened.
+- **A card has one kind, and doesn't get it from here.** `kind` used to ride on
+  every hop, so `HOP( Matrix, "Matrix2", 14)` and `HOP( Mux, "Matrix2", 14)`
+  were two distinct elements for one physical crosspoint, each with its own use
+  count in `hal::SwitchFabric`. It then moved to this file, one per card; it now
+  comes from the card *model*, because what kind of thing a 1260-45 is was never
+  a rig's to state.
+- **A channel is one the card has.** The model carries each card's channel
+  space, so `HOP( Spdt1, 300)` fails to build against an 80-channel relay card,
+  naming the card and its channels. Every channel in `wiring.inc` used to be
+  unchecked in exactly the way a card name was.
+
+**`Card( n)` is not a GPIB secondary.** The four Racal cards sit behind one
+Option 01T smart controller: the PC opens the controller's single GPIB address
+and writes `CLOSE 3.0115`, where the leading `3` is the card's own SW1 address.
+One address, four card numbers -- the shape `DcP1..DcP4` already have with their
+mainframe slot. The E1472A is a VXI servant behind a command module, which maps
+its logical address to a real secondary, so it carries one and `NoCard`.
 
 ## wiring.inc
 
 This rig's two static wiring facts (see `hal/wiring.hpp`'s own comment):
-which matrix/mux channel each instrument is hard-wired to, and which
-matrix/mux channel each VPC connector pin is hard-wired to. Read by
-`hal/measure.cpp` and `hal/route.cpp`, each needing its own declaration of
-the resulting (inline) `hal::instrumentWiring`/`hal::connectorWiring`
-tables since each is its own translation unit.
+which channel each instrument is hard-wired to, and which channel each VPC
+connector pin is hard-wired to. Read by `hal/measure.cpp` and
+`hal/route.cpp`, each needing its own declaration of the resulting (inline)
+`hal::instrumentWiring`/`hal::connectorWiring` tables since each is its own
+translation unit.
+
+A route is the composition of those two halves, closed together, which only
+works where they meet -- so the topology this file describes is built around
+buses. There are two:
+
+- **the LF measurement bus** is column 00 of `Matrix1`'s group 0. `Dmm1`,
+  `Dmm2` and `Osc1` sit on rows 0-2, `Mux1`'s common on row 3. An instrument's
+  path is its own crosspoint onto that column; a pin's path is its mux channel
+  plus the crosspoint that puts the mux common on the same column. One shared
+  crosspoint appears in every routed pin's path, which is what
+  `hal::SwitchFabric`'s use counting is for.
+- **the HF bus** is `RfMux1` bank 0's common, cabled to `Osc1`'s channel 1. A
+  tree-switched 1x4 needs no instrument-side hop: the pin's channel is the
+  whole path.
+
+Two things stay off the buses on purpose. Supply leads (`DcP3`/`DcP4`,
+`AcP1`'s phases) switch on `Spst1`, because it is load current that has to be
+kept off signal relays. The console's three conductors switch on `Spdt1`
+against `Ser1`'s own three `Spst1` relays, because three wires that must stay
+three wires cannot share a mux common -- writing them as mux channels, which
+this file used to, describes a rig that shorts its console together the moment
+it connects it.
+
+Channels are written the way each card's manual numbers them:
+`HOP( Mux1, 3)` flat, `CROSSPOINT( Matrix1, 0, 3, 0)` for the 1260-45's
+`<group><row><column>`, `BANK( RfMux1, 0, 1)` for the E1472A's
+`<bank><channel>`.
 
 ## active_instruments.hpp
 
