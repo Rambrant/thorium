@@ -1,4 +1,5 @@
 #include "suite/scripts.hpp"
+#include "verdict.hpp"
 
 //
 // Not suite/prelude.hpp -- see suite/tests/test_supply_rail_script.cpp's own
@@ -129,7 +130,7 @@ TEST_F( AcDropoutFixture, PassesWhenTheRailRidesTheDropout)
 {
     injectHealthyDropout();
 
-    EXPECT_TRUE( acDropoutScript());
+    EXPECT_TRUE( verdictOf( acDropoutScript));
 }
 
 TEST_F( AcDropoutFixture, FailsWhenTheRailDipsTooFar)
@@ -138,7 +139,7 @@ TEST_F( AcDropoutFixture, FailsWhenTheRailDipsTooFar)
     Await.inject(   kCapture,  true);
     Measure.inject( kMinimum,  Voltage{ 4.70 });   // 300mV, outside production's 200mV
 
-    EXPECT_FALSE( acDropoutScript());
+    EXPECT_FALSE( verdictOf( acDropoutScript));
 }
 
 TEST_F( AcDropoutFixture, FailsWhenTheBaselineWasNeverRight)
@@ -153,7 +154,7 @@ TEST_F( AcDropoutFixture, FailsWhenTheBaselineWasNeverRight)
     Await.inject(   kCapture,  true);
     Measure.inject( kMinimum,  Voltage{ 4.45 });
 
-    EXPECT_FALSE( acDropoutScript());
+    EXPECT_FALSE( verdictOf( acDropoutScript));
 }
 
 TEST_F( AcDropoutFixture, FailsWhenTheCaptureNeverCompleted)
@@ -169,7 +170,7 @@ TEST_F( AcDropoutFixture, FailsWhenTheCaptureNeverCompleted)
     Measure.inject( kBaseline, Voltage{ 5.00 });
     Await.inject(   kCapture,  false);
 
-    EXPECT_FALSE( acDropoutScript());
+    EXPECT_FALSE( verdictOf( acDropoutScript));
 }
 
 TEST_F( AcDropoutFixture, AnUnfindableMinimumIsTreatedAsNoExcursionAtAll)
@@ -194,7 +195,7 @@ TEST_F( AcDropoutFixture, AnUnfindableMinimumIsTreatedAsNoExcursionAtAll)
     // half of the contract -- that a NaN reaching a criterion fails it rather
     // than passing quietly, which is what makes the NaN default safe.
     //
-    EXPECT_FALSE( acDropoutScript());
+    EXPECT_FALSE( verdictOf( acDropoutScript));
 }
 
 TEST_F( AcDropoutFixture, ThrowsWhenTheCaptureAnswerIsMissing)
@@ -207,7 +208,7 @@ TEST_F( AcDropoutFixture, ThrowsWhenTheCaptureAnswerIsMissing)
     //
     Measure.inject( kBaseline, Voltage{ 5.00 });
 
-    EXPECT_THROW( (void)acDropoutScript(), std::runtime_error);
+    EXPECT_THROW( acDropoutScript(), std::runtime_error);
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +233,7 @@ TEST_F( AcDropoutFixture, TheSameScriptIsHeldToWhicheverVariantIsSelected)
         Await.inject(   kCapture,  true);
         Measure.inject( kMinimum,  Voltage{ 4.72 });
 
-        return acDropoutScript();
+        return verdictOf( acDropoutScript);
     };
 
     EXPECT_FALSE( runAgainst( "production")) << "a 280mV dip is outside production's 200mV";
@@ -256,7 +257,7 @@ TEST_F( AcDropoutFixture, NoVariantMakesAMissingCaptureAcceptable)
         Measure.inject( kBaseline, Voltage{ 5.00 });
         Await.inject(   kCapture,  false);
 
-        EXPECT_FALSE( acDropoutScript()) << "a missing capture must fail under '" << variant << "'";
+        EXPECT_FALSE( verdictOf( acDropoutScript)) << "a missing capture must fail under '" << variant << "'";
     }
 }
 
@@ -279,7 +280,7 @@ TEST_F( AcDropoutFixture, AMissingCaptureIsRecordedAgainstNoDipCriterion)
     Measure.inject( kBaseline, Voltage{ 5.00 });
     Await.inject(   kCapture,  false);
 
-    EXPECT_FALSE( acDropoutScript());
+    EXPECT_FALSE( verdictOf( acDropoutScript));
 
     const auto unchecked = uncheckedSubjects();
 

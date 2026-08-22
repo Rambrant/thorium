@@ -28,6 +28,15 @@ sequence. Up: relay closed dead, then energised, primary before the alternates.
 Down: the exact inverse. Only the setup returns a meaningful verdict -- it reads
 each source back, and a `false` stops the run before the first script.
 
+The hooks are also the only functions in this directory that return anything at
+all. A *script* returns `void`: its verdict is derived from the checks it
+recorded, at the point the runner closes the test (`core::Journal::endTest`), so
+there is no flag to fold and no way for a script's answer to disagree with its
+own log. A hook cannot work that way because it runs outside any test bracket --
+there is no per-test event stream to derive from -- which is exactly why
+`core::RunHook` is a distinct type from `core::TestScript` rather than the same
+shape under another name.
+
 `scripts.hpp` holds the test scripts' declarations, at global scope
 deliberately (see the comment there) -- which is what lets
 `core/active_test_catalog.hpp` name one directly in a `TEST(...)` without
@@ -66,6 +75,16 @@ script is not a script. It calls one and injects its readings by point
 and the quantity types and none of the criteria or adapter tables -- which
 is also what lets the `scripts_tests` target build without the criteria
 compile definitions, those being `PRIVATE` to the `scripts` library.
+
+They reach a script's verdict through `verdict.hpp`'s `verdictOf( script)`,
+which does what the runner does around a script -- open a journal test bracket,
+run it, close the bracket and take the answer -- since a script no longer
+returns one. Two things follow that are worth knowing when writing one of these:
+the "a script that recorded no check cannot pass" rule applies here too (it
+lives in `endTest`, not in the runner), and a test that only wants the outcome
+needs no recording sink at all -- only one asserting on the individual *rows*
+does.
+
 There is no runner-specific test; `app/` just has the one executable.
 
 ## Layout
@@ -78,11 +97,16 @@ suite/
     scripts/
         fuse_register_script.cpp
         supply_rail_script.cpp
+        console_script.cpp
+        ac_dropout_script.cpp
         rig_power_on.cpp             # the catalog's SETUP, not a test
         rig_power_off.cpp            # the catalog's TEARDOWN, not a test
     tests/
+        verdict.hpp                  # verdictOf( script) -- a script returns no verdict to assert on
         test_fuse_register_script.cpp
         test_supply_rail_script.cpp
+        test_console_script.cpp
+        test_ac_dropout_script.cpp
         test_rig_power_on.cpp
         test_rig_power_off.cpp
         test_criteria_variants_compile.cpp

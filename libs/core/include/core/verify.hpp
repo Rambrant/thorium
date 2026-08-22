@@ -342,11 +342,14 @@ namespace core
     // enumerator would have bought a parallel list in each of those places and
     // nothing else.
     //
-    // Returns bool, always false, for the same reason Verify returns one: a
-    // script folds it into its verdict (allPassed &= Fail( ...)), and a void
-    // Fail would force that line to be written as two. Not [[nodiscard]],
-    // matching Verify -- a dropped verdict is the same mistake in both, and
-    // singling this one out would suggest it is a different one.
+    // Returns void, where Verify returns bool -- and the asymmetry is the
+    // honest one. Verify's return is what it learned by evaluating a predicate;
+    // Fail evaluates nothing, so a bool from it could only ever be the constant
+    // false. It had one for as long as a script folded its own verdict by hand
+    // (allPassed &= Fail( ...)); now that the verdict is derived from the event
+    // stream (see Journal::endTest), nothing is left for that constant to feed,
+    // and returning it would only invite an if() around a value that cannot
+    // vary.
     //
 
     //
@@ -355,7 +358,7 @@ namespace core
     // criterion would be the wrong thing to record, because the criterion is a
     // claim about how far a rail dipped and nothing here measured that.
     //
-    auto Fail( std::string_view reason) -> bool;
+    auto Fail( std::string_view reason) -> void;
 
     //
     // The named form: this criterion, specifically, could not be checked. For
@@ -377,12 +380,10 @@ namespace core
     // type to take one from.
     //
     template<typename Predicate>
-    auto Fail( const Criterion<Predicate> & criterion, const std::string_view reason) -> bool
+    auto Fail( const Criterion<Predicate> & criterion, const std::string_view reason) -> void
     {
         detail::reportNotChecked( criterion.group, criterion.id, reason,
                                   describeCriterion( criterion.predicate));
-
-        return false;
     }
 
     namespace detail
@@ -415,7 +416,7 @@ namespace core
     // is a MultiCriterion, not a Criterion.
     //
     template<typename... Variants>
-    auto Fail( const MultiCriterion<Variants...> & criterion, const std::string_view reason) -> bool
+    auto Fail( const MultiCriterion<Variants...> & criterion, const std::string_view reason) -> void
     {
         const bool matched = detail::failSelectedVariant(
             criterion, reason, activeCriteriaVariant(),
@@ -434,7 +435,5 @@ namespace core
             //
             detail::reportNotChecked( criterion.group, criterion.id, reason, {});
         }
-
-        return false;
     }
 } // namespace core

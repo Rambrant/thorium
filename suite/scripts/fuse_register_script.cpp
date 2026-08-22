@@ -1,10 +1,8 @@
 #include "../prelude.hpp"
 
 
-auto fuseRegisterScript() -> bool
+auto fuseRegisterScript() -> void
 {
-    bool allPassed = true;
-
     //
     // No digital-register instrument exists in the hal model (the
     // register-bus DUT model -- hal::Bus/dut::Device -- was removed rather
@@ -15,8 +13,8 @@ auto fuseRegisterScript() -> bool
     //
     constexpr auto fuseValue = 0xF5;
 
-    allPassed &= Verify( FS_Fuse_6::FS_Fuse_01, fuseValue);
-    allPassed &= Verify( FS_Fuse_6::FS_Fuse_02, fuseValue);
+    Verify( FS_Fuse_6::FS_Fuse_01, fuseValue);
+    Verify( FS_Fuse_6::FS_Fuse_02, fuseValue);
 
     //
     // Ad-hoc check (no CRIT constant declared up front) against a measured
@@ -24,7 +22,5 @@ auto fuseRegisterScript() -> bool
     //
     const auto voltage = Measure( Dmm2.voltage(), at( dut::Vout));
 
-    allPassed &= Verify( "Supply voltage at Vout", EQ( 12.0_V).epsilon( 0.05_V), voltage);
-
-    return allPassed;
+    Verify( "Supply voltage at Vout", EQ( 12.0_V).epsilon( 0.05_V), voltage);
 }

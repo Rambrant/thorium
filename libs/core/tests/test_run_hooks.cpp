@@ -56,7 +56,13 @@ namespace
 
 auto fixtureSetup()    -> bool { gSetupRan    = true; return true; }
 auto fixtureTeardown() -> bool { gTeardownRan = true; return true; }
-auto fixtureScript()   -> bool { return true; }
+//
+// Never actually run by these tests -- what they assert is that the catalog
+// resolved to it (see TheCatalogIsStillReadableAlongsideItsHooks below), so its
+// body has nothing to do. A script that a *runner* reached would have to record
+// a check to pass; this one is only ever pointed at.
+//
+auto fixtureScript()   -> void {}
 
 TEST( CoreRunHooks, ADeclaredSetupResolvesToTheNamedFunction)
 {

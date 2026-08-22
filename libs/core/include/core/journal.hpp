@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -169,6 +170,16 @@ namespace core
     auto defaultRunInfo() -> RunInfo;
 
     //
+    // What stands in a report's value column for a check that was never made
+    // -- core::Fail's rows, and the one endTest() posts for a test that
+    // recorded no check at all. One constant rather than two spellings,
+    // because the column is sized for it (see kValueWidth in
+    // core/src/report.cpp) and two placeholders of different widths would
+    // stagger against each other on adjacent rows.
+    //
+    inline constexpr std::string_view kUncheckedValue = "<unchecked>";
+
+    //
     // What a call site knows about one event. Everything a call site cannot
     // know -- when it happened, what order it happened in, which test was
     // running -- is stamped on by the journal (see JournalEvent below), so no
@@ -335,7 +346,37 @@ namespace core
             auto endGroup() -> void;
 
             auto beginTest( std::string_view test, std::string_view description) -> void;
-            auto endTest( bool passed) -> void;
+
+            //
+            // Closes the test and answers whether it passed -- derived from
+            // what was posted inside the bracket, not handed in.
+            //
+            // A script used to return its own verdict, folded by hand from
+            // every Verify it made (allPassed &= Verify( ...)), and the runner
+            // passed that here. Two sources for one fact: the event stream
+            // already carried every check and its outcome, and SarifSink was
+            // already deriving its per-test results from exactly that rather
+            // than from onTestEnd. The two could disagree -- a Verify whose
+            // result the script forgot to fold in produced a human log saying
+            // PASS and a SARIF log carrying a failed result inside that same
+            // test -- and nothing anywhere would say so. Scripts return void
+            // now (see core/test_catalog.hpp); this is the one place the
+            // verdict is decided.
+            //
+            // A check is any event carrying a pass/fail notion, i.e. any event
+            // whose Passed is set -- today that is Verify and nothing else,
+            // core::Fail's rows included, and a verb that starts carrying one
+            // is counted without this having to learn about it.
+            //
+            // Passing therefore requires at least one check and no failed one.
+            // The "at least one" half is not a technicality: a script that
+            // recorded nothing has established nothing, and calling that a
+            // pass is precisely how a script whose checks were commented out
+            // used to go green. A test with no checks fails, and says why --
+            // see journal.cpp.
+            //
+            [[nodiscard]]
+            auto endTest() -> bool;
 
             //
             // Post one event. Stamps sequence, wall clock, and the current
@@ -370,6 +411,21 @@ namespace core
             std::string                  mGroup;
             std::string                  mTest;
             std::uint64_t                mNextSequence{ 0 };
+
+            //
+            // The current test's tally, reset by beginTest and read by
+            // endTest. Counted rather than reduced to one bool because the
+            // verdict turns on both halves: whether anything failed, and
+            // whether anything was checked at all.
+            //
+            // mTestOpen guards the counting rather than mTest being non-empty,
+            // because a test's name is cleared only after its sinks have been
+            // told (see endTest) and anything posted in between belongs to the
+            // run, not to the test that just closed.
+            //
+            bool                         mTestOpen{ false };
+            std::size_t                  mTestChecks{ 0 };
+            std::size_t                  mTestFailures{ 0 };
     };
 
     //

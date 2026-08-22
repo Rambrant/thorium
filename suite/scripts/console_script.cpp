@@ -12,11 +12,9 @@
 // separate thing that can go wrong, and a log that shows them in order is what
 // tells you whether a silent DUT was misconfigured, unconnected or simply dead.
 //
-auto consoleScript() -> bool
+auto consoleScript() -> void
 {
     using namespace std::chrono_literals;
-
-    bool allPassed = true;
 
     //
     // Connect first, and the whole interface at once -- transmit, receive and
@@ -49,7 +47,7 @@ auto consoleScript() -> bool
     //
     const auto reply = Read( Ser1.rs232().terminator( "\r").timeout( 500ms));
 
-    allPassed &= Verify( FS_Console_1::FS_Console_Ack, reply.before( "\r"));
+    Verify( FS_Console_1::FS_Console_Ack, reply.before( "\r"));
 
     //
     // The status register is the byte after the acknowledgement. Guarded rather
@@ -62,8 +60,8 @@ auto consoleScript() -> bool
     {
         const auto status = reply.at( 4);
 
-        allPassed &= Verify( FS_Console_1::FS_Console_Ready, status);
-        allPassed &= Verify( FS_Console_1::FS_Console_Fault, status);
+        Verify( FS_Console_1::FS_Console_Ready, status);
+        Verify( FS_Console_1::FS_Console_Fault, status);
     }
     else
     {
@@ -81,11 +79,9 @@ auto consoleScript() -> bool
         const auto reason = "console reply is " + std::to_string( reply.size())
                           + " bytes, too short to hold a status byte";
 
-        allPassed &= Fail( FS_Console_1::FS_Console_Ready, reason);
-        allPassed &= Fail( FS_Console_1::FS_Console_Fault, reason);
+        Fail( FS_Console_1::FS_Console_Ready, reason);
+        Fail( FS_Console_1::FS_Console_Fault, reason);
     }
 
     Disconnect( Ser1.rs232(), at( dut::Console));
-
-    return allPassed;
 }

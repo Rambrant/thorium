@@ -1,4 +1,5 @@
 #include "suite/scripts.hpp"
+#include "verdict.hpp"
 
 //
 // Not suite/prelude.hpp: these tests are not scripts. They call one and
@@ -55,7 +56,7 @@ TEST_F( SupplyRailFixture, PassesWhenBothRailsInTolerance)
     Measure.inject( "Output5V", Voltage{ 5.02 });
     Measure.inject( "Output3V3", Voltage{ 3.29 });
 
-    EXPECT_TRUE(supplyRailScript());
+    EXPECT_TRUE( verdictOf( supplyRailScript));
 }
 
 TEST_F( SupplyRailFixture, FailsWhenARailIsOutOfTolerance)
@@ -63,7 +64,7 @@ TEST_F( SupplyRailFixture, FailsWhenARailIsOutOfTolerance)
     Measure.inject( "Output5V", Voltage{ 5.02 });
     Measure.inject( "Output3V3", Voltage{ 3.10 }); // outside +/-50mV
 
-    EXPECT_FALSE(supplyRailScript());
+    EXPECT_FALSE( verdictOf( supplyRailScript));
 }
 
 TEST_F(SupplyRailFixture, ThrowsWhenAPointIsMissing)
@@ -73,7 +74,7 @@ TEST_F(SupplyRailFixture, ThrowsWhenAPointIsMissing)
     // throws rather than silently treating the missing point as a failed
     // check.
 
-    EXPECT_THROW((void)supplyRailScript(), std::runtime_error);
+    EXPECT_THROW(supplyRailScript(), std::runtime_error);
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +108,7 @@ TEST_F( SupplyRailFixture, TheSameScriptIsHeldToWhicheverVariantIsSelected)
         Measure.inject( "Output5V",  Voltage{ 5.09 });
         Measure.inject( "Output3V3", Voltage{ 3.30 });
 
-        return supplyRailScript();
+        return verdictOf( supplyRailScript);
     };
 
     EXPECT_FALSE( runAgainst( "production")) << "5.09V is outside production's +/-50mV";
@@ -132,6 +133,6 @@ TEST_F( SupplyRailFixture, NoVariantIsWideEnoughToHideARealFailure)
         Measure.inject( "Output5V",  Voltage{ 4.00 });
         Measure.inject( "Output3V3", Voltage{ 3.30 });
 
-        EXPECT_FALSE( supplyRailScript()) << "4.00V on the 5V rail must fail under '" << variant << "'";
+        EXPECT_FALSE( verdictOf( supplyRailScript)) << "4.00V on the 5V rail must fail under '" << variant << "'";
     }
 }

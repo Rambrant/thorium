@@ -464,11 +464,18 @@ namespace
                 // an unknown state, which is precisely what hal::RigSafingGuard
                 // and the --safe path exist for.
                 //
-                const bool passed = test.script();
+                // The script returns nothing: the verdict comes back from
+                // endTest, derived from the checks the script actually recorded
+                // (see core/journal.hpp on why it is derived rather than
+                // returned, and core/test_catalog.hpp on what that means for a
+                // script's signature). This loop's own fold is unchanged -- it
+                // is a fold over *tests*, which is a fact no single test has.
+                //
+                test.script();
+
+                const bool passed = core::journal().endTest();
 
                 allPassed &= passed;
-
-                core::journal().endTest( passed);
             }
 
             core::journal().endGroup();

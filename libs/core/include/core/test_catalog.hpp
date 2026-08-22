@@ -8,15 +8,41 @@ namespace core
 {
     //
     // The one signature every catalog-registered test script has: no
-    // parameters at all. No device/rig/crosspoint handle is passed in --
-    // that routing is resolved statically inside the script, the same way
-    // GROUP/CRIT/MATRIX/POINT already are -- and no group/test name either.
-    // The runner brackets every script with the journal's own group/test
-    // boundaries (see app/src/main.cpp), and each criterion already carries
-    // its group name into the log on its own (CRIT stamps it, core::Verify
-    // posts it), so naming a script's own test to it would be a second
-    // source for a fact the log already has from the first -- with the usual
-    // consequence that the two can disagree.
+    // parameters at all, and no return either. No device/rig/crosspoint handle
+    // is passed in -- that routing is resolved statically inside the script,
+    // the same way GROUP/CRIT/MATRIX/POINT already are -- and no group/test
+    // name either. The runner brackets every script with the journal's own
+    // group/test boundaries (see app/src/main.cpp), and each criterion already
+    // carries its group name into the log on its own (CRIT stamps it,
+    // core::Verify posts it), so naming a script's own test to it would be a
+    // second source for a fact the log already has from the first -- with the
+    // usual consequence that the two can disagree.
+    //
+    // The verdict was the last thing left in that shape. A script used to
+    // return bool, folded by hand from each of its own checks:
+    //
+    //     bool allPassed = true;
+    //     allPassed &= Verify( FS_Supply_1::FS_Supply_5V0, rail);
+    //     ...
+    //     return allPassed;
+    //
+    // ... which is the same second source, arrived at from the other end: every
+    // one of those checks was already in the journal with its own outcome, and
+    // core::SarifSink was already deriving its per-test results from the events
+    // rather than from the returned bool. The two could disagree -- one missing
+    // `allPassed &=` produced a human log reading PASS around a SARIF result
+    // reading fail, for the same test in the same run -- and the fold was
+    // bookkeeping in a file that is meant to read like a test specification.
+    //
+    // So the verdict is derived where the checks already are (see
+    // Journal::endTest in core/journal.hpp), and a script's job is to make
+    // checks, not to tally them. What a script cannot do any more is pass
+    // while having checked nothing: that is a failure now, and a stated one.
+    //
+    // A script that needs to record a failure it did not measure -- a capture
+    // that never triggered, a reply too short to hold the byte in question --
+    // says so with core::Fail (see core/verify.hpp) rather than by returning
+    // false.
     //
     // Because every script shares this one signature, TestCase/TestGroup
     // need no Script template parameter -- unlike Criterion's predicate,
@@ -28,7 +54,7 @@ namespace core
     // the macro needs no change:
     //
     //   template<typename Criteria>              // suite/scripts.hpp
-    //   auto supplyRailScript() -> bool;
+    //   auto supplyRailScript() -> void;
     //
     //   GROUP( OutputVoltage, "...")             // suite/test_catalog.inc
     //       TEST( SupplyRailA, supplyRailScript<FS_Supply_1>, "...")
@@ -40,7 +66,7 @@ namespace core
     // arrives as four macro arguments rather than three. Name it first (a
     // using-alias) and pass the alias. One parameter, as above, is fine.
     //
-    // What is stored is still an auto (*)() -> bool, so nothing here has to
+    // What is stored is still an auto (*)() -> void, so nothing here has to
     // change: the signature stays uniform, Tests stays a homogeneous array,
     // and a misspelled group is still a compile error rather than a runtime
     // lookup miss. Note the limit -- the body still writes
@@ -56,17 +82,25 @@ namespace core
     // for it. This is for the case where one run has to check two groups
     // side by side.
     //
-    using TestScript = auto (*)() -> bool;
+    using TestScript = auto (*)() -> void;
 
     //
     // A run hook: code that brackets the selected scripts, declared by the
     // catalog via SETUP/TEARDOWN below. Powering the rig on before the first
     // script and off after the last is the case it exists for.
     //
-    // Same shape as a TestScript, and deliberately a distinct name rather than
-    // a reuse of it: a hook is not a test, contributes no verdict of its own to
-    // the report, and appears in no group -- what its bool means is "did the
-    // bracketing work", not "did the DUT pass".
+    // Not the same shape as a TestScript, and the difference is the point of
+    // its being a distinct type rather than a reuse. A hook is not a test: it
+    // contributes no verdict of its own to the report, appears in no group, and
+    // -- since it runs outside any beginTest/endTest bracket -- has no per-test
+    // event stream for a verdict to be derived from. So it keeps a bool, and
+    // what that bool means is "did the bracketing work", not "did the DUT
+    // pass".
+    //
+    // rigPowerOn is the one place a hand-folded verdict is still the right
+    // shape (see suite/scripts/rig_power_on.cpp): it checks each source as it
+    // brings it up, and the run is not allowed to start if any of them did not
+    // come up.
     //
     // What it brackets is the *selection*, once, however many times that
     // selection is then repeated (see --repeat in app/src/main.cpp). A hook

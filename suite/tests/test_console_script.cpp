@@ -1,4 +1,5 @@
 #include "suite/scripts.hpp"
+#include "verdict.hpp"
 
 //
 // Not suite/prelude.hpp: these tests are not scripts. They call one and inject
@@ -106,7 +107,7 @@ TEST_F( ConsoleFixture, PassesWhenTheDutAcknowledgesAndReportsAHealthyStatus)
 {
     Read.inject( "Ser1.Data", replyWithStatus( 0x08));
 
-    EXPECT_TRUE( consoleScript());
+    EXPECT_TRUE( verdictOf( consoleScript));
 }
 
 //
@@ -119,7 +120,7 @@ TEST_F( ConsoleFixture, FailsWhenTheDutDoesNotAcknowledge)
 {
     Read.inject( "Ser1.Data", Bytes( "NAK\r\x08"));
 
-    EXPECT_FALSE( consoleScript());
+    EXPECT_FALSE( verdictOf( consoleScript));
 }
 
 TEST_F( ConsoleFixture, FailsWhenTheFaultBitIsSet)
@@ -127,14 +128,14 @@ TEST_F( ConsoleFixture, FailsWhenTheFaultBitIsSet)
     // 0x88 -- READY still set, but FAULT (bit 7) set with it.
     Read.inject( "Ser1.Data", replyWithStatus( 0x88));
 
-    EXPECT_FALSE( consoleScript());
+    EXPECT_FALSE( verdictOf( consoleScript));
 }
 
 TEST_F( ConsoleFixture, FailsWhenTheReadyBitIsClear)
 {
     Read.inject( "Ser1.Data", replyWithStatus( 0x00));
 
-    EXPECT_FALSE( consoleScript());
+    EXPECT_FALSE( verdictOf( consoleScript));
 }
 
 //
@@ -146,7 +147,7 @@ TEST_F( ConsoleFixture, ATruncatedReplyFailsRatherThanThrowing)
 {
     Read.inject( "Ser1.Data", Bytes( "ACK\r"));
 
-    EXPECT_FALSE( consoleScript());
+    EXPECT_FALSE( verdictOf( consoleScript));
 }
 
 //
@@ -165,7 +166,7 @@ TEST_F( ConsoleFixture, ATruncatedReplyRecordsBothStatusCriteriaAsUnchecked)
 {
     Read.inject( "Ser1.Data", Bytes( "ACK\r"));
 
-    EXPECT_FALSE( consoleScript());
+    EXPECT_FALSE( verdictOf( consoleScript));
 
     const auto unchecked = uncheckedCriteria();
 
@@ -191,7 +192,7 @@ TEST_F( ConsoleFixture, ASilentDutFailsRatherThanThrowing)
 {
     Read.inject( "Ser1.Data", Bytes{});
 
-    EXPECT_FALSE( consoleScript());
+    EXPECT_FALSE( verdictOf( consoleScript));
 }
 
 //
@@ -211,7 +212,7 @@ TEST_F( ConsoleFixture, ThrowsWhenTheRunIsScriptedButThePortWasNeverArmed)
 {
     Read.inject( "SomeOtherPort.Data", Bytes( "ACK\r"));
 
-    EXPECT_THROW( (void) consoleScript(), std::runtime_error);
+    EXPECT_THROW( consoleScript(), std::runtime_error);
 }
 
 //
@@ -224,5 +225,5 @@ TEST_F( ConsoleFixture, AnAcknowledgementIsComparedInFullNotAsAPrefix)
 {
     Read.inject( "Ser1.Data", Bytes( "ACKNOWLEDGED\r\x08"));
 
-    EXPECT_FALSE( consoleScript());
+    EXPECT_FALSE( verdictOf( consoleScript));
 }

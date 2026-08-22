@@ -114,7 +114,7 @@ namespace core
     // thing a test may have been written to check -- so it comes back as a
     // value a criterion can be pointed at:
     //
-    //     allPassed &= Verify( "Transient captured", EQ( true), captured);
+    //     Verify( "Transient captured", EQ( true), captured);
     //
     // [[nodiscard]], for the same reason: an Await whose answer is dropped on
     // the floor is a script that waited and then measured whatever happened to

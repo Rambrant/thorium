@@ -1,4 +1,5 @@
 #include "suite/scripts.hpp"
+#include "verdict.hpp"
 
 //
 // Not suite/prelude.hpp: these tests are not scripts. They call one and
@@ -39,12 +40,12 @@ TEST_F(FuseRegisterFixture, PassesWhenVoltageIsWithinCriteria)
 {
     Measure.inject( "Vout", Voltage{ 12.01 });
 
-    EXPECT_TRUE(fuseRegisterScript());
+    EXPECT_TRUE( verdictOf( fuseRegisterScript));
 }
 
 TEST_F(FuseRegisterFixture, FailsWhenVoltageOutOfTolerance)
 {
     Measure.inject( "Vout", Voltage{ 12.50 }); // outside 12.0 +/- 0.05
 
-    EXPECT_FALSE(fuseRegisterScript());
+    EXPECT_FALSE( verdictOf( fuseRegisterScript));
 }

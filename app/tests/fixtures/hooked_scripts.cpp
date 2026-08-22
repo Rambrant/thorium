@@ -5,6 +5,9 @@
 #include <stdexcept>
 #include <string_view>
 
+#include "core/predicates.hpp"
+#include "core/verify.hpp"
+
 //
 // The suite behind run_scripts_hooked: one script and both run hooks, each
 // announcing itself on stdout so an acceptance test can assert what ran, how
@@ -54,7 +57,18 @@ auto fixtureTeardown() -> bool
     return !isSet( "THORIUM_FIXTURE_TEARDOWN_FAILS");
 }
 
-auto fixtureScript() -> bool
+//
+// Unlike the hooks above, this records its outcome instead of returning it --
+// a script's verdict is derived from the checks it made (see
+// core::Journal::endTest). Which means the passing path has to make one: a
+// script that records nothing cannot pass, and an empty body here would have
+// turned every hook test into a failing run.
+//
+// The failing path uses core::Fail rather than a check contrived to be false,
+// for the same reason a real script would: nothing here measured anything, and
+// the reason is the only thing worth putting in the log.
+//
+auto fixtureScript() -> void
 {
     announce( "script");
 
@@ -63,5 +77,12 @@ auto fixtureScript() -> bool
         throw std::runtime_error( "fixture script throwing on purpose");
     }
 
-    return !isSet( "THORIUM_FIXTURE_SCRIPT_FAILS");
+    if( isSet( "THORIUM_FIXTURE_SCRIPT_FAILS"))
+    {
+        core::Fail( "fixture script failing on purpose");
+
+        return;
+    }
+
+    core::Verify( "fixture script ran", core::quantities::EQ( 1u), 1u);
 }

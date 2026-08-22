@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -152,7 +153,16 @@ TEST_F( JournalTest, EventAttributionFollowsWhicheverBoundariesAreStillOpen)
     core::journal().begin( core::RunInfo{});
     core::journal().beginGroup( "OutputVoltage", {});
     core::journal().beginTest( "SupplyRail", {});
-    core::journal().endTest( true);
+
+    //
+    // A check inside the bracket, because endTest derives the verdict from
+    // exactly these and a bracket holding none of them posts one of its own
+    // saying so (see Journal::endTest). Either way there is an event here; one
+    // the test posted deliberately is the clearer thing to then assert about.
+    //
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "5V", .Passed = true });
+
+    EXPECT_TRUE( core::journal().endTest());
 
     // Inside the group, outside any test.
     core::journal().post( core::JournalRecord{ .Method = core::Verb::Note, .Subject = "between tests" });
@@ -162,13 +172,17 @@ TEST_F( JournalTest, EventAttributionFollowsWhicheverBoundariesAreStillOpen)
     // Outside both -- where a safing pass lands.
     core::journal().post( core::JournalRecord{ .Method = core::Verb::Safe, .Subject = "rig" });
 
-    ASSERT_EQ( mSink.Events.size(), 2u);
+    ASSERT_EQ( mSink.Events.size(), 3u);
 
+    // Inside both.
     EXPECT_EQ( mSink.Events[ 0].Group, "OutputVoltage");
-    EXPECT_TRUE( mSink.Events[ 0].Test.empty());
+    EXPECT_EQ( mSink.Events[ 0].Test,  "SupplyRail");
 
-    EXPECT_TRUE( mSink.Events[ 1].Group.empty());
+    EXPECT_EQ( mSink.Events[ 1].Group, "OutputVoltage");
     EXPECT_TRUE( mSink.Events[ 1].Test.empty());
+
+    EXPECT_TRUE( mSink.Events[ 2].Group.empty());
+    EXPECT_TRUE( mSink.Events[ 2].Test.empty());
 
     // Each boundary still names what it is closing.
     ASSERT_EQ( mSink.TestEnds.size(), 1u);
@@ -243,6 +257,130 @@ TEST( CoreJournalTime, IsoTimestampsAreMillisecondPreciseUtc)
 // A machine with its clock set before the epoch is exactly when a timestamp
 // gets scrutinised, so the millisecond remainder must not come out negative.
 //
+// ---------------------------------------------------------------------------
+// The derived verdict
+// ---------------------------------------------------------------------------
+//
+// endTest answers whether the test passed, from what was posted inside its
+// bracket -- a script no longer returns a verdict of its own (see
+// core/test_catalog.hpp). These pin the rule down: at least one check, and no
+// failed one.
+//
+
+TEST_F( JournalTest, ATestPassesWhenEveryCheckInItPassed)
+{
+    core::journal().begin( core::RunInfo{});
+    core::journal().beginTest( "SupplyRail", {});
+
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "5V",  .Passed = true });
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "3V3", .Passed = true });
+
+    EXPECT_TRUE( core::journal().endTest());
+
+    ASSERT_EQ( mSink.TestEnds.size(), 1u);
+    EXPECT_TRUE( mSink.TestEnds[ 0].Passed) << "the sinks are told the same verdict the caller gets";
+}
+
+//
+// One failed check is enough, wherever it falls -- and the checks after it
+// still run and are still recorded, which is what the non-short-circuiting
+// fold a script used to write by hand was for.
+//
+TEST_F( JournalTest, ATestFailsWhenAnyCheckInItFailed)
+{
+    core::journal().begin( core::RunInfo{});
+    core::journal().beginTest( "SupplyRail", {});
+
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "5V",  .Passed = true });
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "3V3", .Passed = false });
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "12V", .Passed = true });
+
+    EXPECT_FALSE( core::journal().endTest());
+
+    ASSERT_EQ( mSink.TestEnds.size(), 1u);
+    EXPECT_FALSE( mSink.TestEnds[ 0].Passed);
+}
+
+//
+// The half that is a deliberate rule rather than arithmetic: a test that
+// checked nothing has established nothing, and calling that a pass is exactly
+// how a script whose checks were removed used to go green.
+//
+// It says so in the log as well as in the verdict -- a bare RESULT [FAIL] with
+// nothing above it reads like a bug in the runner rather than a finding about
+// the script.
+//
+TEST_F( JournalTest, ATestThatRecordedNoCheckFailsAndSaysSo)
+{
+    core::journal().begin( core::RunInfo{});
+    core::journal().beginTest( "SupplyRail", {});
+
+    EXPECT_FALSE( core::journal().endTest());
+
+    ASSERT_EQ( mSink.Events.size(), 1u);
+
+    const auto & event = mSink.Events.front();
+
+    EXPECT_EQ( event.Test,   "SupplyRail") << "posted inside the bracket it is about";
+    EXPECT_EQ( event.Value,  core::kUncheckedValue);
+    EXPECT_EQ( event.Passed, std::optional<bool>{ false });
+    EXPECT_NE( event.Detail.find( "no check was recorded"), std::string::npos);
+}
+
+//
+// Only events carrying a pass/fail notion count as checks. A script that
+// energised a rail and routed a path and then measured nothing has still
+// checked nothing -- and a Measure is not a check either: it produces a
+// reading, and what a reading is worth is what a criterion says about it.
+//
+TEST_F( JournalTest, EventsWithNoVerdictOfTheirOwnDoNotCountAsChecks)
+{
+    core::journal().begin( core::RunInfo{});
+    core::journal().beginTest( "SupplyRail", {});
+
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Apply,   .Subject = "DcP1" });
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Connect, .Subject = "DcP1" });
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Measure, .Subject = "Output5V" });
+
+    EXPECT_FALSE( core::journal().endTest());
+}
+
+//
+// The tally belongs to one test, not to the run: a failure in one must not
+// darken the next, and a run's own verdict is the runner's fold over these
+// (see app/src/main.cpp).
+//
+TEST_F( JournalTest, EachTestsVerdictIsIndependentOfTheOneBeforeIt)
+{
+    core::journal().begin( core::RunInfo{});
+
+    core::journal().beginTest( "Failing", {});
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "5V", .Passed = false });
+    EXPECT_FALSE( core::journal().endTest());
+
+    core::journal().beginTest( "Passing", {});
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "5V", .Passed = true });
+    EXPECT_TRUE( core::journal().endTest());
+}
+
+//
+// An event posted outside any test bracket is nobody's check. The Safe a
+// safing pass posts after the last test has closed is the real case (see
+// hal/safing.hpp), and counting it would attach it to whichever test happened
+// to run last.
+//
+TEST_F( JournalTest, ChecksPostedOutsideATestDoNotReachTheNextOne)
+{
+    core::journal().begin( core::RunInfo{});
+
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "orphan", .Passed = false });
+
+    core::journal().beginTest( "SupplyRail", {});
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "5V", .Passed = true });
+
+    EXPECT_TRUE( core::journal().endTest());
+}
+
 TEST( CoreJournalTime, PreEpochTimestampsDoNotProduceNegativeMilliseconds)
 {
     EXPECT_EQ( core::isoUtcFromUnixMillis( -1), "1969-12-31T23:59:59.999Z");

@@ -10,6 +10,12 @@
 // any suite-specific name.
 //
 
+//
+// The hooks keep a verdict of their own; the script does not. A script's
+// outcome is derived from the checks it records (see core::Journal::endTest and
+// core/test_catalog.hpp), which is why only two of these three return bool.
+//
 [[nodiscard]] auto fixtureSetup()    -> bool;
 [[nodiscard]] auto fixtureTeardown() -> bool;
-[[nodiscard]] auto fixtureScript()   -> bool;
+
+auto fixtureScript() -> void;

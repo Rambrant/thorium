@@ -23,10 +23,8 @@
 // a missing transient means the DUT held up, the scope never triggered, or the
 // rail was never dropped in the first place.
 //
-auto acDropoutScript() -> bool
+auto acDropoutScript() -> void
 {
-    bool allPassed = true;
-
     //
     // ------------------------------------------------------------------
     // Set the scope up
@@ -115,7 +113,7 @@ auto acDropoutScript() -> bool
     //
     const auto baseline = Measure( Osc1.channel<3>().vbase(), at( dut::Output5V));
 
-    allPassed &= Verify( FS_Transient_1::FS_Transient_5V0_Baseline, baseline);
+    Verify( FS_Transient_1::FS_Transient_5V0_Baseline, baseline);
 
     //
     // ------------------------------------------------------------------
@@ -148,7 +146,7 @@ auto acDropoutScript() -> bool
     // buffer beforehand. It would be a number, it would very likely be in
     // tolerance, and it would mean nothing.
     //
-    allPassed &= Verify( FS_Transient_1::FS_Transient_Captured, captured);
+    Verify( FS_Transient_1::FS_Transient_Captured, captured);
 
     //
     // ------------------------------------------------------------------
@@ -207,7 +205,7 @@ auto acDropoutScript() -> bool
         //
         const auto dip = baseline - lowest;
 
-        allPassed &= Verify( FS_Transient_1::FS_Transient_5V0_Dip, dip);
+        Verify( FS_Transient_1::FS_Transient_5V0_Dip, dip);
     }
     else
     {
@@ -219,7 +217,7 @@ auto acDropoutScript() -> bool
         // a requirement it has nothing to say about. What did happen is that
         // the check could not be made, and that is what this says.
         //
-        allPassed &= Fail( "5Vdc rail dip on AC dropout -- not measured, the capture did not complete");
+        Fail( "5Vdc rail dip on AC dropout -- not measured, the capture did not complete");
     }
 
     //
@@ -238,6 +236,4 @@ auto acDropoutScript() -> bool
     //
     Connect( AcP1.ac());
     Apply(   AcP1.ac().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 2_A));
-
-    return allPassed;
 }

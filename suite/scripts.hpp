@@ -41,6 +41,13 @@
 //
 
 //
+// The two run hooks, and the only functions here that still return a verdict.
+// A hook runs outside any test bracket, so there is no per-test event stream
+// for the journal to derive one from -- and what a hook's bool means is "did
+// the bracketing work", not "did the DUT pass". Every *script* below returns
+// void: its verdict is derived from the checks it recorded (see
+// core/test_catalog.hpp and core::Journal::endTest).
+//
 // Not a test -- the catalog's TEARDOWN (see suite/test_catalog.inc). Powers
 // this rig down in a defined order after the last selected script has run:
 // every DC rail's output off before the primary AC source, then the isolation
@@ -62,16 +69,14 @@ auto rigPowerOff() -> bool;
 // criteria. Demonstrates the declarative Criterion/Verify DSL style,
 // as opposed to the fluent TestCase style used above.
 //
-[[nodiscard]]
-auto fuseRegisterScript() -> bool;
+auto fuseRegisterScript() -> void;
 
 // Verifies supply rail voltages by measuring at named test points. This is
 // the instrument/matrix path: the script names *what* to check (a criterion)
 // and *where* (a logical test point) -- the dsl::Measure verb hides the
 // select-instrument / route-matrix / fetch sequence entirely.
 //
-[[nodiscard]]
-auto supplyRailScript() -> bool;
+auto supplyRailScript() -> void;
 
 //
 // Talks to the DUT over its RS232 debug console: connects the interface,
@@ -79,8 +84,7 @@ auto supplyRailScript() -> bool;
 // byte-oriented counterpart to supplyRailScript's measurement path -- what a
 // script looks like when the DUT answers in bytes rather than in volts.
 //
-[[nodiscard]]
-auto consoleScript() -> bool;
+auto consoleScript() -> void;
 
 //
 // Drops the DUT's primary AC input and measures the negative transient the 5V
@@ -88,5 +92,4 @@ auto consoleScript() -> bool;
 // the one script here whose stimulus it causes itself, and so the one that
 // needs Arm and Await around the event rather than a plain Measure.
 //
-[[nodiscard]]
-auto acDropoutScript() -> bool;
+auto acDropoutScript() -> void;

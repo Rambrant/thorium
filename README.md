@@ -8,7 +8,7 @@ A test script reads like the test specification it came from:
 ```cpp
 const auto rail = Measure( Dmm1.voltage(), at( dut::Output5V));
 
-allPassed &= Verify( FS_Supply_1::FS_Supply_5V0, rail);
+Verify( FS_Supply_1::FS_Supply_5V0, rail);
 ```
 
 No instrument address, no relay path, no unit conversion, no logging call. Every
@@ -114,6 +114,11 @@ Being honest about the edges matters more than the table above:
   qualifying its ports (`core::Port::qualifiedBy` — the oscilloscope does), but
   the general case would need the `QuantityKind` folded into the key, which
   would rename every key in every existing recording.
+- **A script that checks nothing.** Nothing statically says whether a script
+  body reaches a `Verify`, so "this test verified something" cannot be a compile
+  error. It is a runtime rule instead, and a strict one: the verdict is derived
+  from the checks a script recorded, and a test that recorded none fails and says
+  so in the log rather than passing vacuously. See `core::Journal::endTest`.
 - **Electrical safety of a route.** `SwitchFabric::connect()` is additive and
   reference-counted, and it refuses nothing. Two instruments sharing a pin is
   the intended behaviour — that is how a rail is measured while a supply holds
@@ -415,8 +420,7 @@ Three files, in this order:
 
 1. **Declare** in `suite/scripts.hpp`:
    ```cpp
-   [[nodiscard]]
-   auto thermalRampScript() -> bool;
+   auto thermalRampScript() -> void;
    ```
 2. **Define** in `suite/scripts/thermal_ramp_script.cpp` — no `CMakeLists.txt`
    edit; `suite/scripts/*.cpp` is globbed with `CONFIGURE_DEPENDS`:
@@ -424,22 +428,25 @@ Three files, in this order:
    #include "../prelude.hpp"       // instruments, Measure/Apply/Verify,
                                     // criteria tables, adapter points, literals
 
-   auto thermalRampScript() -> bool
+   auto thermalRampScript() -> void
    {
-       bool allPassed = true;
-
        Connect( DcP3.dc());   // relay closes cold, then the output comes up --
        Apply(   DcP3.dc().voltage( 24.0_V).currentLimit( 2.0_A));
 
        const auto rail = Measure( Dmm1.voltage(), at( dut::Output12V));
-       allPassed &= Verify( FS_Supply_1::FS_Supply_12V, rail);
+       Verify( FS_Supply_1::FS_Supply_12V, rail);
 
        Remove(     DcP3.dc());   // ...and goes down before the relay opens.
        Disconnect( DcP3.dc());   // A relay moved under load arcs and welds.
-
-       return allPassed;
    }
    ```
+   **No verdict is returned.** The script's outcome is derived from the checks it
+   recorded, when the runner closes the test (`core::Journal::endTest`) — so
+   there is no `bool allPassed` to fold and no way for a script's answer to
+   disagree with its own log. Two consequences worth knowing before writing one:
+   a check that cannot be made is recorded with `Fail` rather than by returning
+   false, and **a script that records no check at all fails**, because a test
+   that verified nothing is not a test that passed.
 3. **Register** in `suite/test_catalog.inc` — the script is named as an
    identifier, not a string, so a typo is a compile error:
    ```cpp
@@ -454,12 +461,21 @@ order. It used to be a hand-written list, which meant a new group had to be
 acknowledged in framework code *and* mirrored into both test-fixture catalogs,
 so a suite gaining a group could not be a suite-only change.
 
-A script's signature is fixed to `() -> bool` — it takes nothing at all. No rig
-or device handle, because routing is resolved statically inside it; and no group
-or test name either, because the log gets those from the runner's journal
-boundaries, and every criterion carries its own group into the log via `Verify`.
-Handing a script names it doesn't need would only create a second source for a
-fact the log already has.
+A script's signature is fixed to `() -> void` — it takes nothing and returns
+nothing. No rig or device handle, because routing is resolved statically inside
+it; no group or test name either, because the log gets those from the runner's
+journal boundaries, and every criterion carries its own group into the log via
+`Verify`; and no verdict, because the journal already holds every check the
+script made and what each one came to. Each of those would be a second source
+for a fact the log already has — and the verdict was the one that could actually
+be caught disagreeing: a missing `allPassed &=` used to produce a human log
+reading `[PASS]` around a SARIF result reading `fail`, for the same test in the
+same run.
+
+A `SETUP`/`TEARDOWN` hook keeps its `bool`, and that is not an inconsistency: a
+hook runs outside any test bracket, so there is no per-test event stream to
+derive a verdict from, and what its `bool` means is "did the bracketing work",
+not "did the DUT pass".
 
 ### Bracket a run with setup and teardown
 
@@ -519,18 +535,14 @@ is an ordinary identifier, so the macro needs no change:
 ```cpp
 // suite/scripts.hpp
 template<typename Criteria>
-auto supplyRailScript() -> bool;
+auto supplyRailScript() -> void;
 
 // suite/scripts/supply_rail_script.cpp
 template<typename Criteria>
-auto supplyRailScript() -> bool
+auto supplyRailScript() -> void
 {
-    bool allPassed = true;
-
-    allPassed &= Verify( Criteria::FS_Supply_5V0, Measure( Dmm1.voltage(), at( dut::Output5V)));
-    allPassed &= Verify( Criteria::FS_Supply_3V3, Measure( Dmm1.voltage(), at( dut::Output3V3)));
-
-    return allPassed;
+    Verify( Criteria::FS_Supply_5V0, Measure( Dmm1.voltage(), at( dut::Output5V)));
+    Verify( Criteria::FS_Supply_3V3, Measure( Dmm1.voltage(), at( dut::Output3V3)));
 }
 
 // suite/test_catalog.inc
@@ -540,7 +552,7 @@ GROUP( OutputVoltage, "Tests validating DUT output voltage rails")
 END_GROUP
 ```
 
-What the catalog stores is still an `auto (*)() -> bool`, so nothing about the
+What the catalog stores is still an `auto (*)() -> void`, so nothing about the
 mechanism changes: the signature stays uniform, `Tests` stays a homogeneous
 array, and a misspelled group is still a compile error rather than a runtime
 lookup miss. Each `Verify` logs the group name its own criterion carries, so the
@@ -605,7 +617,7 @@ sense pin as an ordinary `POINT` and convert in units, so the result is a
 const auto drop = Measure( Dmm1.voltage(), at( dut::ShuntSense));
 const auto load = drop / 10.0_mOhm;          // a Current, not a double
 
-allPassed &= Verify( FS_Supply_1::FS_Load_Max, load);
+Verify( FS_Supply_1::FS_Load_Max, load);
 ```
 
 What you should *not* do is route a DMM's current terminals through the matrix.
@@ -639,8 +651,8 @@ A console dialogue is four verbs, and a route that stays open across all of them
 
    const auto reply = Read( Ser1.rs232().terminator( "\r").timeout( 500ms));
 
-   allPassed &= Verify( FS_Console_1::FS_Console_Ack,   reply.before( "\r"));
-   allPassed &= Verify( FS_Console_1::FS_Console_Ready, reply.at( 4));
+   Verify( FS_Console_1::FS_Console_Ack,   reply.before( "\r"));
+   Verify( FS_Console_1::FS_Console_Ready, reply.at( 4));
 
    Disconnect( Ser1.rs232(), at( dut::Console));
    ```
@@ -671,8 +683,8 @@ is guarded in the real script — a silent DUT is a failed check, not a crash ou
 criteria, by name, as unchecked:
 
 ```cpp
-allPassed &= Fail( FS_Console_1::FS_Console_Ready, reason);
-allPassed &= Fail( FS_Console_1::FS_Console_Fault, reason);
+Fail( FS_Console_1::FS_Console_Ready, reason);
+Fail( FS_Console_1::FS_Console_Fault, reason);
 ```
 
 ```
@@ -746,7 +758,7 @@ Disconnect( AcP1.ac());
 
 const auto captured = Await( Osc1.single());
 
-allPassed &= Verify( FS_Transient_1::FS_Transient_Captured, captured);
+Verify( FS_Transient_1::FS_Transient_Captured, captured);
 ```
 
 `suite/scripts/ac_dropout_script.cpp` is this written out in full.

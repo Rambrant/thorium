@@ -258,14 +258,44 @@ namespace core
     {
         mTest = test;
 
+        mTestOpen     = true;
+        mTestChecks   = 0;
+        mTestFailures = 0;
+
         for( auto * sink : mSinks)
         {
             sink->onTestStart( test, description);
         }
     }
 
-    auto Journal::endTest( const bool passed) -> void
+    auto Journal::endTest() -> bool
     {
+        //
+        // A test that checked nothing says so, in the log, before its verdict
+        // -- rather than closing on a bare RESULT [FAIL] with nothing above it,
+        // which reads like a bug in the runner instead of a finding about the
+        // script. Same argument core::Fail rests on, and the same placeholder
+        // in the value column.
+        //
+        // Posted through post() like any other event, so it is sequenced,
+        // stamped and attributed to this test exactly as a real check would be
+        // -- and so it lands in the tally below, which is why the verdict is
+        // computed after it rather than before.
+        //
+        if( mTestOpen && mTestChecks == 0)
+        {
+            post( JournalRecord{
+                .Method = Verb::Verify,
+                .Detail = "no check was recorded -- a test that verified nothing cannot pass",
+                .Value  = std::string( kUncheckedValue),
+                .Passed = false
+            });
+        }
+
+        const bool passed = mTestChecks > 0 && mTestFailures == 0;
+
+        mTestOpen = false;
+
         for( auto * sink : mSinks)
         {
             sink->onTestEnd( mGroup, mTest, passed);
@@ -279,6 +309,8 @@ namespace core
         // still open until endGroup(), and a further test may follow.
         //
         mTest.clear();
+
+        return passed;
     }
 
     auto Journal::post( JournalRecord record) -> void
@@ -289,6 +321,23 @@ namespace core
         // runs of the same script produce the same sequence for the same
         // event, which is what makes them diffable.
         //
+        //
+        // The running test's tally, kept here because this is the one place
+        // every check passes through -- see endTest(), which is what reads it.
+        // Keyed on Passed being set rather than on Verb::Verify: what makes an
+        // event a check is that it carries a verdict, and an event that carries
+        // one is exactly what the verdict of the test should turn on.
+        //
+        if( mTestOpen && record.Passed.has_value())
+        {
+            ++mTestChecks;
+
+            if( ! *record.Passed)
+            {
+                ++mTestFailures;
+            }
+        }
+
         const auto millis = unixMillisNow();
 
         JournalEvent event{

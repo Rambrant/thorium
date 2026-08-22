@@ -67,12 +67,12 @@ TEST( CoreVerify, AdHocOverloadKeepsQuantityChecking)
 // Fail: a check that could not be made
 // ---------------------------------------------------------------------------
 //
-// Unlike the Verify tests above, these assert on what reached the journal
-// rather than only on the return value. They have to: Fail's return is a
-// constant, so the return value is the one part of it that cannot be wrong,
-// and everything the verb exists for is in the event it posts (see
-// core/verify.hpp on why it posts as a Verb::Verify rather than a verb of its
-// own).
+// Unlike the Verify tests above, these assert on what reached the journal --
+// which is all there is to assert: Fail returns nothing, because it evaluates
+// nothing (see core/verify.hpp on that, and on why it posts as a Verb::Verify
+// rather than as a verb of its own). The event it posts is the whole of its
+// behaviour, and the verdict of the test around it is derived from that same
+// event by core::Journal::endTest.
 //
 namespace
 {
@@ -136,7 +136,7 @@ namespace
 //
 TEST_F( CoreFail, ProseFormPostsOneUnattributedFailedCheck)
 {
-    EXPECT_FALSE( core::Fail( "the capture did not complete"));
+    core::Fail( "the capture did not complete");
 
     ASSERT_EQ( Sink.Events.size(), 1u);
 
@@ -163,7 +163,7 @@ TEST_F( CoreFail, ProseFormPostsOneUnattributedFailedCheck)
 //
 TEST_F( CoreFail, NamedFormKeepsTheCriterionsIdentityAndItsTolerance)
 {
-    EXPECT_FALSE( core::Fail( VerifyTestGroup::SomeRegisterCheck, "the DUT never answered"));
+    core::Fail( VerifyTestGroup::SomeRegisterCheck, "the DUT never answered");
 
     ASSERT_EQ( Sink.Events.size(), 1u);
 
@@ -204,7 +204,7 @@ TEST_F( CoreFail, NamedFormOnAMultiCriterionQuotesTheSelectedVariantsTolerance)
 {
     ASSERT_TRUE( core::selectCriteriaVariant( "stress"));
 
-    EXPECT_FALSE( core::Fail( WidensPerVariant, "no reading arrived"));
+    core::Fail( WidensPerVariant, "no reading arrived");
 
     ASSERT_EQ( Sink.Events.size(), 1u);
 

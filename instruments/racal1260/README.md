@@ -57,7 +57,7 @@ Write( Ser1.rs232(), "RD 30\r");
 
 const auto reply = Read( Ser1.rs232().terminator( "\r").timeout( 500ms));
 
-allPassed &= Verify( FS_Console_1::FS_Console_Ack, reply.before( "\r"));
+Verify( FS_Console_1::FS_Console_Ack, reply.before( "\r"));
 
 Disconnect( Ser1.rs232(), at( dut::Console));
 ```
