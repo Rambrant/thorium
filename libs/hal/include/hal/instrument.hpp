@@ -124,7 +124,7 @@ namespace hal
     // InstrumentTag-derived globals can static_assert it per instrument and
     // produce a one-line message naming the offending type, rather than a
     // page of overload-resolution output. Second, so the guarantee can be
-    // tested in both directions -- see hal/tests/test_safing.cpp, which
+    // tested in both directions -- see rig/tests/test_safing.cpp, which
     // asserts that a driver *without* safe() fails the concept, the only
     // way to demonstrate that the compile-time half of the safing contract
     // is real without breaking the build. Note it is not used to *skip*

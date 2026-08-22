@@ -117,7 +117,7 @@ if(BUILD_TESTING_LAYERS)
     # --- Acceptance tests: the run_scripts binary, driven as a subprocess ---
     # Runs the built run_scripts the way a rig console or a CI job does -- real
     # flags, real log files, exit statuses -- and asserts on what comes back
-    # out. That's a different question from anything core_tests/hal_tests can
+    # out. That's a different question from anything core_tests/rig_tests can
     # ask: they exercise the sinks and the verbs with hand-built inputs, which
     # proves each piece works but not that the *command* wires them together.
     #

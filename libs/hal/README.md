@@ -50,6 +50,12 @@ globals and call `Measure`/`Apply`/`safeRig`, so they link `hal_rig` (`hal` come
 transitively). `dut/`'s tests use only `hal::Adapter` and the wiring machinery,
 so they link `hal`.
 
+This directory's own tests are now on the `hal` side of that line, which they
+were not before: the five files that named concrete instruments moved to
+`rig/tests/`, and `hal_tests` links plain `hal`. So the split is checked here
+too — a test added to `tests/` that reaches an instrument global or an `Apply`
+no longer compiles, and belongs in `rig/tests/` (see `rig/README.md`).
+
 ## Layout
 
 ```

@@ -42,7 +42,7 @@
 // What this covers that the other test binaries can't
 // ---------------------------------------------------------------------------
 // core_tests exercises the log sinks directly, with hand-built events, and
-// hal_tests exercises the verbs that feed them. Between them that settles
+// rig_tests exercises the verbs that feed them. Between them that settles
 // whether each piece is correct -- and says nothing about whether the *binary*
 // wires them together: that the flags parse, that log files land where they
 // were asked to, that --safe leaves no log behind, that the exit status agrees

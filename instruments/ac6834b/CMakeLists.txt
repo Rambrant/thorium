@@ -49,6 +49,6 @@ if(BUILD_TESTING_LAYERS)
     # quietly start depending on some other instrument or on this rig's wiring,
     # which is exactly what would make the directory no longer packageable on
     # its own. If a test here ever genuinely needs the fabric or an Apply, it
-    # belongs in rig/tests instead -- see instruments/README.md.
+    # belongs in rig/tests/ instead -- see rig/README.md.
     add_layer_tests(ac6834b hal_ac6834b ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 endif()

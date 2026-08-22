@@ -205,10 +205,10 @@ add_library(hal_rig STATIC
 
 # PUBLIC on both counts. The driver targets carry the include directories the
 # driver headers are found through, and active_instruments.hpp needs those
-# wherever it is expanded -- which is not only here: hal_tests' test_safing.cpp
-# expands it too, and so would a rig-level test or a scripts layer that names
-# an instrument global directly. THORIUM_ACTIVE_INSTRUMENTS is PUBLIC for that
-# same reason.
+# wherever it is expanded -- which is not only here: rig_tests' test_safing.cpp
+# expands it too, and so would any other rig-level test or a scripts layer that
+# names an instrument global directly. THORIUM_ACTIVE_INSTRUMENTS is PUBLIC for
+# that same reason.
 target_link_libraries(hal_rig PUBLIC hal ${THORIUM_INSTRUMENT_TARGETS})
 
 target_compile_definitions(hal_rig PUBLIC
@@ -233,19 +233,19 @@ install(TARGETS hal_rig
 )
 
 if(BUILD_TESTING_LAYERS)
-    # Linked against hal_rig, not hal: test_safing.cpp expands
-    # THORIUM_ACTIVE_INSTRUMENTS, and safeRig() lives there.
+    # Linked against hal, not hal_rig -- and that is the whole point of what is
+    # left in this directory. The drivers took their own tests to
+    # instruments/*/tests/, and the five that needed this rig rather than a
+    # mechanism (test_call_syntax, test_safing, test_source_instruments,
+    # test_describe, test_source_readback) went to rig/tests/. What remains
+    # names no driver, expands neither THORIUM_ACTIVE_INSTRUMENTS nor
+    # THORIUM_WIRING_TABLE, and tests only hal's own generic machinery: the
+    # fabric, the wiring tables, VpcLocation, the adapter macros, addresses,
+    # and what is left of test_instrument.cpp.
     #
-    # What is left in this directory after the drivers took their own tests with
-    # them is two kinds of file. Three are genuinely generic (vpc_location,
-    # switch_fabric, wiring, plus what remains of test_instrument.cpp) and would
-    # link bare hal quite happily. The other four are rig-level integration
-    # tests that happen to still be here: test_call_syntax.cpp and
-    # test_safing.cpp name three and four instruments respectively, and
-    # test_describe.cpp/test_source_readback.cpp check that the engines actually
-    # post to the journal, which is a claim about the engine-and-driver pair
-    # rather than about either alone (see their own header comments, which said
-    # as much before any of this moved). Those four belong in a rig/tests target
-    # -- see instruments/README.md.
-    add_layer_tests(hal hal_rig ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    # So the link line is now an assertion rather than a detail. A test added
+    # here that reaches for an instrument global, an Apply or safeRig() fails to
+    # link, and the failure says what it is: a rig-level test in the generic
+    # library's directory. Its home is rig/tests/ -- see rig/README.md.
+    add_layer_tests(hal hal ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 endif()

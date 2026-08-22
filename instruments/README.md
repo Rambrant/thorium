@@ -70,9 +70,9 @@ instrument is, by construction, not testing this driver in isolation, and the
 directory stops being packageable the moment one does.
 
 Tests that genuinely need several instruments together, or this rig's wiring,
-are rig-level integration tests and belong with the rig, not here. Four files in
-`libs/hal/tests/` are in that category today, still there pending a `rig/tests/`
-target:
+are rig-level integration tests and belong with the rig, not here. They live in
+`rig/tests/` — five files, which passed through `libs/hal/tests/` on their way
+out of this tree:
 
 | File | Why it can't live in a driver directory |
 |---|---|
@@ -83,6 +83,12 @@ target:
 
 That last row is worth reading closely before assuming a file is misplaced: both
 files said as much in their own header comments long before any of this moved.
+
+Which of the three places a test belongs is now a link error rather than a
+judgement call. A driver's test target links its own driver alone, `hal_tests`
+links generic `hal`, and only `rig_tests` links `hal_rig` — so a test reaching
+for a second instrument, an `Apply` or `safeRig()` from either of the first two
+fails to build where it sits. See `rig/README.md`.
 
 The split of `test_source_instruments.cpp` is the one place where moving tests was
 not a verbatim lift. It held N6701A's and Ac6834B's tests behind a single shared
@@ -121,8 +127,6 @@ of the rig after those two lines.
 
 ## Not yet done
 
-- **A `rig/tests/` target** for the four integration tests listed above, so
-  `libs/hal/tests/` holds only tests of hal's own generic mechanism.
 - **A hal API version gate.** A driver written against an older `hal` and
   compiled against a newer one currently fails somewhere deep inside a template
   instantiation. A `THORIUM_HAL_API_VERSION` in generic `hal` plus a

@@ -8,10 +8,9 @@
 // A test that names two instruments cannot live in either one's directory
 // without making that directory depend on the other driver, which is exactly
 // what would stop it being packageable on its own (see instruments/README.md).
-// So it stays at this level. It is really a test of Connect/Disconnect being
-// additive rather than of either supply, and its natural home is a rig/tests
-// target alongside test_call_syntax.cpp and test_safing.cpp -- still to be
-// created.
+// It is really a test of Connect/Disconnect being additive rather than of
+// either supply, which is why it is here rather than in libs/hal/tests/ too:
+// this is a rig-level test, and rig/tests/ is where those live now.
 //
 #include "hal/n6701a.hpp"
 #include "hal/ac6834b.hpp"

@@ -7,7 +7,7 @@
 //
 // This model's back panel, as the constructor constraint actually sees it --
 // checked in both directions, since a check that only ever passes proves
-// nothing about what it rejects (the same shape hal/tests/test_safing.cpp
+// nothing about what it rejects (the same shape rig/tests/test_safing.cpp
 // uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //

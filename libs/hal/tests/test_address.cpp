@@ -6,7 +6,7 @@ namespace
 {
     //
     // The compile-time half of the transport contract, checked in both
-    // directions -- the same shape hal/tests/test_safing.cpp uses for
+    // directions -- the same shape rig/tests/test_safing.cpp uses for
     // hal::SafeableInstrument, and for the same reason: a concept that only
     // ever gets asserted where it holds demonstrates nothing about what it
     // rejects.

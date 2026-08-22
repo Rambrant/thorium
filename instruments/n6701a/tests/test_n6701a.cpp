@@ -1,5 +1,5 @@
 //
-// hal::N6701A's own tests, split out of libs/hal/tests/test_source_instruments.cpp
+// hal::N6701A's own tests, split out of rig/tests/test_source_instruments.cpp
 // when this driver moved into its own directory. That file held N6701A's and
 // Ac6834B's tests together behind one shared fixture; each driver now has its own
 // copy of the fixture, trimmed to the instruments it actually names.
@@ -26,7 +26,7 @@
 //
 // This model's back panel, as the constructor constraint actually sees it --
 // checked in both directions, since a check that only ever passes proves
-// nothing about what it rejects (the same shape hal/tests/test_safing.cpp
+// nothing about what it rejects (the same shape rig/tests/test_safing.cpp
 // uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //

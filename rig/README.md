@@ -16,10 +16,12 @@ for the four `THORIUM_*` compile definitions (declared and validated in
 
 ```
 rig/
+    CMakeLists.txt         # no library -- just rig_tests, over the four files below
     instrument.inc         # THORIUM_INSTRUMENT_TABLE -- this rig's fixed instrument list, and hal::InstrumentId's enumerators
     devices.inc             # THORIUM_DEVICE_TABLE -- this rig's switching devices, and hal::SwitchDeviceId's enumerators
     wiring.inc              # THORIUM_WIRING_TABLE -- this rig's fixed instrument/connector wiring
     active_instruments.hpp # THORIUM_ACTIVE_INSTRUMENTS -- Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/Ser1/fabric
+    tests/                  # the integration tests that need this rig rather than a mechanism
 ```
 
 ## instrument.inc
@@ -122,12 +124,44 @@ no factory function, no lookup -- so this file, together with
 what would otherwise be a generic `hal::` library with no instruments
 plugged into it at all.
 
+## tests/
+
+A directory of data with a test target, the same shape `dut/` has. What lands
+here is what belongs to neither of the two places a hal-side test would
+otherwise go: not to generic `libs/hal/`, because it names concrete
+instruments, and not to any one `instruments/<model>/`, because it names more
+than one of them (a driver directory that reached for a second driver would
+stop being packageable on its own — see `instruments/README.md`).
+
+| File | What makes it rig-level |
+|---|---|
+| `test_call_syntax.cpp` | source a rail, connect it, measure it with a second instrument, tear down — three drivers and four engines, the shape a script actually writes |
+| `test_safing.cpp` | expands `active_instruments.hpp` and calls `hal::safeRig()`, which reflects over this rig's real globals |
+| `test_source_instruments.cpp` | `Connect`/`Disconnect` being additive, which takes a DC supply and an AC source in one test |
+| `test_describe.cpp` | that the engines actually post `describeConfig`'s output to the journal |
+| `test_source_readback.cpp` | a source measuring its own output, and leaving the fabric untouched |
+
+The last two are the ones that look misplaced and aren't: "did `Apply` reach the
+log" is a claim about the engine-and-driver pair, which neither side can assert
+about itself.
+
+`rig_tests` is the only test target that links `hal_rig`. `hal_tests` links
+generic `hal`, and each driver's tests link that driver alone, so a test written
+in either of those places that reaches an instrument global, an `Apply` or
+`safeRig()` fails to build — the boundary is checked by the link line rather
+than by review. Note what does *not* live here: `dut/tests/`'s
+`test_wiring_coverage.cpp` reads `rig/wiring.inc`, but what it checks is that
+every DUT point is wired, so it belongs with the DUT profile that names the
+points.
+
 ## A new rig
 
 A separate rig -- its own repo, its own bench, its own instruments -- reuses
 `libs/core/` and `libs/hal/` as-is (via `find_package`/`FetchContent`/
 `add_subdirectory`, whichever that repo's own build prefers) and supplies
-its own three files in this same shape, pointed at by the same three
-`THORIUM_*` variables `libs/hal/CMakeLists.txt` requires. Nothing under
-`libs/hal/` needs to change for that to work -- that's the point of the
-split this directory draws.
+its own four files in this same shape, pointed at by the same four
+`THORIUM_*` variables `libs/hal/CMakeLists.txt` requires. Its own `tests/`
+comes with them, for the same reason this one exists: those tests name that
+rig's instruments, so they are that rig's content and not the framework's.
+Nothing under `libs/hal/` needs to change for any of it to work -- that's the
+point of the split this directory draws.

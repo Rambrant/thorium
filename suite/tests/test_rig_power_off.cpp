@@ -4,7 +4,7 @@
 // Unlike the other two test files here, this one reaches the rig's instrument
 // globals and the fabric directly. It has to: the hook under test takes no
 // arguments and reads nothing back, so the only thing there is to assert on is
-// the state it leaves the rig in -- the same reason hal/tests/test_safing.cpp
+// the state it leaves the rig in -- the same reason rig/tests/test_safing.cpp
 // drives those globals rather than locals of its own. Still not the prelude: a
 // test of a hook is no more a script than a test of a script is.
 //

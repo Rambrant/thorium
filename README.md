@@ -139,7 +139,8 @@ libs/            THE FRAMEWORK -- portable, knows nothing about this rig or DUT
 instruments/     THE DRIVERS   -- one directory per instrument, each
                  independently packageable, each with its own tests
 
-rig/             THIS BENCH'S DATA      -- which instruments, wired how
+rig/             THIS BENCH'S DATA      -- which instruments, wired how,
+                 plus the integration tests that need more than one of them
 dut/             THIS DEVICE'S DATA     -- named test points, tolerance tables
 suite/           THIS SUITE'S CONTENT   -- test scripts and the catalog
 app/             THE RUNNER             -- main.cpp, build targets
@@ -153,7 +154,7 @@ docs/            the slide deck
 `libs/` never depends on anything outside it. A second rig testing a second
 device is a *separate repository* that reuses `libs/core` and `libs/hal`
 unchanged and brings its own `rig/`, `dut/`, `suite/` and `app/`. Everything
-rig-specific reaches the framework through three CMake file paths and a handful
+rig-specific reaches the framework through four CMake file paths and a handful
 of compile definitions — never through an `#include` pointing outwards.
 
 ### Every README in this tree
@@ -184,7 +185,7 @@ that cannot be recovered from the code.
 
 | | |
 |---|---|
-| [`rig`](rig/README.md) | This bench's instruments, their wiring, and the three tables a rig supplies |
+| [`rig`](rig/README.md) | This bench's instruments, their wiring, the four tables a rig supplies, and the integration tests that need more than one instrument |
 | [`dut`](dut/README.md) | This device's test points and criteria variants |
 | [`suite`](suite/README.md) | Test scripts, the catalog, and the setup/teardown hooks |
 
@@ -1103,7 +1104,9 @@ ctest --test-dir build/debug -N                      # count and name them, run 
 | Target | Covers |
 |---|---|
 | `core_tests` | units, predicates, criteria, sessions, journal, all three log sinks |
-| `hal_tests` | drivers, switching fabric, wiring, safing, `describeConfig` |
+| `hal_tests` | hal's own generic mechanism — switching fabric, wiring, VPC locations, adapter macros, addresses |
+| `<model>_tests` | one per driver directory, each linking its own driver alone (`l4411a_tests`, `dso8064a_tests`, …) |
+| `rig_tests` | the integration tests that need this rig — several instruments at once, safing, `describeConfig` reaching the journal |
 | `dut_tests` | the DUT profile — including the wiring-coverage build check |
 | `scripts_tests` | the test scripts, injected; plus the variant parity build check |
 | `acceptance_tests` | the `run_scripts` binary as a subprocess — flags, log files, exit codes |

@@ -218,8 +218,10 @@ endif()
 # rig   : this rig's data only (which instruments it has, how they're
 #         wired, what to call them) -- content only, no library of its own,
 #         the same shape dut/ uses for DUT-specific data; see rig/README.md.
-#         No add_subdirectory: nothing here has a build target yet (no
-#         rig-level tests), only the files pointed at below.
+#         Its add_subdirectory declares no library, only rig_tests: the
+#         integration tests that need more than one instrument, or this
+#         rig's own globals, and so belong to neither generic hal nor any
+#         single driver directory.
 # dut   : DUT-specific data only (adapter profile + criteria variants, both
 #         flat macro-driven .inc files -- see dut/README.md) -- no library
 #         of its own, just tests over that data linked against hal
@@ -328,6 +330,11 @@ install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/ThoriumConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Thorium
 )
+
+# After libs/hal, not before: rig/ declares no library of its own, and the one
+# target it does declare -- rig_tests -- links hal_rig, which does not exist
+# until libs/hal has been configured (and, before that, the drivers it links).
+add_subdirectory(rig)
 
 add_subdirectory(dut)
 #add_subdirectory(dsl)

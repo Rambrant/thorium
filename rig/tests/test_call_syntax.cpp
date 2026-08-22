@@ -1,7 +1,8 @@
 //
-// hal/tests/test_instrument.cpp and hal/tests/test_source_instruments.cpp
-// each exercise Measure and Apply/Connect/Disconnect/Remove in isolation --
-// one instrument family at a time, and never both in the same test. A real
+// The drivers' own tests under instruments/*/tests/, and
+// test_source_instruments.cpp beside this file, each exercise Measure and
+// Apply/Connect/Disconnect/Remove in isolation -- one instrument family at a
+// time, and never both in the same test. A real
 // script's actual shape is closer to: source a rail, connect it, measure it
 // with a second instrument, then tear down -- so this file stitches those
 // together, using the real hal engines (MeasureEngine/ApplyEngine/
