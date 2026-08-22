@@ -81,3 +81,12 @@ auto supplyRailScript() -> bool;
 //
 [[nodiscard]]
 auto consoleScript() -> bool;
+
+//
+// Drops the DUT's primary AC input and measures the negative transient the 5V
+// output rail shows while the backup supplies take over. The single-shot path:
+// the one script here whose stimulus it causes itself, and so the one that
+// needs Arm and Await around the event rather than a plain Measure.
+//
+[[nodiscard]]
+auto acDropoutScript() -> bool;

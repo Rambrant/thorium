@@ -81,6 +81,33 @@ namespace core
                 std::string_view                  name,
                 std::string_view                  instrumentId,
                 const std::function<Bytes()> &    liveRead) -> Bytes = 0;
+
+            //
+            // And the same seam again for a yes/no observation: whether a
+            // triggered acquisition completed within the time it was given
+            // (see core::AwaitEngine in core/acquire.hpp). Same contract as
+            // both of the above -- liveRead does the real polling, and the
+            // name/instrumentId are alongside for sessions that key off them.
+            //
+            // A third method rather than a third alternative in
+            // QuantityVariant, for the reason fetchData's own comment gives
+            // and one more besides. Waiting is not measuring: the answer has
+            // no unit, no tolerance and no meaningful arithmetic, and the
+            // *question* is not "what is the value at this point" but "did the
+            // thing I armed happen". Keying it through fetch() would have made
+            // a completion flag indexable by QuantityKind, which is a promise
+            // core/quantity_kind.hpp could not keep.
+            //
+            // Pure, like the other two, and for the same reason: a future
+            // session answering only two of the three questions would replay
+            // its measurements and then ask absent hardware whether there had
+            // been anything to measure.
+            //
+            [[nodiscard]]
+            virtual auto fetchFlag(
+                std::string_view                  name,
+                std::string_view                  instrumentId,
+                const std::function<bool()> &     liveRead) -> bool = 0;
     };
 
     //
@@ -105,6 +132,15 @@ namespace core
                 std::string_view,
                 std::string_view,
                 const std::function<Bytes()> & liveRead) -> Bytes override
+            {
+                return liveRead();
+            }
+
+            [[nodiscard]]
+            auto fetchFlag(
+                std::string_view,
+                std::string_view,
+                const std::function<bool()> & liveRead) -> bool override
             {
                 return liveRead();
             }
@@ -153,6 +189,15 @@ namespace core
                 const std::function<Bytes()> &  liveRead) -> Bytes override
             {
                 return mCurrent->fetchData( name, instrumentId, liveRead);
+            }
+
+            [[nodiscard]]
+            auto fetchFlag(
+                const std::string_view         name,
+                const std::string_view         instrumentId,
+                const std::function<bool()> &  liveRead) -> bool override
+            {
+                return mCurrent->fetchFlag( name, instrumentId, liveRead);
             }
 
         private:
@@ -295,6 +340,54 @@ namespace core
     auto constantDataSource( Bytes value) -> DataSource;
 
     //
+    // And the flag half -- the same three ideas a third time, for the
+    // yes/no observations core::ISession::fetchFlag answers.
+    //
+    // Written out rather than made generic over the element type, which is
+    // now three near-identical blocks in one file and is still the right
+    // call: making them one template would put an element-type argument into
+    // ScriptedSession's public shape, into SessionBank's, and into every
+    // engine that names one of these -- three spellings gaining a parameter
+    // that is always one of three known types, to save two small functions.
+    //
+    using FlagSource = std::move_only_function<std::optional<bool>()>;
+
+    template<std::ranges::input_range R>
+        requires std::constructible_from<bool, std::ranges::range_reference_t<R>>
+    [[nodiscard]]
+    auto flagSourceOf( R range) -> FlagSource
+    {
+        struct State
+        {
+            R                                          mRange;
+            std::optional<std::ranges::iterator_t<R>>  mCursor;
+        };
+
+        return [ state = std::make_unique<State>( std::move( range), std::nullopt)]() mutable
+            -> std::optional<bool>
+        {
+            if( !state->mCursor)
+            {
+                state->mCursor = std::ranges::begin( state->mRange);
+            }
+
+            if( *state->mCursor == std::ranges::end( state->mRange))
+            {
+                return std::nullopt;
+            }
+
+            bool value{ **state->mCursor };
+
+            ++*state->mCursor;
+
+            return value;
+        };
+    }
+
+    [[nodiscard]]
+    auto constantFlagSource( bool value) -> FlagSource;
+
+    //
     // A session that never touches hardware: it hands back pre-determined
     // values per DUT point name, so script unit tests (and later, debugging
     // playback of a real run) never need hal at all and never need a
@@ -348,6 +441,13 @@ namespace core
             auto programData( std::string_view name, DataSource source) -> void;
 
             //
+            // The flag half, in a third map for the same reason the payload
+            // half has a second one -- see programData's comment above.
+            //
+            auto programFlag( std::string_view name, bool value) -> void;
+            auto programFlag( std::string_view name, FlagSource source) -> void;
+
+            //
             // Loads a recording (see core/recording.hpp) and queues its samples
             // per point name, in the order they were recorded.
             //
@@ -366,9 +466,16 @@ namespace core
                 std::string_view                instrumentId,
                 const std::function<Bytes()> &  liveRead) -> Bytes override;
 
+            [[nodiscard]]
+            auto fetchFlag(
+                std::string_view               name,
+                std::string_view               instrumentId,
+                const std::function<bool()> &  liveRead) -> bool override;
+
         private:
             std::unordered_map<std::string, ValueSource>  mSources;
             std::unordered_map<std::string, DataSource>   mDataSources;
+            std::unordered_map<std::string, FlagSource>   mFlagSources;
     };
 
     //
@@ -395,6 +502,12 @@ namespace core
                 std::string_view                name,
                 std::string_view                instrumentId,
                 const std::function<Bytes()> &  liveRead) -> Bytes override;
+
+            [[nodiscard]]
+            auto fetchFlag(
+                std::string_view               name,
+                std::string_view               instrumentId,
+                const std::function<bool()> &  liveRead) -> bool override;
 
             [[nodiscard]]
             auto samples() const -> const std::vector<RecordedSample> &
@@ -473,6 +586,24 @@ namespace core
             auto injectData( const std::string_view name, DataSource source) -> void
             {
                 mScripted.programData( name, std::move( source));
+                mSwitchable.use( mScripted);
+            }
+
+            //
+            // The flag half. Named apart from the other two for the reason
+            // injectData gives, and then some: bool is the type nearly
+            // anything converts to, so an overload here would have quietly
+            // swallowed calls meant for either of the others.
+            //
+            auto injectFlag( const std::string_view name, const bool value) -> void
+            {
+                mScripted.programFlag( name, value);
+                mSwitchable.use( mScripted);
+            }
+
+            auto injectFlag( const std::string_view name, FlagSource source) -> void
+            {
+                mScripted.programFlag( name, std::move( source));
                 mSwitchable.use( mScripted);
             }
 

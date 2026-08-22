@@ -2,7 +2,7 @@
 
 #include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/ac6834b.hpp"
-#include "hal/dso8064.hpp"
+#include "hal/dso8064a.hpp"
 #include "hal/instrument.hpp"
 #include "hal/l4411a.hpp"
 #include "hal/n6701a.hpp"
@@ -30,7 +30,7 @@ namespace
     static_assert( hal::SafeableInstrument< hal::N6701ARelay> );
     static_assert( hal::SafeableInstrument< hal::Ac6834B> );
     static_assert( hal::SafeableInstrument< hal::L4411A> );
-    static_assert( hal::SafeableInstrument< hal::DSO8064> );
+    static_assert( hal::SafeableInstrument< hal::DSO8064A> );
 
     //
     // The other compile-time half, specific to reflecting over InstrumentTag
@@ -51,7 +51,7 @@ namespace
     static_assert( std::derived_from< hal::N6701ARelay,  hal::InstrumentTag> );
     static_assert( std::derived_from< hal::Ac6834B,      hal::InstrumentTag> );
     static_assert( std::derived_from< hal::L4411A,       hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::DSO8064,      hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::DSO8064A,      hal::InstrumentTag> );
 
     //
     // The other direction, which is the half that actually demonstrates
@@ -213,10 +213,10 @@ TEST_F( SafingFixture, SafeRigDoesNotDisturbPassiveInstrumentState)
     // instruments were told to look at. Nothing about them can energise
     // the DUT, and safing runs after a script has already died, so there
     // is no reason to discard the one piece of state still worth reading
-    // afterwards -- see hal::DSO8064::safe().
+    // afterwards -- see hal::DSO8064A::safe().
     static_cast<void>( Dmm1.acVoltage());
     static_cast<void>( Osc1.channel<3>());
-    Osc1.setMode( hal::DSO8064::Mode::Vrms);
+    Osc1.setMode( hal::DSO8064A::Mode::Vrms);
 
     const auto dmmMode     = Dmm1.mode();
     const auto scopeMode   = Osc1.mode();

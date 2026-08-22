@@ -407,6 +407,24 @@ namespace core
         constexpr quantities::Time operator""_ms( long double v ) { return quantities::Time{ static_cast<double>(v / 1000.0) }; }
         constexpr quantities::Time operator""_ms( unsigned long long v ) { return operator""_ms( static_cast<long double>( v)); }
 
+        //
+        // Microseconds and nanoseconds, which arrive with the oscilloscope.
+        // A scope's timebase and its edge timings live down here -- 5_ns/div
+        // is an ordinary setting and a rise time is quoted in nanoseconds --
+        // and without these the alternatives were Time{ 12e-9 } or 0.000012_ms,
+        // neither of which reads like the number an engineer said out loud.
+        //
+        // "_us" rather than "_µs": a literal suffix is an identifier, and while
+        // C++ would accept the Greek letter, a unit that cannot be typed on
+        // every keyboard in the building is a unit that gets avoided. The ASCII
+        // spelling is the one every datasheet falls back to for the same
+        // reason.
+        //
+        constexpr quantities::Time operator""_us( long double v ) { return quantities::Time{ static_cast<double>(v / 1'000'000.0) }; }
+        constexpr quantities::Time operator""_us( unsigned long long v ) { return operator""_us( static_cast<long double>( v)); }
+        constexpr quantities::Time operator""_ns( long double v ) { return quantities::Time{ static_cast<double>(v / 1'000'000'000.0) }; }
+        constexpr quantities::Time operator""_ns( unsigned long long v ) { return operator""_ns( static_cast<long double>( v)); }
+
         constexpr quantities::Resistance operator""_Ohm( long double v ) { return quantities::Resistance{ static_cast<double>(v) }; }
         constexpr quantities::Resistance operator""_Ohm( unsigned long long v ) { return operator""_Ohm( static_cast<long double>( v)); }
         constexpr quantities::Resistance operator""_kOhm( long double v ) { return quantities::Resistance{ static_cast<double>(v) * 1000.0 }; }

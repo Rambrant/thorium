@@ -27,7 +27,7 @@ namespace hal
     // non-portability of its measurement-function set (CONF:VOLT:DC,
     // CONF:RES, CONF:FRES, ...) rather than pretending a DMM driver is as
     // interchangeable across models as a generic placeholder can pretend to
-    // be -- hal::DSO8064 (see hal/dso8064.hpp) has since given
+    // be -- hal::DSO8064A (see hal/dso8064a.hpp) has since given
     // hal::Oscilloscope the same retirement.
     //
     // AC/DC mode and 2-wire/4-wire resistance mode are both deliberately

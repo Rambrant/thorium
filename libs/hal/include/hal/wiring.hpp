@@ -147,7 +147,7 @@ namespace hal
             // (hal::Ac6834B's three phases plus ground/neutral return, or
             // a power supply's remote-sense leads if this rig has them).
             // Single-connection instruments with no sense wiring
-            // (hal::DSO8064, hal::L4411A) keep using find() above.
+            // (hal::DSO8064A, hal::L4411A) keep using find() above.
             // Throws std::runtime_error if this instrument has no fixed
             // path at all.
             //

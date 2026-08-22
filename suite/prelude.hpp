@@ -44,6 +44,7 @@
 #include "hal/measure.hpp"
 #include "hal/source.hpp"
 #include "hal/route.hpp"
+#include "hal/acquire.hpp"
 
 //
 // The verdict verb, unqualified -- so a script writes Verify( ...) next to

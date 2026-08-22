@@ -37,7 +37,7 @@ wrong.
 
 ### What is a compile error today
 
-Eighteen classes of mistake, none of which can reach the bench:
+Twenty-two classes of mistake, none of which can reach the bench:
 
 | Mistake | What happens |
 |---|---|
@@ -51,7 +51,7 @@ Eighteen classes of mistake, none of which can reach the bench:
 | A criterion present in one variant only | `scripts_tests` fails to build |
 | Misspelled or renamed script in `TEST(...)` | undeclared identifier |
 | `Connect( DcP1.dc())` on a supply with no isolation relay | no matching `connectDriver` |
-| `Osc1.channel<5>()` on a four-channel scope | no valid instantiation |
+| `Osc1.channel<5>()` or `Osc1.trigger().edgeSource<5>()` on a four-channel scope | no valid instantiation |
 | An instrument driver with no `safe()` | `static_assert` naming the type |
 | A new `QuantityKind` with no matching `Quantity` alias | `static_assert` with the fix |
 | A new source instrument with no `describeConfig` | no matching function |
@@ -59,6 +59,9 @@ Eighteen classes of mistake, none of which can reach the bench:
 | `.epsilon()` on a type a tolerance is meaningless for | constraint not satisfied |
 | Misspelled bundle — `at( dut::Consol)` | no such member |
 | `Apply( Ser1.rs232())` on a port with no output to energise | no matching `applyDriver` |
+| `Apply( Osc1.trigger())` on a scope, which energises nothing | no matching `applyDriver` |
+| `Arm( Osc1.trigger())` — arming something that is not a capture | no matching `armDriver` |
+| `Setup( Osc1.channel<3>())` naming a channel and no setting | no matching function |
 | `BIT_SET<9>()` against a `std::byte` | constraint not satisfied |
 
 Two of those deserve a second look, because they are the interesting ones.
@@ -100,6 +103,17 @@ Being honest about the edges matters more than the table above:
   that far, but a hand-typed flag has no such help.
 - **Instrument I/O.** Real instruments are absent, mis-addressed or lying. That
   is what the runtime is for.
+- **A measurement the instrument declines to make.** Not an error and not a
+  compile-time question — a real third answer, reported with the instrument's
+  own reason and read back as NaN unless the script says otherwise. See
+  §3, "When an instrument cannot make the measurement".
+- **Two *quantities* measured at one DUT point share a session slot.**
+  `Measure( Dmm1.voltage(), at( p))` and `Measure( Dmm1.current(), at( p))` both
+  key as `"p"`, so a test injecting both gets them in whichever order the script
+  asks. A driver that gives several answers about one pin can key them apart by
+  qualifying its ports (`core::Port::qualifiedBy` — the oscilloscope does), but
+  the general case would need the `QuantityKind` folded into the key, which
+  would rename every key in every existing recording.
 - **Electrical safety of a route.** `SwitchFabric::connect()` is additive and
   reference-counted, and it refuses nothing. Two instruments sharing a pin is
   the intended behaviour — that is how a rail is measured while a supply holds
@@ -161,7 +175,7 @@ that cannot be recovered from the code.
 | | |
 |---|---|
 | [`instruments/l4411a`](instruments/l4411a/README.md) | DMM — `Dmm1`/`Dmm2`, including the 4-wire sense path |
-| [`instruments/dso8064`](instruments/dso8064/README.md) | Oscilloscope — `Osc1` |
+| [`instruments/dso8064a`](instruments/dso8064a/README.md) | Oscilloscope — `Osc1` |
 | [`instruments/n6701a`](instruments/n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
 | [`instruments/ac6834b`](instruments/ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
 | [`instruments/racal1260`](instruments/racal1260/README.md) | RS232 port — `Ser1`, routed to a DUT interface through the matrix |
@@ -249,8 +263,8 @@ the moment of reading, so adding a point costs one wiring line — not one line 
 (instrument, pin) pair.
 
 **One event stream, many renderings.** Every verb — `Measure`, `Setup`, `Apply`,
-`Remove`, `Connect`, `Disconnect`, `Write`, `Read`, `Verify`, plus the safing
-pass — posts to `core::Journal`. Sinks decide what to show. Neither filtering nor
+`Remove`, `Connect`, `Disconnect`, `Write`, `Read`, `Arm`, `Await`, `Verify`, plus
+the safing pass — posts to `core::Journal`. Sinks decide what to show. Neither filtering nor
 formatting lives at a call site, which is why a third log format needs no change
 to any verb.
 
@@ -644,9 +658,11 @@ instantaneous and independent, where dropping the path between a command and its
 answer would break the exchange.
 
 **`Setup` is not `Apply`.** Configuring a UART changes what a later `Write` means
-and changes nothing at the DUT's pins, so it is a verb of its own — and one the
-oscilloscope will want too. `Apply` on a port that has no output to energise is a
-compile error rather than a call that silently does nothing.
+and changes nothing at the DUT's pins, so it is a verb of its own — and the one the
+oscilloscope uses for all of its trigger, timebase, acquisition and channel
+settings. `Apply` on an instrument that has no output to energise is a compile
+error rather than a call that silently does nothing, on a serial port and on a
+scope alike.
 
 **A reply is `core::Bytes`, not a `std::string`.** Length is its own fact, so an
 embedded NUL is an ordinary byte; elements are `std::byte`, so a locale-aware
@@ -682,6 +698,127 @@ EXPECT_TRUE( consoleScript());
 `--record` and `--replay` cover both in one file, in one ordered stream — a
 payload row carries `<bytes>` where a reading carries its unit, and its value is
 unspaced hex so a reply containing a tab or a newline still round-trips.
+
+### Capture a single-shot event
+
+Every other reading in this framework is self-contained: `Measure` connects,
+reads and disconnects inside one call. A triggered capture is not, because the
+thing being captured happens *between* the halves and the script is what causes
+it. That is the whole reason `Arm` and `Await` exist as two verbs.
+
+```cpp
+Setup( Osc1.trigger().edgeSource<3>().slope( TriggerSlope::Falling)
+                     .level( 4.8_V).sweep( TriggerSweep::Auto));
+Setup( Osc1.timebase().timePerDivision( 10_ms).reference( TimebaseReference::Left));
+Setup( Osc1.acquisition().mode( AcquisitionMode::HighResolution).automaticPoints());
+Setup( Osc1.channel<3>().input( ChannelInput::Dc1M).probeAdapter( ProbeAdapter::Div10)
+                        .voltsPerDivision( 100_mV).verticalOffset( 5_V));
+
+const auto baseline = Measure( Osc1.channel<3>().vbase(), at( dut::Output5V));
+
+Arm( Osc1.single().timeout( 2_s));       // returns once the scope is ARMED
+
+Remove(     AcP1.ac());                  // the event to capture
+Disconnect( AcP1.ac());
+
+const auto captured = Await( Osc1.single());
+
+allPassed &= Verify( FS_Transient_1::FS_Transient_Captured, captured);
+```
+
+`suite/scripts/ac_dropout_script.cpp` is this written out in full.
+
+**`Arm` blocks until the instrument is armed, not until it has been told to
+arm.** Those are different moments, and the gap between them is where a
+single-shot test silently fails — the event fires while the scope is still
+setting itself up, nothing triggers, and the run reports a missing transient
+that was in fact there. Keysight's own Infiniium programmer's reference gives
+the sequence (`:SINGLE`, then poll `:AER?`) with the comment *"oscilloscope is
+armed and ready, enable DUT here"* on exactly the line `Remove` sits on above.
+So the ordering rule is **Arm, then cause the event**, and like
+Connect-before-Apply nothing enforces it.
+
+**`Await` returns `bool` rather than throwing on timeout.** "The transient never
+arrived" is a finding about the DUT, not an error in the bench — very possibly
+the thing the test was written to check — so it comes back as a value a criterion
+is pointed at. It is `[[nodiscard]]`: an `Await` whose answer is dropped is a
+script that waited and then measured whatever was in the acquisition buffer from
+before.
+
+**Check it before reading anything out of the capture.** A measurement taken
+after a capture that never completed is a measurement of the previous one. It
+will be a number, it will very likely be in tolerance, and it will mean nothing.
+
+**Both verbs are generic.** They live in `core/acquire.hpp` and are named for the
+operation, not the instrument: a transient recorder, a digitizer or a counter
+with an armed gate is the same shape. `hal::DSO8064A` is simply the first driver
+to answer to `armDriver`/`awaitDriver`, exactly as `hal::Racal1260` was the first
+to answer to `writeDriver`/`readDriver`.
+
+**Testing it without a bench** works as it does for a reading and a reply — an
+`Await` is an observation, so it goes through the same session bank:
+
+```cpp
+Measure.inject( "Output5V.Vbase", Voltage{ 5.00 });
+Await.inject(   "Osc1.Acquisition", true);
+Measure.inject( "Output5V.Vmin",  Voltage{ 4.88 });
+
+EXPECT_TRUE( acDropoutScript());
+```
+
+`Arm` is deliberately absent from that list: it is stimulus, like `Setup` and
+`Write`, so there is nothing for a replay to reproduce about it. A flag row in a
+recording carries `<flag>` where a reading carries its unit.
+
+Note the two measurement keys. An oscilloscope gives fifteen different answers
+about one pin, so its ports name which one they are (`core::Port::qualifiedBy`)
+and key as `"Output5V.Vbase"` rather than sharing one `"Output5V"` slot. An
+ordinary DMM reading needs no such thing and is unaffected.
+
+### When an instrument cannot make the measurement
+
+A real instrument has a third answer besides a number and a fault: *"I could not
+measure that."* An Infiniium returns `9.99999E+37`, and with `:MEASure:SENDvalid`
+on it also returns which of some thirty specific things went wrong — no edge on
+the trace, the waveform clipped, top and base equal.
+
+A driver reports this by throwing `core::UnmeasurableReading` carrying the
+instrument's own words. `Measure` catches it, and the default is **NaN**:
+
+```cpp
+const auto rise = Measure( Osc1.channel<3>().riseTime(), at( dut::ClkProbe));
+// nan, if there was no edge -- and the log says why
+```
+
+NaN is chosen rather than defaulted to. It compares false against every
+predicate, so the criterion beneath it fails, the instrument's reason is
+recorded beside the point name, and the run carries on to the next check.
+Throwing out of `Measure` would abandon every later check in the script over one
+reading the instrument declined to make.
+
+Where a script has a *specific* meaning for the absence, it says so on the line
+that asks the question:
+
+```cpp
+Osc1.channel<3>().vmin().whenUnmeasurable( []{ return 0_V; })
+
+Osc1.channel<3>().vmin().whenUnmeasurable( []( auto reason)
+{
+    // No excursion is a dip of zero. A clipped trace is a bench fault, and
+    // should still fail.
+    return reason.contains( "min not found") ? 0_V : Voltage{ NAN };
+})
+```
+
+A callable and not a value, deliberately: the substitution is a decision, and a
+decision deserves somewhere to put its reasoning. `.whenUnmeasurable( 0_V)` would
+read as "this measured zero", which is the one thing it must never be mistaken
+for.
+
+This replaces the legacy ATE's `ISINVALID()` predicate, which answered only
+*whether* a reading failed and threw away *why* — and did it in an `if` block
+several lines below the measurement it applied to, where it silently applied to
+whatever else was in the variable by then.
 
 ### Add a unit of measurement
 

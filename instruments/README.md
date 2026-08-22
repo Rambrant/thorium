@@ -13,7 +13,7 @@ instruments/
         README.md
         include/hal/l4411a.hpp
         tests/test_l4411a.cpp
-    dso8064/                    # hal::DSO8064 -- four-channel oscilloscope
+    dso8064a/                    # hal::DSO8064A -- four-channel oscilloscope
     n6701a/                     # hal::N6701A  -- one DC supply channel
     ac6834b/                    # hal::Ac6834B -- three-phase AC source
     racal1260/                  # hal::Racal1260 -- matrix-routed RS232 port

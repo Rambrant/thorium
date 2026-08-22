@@ -3,7 +3,7 @@
 #include "hal/address.hpp"
 #include "hal/instrument.hpp"
 #include "hal/l4411a.hpp"
-#include "hal/dso8064.hpp"
+#include "hal/dso8064a.hpp"
 #include "hal/n6701a.hpp"
 #include "hal/ac6834b.hpp"
 #include "hal/racal1260.hpp"

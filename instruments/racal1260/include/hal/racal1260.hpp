@@ -209,7 +209,7 @@ namespace hal
     //
     // Deliberately named after a model at all, placeholder or not, rather than
     // hal::Rs232Port. That was the retired hal::Dmm/hal::Oscilloscope mistake
-    // (see hal::L4411A and hal::DSO8064 on how it went): a serial driver's
+    // (see hal::L4411A and hal::DSO8064A on how it went): a serial driver's
     // command set, its framing limits and its idea of a timeout are as
     // model-specific as any SCPI dialect, and a generic name promises an
     // interchangeability no real driver has.

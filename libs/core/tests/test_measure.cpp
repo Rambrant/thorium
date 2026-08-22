@@ -1,8 +1,11 @@
 #include "core/measure.hpp"
 
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <generator>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -128,12 +131,30 @@ namespace mock
 
             auto setSimulatedVoltage( Voltage v) -> void { mVoltage = v; }
 
+            //
+            // Makes this instrument answer the way a real one does when it
+            // cannot make the reading at all -- see core::UnmeasurableReading.
+            // A driver-side concern in general (hal::DSO8064A is the one that
+            // has a real fault table), modelled here because what is under
+            // test is what core::MeasureEngine does with it.
+            //
+            auto setSimulatedUnmeasurable( std::string reason) -> void { mFault = std::move( reason); }
+
             template<core::quantities::QuantityType Q>
-            [[nodiscard]] auto rawMeasure( const core::MeasureSetup<Q> & ) -> Q { return mVoltage; }
+            [[nodiscard]] auto rawMeasure( const core::MeasureSetup<Q> & ) -> Q
+            {
+                if( mFault)
+                {
+                    throw core::UnmeasurableReading( *mFault);
+                }
+
+                return mVoltage;
+            }
 
         private:
-            InstrumentId mId;
-            Voltage      mVoltage{};
+            InstrumentId               mId;
+            Voltage                    mVoltage{};
+            std::optional<std::string> mFault;
     };
 } // namespace mock
 
@@ -321,4 +342,181 @@ TEST_F( MeasureEngineFixture, RecordingCapturesEachFetchThenLoadReplaysItInOrder
     EXPECT_THROW( (void)playback( dmm1.voltage(), at( Output5V)), std::runtime_error);
 
     std::remove( path.string().c_str());
+}
+
+//
+// ---------------------------------------------------------------------
+// Readings the instrument could not make
+// ---------------------------------------------------------------------
+//
+
+TEST_F( MeasureEngineFixture, AnUnmeasurableReadingComesBackAsNaNRatherThanUnwindingTheScript)
+{
+    //
+    // The default when no whenUnmeasurable() handler was given. NaN is chosen
+    // rather than defaulted to: it compares false against every predicate, so
+    // the criterion beneath it fails and the run carries on to the next check
+    // -- where throwing out of Measure() would abandon every later check in
+    // the script over one measurement the scope declined to make.
+    //
+    dmm1.setSimulatedUnmeasurable( "required edge not found");
+
+    const auto value = Measure( dmm1.voltage(), at( Output5V));
+
+    EXPECT_TRUE( std::isnan( value.value()));
+}
+
+TEST_F( MeasureEngineFixture, AnUnmeasurableReadingStillReleasesTheRouteItClosed)
+{
+    //
+    // An unmeasurable reading is a normal path, and a normal path must not
+    // leave the fabric holding channels closed -- otherwise the first scope
+    // measurement that found no edge would strand a mux path for the rest of
+    // the run.
+    //
+    dmm1.setSimulatedUnmeasurable( "no data on screen");
+
+    (void)Measure( dmm1.voltage(), at( Output5V));
+
+    EXPECT_EQ( fabric.lastConnected(),    (std::vector<mock::Channel>{ 14, 3 }));
+    EXPECT_EQ( fabric.lastDisconnected(), (std::vector<mock::Channel>{ 14, 3 }));
+}
+
+TEST_F( MeasureEngineFixture, WhenUnmeasurableSubstitutesTheScriptsOwnMeaningForTheAbsence)
+{
+    // "No detectable transient is a transient of zero volts" -- the decision
+    // the legacy ATE made in an if-block several lines below the measurement.
+    dmm1.setSimulatedUnmeasurable( "min not found");
+
+    const auto value = Measure( dmm1.voltage().whenUnmeasurable( []{ return 0_V; }), at( Output5V));
+
+    EXPECT_DOUBLE_EQ( value.value(), 0.0);
+}
+
+TEST_F( MeasureEngineFixture, WhenUnmeasurableCanDecideOnTheInstrumentsReason)
+{
+    //
+    // Which is the whole reason the handler is a callable rather than a
+    // value: "the scope saw no transient" and "the scope could not have seen
+    // one" are different facts, and only the first of them is a zero.
+    //
+    auto substitute = []( const std::string_view reason)
+    {
+        return reason.contains( "clipped") ? Voltage{ 99.0 } : 0_V;
+    };
+
+    dmm1.setSimulatedUnmeasurable( "waveform is clipped high");
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage().whenUnmeasurable( substitute), at( Output5V)).value(), 99.0);
+
+    dmm1.setSimulatedUnmeasurable( "min not found");
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage().whenUnmeasurable( substitute), at( Output3V3)).value(), 0.0);
+}
+
+TEST_F( MeasureEngineFixture, AnUnmeasurableInstrumentReadbackIsSubstitutedToo)
+{
+    // The point-free overload takes the same path -- there is simply no
+    // fabric to unwind.
+    dmm1.setSimulatedUnmeasurable( "signal may be too small to evaluate");
+
+    const auto value = Measure( dmm1.voltage().whenUnmeasurable( []{ return 1.5_V; }));
+
+    EXPECT_DOUBLE_EQ( value.value(), 1.5);
+}
+
+TEST_F( MeasureEngineFixture, AnInjectedValueIsNeverUnmeasurable)
+{
+    //
+    // The session seam sits above the substitution, so a scripted or replayed
+    // run answers from the file and never reaches the instrument that would
+    // have refused. That is what makes a recording of a run containing an
+    // unmeasurable reading replay as the value that was recorded.
+    //
+    Measure.inject( "Output5V", Voltage{ 4.62 });
+    dmm1.setSimulatedUnmeasurable( "no data on screen");
+
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 4.62);
+}
+
+namespace
+{
+    //
+    // Keeps every journal event, so what a run's log actually says about an
+    // unmeasurable reading can be asserted rather than assumed. Sinks are
+    // referenced and not owned (see core::Journal::add), and the journal is
+    // process-wide, so the fixture below has to unregister this again.
+    //
+    class EventSink : public core::IJournalSink
+    {
+        public:
+            auto onRunStart( const core::RunInfo &) -> void override {}
+            auto onGroupStart( std::string_view, std::string_view) -> void override {}
+            auto onGroupEnd( std::string_view) -> void override {}
+            auto onTestStart( std::string_view, std::string_view) -> void override {}
+            auto onEvent( const core::JournalEvent & event) -> void override { Events.push_back( event); }
+            auto onTestEnd( std::string_view, std::string_view, bool) -> void override {}
+            auto onRunEnd( bool) -> void override {}
+
+            std::vector<core::JournalEvent> Events;
+    };
+
+    struct UnmeasurableLogFixture : MeasureEngineFixture
+    {
+        protected:
+
+            void SetUp() override { core::journal().add( sink); }
+            void TearDown() override { core::journal().clearSinks(); }
+
+            EventSink sink;
+    };
+} // namespace
+
+TEST_F( UnmeasurableLogFixture, TheInstrumentsOwnReasonReachesTheLogBesideThePointItWasAbout)
+{
+    //
+    // The entire point of carrying a reason rather than an "invalid" flag.
+    // "Rise time unmeasurable" sends an engineer to the scope; "rise time
+    // unmeasurable: waveform is clipped high" sends them to the vertical
+    // scale, which is where the fault actually is.
+    //
+    // Appended to the point's own description rather than replacing it or
+    // taking a field of its own, so the line that names the pin is the line
+    // that says what went wrong with it.
+    //
+    dmm1.setSimulatedUnmeasurable( "waveform is clipped high");
+
+    (void)Measure( dmm1.voltage(), at( Output5V));
+
+    ASSERT_EQ( sink.Events.size(), 1u);
+    EXPECT_EQ( sink.Events.front().Subject, "Output5V");
+    EXPECT_EQ( sink.Events.front().Detail,  "5Vdc supply port -- unmeasurable: waveform is clipped high");
+}
+
+TEST_F( UnmeasurableLogFixture, ASubstitutedValueStillSaysItWasSubstituted)
+{
+    //
+    // whenUnmeasurable changes what the reading is, not whether the log
+    // admits where it came from. A substituted zero that looked identical to
+    // a measured zero would make the substitution invisible in the one
+    // artifact anybody reviews afterwards.
+    //
+    dmm1.setSimulatedUnmeasurable( "min not found");
+
+    const auto value = Measure( dmm1.voltage().whenUnmeasurable( []{ return 0_V; }), at( Output5V));
+
+    EXPECT_DOUBLE_EQ( value.value(), 0.0);
+    ASSERT_EQ( sink.Events.size(), 1u);
+    EXPECT_EQ( sink.Events.front().Detail, "5Vdc supply port -- unmeasurable: min not found");
+    EXPECT_EQ( sink.Events.front().Value,  "0 V");
+}
+
+TEST_F( UnmeasurableLogFixture, AnOrdinaryReadingSaysNothingAboutBeingUnmeasurable)
+{
+    // The other direction, so the assertions above are about a distinction
+    // rather than about a suffix that is always there.
+    dmm1.setSimulatedVoltage( 5.02_V);
+
+    (void)Measure( dmm1.voltage(), at( Output5V));
+
+    ASSERT_EQ( sink.Events.size(), 1u);
+    EXPECT_EQ( sink.Events.front().Detail, "5Vdc supply port");
 }

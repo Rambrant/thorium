@@ -83,7 +83,7 @@
 INSTRUMENTS
     INSTRUMENT( L4411A,       Dmm1, Lan( "bench-dmm1"))
     INSTRUMENT( L4411A,       Dmm2, Lan( "bench-dmm2"))
-    INSTRUMENT( DSO8064,      Osc1, Lan( "bench-osc1"))
+    INSTRUMENT( DSO8064A,      Osc1, Lan( "bench-osc1"))
     INSTRUMENT( N6701ADirect, DcP1, Gpib( 0, 14), 1)
     INSTRUMENT( N6701ADirect, DcP2, Gpib( 0, 14), 2)
     INSTRUMENT( N6701ARelay,  DcP3, Gpib( 0, 14), 3)

@@ -24,6 +24,27 @@ CRITERIA( FS_Supply_1, "Supply rail voltage checks (stress, PLACEHOLDER)")
 END_CRITERIA
 
 //
+// The transient group, at temperature. The baseline widens with the rail
+// tolerance it mirrors (a rail that is allowed to sit at 5.10 V must be
+// allowed to *start* there), and the permitted dip widens too: a supply's
+// hold-up capacitors have less margin hot, and derating the transient the DUT
+// is allowed to show is the whole reason a stress table exists.
+//
+// FS_Transient_Captured does not widen and cannot: either the scope captured
+// the dropout or it did not, and there is no temperature at which half a
+// capture becomes acceptable. Borrowed from production so the fact lives in
+// one place -- the same treatment FS_Fuse_6 and FS_Console_1 get above.
+//
+// PLACEHOLDER -- widened by the same ratio as FS_Supply_1 above rather than
+// read off a specification. Replace with real thermal derating numbers.
+//
+CRITERIA( FS_Transient_1, "Output rail behaviour on loss of the primary AC input (stress, PLACEHOLDER)")
+    CRIT( FS_Transient_5V0_Baseline, EQ( 5.0_V).epsilon( 0.10_V), "5Vdc rail must be at nominal before the input is dropped (stress, PLACEHOLDER)")
+    CRIT_FROM_PRODUCTION( FS_Transient_1, FS_Transient_Captured)
+    CRIT( FS_Transient_5V0_Dip,      LE( 350_mV),                 "5Vdc rail must not dip more than 350mV below its baseline (stress, PLACEHOLDER)")
+END_CRITERIA
+
+//
 // FS_Console_1 is unchanged from production, for the same reason FS_Fuse_6 is:
 // an acknowledgement is a byte sequence and a status flag is a bit, and neither
 // has a thermal or an ageing tolerance to widen. A console that answers

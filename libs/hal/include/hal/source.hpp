@@ -35,7 +35,7 @@ using WriteEngine = core::WriteEngine;
 // The verbs every script sources through -- none of them takes an at(...)
 // point, because none of them touches the fabric: what a source instrument's
 // output is cabled onto is Connect's business (hal/route.hpp), and a routed,
-// measuring instrument like hal::DSO8064 takes at(...) on Measure() instead
+// measuring instrument like hal::DSO8064A takes at(...) on Measure() instead
 // (see hal/measure.hpp).
 //
 //   Apply( DcP1.dc().voltage( 24_V).currentLimit( 7_A));

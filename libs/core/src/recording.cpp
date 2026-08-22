@@ -47,6 +47,16 @@ namespace core
             {
                 out << kPayloadKind << kSeparator << unspacedHex( *payload) << '\n';
             }
+            else if( const auto * flag = std::get_if<bool>( &sample.mValue))
+            {
+                //
+                // "1"/"0" rather than "true"/"false": every other value column
+                // in this file is a number, and a replay reads this back with
+                // the same one-character test whichever spelling a future
+                // writer might have preferred.
+                //
+                out << kFlagKind << kSeparator << ( *flag ? '1' : '0') << '\n';
+            }
             else
             {
                 const auto & value = std::get<QuantityVariant>( sample.mValue);
@@ -122,6 +132,23 @@ namespace core
                     throw std::runtime_error(
                         "readRecording: malformed payload in row '" + line + "' -- " + error.what());
                 }
+            }
+            else if( kindText == kFlagKind)
+            {
+                //
+                // Only the two spellings writeRecording emits are accepted.
+                // Anything else in this column is a corrupt row, not a truthy
+                // value to be interpreted generously: a replay that silently
+                // read "yes" or "" as false would report an acquisition that
+                // never completed, and the checks beneath it would then be
+                // failing for a reason the file does not contain.
+                //
+                if( valueText != "0" && valueText != "1")
+                {
+                    throw std::runtime_error( "readRecording: malformed flag in row '" + line + "'");
+                }
+
+                value = ( valueText == "1");
             }
             else
             {

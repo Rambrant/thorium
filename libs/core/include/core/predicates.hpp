@@ -454,7 +454,7 @@ namespace core
         // static_assert naming both the bit and the width, where the same
         // mistake written as a runtime argument could only ever have been a
         // criterion that quietly never matches. Same trade, and the same
-        // spelling, as hal::DSO8064's channel<N>() -- see this codebase's rule
+        // spelling, as hal::DSO8064A's channel<N>() -- see this codebase's rule
         // on what must be a compile error.
         //
         template<unsigned Bit, BitSense Sense>

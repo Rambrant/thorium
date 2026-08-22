@@ -32,6 +32,11 @@ namespace core
         return [ value = std::move( value)]() -> std::optional<Bytes> { return value; };
     }
 
+    auto constantFlagSource( const bool value) -> FlagSource
+    {
+        return [ value]() -> std::optional<bool> { return value; };
+    }
+
     auto ScriptedSession::program( const std::string_view name, QuantityVariant value) -> void
     {
         program( name, constantSource( std::move( value)));
@@ -52,6 +57,16 @@ namespace core
         mDataSources.insert_or_assign( std::string( name), std::move( source));
     }
 
+    auto ScriptedSession::programFlag( const std::string_view name, const bool value) -> void
+    {
+        programFlag( name, constantFlagSource( value));
+    }
+
+    auto ScriptedSession::programFlag( const std::string_view name, FlagSource source) -> void
+    {
+        mFlagSources.insert_or_assign( std::string( name), std::move( source));
+    }
+
     auto ScriptedSession::loadFromFile( const std::string & path) -> ScriptedSession
     {
         std::ifstream in( path);
@@ -69,6 +84,7 @@ namespace core
         //
         std::unordered_map<std::string, std::vector<QuantityVariant>>  samples;
         std::unordered_map<std::string, std::vector<Bytes>>            payloads;
+        std::unordered_map<std::string, std::vector<bool>>             flags;
 
         //
         // Sorted into the two seams by which alternative each row holds, not by
@@ -80,6 +96,10 @@ namespace core
             if( auto * payload = std::get_if<Bytes>( &sample.mValue))
             {
                 payloads[ sample.mPointName].push_back( std::move( *payload));
+            }
+            else if( const auto * flag = std::get_if<bool>( &sample.mValue))
+            {
+                flags[ sample.mPointName].push_back( *flag);
             }
             else
             {
@@ -97,6 +117,11 @@ namespace core
         for( auto & [ pointName, values] : payloads)
         {
             session.programData( pointName, dataSourceOf( std::move( values)));
+        }
+
+        for( auto & [ pointName, values] : flags)
+        {
+            session.programFlag( pointName, flagSourceOf( std::move( values)));
         }
 
         return session;
@@ -172,6 +197,41 @@ namespace core
         return std::move( *value);
     }
 
+    auto ScriptedSession::fetchFlag(
+        const std::string_view         name,
+        std::string_view,
+        const std::function<bool()> &) -> bool
+    {
+        const auto key   = std::string( name);
+        const auto entry = mFlagSources.find( key);
+
+        if( entry == mFlagSources.end())
+        {
+            throw std::runtime_error(
+                "ScriptedSession: nothing programmed for '" + key +
+                "' -- programFlag() it, or load a recording that covers it");
+        }
+
+        //
+        // Exhaustion is a hard error, as it is on the other two seams: a
+        // script that armed and awaited more captures than the test authored
+        // answers for has diverged from what was expected. Silently repeating
+        // the last answer would be the worst of the options here -- a
+        // "completed" that was never observed, with real measurements checked
+        // against it.
+        //
+        const auto value = entry->second();
+
+        if( !value)
+        {
+            throw std::runtime_error(
+                "ScriptedSession: no programmed flag left for '" + key +
+                "' -- either programFlag() more, load a longer recording, or the script is awaiting it more times than expected");
+        }
+
+        return *value;
+    }
+
     auto RecordingSession::fetch(
         const std::string_view                    name,
         const std::string_view                    instrumentId,
@@ -210,6 +270,34 @@ namespace core
         // core::RecordedSample), and a run that measured a rail, read a reply
         // and measured again has to come back in that order -- which two
         // vectors, each with its own sequence, could not reconstruct.
+        //
+        mSamples.push_back( RecordedSample{
+            .mSequence            = mNextSequence++,
+            .mWallClockUnixMillis = static_cast<std::int64_t>( wallClockMillis),
+            .mPointName           = std::string( name),
+            .mInstrumentId        = std::string( instrumentId),
+            .mValue               = value
+        });
+
+        return value;
+    }
+
+    auto RecordingSession::fetchFlag(
+        const std::string_view         name,
+        const std::string_view         instrumentId,
+        const std::function<bool()> &  liveRead) -> bool
+    {
+        const auto value = mInner.fetchFlag( name, instrumentId, liveRead);
+
+        const auto wallClockMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+        //
+        // Into the same ordered vector as the other two seams, for the reason
+        // fetchData's own comment gives: order is the whole of what makes a
+        // replay faithful, and an Await sits in the middle of a sequence whose
+        // meaning depends on it -- arm, drop the rail, wait, then measure the
+        // transient that the wait is the evidence for.
         //
         mSamples.push_back( RecordedSample{
             .mSequence            = mNextSequence++,

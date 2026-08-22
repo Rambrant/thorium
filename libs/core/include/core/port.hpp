@@ -1,12 +1,71 @@
 #pragma once
 
+#include <cmath>
+#include <functional>
+#include <limits>
 #include <optional>
+#include <stdexcept>
+#include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 
 #include "core/quantity.hpp"
 
 namespace core
 {
+    //
+    // What a driver throws when the instrument itself reports that it could
+    // not make the reading it was asked for.
+    //
+    // This is not "the instrument is broken" and not "the value was out of
+    // tolerance" -- it is the third answer a real instrument can give, and
+    // the one a framework that only knows about numbers has nowhere to put.
+    // A scope asked for the rise time of a trace with no edge on it has no
+    // number to return and knows it; an Infiniium says so by returning
+    // 9.99999E+37 and, with :MEASure:SENDvalid on, a reason code from its own
+    // table ("required edge not found", "waveform is clipped high", "top and
+    // base are equal", ...). A DMM reporting overrange is the same shape. So
+    // this lives in core rather than in one driver: the situation is generic
+    // even though only hal::DSO8064A answers for it today.
+    //
+    // Carrying the *reason* rather than a bare "invalid" flag is the whole
+    // point. "Rise time unmeasurable" sends an engineer to the scope; "rise
+    // time unmeasurable: waveform is clipped high" sends them to the vertical
+    // scale, which is where the fault actually is. The legacy ATE this repo
+    // replaces had an ISINVALID() predicate that answered only the first,
+    // and every script written against it threw the diagnosis away.
+    //
+    // A std::runtime_error subclass, not a bare struct: core::MeasureEngine
+    // always catches this (see core/measure.hpp), so it never escapes a
+    // Measure() call -- but a driver test calling port.rawMeasure() directly
+    // is a real and intended thing to do, and "unknown exception" is a poor
+    // thing for a test framework to print about a condition this file has a
+    // name for.
+    //
+    class UnmeasurableReading : public std::runtime_error
+    {
+        public:
+            explicit UnmeasurableReading( const std::string_view reason) :
+                std::runtime_error( "unmeasurable reading: " + std::string( reason)),
+                mReason( reason)
+            {}
+
+            //
+            // The instrument's own words, unprefixed -- what a log line or a
+            // whenUnmeasurable() handler wants, as against what() which is
+            // built for an uncaught-exception dump.
+            //
+            [[nodiscard]]
+            auto reason() const -> std::string_view
+            {
+                return mReason;
+            }
+
+        private:
+            std::string mReason;
+    };
+
     //
     // The per-measurement setup a port can carry: DMM range, integration
     // time (NPLC), etc -- everything Measure() might want to send to the
@@ -83,8 +142,8 @@ namespace core
     // Generic over InstrumentT: this header has no idea what a real
     // instrument looks like, only that it has a templated rawMeasure<Q>()
     // (with or without a MeasureSetup argument, dispatched at compile time)
-    // and an id() -- hal::L4411A/hal::DSO8064/etc (see hal/instrument.hpp,
-    // hal/l4411a.hpp, hal/dso8064.hpp) are simply concrete instrument types
+    // and an id() -- hal::L4411A/hal::DSO8064A/etc (see hal/instrument.hpp,
+    // hal/l4411a.hpp, hal/dso8064a.hpp) are simply concrete instrument types
     // that happen to satisfy this shape, not something this type depends on.
     //
     // Whether a reading needs its sense leads routed alongside the force path.
@@ -151,6 +210,93 @@ namespace core
             }
 
             //
+            // What this reading means when the instrument reports it could
+            // not be made at all -- see core::UnmeasurableReading above.
+            //
+            // Not calling this is the common and correct case. An unmeasured
+            // reading then comes back as NaN, which is chosen rather than
+            // defaulted-to: NaN compares false against every predicate in
+            // core/predicates.hpp, so a criterion checked against one fails,
+            // reports the instrument's reason beside it, and the run carries
+            // on to the next check. That is the behaviour a test rig wants.
+            // Throwing out of Measure() would abort the script and lose every
+            // later check; substituting a plausible number silently would
+            // turn "the scope could not see the edge" into a pass.
+            //
+            // Calling it says the script has a *specific* meaning for the
+            // absence, and the callable is where that meaning is written
+            // down:
+            //
+            //     // No detectable transient is a transient of zero volts.
+            //     Measure( Osc1.channel<3>().vmin()
+            //                  .whenUnmeasurable( []{ return 0_V; }),
+            //              at( dut::Vout));
+            //
+            //     // ...unless the reason says the scope could not have seen
+            //     //    one, which is a different fact and not a zero.
+            //     .whenUnmeasurable( []( const std::string_view reason)
+            //     {
+            //         return reason.contains( "clipped") ? Voltage{ NAN } : 0_V;
+            //     })
+            //
+            // A callable rather than a plain value, because the substitution
+            // is a decision and a decision deserves somewhere to put its
+            // reasoning. The nullary form above is accepted as well as the
+            // reason-taking one -- a handler that does not care why is common
+            // enough that making it write an ignored parameter would be
+            // noise. A bare value is deliberately NOT accepted: `.whenUn-
+            // measurable( 0_V)` reads as "this measured zero", which is the
+            // one thing it must never be mistaken for.
+            //
+            // The old ATE spelling this replaces was an if-block several
+            // lines below the measurement, testing a sentinel:
+            //
+            //     if( ISINVALID( dVOLTMIN)) { dNEGTRANSIENT = 0; }
+            //
+            // Same decision, made out of sight of the reading it applies to,
+            // and silently applied to whatever else happened to be in the
+            // variable.
+            //
+            template<typename FallbackT>
+            [[nodiscard]]
+            auto whenUnmeasurable( FallbackT fallback) const -> Port
+            {
+                auto copy = *this;
+
+                if constexpr( std::is_invocable_r_v<QuantityT, FallbackT, std::string_view>)
+                {
+                    copy.mUnmeasurable = std::move( fallback);
+                }
+                else
+                {
+                    static_assert( std::is_invocable_r_v<QuantityT, FallbackT>,
+                        "whenUnmeasurable() takes a callable returning this port's quantity, "
+                        "either taking the instrument's reason as a std::string_view or taking nothing");
+
+                    copy.mUnmeasurable = [ handler = std::move( fallback)]( std::string_view) { return handler(); };
+                }
+
+                return copy;
+            }
+
+            //
+            // What this port reads as when the instrument said it could not
+            // measure -- the handler's answer if one was given, NaN if not.
+            // Called by core::MeasureEngine, which is the one place that
+            // catches core::UnmeasurableReading; a script never spells this.
+            //
+            [[nodiscard]]
+            auto unmeasurableValue( const std::string_view reason) const -> QuantityT
+            {
+                if( mUnmeasurable)
+                {
+                    return mUnmeasurable( reason);
+                }
+
+                return QuantityT{ std::numeric_limits<double>::quiet_NaN() };
+            }
+
+            //
             // Marks this reading as needing its sense leads routed too -- a
             // 4-wire (Kelvin) measurement, most often. Always "on" when called
             // (there is no argument: a reading either wants its sense path or
@@ -175,14 +321,22 @@ namespace core
                 Port<QuantityT, InstrumentT, SensePath::Required> copy{ mInstrument };
                 copy.setup( mSetup);
                 copy.qualify( mQualifier);
+                copy.onUnmeasurable( mUnmeasurable);
                 return copy;
             }
 
             //
-            // Names which part of a multi-output instrument this reading comes
-            // from -- one phase of a three-phase source, say (see
-            // hal::Ac6834B::measuredVoltage). Empty for the ordinary case of an
-            // instrument with a single output.
+            // Names which of an instrument's several possible answers this
+            // reading is -- one phase of a three-phase source (see
+            // hal::Ac6834B::measuredVoltage), or which of an oscilloscope's
+            // fifteen automatic measurements is being taken about one pin (see
+            // hal::DSO8064AChannel). Empty for the ordinary case of an
+            // instrument that gives one answer about one thing.
+            //
+            // Both readings and both engines use it for the same purpose: a
+            // session keys by name, and two readings that key the same are one
+            // recording slot. Which is right for two calls asking the same
+            // question and wrong for two calls asking different ones.
             //
             // Set by the instrument's own builder method, not by a script:
             // Measure( AcP1.measuredVoltage( Phase::B)) is the spelling, and
@@ -225,6 +379,11 @@ namespace core
                 mQualifier = name;
             }
 
+            auto onUnmeasurable( std::function<QuantityT( std::string_view)> fallback) -> void
+            {
+                mUnmeasurable = std::move( fallback);
+            }
+
             [[nodiscard]]
             auto rawMeasure() const -> QuantityT
             {
@@ -253,5 +412,16 @@ namespace core
             InstrumentT &            mInstrument;
             MeasureSetup<QuantityT>  mSetup;
             std::string_view         mQualifier;
+
+            //
+            // Empty unless whenUnmeasurable() was called -- see it, and
+            // unmeasurableValue() above, for what empty means. A
+            // std::function rather than a template parameter on Port
+            // deliberately: the handler's type would otherwise propagate
+            // into every signature a port flows through, and Measure's
+            // overloads already carry four template parameters that all
+            // mean something to a reader.
+            //
+            std::function<QuantityT( std::string_view)> mUnmeasurable;
     };
 } // namespace core

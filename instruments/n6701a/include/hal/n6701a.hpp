@@ -139,7 +139,7 @@ namespace hal
     // this instrument's path at all (RelayIsolated), it's exactly one --
     // its own matrix channel, see connectDriver -- not the instrument-
     // channel-plus-connector-channel pair a routed instrument like
-    // hal::DSO8064 has. Which DUT point that fixed channel corresponds to
+    // hal::DSO8064A has. Which DUT point that fixed channel corresponds to
     // (e.g. "Output5V") is a fact the DUT adapter documents about itself
     // (see e.g. dut/adapter.inc), never something hal::
     // names -- this header has no idea DcP1 has anything to do with any
@@ -164,7 +164,7 @@ namespace hal
     //
     // Modeled after the physical instrument deliberately, unlike the old
     // generic hal::Dmm/hal::Oscilloscope placeholders (both since retired,
-    // by hal::L4411A and hal::DSO8064 respectively): those two were generic
+    // by hal::L4411A and hal::DSO8064A respectively): those two were generic
     // enough to stand in for roughly any DMM/scope with minor changes, but a
     // real power-supply driver's SCPI dialect and channel-addressing scheme
     // is inherently tied to its exact model, so naming the class after the

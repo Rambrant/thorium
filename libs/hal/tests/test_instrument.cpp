@@ -1,7 +1,7 @@
 //
-// What remains of a file that used to hold hal::L4411A's and hal::DSO8064's
+// What remains of a file that used to hold hal::L4411A's and hal::DSO8064A's
 // tests alongside this one: both drivers now live under instruments/ and their
-// tests went with them (instruments/l4411a/tests/, instruments/dso8064/tests/).
+// tests went with them (instruments/l4411a/tests/, instruments/dso8064a/tests/).
 // hal::InstrumentId and to_string() over it are hal's own -- generated from the
 // rig's instrument.inc, meaningful without any driver present at all -- so this
 // is where they stay.

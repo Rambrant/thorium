@@ -1,5 +1,7 @@
 #include "hal/measure.hpp"
 
+#include "hal/acquire.hpp"
+
 #include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/wiring.hpp"
 
@@ -25,3 +27,14 @@ MeasureEngine Measure{ hal::fabric, hal::instrumentWiring, hal::connectorWiring 
 // see hal/measure.hpp's own comment.
 //
 core::ReadEngine Read{ Measure.sessions() };
+
+//
+// The third reading verb, off the same bank and for the same reason -- see
+// hal/acquire.hpp, and core::SessionBank on why one run has to mean one
+// ordered recording across all three seams rather than three of them.
+//
+// Arm is here purely to keep the pair together; it holds no state at all and
+// would have been just as correct beside Apply in hal/source.cpp.
+//
+ArmEngine   Arm{};
+AwaitEngine Await{ Measure.sessions() };

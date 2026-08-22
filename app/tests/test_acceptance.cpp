@@ -604,9 +604,10 @@ TEST_F( AcceptanceCatalog, ListTestsPrintsOneLinePerTestAndWritesNoLog)
     EXPECT_TRUE( containsText( outPath(), mOut, "OutputVoltage|SupplyRail|Verify supply rail"));
     EXPECT_TRUE( containsText( outPath(), mOut, "OutputVoltage|FuseRegister|"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Console|StatusRegister|"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "Transient|AcDropout|"));
 
     // Exactly one line per catalog test, nothing else on stdout.
-    EXPECT_EQ( std::count( mOut.begin(), mOut.end(), '\n'), 3);
+    EXPECT_EQ( std::count( mOut.begin(), mOut.end(), '\n'), 4);
 
     EXPECT_FALSE( std::filesystem::exists( mDir / "logs"));
 }
@@ -1073,17 +1074,18 @@ TEST_F( AcceptanceLogFiles, TwoRunsIntoOneDirectoryCoexist)
 
 //
 // The property the flag is named for, and the one worth pinning from outside:
-// the *selection* is what repeats. Three tests over two passes must come back
-// A B C A B C, not A A B B C C -- which is what makes a pass a meaningful unit
-// for SETUP/TEARDOWN to bracket and for --until-failure to stop at.
+// the *selection* is what repeats. Four tests over two passes must come back
+// A B C D A B C D, not A A B B C C D D -- which is what makes a pass a
+// meaningful unit for SETUP/TEARDOWN to bracket and for --until-failure to
+// stop at.
 //
 TEST_F( AcceptanceRepeat, RepeatRunsTheWholeSelectionEachPassRatherThanEachScript)
 {
     run( { "--repeat=2", "--no-color" });
 
     EXPECT_EQ( verdictOrder( mOut),
-        ( std::vector<std::string>{ "FuseRegister", "SupplyRail", "StatusRegister",
-                                    "FuseRegister", "SupplyRail", "StatusRegister" }));
+        ( std::vector<std::string>{ "FuseRegister", "SupplyRail", "AcDropout", "StatusRegister",
+                                    "FuseRegister", "SupplyRail", "AcDropout", "StatusRegister" }));
 }
 
 TEST_F( AcceptanceRepeat, RepeatAppliesToASelectionToo)
@@ -1298,10 +1300,25 @@ TEST_F( AcceptanceHooks, TheShippedHooksBracketTheRunWithAnOrderedPowerCycle)
     const auto applyAc1    = positionOf( "Apply AcP1");
     const auto applyDc1    = positionOf( "Apply DcP1");
     const auto firstVerify = positionOf( "Verify FS_Fuse_01");
-    const auto lastVerify  = log.rfind( "Verify FS_Supply_3V3");
-    const auto removeDc1   = positionOf( "Remove DcP1");
-    const auto removeAc1   = positionOf( "Remove AcP1");
-    const auto openAc1     = positionOf( "Disconnect AcP1");
+    const auto lastVerify  = log.rfind( "Verify ");
+
+    //
+    // The power-down half is anchored rather than taken as the first
+    // occurrence of each event, and that is not defensive coding -- it is what
+    // the test means. A script is allowed to remove and restore a source
+    // mid-run, and one of them does: acDropoutScript drops the primary AC to
+    // measure what the DUT's output rails do about it, then puts it back (see
+    // suite/scripts/ac_dropout_script.cpp). First-occurrence lookups would
+    // find *that* Remove and assert the teardown's ordering against an event
+    // belonging to a test.
+    //
+    // DcP1 is the anchor because nothing but the teardown ever removes it, so
+    // its last occurrence is unambiguously the start of the power-down. Every
+    // later event is then searched for from there.
+    //
+    const auto removeDc1   = log.rfind( "Remove DcP1");
+    const auto removeAc1   = log.find( "Remove AcP1", removeDc1);
+    const auto openAc1     = log.find( "Disconnect AcP1", removeAc1);
     const auto safed       = positionOf( "Safe rig");
 
     ASSERT_NE( closeAc1,  std::string::npos) << "no power-up in " << sarif;
@@ -1416,7 +1433,25 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     //
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Ser1.Data\tSer1\t<bytes>"));
 
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 10);   // six from setup, four from the scripts
+    //
+    // And the third kind of observation: whether the single-shot capture
+    // acDropoutScript arms actually completed. A flag row carries "<flag>"
+    // where a quantity row carries its unit and a payload row carries
+    // "<bytes>", and its value is 1 or 0 -- see core::kFlagKind, and
+    // core/acquire.hpp on why an Await is recorded at all.
+    //
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Osc1.Acquisition\tOsc1\t<flag>"));
+
+    //
+    // The scope's two readings at one pin, keyed apart by which measurement
+    // each is -- "Output5V.Vbase" and not a second "Output5V" (see
+    // core::Port::qualifiedBy). Without the qualifier these would be one
+    // recording slot, and a replay would hand the baseline reading to
+    // whichever of the two asked first.
+    //
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output5V.Vbase\tOsc1\tVoltage"));
+
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 13);   // six from setup, seven from the scripts
 }
 
 //
@@ -1452,7 +1487,21 @@ TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
         "6\t0\tVout\tDmm2\tVoltage\t12.0\n"
         "7\t0\tOutput5V\tDmm1\tVoltage\t5.0\n"
         "8\t0\tOutput3V3\tDmm1\tVoltage\t3.3\n"
-        "9\t0\tSer1.Data\tSer1\t<bytes>\t41434B0D08\n");
+        //
+        // acDropoutScript's three: the rail's settled level before the input
+        // is dropped, whether the capture completed, and how low the rail
+        // went. The middle row is the third kind of value this format holds
+        // -- "<flag>", written 1 or 0 (see core::kFlagKind).
+        //
+        // 4.95 V against a 5.0 V baseline is a 50 mV dip, inside every
+        // variant's limit. A 0 in the flag row would fail the run outright,
+        // which is what makes this row worth being in the file rather than
+        // assumed.
+        //
+        "9\t0\tOutput5V.Vbase\tOsc1\tVoltage\t5.0\n"
+        "10\t0\tOsc1.Acquisition\tOsc1\t<flag>\t1\n"
+        "11\t0\tOutput5V.Vmin\tOsc1\tVoltage\t4.95\n"
+        "12\t0\tSer1.Data\tSer1\t<bytes>\t41434B0D08\n");
 
     EXPECT_EQ( run( { "--replay=passing.tsv", "--quiet" }), 0);
 
@@ -1492,11 +1541,12 @@ TEST_F( AcceptanceRecording, EachRepeatPassIsRecorded)
 
     const auto tsv = readFile( mDir / "readings.tsv");
 
-    // Four readings per pass -- three voltages and the console reply -- over
-    // three passes, plus the six the setup took, once, because the hooks
+    // Seven observations per pass -- three voltages from the meters, the
+    // console reply, and the scope's baseline, capture flag and minimum --
+    // over three passes, plus the six the setup took, once, because the hooks
     // bracket the whole selection rather than each pass (see AcceptanceHooks
     // above). Six rather than four since rigPowerOn() reads AcP1 once per phase.
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 18);
+    EXPECT_EQ( std::ranges::count( tsv, '\n'), 27);
 }
 
 //

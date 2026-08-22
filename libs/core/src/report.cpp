@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <iterator>
+#include <string>
+#include <string_view>
 
 namespace core
 {
@@ -30,6 +32,29 @@ namespace core
         constexpr std::size_t kRequiredWidth = 24;   // "= 5 V +/-0.05 V"
 
         constexpr std::string_view kRule = "--------------------------------------------------------------------------";
+
+        //
+        // A verb's enumerator spelling as the human log writes it -- "Measure"
+        // becomes "measure". ASCII-only by construction: the input is always a
+        // core::Verb enumerator name, so there is no locale, no multi-byte
+        // character and nothing for std::tolower's notorious signed-char trap
+        // to catch.
+        //
+        auto lowercased( const std::string_view text) -> std::string
+        {
+            std::string result;
+
+            result.reserve( text.size());
+
+            for( const auto character : text)
+            {
+                result += ( character >= 'A' && character <= 'Z')
+                              ? static_cast<char>( character - 'A' + 'a')
+                              : character;
+            }
+
+            return result;
+        }
 
         //
         // A whole line in one emphasis -- most lines are still this shape.
@@ -201,7 +226,17 @@ namespace core
         // carries every verb in order for anyone asking "what did the bench do"
         // (see core/sarif_sink.hpp).
         //
-        return event.Method == Verb::Measure || event.Method == Verb::Read || event.Method == Verb::Verify;
+        // Await sits on the observation side of that same line, and its
+        // partner Arm on the stimulus side (see core/acquire.hpp). Await earns
+        // its place here rather than being one more thing the bench was told
+        // to do: a transient measured after a capture that timed out is not a
+        // measurement of the transient at all, so a reader following the
+        // verdict below it has to be able to see whether the capture landed.
+        //
+        return event.Method == Verb::Measure
+            || event.Method == Verb::Read
+            || event.Method == Verb::Await
+            || event.Method == Verb::Verify;
     }
 
     auto humanHeaderLines( const RunInfo & info) -> std::vector<ReportLine>
@@ -251,7 +286,7 @@ namespace core
             return {};
         }
 
-        if( event.Method == Verb::Measure || event.Method == Verb::Read)
+        if( event.Method == Verb::Measure || event.Method == Verb::Read || event.Method == Verb::Await)
         {
             //
             // "measure Output5V  5.021 V  (Dmm1)  5Vdc supply port" -- the
@@ -264,12 +299,19 @@ namespace core
             // back, from an instrument, about a named thing. Only the verb
             // differs -- "read Console  \"0xF5\\r\"  (Ser1)" -- so the two
             // never need to be told apart by shape when a script does both.
+            // An Await is the same shape a third time: "await
+            // Osc1.Acquisition  complete  (Osc1)".
             //
             // Padded to the same verb/subject/value columns a verify line uses,
             // so a reading and the check against it line up rather than
             // staggering.
             //
-            auto text = padded( event.Method == Verb::Read ? "read" : "measure", kVerbWidth)
+            // The verb text comes from the enumerator rather than from a
+            // ternary chain that grows a branch per verb -- lowercased because
+            // these lines are prose, where core::to_string(Verb) answers for
+            // the machine stream and wants the enumerator's own spelling.
+            //
+            auto text = padded( lowercased( to_string( event.Method)), kVerbWidth)
                       + padded( event.Subject, kSubjectWidth)
                       + padded( event.Value, kValueWidth);
 

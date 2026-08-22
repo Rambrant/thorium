@@ -63,20 +63,21 @@ libs/hal/
         wiring.hpp         # InstrumentWiring/ConnectorWiring + WIRE macros
         adapter.hpp        # ADAPTER/POINT/END_ADAPTER macros
         describe.hpp       # the describe customization point drivers hook into
-        measure.hpp        # MeasureEngine alias + extern Measure
+        measure.hpp        # MeasureEngine alias + extern Measure/Read
         source.hpp         # Apply/Remove/Setup/Write -- the instrument-I/O verbs
+        acquire.hpp        # Arm/Await -- the triggered-capture pair
         route.hpp          # Connect/Disconnect -- the fabric-only verbs
         safing.hpp         # safeRig()
 ```
 
-No driver headers: all four now live under `instruments/`, one directory each,
+No driver headers: all five now live under `instruments/`, one directory each,
 and are still spelled `#include "hal/<model>.hpp"`, in `namespace hal`, at every
 call site -- moving a driver out changed its build location and nothing else.
 
 | Driver | Directory |
 |---|---|
 | `hal::L4411A` | `instruments/l4411a/` |
-| `hal::DSO8064` | `instruments/dso8064/` |
+| `hal::DSO8064A` | `instruments/dso8064a/` |
 | `hal::N6701A` | `instruments/n6701a/` |
 | `hal::Ac6834B` | `instruments/ac6834b/` |
 | `hal::Racal1260` | `instruments/racal1260/` |
@@ -222,7 +223,7 @@ picks:
   channel-addressing scheme is inherently tied to its exact model, so
   naming the class after the model documents that non-portability rather
   than hiding it -- the same reasoning that named `hal::L4411A` (Dmm1/Dmm2's
-  concrete type) and `hal::DSO8064` (Osc1's) after their real models, once
+  concrete type) and `hal::DSO8064A` (Osc1's) after their real models, once
   each was known, retiring the old generic `hal::Dmm`/`hal::Oscilloscope`
   placeholders that stood in for "roughly any DMM/scope" before that.
 
@@ -298,7 +299,7 @@ unconditionally, which is what driver tests construct with.
 | Driver | Reachable over |
 |---|---|
 | `hal::L4411A` | `Lan`, `Usb` |
-| `hal::DSO8064` | `Gpib`, `Lan`, `Usb` |
+| `hal::DSO8064A` | `Gpib`, `Lan`, `Usb` |
 | `hal::N6701A` | `Gpib`, `Lan`, `Usb` |
 | `hal::Ac6834B` | `Gpib`, `Serial` |
 | `hal::Racal1260` | `Serial`, `Gpib` |

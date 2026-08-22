@@ -16,12 +16,12 @@
 // side: DcP3 is fixed-wired (hal::N6701A::dc() takes no point at all --
 // see that header's own comment; DcP3 specifically has a real isolation
 // relay -- hal::N6701ARelay -- unlike DcP1/DcP2, which have none at all),
-// Osc1 is routed (hal::DSO8064's Port takes at(...) on every Measure()) --
+// Osc1 is routed (hal::DSO8064A's Port takes at(...) on every Measure()) --
 // both physically reach the same VPC pin (Output5V), but only Osc1's path
 // touches the mux; DcP3's connect() closes just its own fixed channel.
 //
 #include "hal/n6701a.hpp"
-#include "hal/dso8064.hpp"
+#include "hal/dso8064a.hpp"
 #include "hal/l4411a.hpp"
 #include "hal/measure.hpp"
 #include "hal/route.hpp"
@@ -56,7 +56,7 @@ namespace
         hal::ConnectorWiring   connectorWiring;
 
         hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
-        hal::DSO8064 osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
+        hal::DSO8064A osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
         hal::L4411A  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
 
         ApplyEngine      apply{};
@@ -128,7 +128,7 @@ TEST_F( CallSyntaxFixture, MeasureConnectsThenDisconnectsAroundEachReading)
 
 TEST_F( CallSyntaxFixture, MeasureAcceptsTheChainedThresholdBuilderDirectlyAtTheCallSite)
 {
-    // The full DSO8064 syntax in one line: channel-first, then the timing
+    // The full DSO8064A syntax in one line: channel-first, then the timing
     // family's chained threshold builder, then straight into Measure/at() --
     // exactly what a script would write, no intermediate named variable.
     osc1.setSimulatedRiseTime( 3, Time{ 9e-9});

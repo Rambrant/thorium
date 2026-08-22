@@ -25,6 +25,22 @@ CRITERIA( FS_Supply_1, "Supply rail voltage checks (aged equipment)")
 END_CRITERIA
 
 //
+// The transient group, on equipment that has been in service for years. Same
+// shape as the stress table's: the baseline tracks FS_Supply_1's own widened
+// tolerance, the permitted dip widens with the hold-up capacitance an ageing
+// supply has lost, and whether the capture happened at all is not a thing that
+// ages.
+//
+// PLACEHOLDER -- widened by the same ratio as FS_Supply_1 above rather than
+// read off a specification. Replace with real numbers.
+//
+CRITERIA( FS_Transient_1, "Output rail behaviour on loss of the primary AC input (aged equipment)")
+    CRIT( FS_Transient_5V0_Baseline, EQ( 5.0_V).epsilon( 0.15_V), "5Vdc rail must be at nominal before the input is dropped (aged, PLACEHOLDER)")
+    CRIT_FROM_PRODUCTION( FS_Transient_1, FS_Transient_Captured)
+    CRIT( FS_Transient_5V0_Dip,      LE( 500_mV),                 "5Vdc rail must not dip more than 500mV below its baseline (aged, PLACEHOLDER)")
+END_CRITERIA
+
+//
 // FS_Console_1 is unchanged from production, for the same reason FS_Fuse_6 is:
 // an acknowledgement is a byte sequence and a status flag is a bit, and neither
 // has a thermal or an ageing tolerance to widen. A console that answers

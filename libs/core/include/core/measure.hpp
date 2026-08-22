@@ -116,6 +116,50 @@ namespace core
                 const auto & point        = wrapped.point;
                 const auto   instrumentId = port.instrumentId();
 
+                //
+                // Set by readOrSubstitute below if the instrument said it
+                // could not make this reading, and read again further down for
+                // the journal event -- see core::UnmeasurableReading.
+                //
+                // Empty after a scripted or replayed fetch even when the
+                // recorded value was itself a substitution, and that is
+                // correct rather than a gap: the reason is something a live
+                // instrument said at a particular moment, and a replay is not
+                // that instrument saying it again. What replays is the value,
+                // which is what the checks below it depend on.
+                //
+                std::string unmeasurableReason;
+
+                //
+                // The reading, with the one exception a driver is allowed to
+                // raise already resolved to a value -- so the caller below can
+                // treat "the instrument could not measure" as an ordinary
+                // outcome, which is what lets the run carry on to the next
+                // check instead of unwinding out of the script.
+                //
+                // Note this deliberately sits *inside* liveRead's
+                // connect/disconnect pair rather than around the whole lambda:
+                // an unmeasurable reading is now a normal path, and a normal
+                // path must not leave the fabric holding channels closed. Other
+                // exception types still propagate, and still leak the route --
+                // an instrument that throws something else has failed in a way
+                // this engine cannot reason about, and hal::safeRig() is what
+                // answers for that (see hal/safing.hpp).
+                //
+                auto readOrSubstitute = [&]() -> QuantityT
+                {
+                    try
+                    {
+                        return port.rawMeasure();
+                    }
+                    catch( const UnmeasurableReading & unmeasurable)
+                    {
+                        unmeasurableReason = std::string( unmeasurable.reason());
+
+                        return port.unmeasurableValue( unmeasurable.reason());
+                    }
+                };
+
                 auto liveRead = [&]() -> QuantityVariant
                 {
                     //
@@ -169,7 +213,7 @@ namespace core
                     //
                     mFabric.connect( path);
 
-                    auto value = QuantityVariant{ port.rawMeasure() };
+                    auto value = QuantityVariant{ readOrSubstitute() };
 
                     mFabric.disconnect( path);
 
@@ -201,8 +245,42 @@ namespace core
                 // longer declares one.
                 constexpr auto kind = quantityKindOf<QuantityT>();
 
+                //
+                // The point's name, plus the port's qualifier when it carries
+                // one -- "Output5V" for an ordinary reading, "Output5V.Vbase"
+                // for one of the fifteen different answers an oscilloscope can
+                // give about the same pin (see hal::DSO8064AChannel).
+                //
+                // Without this, two measurements taken at one point in one
+                // script share a session slot, so a test injecting them by
+                // name cannot say which is which and gets them in whatever
+                // order the script happens to measure. That is exactly the
+                // collision core::Port::qualifiedBy was introduced to solve
+                // for a three-phase source's per-phase readbacks; this is the
+                // same mechanism reaching the routed overload.
+                //
+                // Opt-in, and therefore backward compatible: a port that names
+                // no qualifier keys on the bare point name exactly as it
+                // always has, so every existing injection and every existing
+                // recording is unaffected.
+                //
+                // What this deliberately does NOT fix: the same collision
+                // between two *quantities* at one point --
+                // Measure( Dmm1.voltage(), at( p)) and Measure( Dmm1.current(),
+                // at( p)) still share the key "p". Folding the QuantityKind
+                // into the key would fix it and would rename every key in
+                // every existing recording, which is a migration rather than a
+                // change. A driver that needs the distinction today can
+                // qualify its ports, which is what the scope does.
+                //
+                const auto qualifier = port.qualifier();
+
+                const auto key = qualifier.empty()
+                                     ? std::string( point.Name)
+                                     : std::string( point.Name) + "." + std::string( qualifier);
+
                 const auto value = asQuantity<QuantityT>(
-                    activeSession().fetch( point.Name, instrumentName, kind, liveRead));
+                    activeSession().fetch( key, instrumentName, kind, liveRead));
 
                 //
                 // Logged here, after the session has produced the value and
@@ -226,10 +304,23 @@ namespace core
                 // "how a reading is written down", whether it is being reported
                 // or checked.
                 //
+                //
+                // The point's own description, plus what the instrument said
+                // if it could not make the reading. Appended to the existing
+                // detail rather than replacing it or taking a field of its
+                // own: a reader scanning the log wants "Config clock probe --
+                // unmeasurable: required edge not found" on the line that
+                // already names the pin, not the reason orphaned somewhere
+                // else, and every consumer of Detail keeps working unchanged.
+                //
+                const auto detail = unmeasurableReason.empty()
+                                        ? std::string( point.Description)
+                                        : std::string( point.Description) + " -- unmeasurable: " + unmeasurableReason;
+
                 journal().post( JournalRecord{
                     .Method     = Verb::Measure,
-                    .Subject    = std::string( point.Name),
-                    .Detail     = std::string( point.Description),
+                    .Subject    = key,
+                    .Detail     = detail,
                     .Instrument = instrumentName,
                     .Value      = describeValue( value),
                     .Numeric    = value.value(),
@@ -293,17 +384,37 @@ namespace core
                                      ? instrumentName + "." + std::string( to_string( kind))
                                      : instrumentName + "." + std::string( qualifier) + "." + std::string( to_string( kind));
 
+                //
+                // Same substitution the routed overload above performs, and
+                // for the same reasons -- see its own comment. There is no
+                // fabric to unwind here, so the try/catch is the whole of it.
+                //
+                std::string unmeasurableReason;
+
                 auto liveRead = [&]() -> QuantityVariant
                 {
-                    return QuantityVariant{ port.rawMeasure() };
+                    try
+                    {
+                        return QuantityVariant{ port.rawMeasure() };
+                    }
+                    catch( const UnmeasurableReading & unmeasurable)
+                    {
+                        unmeasurableReason = std::string( unmeasurable.reason());
+
+                        return QuantityVariant{ port.unmeasurableValue( unmeasurable.reason()) };
+                    }
                 };
 
                 const auto value = asQuantity<QuantityT>( activeSession().fetch( key, instrumentName, kind, liveRead));
 
+                const auto detail = unmeasurableReason.empty()
+                                        ? std::string( "instrument readback")
+                                        : "instrument readback -- unmeasurable: " + unmeasurableReason;
+
                 journal().post( JournalRecord{
                     .Method     = Verb::Measure,
                     .Subject    = key,
-                    .Detail     = "instrument readback",
+                    .Detail     = detail,
                     .Instrument = instrumentName,
                     .Value      = describeValue( value),
                     .Numeric    = value.value(),

@@ -78,6 +78,15 @@ namespace core
         Disconnect,
         Write,
         Read,
+        //
+        // The triggered-acquisition pair (see core/acquire.hpp). Two verbs
+        // rather than one because they straddle the stimulus/observation
+        // boundary this enum's consumers care about: an Arm is an instruction
+        // and belongs with Setup and Write, an Await is an observation and
+        // belongs with Measure and Read.
+        //
+        Arm,
+        Await,
         Verify,
         Safe,
         Note

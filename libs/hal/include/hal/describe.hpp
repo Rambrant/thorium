@@ -1,11 +1,14 @@
 #pragma once
 
+#include <concepts>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include "core/format.hpp"
+#include "core/meta.hpp"
 #include "core/quantity.hpp"
 
 namespace hal
@@ -47,6 +50,55 @@ namespace hal
         }
 
         return std::string( name) + "=" + core::describeValue( value.value());
+    }
+
+    //
+    // The same fragment for a field whose value is one of a fixed set -- a
+    // coupling, an acquisition mode, a trigger slope. Unset means the same
+    // thing it does above, and is rendered the same way: not at all.
+    //
+    // The text comes from the enumerator's own spelling, reflected
+    // (core::meta::to_string), rather than from a hand-written switch per enum.
+    // That is the choice core/meta.hpp exists to make available, and it is the
+    // right one *here* specifically because these settings are already named
+    // for what they are: an instrument enum in this codebase is spelled
+    // HighResolution or Div10 or LowFrequencyReject, and a log saying
+    // "mode=HighResolution" is saying the thing the script wrote. Where an
+    // enum's log text genuinely differs from its enumerator -- hal::Parity's
+    // lowercase "none", a fault code's sentence of prose -- that enum keeps its
+    // own to_string and does not come through here. Same split
+    // core::to_string(QuantityKind) and core::to_string(LogLevel) already draw.
+    //
+    template<typename EnumT>
+        requires std::is_enum_v<EnumT>
+    [[nodiscard]]
+    auto describeChoice( const std::string_view name, const std::optional<EnumT> & value) -> std::string
+    {
+        if( !value.has_value())
+        {
+            return {};
+        }
+
+        return std::string( name) + "=" + std::string( core::meta::to_string( value.value()));
+    }
+
+    //
+    // And for a plain count -- a memory depth, a number of averages. Numbers
+    // that are selectors rather than physical quantities, so they have no unit
+    // to render and no Quantity to carry them (the same distinction
+    // core::MeasureSetup draws for NPLC).
+    //
+    template<typename CountT>
+        requires std::integral<CountT>
+    [[nodiscard]]
+    auto describeCount( const std::string_view name, const std::optional<CountT> & value) -> std::string
+    {
+        if( !value.has_value())
+        {
+            return {};
+        }
+
+        return std::string( name) + "=" + std::to_string( value.value());
     }
 
     //

@@ -27,7 +27,21 @@ namespace core
     // in that state at all, and the kind is derivable from it (its index)
     // rather than being a second fact to keep in step.
     //
-    using RecordedValue = std::variant<QuantityVariant, Bytes>;
+    // The third alternative is a plain bool: whether a triggered acquisition
+    // completed within its timeout (see core::AwaitEngine in core/acquire.hpp).
+    // It earns a place here for the same reason the payload did -- it is an
+    // observation a run makes, and a replay that could not reproduce it would
+    // take the measurements that follow from the file while asking absent
+    // hardware whether there was anything to measure.
+    //
+    // A bool rather than folding it into QuantityVariant as a dimensionless
+    // number, and the argument is core::ISession::fetchData's, restated: a
+    // QuantityVariant is a closed set of numbers *in units*, indexed by
+    // QuantityKind and unwrapped for criteria that carry an epsilon. "The
+    // capture completed" has no unit, no tolerance, and nothing to interpolate
+    // -- 0.5 of it is not a thing.
+    //
+    using RecordedValue = std::variant<QuantityVariant, Bytes, bool>;
 
     //
     // One observation, as it happened during a run. mSequence is a monotonic
@@ -56,6 +70,13 @@ namespace core
     // static_assert somebody has to remember to keep pointed at the right list.
     //
     inline constexpr std::string_view kPayloadKind = "<bytes>";
+
+    //
+    // The kind column's value for a completion flag, spelled with the same
+    // angle brackets and guaranteed distinct from a QuantityKind's name for
+    // the same structural reason -- see kPayloadKind directly above.
+    //
+    inline constexpr std::string_view kFlagKind = "<flag>";
 
     //
     // Flat TSV, one row per sample, in the order they were recorded:

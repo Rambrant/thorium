@@ -101,7 +101,7 @@ disconnects them as a unit — a three-phase source with one phase live and its
 return open is not a state worth being able to reach.
 
 This is why `findAll()` exists alongside `find()`: single-channel instruments
-like `hal::L4411A` and `hal::DSO8064` use `find()`, while this driver and
+like `hal::L4411A` and `hal::DSO8064A` use `find()`, while this driver and
 relay-isolated `hal::N6701A` outputs with remote sense need every entry for
 their id at once.
 
