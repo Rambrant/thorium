@@ -206,6 +206,12 @@ routed. Where a relay does exist in the path, `Connect` closes it before the
 output comes up and `Disconnect` opens it after the output goes down, so the
 contacts never move under load -- see `core/source.hpp`.
 
+Every one of those driver calls is conditional on a bench being attached (see
+`core/bench.hpp`) -- the stimulus counterpart to what `core::ISession` does for
+the reading verbs. A `--replay`, `--inject` or `--skeleton` run instructs
+nothing at all, and the machine log says so per instruction rather than
+omitting it or claiming otherwise.
+
 Dispatch to the actual instrument (`applyDriver`/`removeDriver`, defined
 alongside each builder in `n6701a.hpp`/`ac6834b.hpp`) happens via ADL on
 the builder's `.config()` type, the same trick `core::MeasureEngine` uses

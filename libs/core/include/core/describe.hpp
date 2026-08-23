@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "core/bench.hpp"
 #include "core/journal.hpp"
 
 //
@@ -69,6 +70,21 @@ namespace core
             journal().post( JournalRecord{
                 .Method     = method,
                 .Subject    = described.Instrument,
+
+                //
+                // Says so when the instruction went nowhere -- one place, so
+                // that a verb added later cannot post an unmarked event by
+                // forgetting to. See kDetachedDetail in core/bench.hpp on why
+                // the event is posted at all rather than suppressed.
+                //
+                // Read here rather than passed in by the engine, even though
+                // the engine has just read the same flag to decide whether to
+                // call its driver. Single-threaded by construction (one script
+                // at a time, see app/src/main.cpp), so the two reads cannot
+                // disagree -- and a parameter would be a second way to say it,
+                // which an engine could set wrongly.
+                //
+                .Detail     = bench().isAttached() ? std::string{} : std::string( kDetachedDetail),
                 .Instrument = described.Instrument,
                 .Value      = withSettings ? described.Settings : std::string{}
             });

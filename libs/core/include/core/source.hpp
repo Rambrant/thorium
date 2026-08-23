@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/bench.hpp"
 #include "core/describe.hpp"
 #include "core/journal.hpp"
 
@@ -59,8 +60,14 @@ namespace core
     // hal:: dependency. Neither engine carries any state of its own any
     // more -- there's nothing left to inject -- but they stay classes
     // rather than bare functions for symmetry with Connect/Disconnect/
-    // Measure, and because the session/injection/recording seam
-    // MeasureEngine has is still meant to reach these eventually.
+    // Measure.
+    //
+    // Every driver call below is conditional on a bench being attached, which
+    // is the stimulus half of what core::ISession does for the observing verbs
+    // -- see core/bench.hpp, which is where the whole argument is written down.
+    // The short of it: a replayed run takes its readings from a file, and
+    // energising a rail for real while doing so is the one thing it must not
+    // do. The event is still posted either way, and says which happened.
     //
     class ApplyEngine
     {
@@ -68,7 +75,10 @@ namespace core
             template<typename BuilderT>
             auto operator()( const BuilderT & builder) const -> void
             {
-                applyDriver( builder.config());
+                if( bench().isAttached())
+                {
+                    applyDriver( builder.config());
+                }
 
                 //
                 // Logged after the driver call, not before: the log should say
@@ -117,7 +127,10 @@ namespace core
             template<typename BuilderT>
             auto operator()( const BuilderT & builder) const -> void
             {
-                setupDriver( builder.config());
+                if( bench().isAttached())
+                {
+                    setupDriver( builder.config());
+                }
 
                 // With settings -- the settings *are* what a Setup did.
                 detail::postSourceEvent( Verb::Setup, builder.config(), true);
@@ -130,7 +143,10 @@ namespace core
             template<typename BuilderT>
             auto operator()( const BuilderT & builder) const -> void
             {
-                removeDriver( builder.config());
+                if( bench().isAttached())
+                {
+                    removeDriver( builder.config());
+                }
 
                 // No settings -- see core::SourceDescription's own comment.
                 detail::postSourceEvent( Verb::Remove, builder.config(), false);

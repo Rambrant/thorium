@@ -1819,3 +1819,128 @@ TEST_F( AcceptanceInject, InjectIsExclusiveWithTheModesThatWriteAFile)
     EXPECT_FALSE( std::filesystem::exists( mDir / "rec.tsv"));
     EXPECT_FALSE( std::filesystem::exists( mDir / "sk.tsv"));
 }
+
+// ---------------------------------------------------------------------------
+// Whether a run reaches a bench at all
+// ---------------------------------------------------------------------------
+
+namespace
+{
+    struct AcceptanceBench : Acceptance {};
+} // namespace
+
+//
+// The hole this closes, seen from outside. --replay took every reading from the
+// file and then went on energising rails and closing relays for real, which was
+// survivable only because every driver here is still simulated. Now the machine
+// log says, per instruction, that it went nowhere -- and a run that says that is
+// a run in which no driver was called (see libs/core/tests/test_bench.cpp, which
+// asserts the driver side of the same claim against a counting mock).
+//
+TEST_F( AcceptanceBench, AReplayedRunInstructsNothing)
+{
+    EXPECT_EQ( run( { "--skeleton=zeros.tsv" }), 0);
+    EXPECT_EQ( run( { "--replay=zeros.tsv", "--quiet" }), 1);
+
+    const auto sarifPath = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarifPath.empty());
+
+    const auto sarif = readFile( sarifPath);
+
+    EXPECT_TRUE( containsText( sarifPath, sarif, "not performed -- no bench attached"));
+}
+
+TEST_F( AcceptanceBench, AnInjectedRunInstructsNothing)
+{
+    writeFile( mDir / "healthy.stim", std::string( kHealthyDut));
+
+    EXPECT_EQ( run( { "--inject=healthy.stim", "--quiet" }), 0);
+
+    const auto sarifPath = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarifPath.empty());
+
+    const auto sarif = readFile( sarifPath);
+
+    //
+    // Every one of them, not merely one somewhere: a mode that silenced the
+    // supplies and still drove the scope would be the worst of both.
+    //
+    for( const auto * verb : { "Apply", "Connect", "Setup", "Write", "Arm", "Remove", "Disconnect" })
+    {
+        EXPECT_TRUE( containsText( sarifPath, sarif, std::string( verb) + " ")) << verb;
+    }
+
+    EXPECT_TRUE( omitsText( sarifPath, sarif, "\"text\": \"Apply AcP1 = 3-phase, phaseVoltage=115 V, frequency=400 Hz, currentLimit=2 A\""));
+}
+
+//
+// A live run is unchanged -- the default is attached, and this is what proves
+// the marker is not simply always on.
+//
+TEST_F( AcceptanceBench, AnOrdinaryRunStillInstructsTheRig)
+{
+    EXPECT_EQ( run( { "--quiet" }), 1);
+
+    const auto sarifPath = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarifPath.empty());
+
+    const auto sarif = readFile( sarifPath);
+
+    EXPECT_TRUE( containsText( sarifPath, sarif, "Apply AcP1"));
+    EXPECT_TRUE( omitsText(    sarifPath, sarif, "no bench attached"));
+}
+
+//
+// Spelled out in the traceability header, not left to be worked out from the
+// command line two rows below it. A detached run's checks can all pass, and
+// what they passed about is a file -- so the person holding the report is told,
+// rather than being expected to notice a flag.
+//
+TEST_F( AcceptanceBench, TheReportHeaderSaysWhetherARigWasThere)
+{
+    EXPECT_EQ( run( { "--skeleton=zeros.tsv" }), 0);
+    EXPECT_EQ( run( { "--replay=zeros.tsv" }), 1);
+
+    EXPECT_TRUE( containsText( outPath(), mOut, "Bench"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "DETACHED -- no instrument was touched"));
+
+    const auto rtfPath = findArtifact( ".rtf");
+
+    ASSERT_FALSE( rtfPath.empty());
+
+    EXPECT_TRUE( containsText( rtfPath, readFile( rtfPath), "DETACHED -- no instrument was touched"));
+}
+
+TEST_F( AcceptanceBench, AnOrdinaryRunsHeaderSaysTheBenchWasThere)
+{
+    EXPECT_EQ( run( {} ), 1);
+
+    EXPECT_TRUE( containsText( outPath(), mOut, "Bench             attached"));
+    EXPECT_TRUE( omitsText(    outPath(), mOut, "DETACHED"));
+}
+
+//
+// The one call in a detached run that most looks like it should happen anyway,
+// and most must not. Safing an unattached bench would be the single instruction
+// that did reach real hardware -- opening the relays of whatever rig the runner
+// happened to be pointed at, on behalf of a run that never touched it.
+//
+TEST_F( AcceptanceBench, ADetachedRunDoesNotSafeTheRigOnTheWayOut)
+{
+    EXPECT_EQ( run( { "--skeleton=zeros.tsv" }), 0);
+    EXPECT_EQ( run( { "--replay=zeros.tsv", "--quiet" }), 1);
+
+    const auto sarifPath = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarifPath.empty());
+
+    const auto sarif = readFile( sarifPath);
+
+    // The Safe event is still posted -- what happened is still in the log --
+    // and says it did nothing.
+    EXPECT_TRUE( containsText( sarifPath, sarif, "Safe rig -- not performed -- no bench attached"));
+    EXPECT_TRUE( omitsText(    sarifPath, sarif, "all instrument outputs off and zeroed"));
+}

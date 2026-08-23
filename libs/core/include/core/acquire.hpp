@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include "core/bench.hpp"
 #include "core/describe.hpp"
 #include "core/journal.hpp"
 #include "core/session.hpp"
@@ -92,7 +93,15 @@ namespace core
             template<typename BuilderT>
             auto operator()( const BuilderT & builder) const -> void
             {
-                armDriver( builder.config());
+                //
+                // Conditional on a bench being attached, like every other
+                // stimulus verb -- see core/bench.hpp. Await is not: it
+                // observes, and answers from the recording.
+                //
+                if( bench().isAttached())
+                {
+                    armDriver( builder.config());
+                }
 
                 //
                 // Logged after the driver call, for the reason every engine in

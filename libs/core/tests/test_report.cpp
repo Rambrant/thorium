@@ -504,6 +504,58 @@ TEST( CoreReport, HeaderKeepsItsRowsEvenWhenAFieldIsUnset)
     EXPECT_EQ( lines.size(), core::humanHeaderLines( fullRunInfo()).size());
 }
 
+//
+// Whether the run reached a bench, stated rather than left to be worked out
+// from the command line two rows below it. A detached run's checks can all
+// pass, and what they passed about is a file -- which is the difference between
+// a green report about a DUT and a green report about nothing at all.
+//
+TEST( CoreReport, HeaderStatesWhetherARigWasThere)
+{
+    EXPECT_TRUE( containsText( core::humanHeaderLines( fullRunInfo()), "attached"));
+
+    auto detached = fullRunInfo();
+    detached.BenchAttached = false;
+
+    const auto lines = core::humanHeaderLines( detached);
+
+    EXPECT_TRUE( containsText( lines, "DETACHED"));
+    EXPECT_TRUE( containsText( lines, "no instrument was touched"));
+
+    // Same row count either way -- the header is a form, and both runs have an
+    // answer to this.
+    EXPECT_EQ( lines.size(), core::humanHeaderLines( fullRunInfo()).size());
+}
+
+//
+// And it is the one metadata row that raises its voice. Every other row in the
+// header is Emphasis::Detail, deliberately quiet so a reader's eye travels past
+// it; "something a reader must notice that is not a failed check" is precisely
+// what Emphasis::Warning is for, and precisely what this is.
+//
+TEST( CoreReport, ADetachedBenchIsTheOneHeaderRowThatIsNotQuiet)
+{
+    auto detached = fullRunInfo();
+    detached.BenchAttached = false;
+
+    const auto lines = core::humanHeaderLines( detached);
+
+    const auto warning = std::ranges::find_if( lines,
+        []( const auto & row) { return core::plainText( row).contains( "DETACHED"); });
+
+    ASSERT_NE( warning, lines.end());
+    EXPECT_EQ( warning->Spans.at( 0).Style, core::Emphasis::Warning);
+
+    // The attached spelling stays as quiet as its neighbours.
+    const auto attached = core::humanHeaderLines( fullRunInfo());
+
+    const auto ordinary = std::ranges::find_if( attached,
+        []( const auto & row) { return core::plainText( row).contains( "attached"); });
+
+    ASSERT_NE( ordinary, attached.end());
+    EXPECT_EQ( ordinary->Spans.at( 0).Style, core::Emphasis::Detail);
+}
+
 TEST( CoreReport, SummaryStatesTheRunVerdict)
 {
     EXPECT_TRUE( containsText( core::humanSummaryLines( true),  "ALL SCRIPTS PASSED"));

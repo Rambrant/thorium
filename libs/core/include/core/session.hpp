@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "core/bench.hpp"
 #include "core/bytes.hpp"
 #include "core/quantity_kind.hpp"
 #include "core/recording.hpp"
@@ -142,44 +143,79 @@ namespace core
     // The default session: always performs the real read. Stateless -- every
     // dut::Measure call site can share one instance.
     //
+    // "Always" up to one thing, which is what keeps core/bench.hpp's guarantee
+    // total rather than conventional. Every instructing verb skips its driver
+    // when no bench is attached; this is the last path by which a *reading*
+    // could still reach one, and it is closed by refusing rather than by
+    // substituting. There is no honest value to hand back -- a zero would be a
+    // number no instrument produced, sitting in a log beside a criterion that
+    // then passes or fails on it.
+    //
+    // A combination app/src/main.cpp cannot produce: it detaches exactly for
+    // the three modes that supply their own readings, so a detached run always
+    // has a scripted session in front of this one. What this catches is the
+    // in-process caller who detached and then did not arm anything -- an error,
+    // and one whose only other symptom would be a driver call nobody meant to
+    // make.
+    //
     class LiveSession : public ISession
     {
         public:
             [[nodiscard]]
             auto fetch(
-                std::string_view,
+                const std::string_view                    name,
                 std::string_view,
                 QuantityKind,
-                const std::function<QuantityVariant()> & liveRead) -> QuantityVariant override
+                const std::function<QuantityVariant()> &  liveRead) -> QuantityVariant override
             {
+                requireBench( name);
+
                 return liveRead();
             }
 
             [[nodiscard]]
             auto fetchData(
+                const std::string_view          name,
                 std::string_view,
-                std::string_view,
-                const std::function<Bytes()> & liveRead) -> Bytes override
+                const std::function<Bytes()> &  liveRead) -> Bytes override
             {
+                requireBench( name);
+
                 return liveRead();
             }
 
             [[nodiscard]]
             auto fetchFlag(
+                const std::string_view         name,
                 std::string_view,
-                std::string_view,
-                const std::function<bool()> & liveRead) -> bool override
+                const std::function<bool()> &  liveRead) -> bool override
             {
+                requireBench( name);
+
                 return liveRead();
             }
 
             [[nodiscard]]
             auto fetchTrace(
+                const std::string_view             name,
                 std::string_view,
-                std::string_view,
-                const std::function<Waveform()> & liveRead) -> Waveform override
+                const std::function<Waveform()> &  liveRead) -> Waveform override
             {
+                requireBench( name);
+
                 return liveRead();
+            }
+
+        private:
+            static auto requireBench( const std::string_view name) -> void
+            {
+                if( !bench().isAttached())
+                {
+                    throw std::runtime_error(
+                        "LiveSession: '" + std::string( name) +
+                        "' would be read from an instrument, but no bench is attached -- inject or replay it,"
+                        " or attach a bench");
+                }
             }
     };
 

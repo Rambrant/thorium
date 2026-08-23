@@ -4,6 +4,7 @@
 
 #include "core/adapter.hpp"
 #include "core/at.hpp"
+#include "core/bench.hpp"
 #include "core/describe.hpp"
 #include "core/journal.hpp"
 
@@ -41,6 +42,23 @@ namespace core
     // where the sourcing verbs are pure instrument I/O and take no rig facts at
     // all. Dispatch is the same ADL trick, via connectDriver/disconnectDriver.
     //
+    // Both driver calls below are conditional on a bench being attached -- see
+    // core/bench.hpp for the argument, which is the same one every stimulus
+    // verb makes. Two things about that are specific to these two, and worth
+    // stating rather than leaving to be discovered:
+    //
+    // The whole call is skipped, which means the in-memory fabric model is not
+    // updated either. That is deliberate: a detached run is one whose readings
+    // come from a file, and nothing in it reads the model. core::MeasureEngine
+    // does its own connect/disconnect *inside* the liveRead callback, which a
+    // scripted session never invokes, and hal::safeRig() opens everything
+    // regardless of what it thought was closed.
+    //
+    // And hal::SwitchFabric is bookkeeping today, with no I/O of its own -- so
+    // "nothing reached the fabric" currently means "nothing was recorded as
+    // closed". When relay I/O does arrive it belongs inside that class, behind
+    // this same switch, rather than as a second flag beside it.
+    //
     template<typename FabricT, typename InstrumentWiringT, typename ConnectorWiringT>
     class ConnectEngine
     {
@@ -54,7 +72,10 @@ namespace core
             template<typename BuilderT>
             auto operator()( const BuilderT & builder) -> void
             {
-                connectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config());
+                if( bench().isAttached())
+                {
+                    connectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config());
+                }
 
                 detail::postSourceEvent( Verb::Connect, builder.config(), false);
             }
@@ -82,7 +103,10 @@ namespace core
             template<typename BuilderT, typename BundleT>
             auto operator()( const BuilderT & builder, const At<AdapterBundle<BundleT>> & wrapped) -> void
             {
-                connectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config(), wrapped.point);
+                if( bench().isAttached())
+                {
+                    connectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config(), wrapped.point);
+                }
 
                 //
                 // Subject is still the instrument, matching every other
@@ -95,7 +119,17 @@ namespace core
                 journal().post( JournalRecord{
                     .Method     = Verb::Connect,
                     .Subject    = described.Instrument,
-                    .Detail     = std::string( wrapped.point.Description),
+
+                    //
+                    // The marker replaces the interface's description rather
+                    // than joining it, the way core::WriteEngine's replaces
+                    // "sent": a Detail is one sentence about what happened, and
+                    // what happened is that nothing did. The interface is still
+                    // named in the value column beside it.
+                    //
+                    .Detail     = bench().isAttached()
+                                      ? std::string( wrapped.point.Description)
+                                      : std::string( kDetachedDetail),
                     .Instrument = described.Instrument,
                     .Value      = std::string( wrapped.point.Name)
                 });
@@ -120,7 +154,10 @@ namespace core
             template<typename BuilderT>
             auto operator()( const BuilderT & builder) -> void
             {
-                disconnectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config());
+                if( bench().isAttached())
+                {
+                    disconnectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config());
+                }
 
                 detail::postSourceEvent( Verb::Disconnect, builder.config(), false);
             }
@@ -129,14 +166,19 @@ namespace core
             template<typename BuilderT, typename BundleT>
             auto operator()( const BuilderT & builder, const At<AdapterBundle<BundleT>> & wrapped) -> void
             {
-                disconnectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config(), wrapped.point);
+                if( bench().isAttached())
+                {
+                    disconnectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config(), wrapped.point);
+                }
 
                 const auto described = describeConfig( builder.config());
 
                 journal().post( JournalRecord{
                     .Method     = Verb::Disconnect,
                     .Subject    = described.Instrument,
-                    .Detail     = std::string( wrapped.point.Description),
+                    .Detail     = bench().isAttached()
+                                      ? std::string( wrapped.point.Description)
+                                      : std::string( kDetachedDetail),
                     .Instrument = described.Instrument,
                     .Value      = std::string( wrapped.point.Name)
                 });

@@ -13,6 +13,7 @@
 
 #include "cli.hpp"
 #include "core/active_test_catalog.hpp"
+#include "core/bench.hpp"
 #include "core/console_sink.hpp"
 #include "core/criteria_variants.hpp"
 #include "core/journal.hpp"
@@ -207,6 +208,31 @@
 // Both are set up before the journal opens and before anything is measured, and
 // both are fatal if they cannot be -- see main() below on why that beats
 // discovering an unwritable path once the readings are already taken.
+//
+// ---------------------------------------------------------------------------
+// Whether a run reaches a bench at all
+// ---------------------------------------------------------------------------
+//
+// --replay, --inject and --skeleton each detach the bench (see core/bench.hpp),
+// and the invariant behind all three is one sentence: a run whose readings are
+// fiction must not be driving hardware.
+//
+// This used to be half true and said as though it were whole. The observing
+// verbs have always honoured it -- a scripted session never invokes the
+// callback the driver call lives in -- but the instructing ones did not exist
+// as far as sessions were concerned, so a replayed run took its readings from a
+// file and then energised rails and closed relays for real. Every driver in
+// this repo being simulated is the only reason that has cost nothing so far.
+//
+// Not a flag of its own, because there is no fourth combination worth exposing.
+// A detached run with live readings has nowhere to get them (core::LiveSession
+// refuses rather than reaching for an instrument), and an attached run with
+// described readings would put a number no instrument produced into a log
+// beside a rail that really is energised.
+//
+// --safe is the deliberate exception and needs no exception made for it: it
+// runs before any of the three is even looked at, and safing is the one thing a
+// caller invokes precisely because they want it to reach the rig.
 //
 namespace
 {
@@ -860,6 +886,41 @@ int main( int argc, char ** argv)
     {
         listTests();
         return 0;
+    }
+
+    //
+    // --- Whether any of this reaches a bench ---
+    //
+    // Detached for all three of the modes whose readings come from somewhere
+    // other than this rig, and the invariant is worth stating as one sentence
+    // because it is what makes the set closed: a run whose readings are fiction
+    // must not be driving hardware. --replay takes them from a file, --inject
+    // from an authored description, --skeleton from placeholders; in none of
+    // the three does an Apply, a Connect or a Write have anything true to do.
+    //
+    // Derived here rather than offered as a flag of its own. There is no
+    // coherent fourth combination to expose: a detached run with live readings
+    // would ask absent hardware for values through core::LiveSession, and an
+    // attached run with described readings would put a number no instrument
+    // produced into a log beside a rail that really is energised. Both are
+    // artifacts this framework exists to make impossible to produce by
+    // accident, and neither becomes reasonable for having been asked for
+    // explicitly.
+    //
+    // FIRST, ahead of everything else this function does, and the ordering is
+    // load-bearing in two directions. core::defaultRunInfo() below reads the
+    // answer into the traceability header, so detaching after it would print a
+    // header claiming a bench that was not there; and hal::RigSafingGuard is
+    // constructed further down, so the safing pass on the way out sees the same
+    // answer the run saw on the way in.
+    //
+    // Not before --safe and --list-tests, which return above this point. --safe
+    // in particular must stay attached: it is invoked precisely because the
+    // caller wants it to reach the rig.
+    //
+    if ( options.ReplayPath || options.InjectPath || options.SkeletonPath)
+    {
+        core::bench().detach();
     }
 
     //

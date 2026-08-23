@@ -6,6 +6,7 @@ add_library(core STATIC
         src/session.cpp
         src/stimulus.cpp
         src/format.cpp
+        src/bench.cpp
         src/bytes.cpp
         src/waveform.cpp
         src/journal.cpp
@@ -14,6 +15,7 @@ add_library(core STATIC
         src/console_sink.cpp
         src/rtf_sink.cpp
         src/sarif_sink.cpp
+        include/core/bench.hpp           # header-only apart from src/bench.cpp
         include/core/quantity.hpp        # header-only; listed so it shows up in IDEs
         include/core/quantity_kind.hpp   # header-only
         include/core/recording.hpp       # header-only

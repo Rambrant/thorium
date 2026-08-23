@@ -1,5 +1,7 @@
 #include "core/journal.hpp"
 
+#include "core/bench.hpp"
+
 #include <array>
 #include <chrono>
 #include <cstdio>
@@ -189,7 +191,18 @@ namespace core
             .DutVersion       = THORIUM_DUT_VERSION,
             .RigVersion       = THORIUM_RIG_VERSION,
             .StartedUtc       = isoUtcFromUnixMillis( startedAt),
-            .StartedLocal     = localTimeFromUnixMillis( startedAt)
+            .StartedLocal     = localTimeFromUnixMillis( startedAt),
+
+            //
+            // Read here rather than left to the caller, so that no caller can
+            // forget it and produce a header claiming a bench that was not
+            // there. Which does put an ordering requirement on whoever detaches:
+            // do it before assembling this, not after. app/src/main.cpp
+            // therefore detaches immediately after parsing its options, ahead
+            // of everything else it does -- see the comment there, which says
+            // so at the point where the order matters.
+            //
+            .BenchAttached    = bench().isAttached()
         };
     }
 

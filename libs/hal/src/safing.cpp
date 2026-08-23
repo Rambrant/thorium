@@ -7,6 +7,7 @@
 #include <meta>
 #include <vector>
 
+#include "core/bench.hpp"
 #include "core/journal.hpp"
 
 namespace hal
@@ -72,8 +73,32 @@ namespace hal
         core::journal().post( core::JournalRecord{
             .Method  = core::Verb::Safe,
             .Subject = "rig",
-            .Detail  = "all instrument outputs off and zeroed, all relays opened"
+            .Detail  = core::bench().isAttached()
+                           ? "all instrument outputs off and zeroed, all relays opened"
+                           : core::kDetachedDetail
         });
+
+        //
+        // Nothing to safe when nothing was ever driven, and this is the one
+        // place where that is a statement about safety rather than about
+        // tidiness -- so it is worth being explicit about why skipping it is
+        // right rather than merely harmless.
+        //
+        // A detached run never called applyDriver, connectDriver or any other
+        // instruction (see core/bench.hpp): every output it might have turned
+        // on, it did not turn on, and every relay it might have closed is still
+        // open. There is nothing in a state this could return to idle.
+        //
+        // The alternative -- safing anyway, on the grounds that safing is
+        // always safe -- is the one thing this must not do. It would be the
+        // single call in a detached run that did reach real hardware, on a rig
+        // somebody else may well be using: a --replay at a desk would open the
+        // relays of whatever bench the runner happened to be pointed at.
+        //
+        if( !core::bench().isAttached())
+        {
+            return;
+        }
 
         //
         // Sources first, relays after -- and note that this ordering needs

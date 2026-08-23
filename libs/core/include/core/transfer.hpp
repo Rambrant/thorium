@@ -4,6 +4,7 @@
 #include <string_view>
 #include <utility>
 
+#include "core/bench.hpp"
 #include "core/bytes.hpp"
 #include "core/describe.hpp"
 #include "core/journal.hpp"
@@ -67,7 +68,18 @@ namespace core
             template<typename BuilderT>
             auto operator()( const BuilderT & builder, const Bytes & payload) const -> void
             {
-                writeDriver( builder.config(), payload);
+                //
+                // Conditional on a bench being attached, like every other
+                // stimulus verb -- see core/bench.hpp. A run replaying a
+                // console dialogue takes the replies from the file, and must
+                // not put the commands out on a real port to get them.
+                //
+                const auto sent = bench().isAttached();
+
+                if( sent)
+                {
+                    writeDriver( builder.config(), payload);
+                }
 
                 //
                 // Logged after the driver call, for the reason every engine in
@@ -79,7 +91,14 @@ namespace core
                 journal().post( JournalRecord{
                     .Method     = Verb::Write,
                     .Subject    = described.Instrument,
-                    .Detail     = "sent",
+
+                    //
+                    // Spelled out here rather than through
+                    // detail::postSourceEvent, which is what marks the other
+                    // stimulus verbs: this event has a Detail of its own
+                    // ("sent") that the marker replaces rather than fills in.
+                    //
+                    .Detail     = sent ? "sent" : kDetachedDetail,
                     .Instrument = described.Instrument,
                     .Value      = describeValue( payload)
                 });

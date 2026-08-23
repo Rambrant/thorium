@@ -1219,6 +1219,74 @@ Could not read the stimulus file: stimulus line 2: 'Volts' is not a unit symbol
   -- in 'Output3V3 = 3.3 Volts'
 ```
 
+### None of these three touch the rig
+
+`--replay`, `--inject` and `--skeleton` all **detach the bench**: no `Apply`,
+`Connect`, `Setup`, `Write` or `Arm` reaches an instrument, and neither does the
+safing pass on the way out. One sentence behind all three — *a run whose
+readings are fiction must not be driving hardware.*
+
+That was half true before and stated as though it were whole. The observing
+verbs have always honoured it, because a driver call lives inside a callback a
+scripted session never invokes. The instructing verbs had no such seam and
+called their drivers unconditionally, so a replayed run took its readings from a
+file and then energised rails for real — survivable only because every driver in
+this repo is still simulated.
+
+**The report says so in its header**, rather than leaving a reader to notice
+`--replay=` on the command-line row two lines below:
+
+```
+DeviceX -- Sun 23 Aug 2026 18:53:45 CEST
+DUT serial        SN-000123
+Operator          thomas
+Criteria          production
+Bench             DETACHED -- no instrument was touched
+Framework         Thorium 0.1.0
+```
+
+Present on every run, because the header is a form and both answers matter — an
+ordinary run's row reads `Bench  attached`, which is the reassurance half. It is
+also the one metadata row that raises its voice: every other is deliberately
+quiet, and a detached bench is exactly "something a reader must notice that is
+not a failed check". A detached run's checks can all pass, and what they passed
+about is a file. The SARIF header carries it as a boolean, `"benchAttached":
+false`, so a consumer can filter those runs out without parsing a command line.
+
+The instruction is still **logged** too, and says it went nowhere:
+
+```
+Apply DcP1 = voltage=28 V, currentLimit=7 A -- not performed -- no bench attached
+```
+
+Posted rather than suppressed, because a routing step omitted for brevity is
+exactly the one that explains a failed reading — and posted *marked*, because an
+unmarked one would state that 28 V went onto a rail that was never energised. It
+costs the human report nothing: that report shows only the verbs that observed
+something, so the marker appears solely in the machine log, which is where
+per-event precision is the point.
+
+**Safing is skipped too, and that is the sharp end of it.** Safing an unattached
+bench would be the single instruction in the run that *did* reach real hardware
+— a `--replay` at a desk opening the relays of whatever rig the runner happened
+to be pointed at. A detached run never closed a relay or turned an output on, so
+there is nothing in a state to return to idle. `--safe` is unaffected: it runs
+before any of this and is invoked precisely because the caller wants it to reach
+the rig.
+
+There is no `--offline` flag, because there is no fourth combination worth
+having. A detached run with live readings has nowhere to get them
+(`core::LiveSession` refuses rather than reaching for an instrument), and an
+attached run with described readings would put a number no instrument produced
+into a log beside a rail that really is energised.
+
+Detachment is deliberately **not** the same fact as injecting readings. A script
+unit test injects its values *and* wants `Apply` and `Connect` to reach their
+drivers — the simulated instrument state and the fabric are what such a test
+then asserts on. Injecting is about where a value comes from; attachment is
+about whether an instruction goes anywhere, and only something that knows the
+whole run is in a position to say the second one.
+
 `tools/run-tests.sh [build-dir]` is the tester-facing picker: choose a group, then
 one, several or all of its tests. It offers the catalog and nothing else — unit
 tests are the build system's business, deliberately not reachable from there.
@@ -1226,8 +1294,9 @@ tests are the build system's business, deliberately not reachable from there.
 ### The two logs
 
 Both are written by default, named for the run's start time, and both carry the
-same traceability header — DUT, serial, operator, criteria variant, framework
-version, content revision, UTC instant, command line.
+same traceability header — DUT, serial, operator, criteria variant, whether a
+bench was attached, framework version, content revision, UTC instant, command
+line.
 
 **`*.rtf` — for people.** Colour-coded, grouped the way the catalog is,
 descriptions in grey, each check stating what was measured *and what was
@@ -1238,6 +1307,7 @@ required*. It carries what the run **observed** — `Measure`, `Read` and `Verif
 DeviceX -- Sat 01 Aug 2026 11:13:16 CEST
 DUT serial        SN-000123
 Criteria          production
+Bench             attached
 Suite/DUT/rig     5a4052f
 --------------------------------------------------------------------
 OutputVoltage Tests validating DUT output voltage rails

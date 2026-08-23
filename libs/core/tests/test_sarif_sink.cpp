@@ -257,6 +257,35 @@ TEST_F( SarifSinkTest, TraceabilityBagCarriesEveryRunInfoField)
 
     // automationDetails: what makes two runs comparable.
     EXPECT_TRUE( contains( text, "thorium/DeviceX/stress/"));
+
+    //
+    // A JSON boolean, not a quoted word -- so a consumer filtering out the runs
+    // that never touched hardware writes benchAttached == false rather than a
+    // string comparison against whichever spelling this sink chose.
+    //
+    EXPECT_TRUE( contains( text, "\"benchAttached\": true"));
+}
+
+//
+// Present on every run rather than only when it is interesting, unlike its
+// optional neighbours: those are empty when nobody supplied them, and this is a
+// yes/no the framework always knows. A consumer that had to treat "absent" as
+// "probably attached" would be guessing about the one field that says whether
+// the results mean anything about a DUT.
+//
+TEST_F( SarifSinkTest, TheHeaderSaysWhetherARigWasThere)
+{
+    auto detached = runInfo();
+
+    detached.BenchAttached = false;
+
+    {
+        core::SarifSink sink( mPath.string());
+        sink.onRunStart( detached);
+        sink.onRunEnd( true);
+    }
+
+    EXPECT_TRUE( contains( readFile( mPath), "\"benchAttached\": false"));
 }
 
 //

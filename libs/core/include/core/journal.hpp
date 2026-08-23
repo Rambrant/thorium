@@ -163,6 +163,27 @@ namespace core
         //
         std::string StartedUtc;      // ISO-8601, e.g. 2026-08-01T08:56:02.371Z
         std::string StartedLocal;    // e.g. Sat 01 Aug 2026 10:56:02 CEST
+
+        //
+        // Whether anything the run did reached an instrument -- see
+        // core::Bench in core/bench.hpp.
+        //
+        // In the traceability header rather than left to be inferred, and that
+        // is a deliberate reversal: the command line is in this header too, so
+        // a reader who notices "--replay=readings.tsv" in it can work the
+        // answer out. Working it out is exactly what a test record should not
+        // ask of the person holding it. "No instrument was touched" is the
+        // single most important fact about such a run -- it is the difference
+        // between a green report about a DUT and a green report about a file --
+        // and a fact that important is stated, not derived.
+        //
+        // A bool rather than a string, unlike every field above it. Those carry
+        // things a run *observed* and can be empty when nobody supplied them;
+        // this is a yes/no the framework always knows the answer to, and each
+        // sink renders it its own way (the human report puts a detached run's
+        // row in Warning, where every other metadata row is quiet).
+        //
+        bool BenchAttached{ true };
     };
 
     //

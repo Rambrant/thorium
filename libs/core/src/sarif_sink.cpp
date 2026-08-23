@@ -85,6 +85,28 @@ namespace core
         }
 
         //
+        // The same, as a JSON boolean rather than a quoted string -- so a
+        // consumer filtering on it writes `benchAttached == false` and not a
+        // string comparison against whichever spelling this file chose.
+        //
+        // A differently named function rather than an overload of property()
+        // above, and that is a trap avoided rather than a style choice: a
+        // const char* converts to bool by a standard conversion and to
+        // string_view by a user-defined one, so an overload set containing both
+        // would silently route every string literal to the boolean version.
+        //
+        auto booleanProperty( std::ostream & out, const std::string_view indent, const std::string_view key, const bool value, bool & first) -> void
+        {
+            if( !first)
+            {
+                out << ",\n";
+            }
+
+            out << indent << quoted( key) << ": " << ( value ? "true" : "false");
+            first = false;
+        }
+
+        //
         // SARIF's `level` (how bad) and `kind` (what sort of finding) are two
         // separate axes, and a test log needs both: a passing check is kind
         // "pass" at level "none", a failing one is kind "fail" at level "error",
@@ -476,6 +498,16 @@ namespace core
             optionalProperty( out, kI4, "operator",         mRunInfo.Operator,         first);
             optionalProperty( out, kI4, "hostName",         mRunInfo.HostName,         first);
             optionalProperty( out, kI4, "commandLine",      mRunInfo.CommandLine,      first);
+
+            //
+            // Not optional, unlike its neighbours: those are empty when nobody
+            // supplied them, and "no answer" is a meaningful state for an
+            // operator name. This is a yes/no the framework always knows, and a
+            // consumer filtering out the runs that never touched hardware needs
+            // it present on every run rather than only on the ones where it
+            // happens to be interesting.
+            //
+            booleanProperty(  out, kI4, "benchAttached",    mRunInfo.BenchAttached,    first);
 
             //
             // Which revision of the tested content produced this -- see

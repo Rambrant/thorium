@@ -142,6 +142,31 @@ namespace core
         }
 
         //
+        // Whether the run reached a bench, as a header row of its own.
+        //
+        // Always present, like every other row here -- the header is a report
+        // form, and a form whose fields appear only sometimes cannot be
+        // compared between two runs (see metadataLine's own comment). So an
+        // ordinary run says so too, which is the reassurance half: "attached"
+        // is the row that says these readings came off hardware.
+        //
+        // Emphasis::Warning when detached, where every other metadata row is
+        // quiet -- "something a reader must notice that is not a failed check"
+        // is exactly what this is. A detached run's checks can all pass, and
+        // what they passed about is a file.
+        //
+        auto benchLine( const bool attached) -> ReportLine
+        {
+            if( attached)
+            {
+                return metadataLine( "Bench", "attached");
+            }
+
+            return line( Emphasis::Warning,
+                         padded( "Bench", kLabelWidth) + "DETACHED -- no instrument was touched");
+        }
+
+        //
         // The content revisions, as one row when suite/, dut/ and rig/ agree and
         // three when they don't.
         //
@@ -264,6 +289,7 @@ namespace core
         append( lines, { metadataLine( "DUT serial", info.DutSerial) });
         append( lines, { metadataLine( "Operator",   info.Operator) });
         append( lines, { metadataLine( "Criteria",   info.CriteriaVariant) });
+        append( lines, { benchLine( info.BenchAttached) });
         append( lines, { metadataLine( "Framework",  info.FrameworkName + " " + info.FrameworkVersion) });
         append( lines, versionLines( info));
         append( lines, { metadataLine( "Started (UTC)", info.StartedUtc) });
