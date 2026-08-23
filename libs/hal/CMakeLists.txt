@@ -198,6 +198,7 @@ add_library(hal_rig STATIC
     src/source.cpp
     src/safing.cpp
     include/hal/measure.hpp        # header-only
+    include/hal/trace.hpp          # header-only
     include/hal/route.hpp          # header-only
     include/hal/source.hpp         # header-only
     include/hal/safing.hpp         # header-only

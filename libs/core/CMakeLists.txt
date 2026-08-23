@@ -4,8 +4,10 @@ add_library(core STATIC
         src/quantity_kind.cpp
         src/recording.cpp
         src/session.cpp
+        src/stimulus.cpp
         src/format.cpp
         src/bytes.cpp
+        src/waveform.cpp
         src/journal.cpp
         src/criteria_variants.cpp
         src/report.cpp
@@ -16,6 +18,7 @@ add_library(core STATIC
         include/core/quantity_kind.hpp   # header-only
         include/core/recording.hpp       # header-only
         include/core/session.hpp         # header-only
+        include/core/stimulus.hpp        # header-only apart from src/stimulus.cpp
         include/core/port.hpp            # header-only
         include/core/measure.hpp         # header-only
         include/core/adapter.hpp         # header-only
@@ -31,6 +34,8 @@ add_library(core STATIC
         include/core/meta.hpp            # header-only
         include/core/format.hpp          # header-only apart from src/format.cpp
         include/core/bytes.hpp           # header-only apart from src/bytes.cpp
+        include/core/waveform.hpp        # header-only apart from src/waveform.cpp
+        include/core/trace.hpp           # header-only
         include/core/predicate_text.hpp  # header-only
         include/core/journal.hpp
         include/core/report.hpp

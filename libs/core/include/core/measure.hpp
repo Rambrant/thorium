@@ -488,10 +488,21 @@ namespace core
 
             auto load( const std::string & path) -> void { mSessions.load( path); }
             auto useLive()                       -> void { mSessions.useLive(); }
+            auto usePlaceholders()               -> void { mSessions.usePlaceholders(); }
             auto startRecording()                -> void { mSessions.startRecording(); }
             auto stopRecording()                 -> void { mSessions.stopRecording(); }
 
+            //
+            // Records straight out through a writer as the run takes each
+            // observation, rather than keeping them all until dump() -- what
+            // app/src/main.cpp uses. See core::RecordingSession::streamTo.
+            //
+            auto startRecording( RecordingWriter & writer) -> void { mSessions.startRecording( writer); }
+
             auto dump( std::ostream & out) const -> void { mSessions.dump( out); }
+
+            [[nodiscard]]
+            auto recordedCount() const -> std::uint64_t { return mSessions.recordedCount(); }
 
             //
             // The bank itself, so the other reading verb can be constructed

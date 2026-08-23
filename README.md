@@ -227,7 +227,8 @@ from":
                             ▼
   hal::SwitchFabric closes the relays, the driver reads, the relays open
                             ▼
-  core::ISession decides where the value really came from
+  core::ISession decides where the value really came from -- for a reading,
+  a serial reply, a capture's yes/no, or a whole trace
       LiveSession  │  ScriptedSession (injected)  │  replay from a recording
                             ▼
   Verify( FS_Supply_1::FS_Supply_5V0, rail)
@@ -819,6 +820,60 @@ about one pin, so its ports name which one they are (`core::Port::qualifiedBy`)
 and key as `"Output5V.Vbase"` rather than sharing one `"Output5V"` slot. An
 ordinary DMM reading needs no such thing and is unaffected.
 
+### Take the whole captured trace
+
+`Measure` asks the instrument for one number about a record. `Fetch` takes the
+record itself:
+
+```cpp
+const auto captured = Await( Osc1.single());
+
+Verify( FS_Transient_1::FS_Transient_Captured, captured);
+
+const auto trace = Fetch( Osc1.channel<3>().waveform());
+
+Verify( FS_Transient_1::FS_Dip_Depth, trace.minimum<Voltage>());
+```
+
+What comes back is a `core::Waveform`: samples **already in a unit**, plus the
+timebase that gives them their positions. Not raw ADC counts with a preamble to
+undo them — the scaling is the driver's job, and a recording holding raw counts
+would be unreadable without the instrument that wrote it. That is the same
+choice `Measure` already makes one number at a time.
+
+**There is no criterion that takes a trace.** A criterion is a stated limit a
+test specification carries, and "the waveform is correct" is not one. So a
+script reduces first — `minimum<Voltage>()`, `maximum`, `peakToPeak`, `mean`,
+all of them explicit about the unit and checked against the trace's own — and
+checks the number. For anything a reduction does not cover, the samples are
+there:
+
+```cpp
+const auto settled = std::ranges::all_of(
+    trace.samples() | std::views::drop( 500),
+    []( const auto v) { return v > 4.9; });
+```
+
+**Check the `Await` before fetching.** A trace taken after a capture that never
+completed is the *previous* acquisition — it will look like a perfectly good
+trace. Nothing enforces the order, exactly as nothing enforces Arm-before-event.
+
+**A trace never appears in a log.** Both logs get a summary —
+`4096 pts @ 1 us, 0.4 V pk-pk` — and never the samples. There is no length at
+which spelling out four thousand numbers is what a reader wanted; the trace
+itself is in the recording, at full precision, which is what `--replay` reads.
+
+**Testing it without a bench** is the same as for the other three, and each
+channel has its own key, since a four-channel scope holds four records at once:
+
+```cpp
+Fetch.inject( "Osc1.Channel3", capturedEarlier);
+```
+
+`Fetch` is generic and lives in `core/trace.hpp` — a transient recorder, a
+digitizer or a logger with a memory behind it hands back the same shape.
+`hal::DSO8064A` is simply the first driver to answer to `fetchDriver`.
+
 ### When an instrument cannot make the measurement
 
 A real instrument has a third answer besides a number and a fault: *"I could not
@@ -925,6 +980,9 @@ ends never runs out. Neither is privileged.
 
 `Measure.load( path)` replays a recording captured from a real run instead — the
 file `run_scripts --record=` writes, which is the same thing `--replay=` reads.
+`core::injectStimulusFromFile( Measure.sessions(), path)` arms the same bank
+from an authored stimulus file, so a test whose scenario is long enough to be
+worth reviewing on its own can live beside the test rather than inside it.
 `Measure.useLive()` goes back to hardware.
 
 ---
@@ -985,8 +1043,10 @@ fails that build rather than being reported.
 | `--repeat=N` | run the selection N times over |
 | `--until-failure` | stop as soon as a pass fails |
 | `--safe` | drop the rig to idle and exit — no test, no log |
-| `--record=PATH` | write every reading the run took, in order |
+| `--record=PATH` | write every reading the run took, in order (heavy payloads go to `PATH.d/`) |
 | `--replay=PATH` | take every reading from that file instead of the rig |
+| `--skeleton=PATH` | write out every reading the scripts ask for, against placeholders |
+| `--inject=PATH` | take readings from a stimulus file — authored, not captured |
 | `--dut-serial=`, `--operator=` | traceability, into both logs |
 | `--log-dir=`, `--sarif=`, `--rtf=` | where the logs go |
 | `--quiet`, `--no-logs`, `--no-color` | suppress the console, the files, the colour |
@@ -1038,6 +1098,36 @@ what reproduces a bench failure at a desk: the replayed run takes its verdict
 from the file, so it passes or fails exactly as the recorded one did, with no
 instrument attached.
 
+All four kinds of observation go into that one file, in the order they happened
+— a rail voltage, a serial reply, whether a capture landed, a whole trace —
+because a replay that armed some seams and not others would take its voltages
+from the file and ask absent hardware for the rest.
+
+**A recording is one file plus, sometimes, a directory beside it.** Anything too
+large to keep in a row — a multi-kilobyte frame, a captured trace — is written
+to `PATH.d/` and referred to from the row by a name derived from its own
+contents:
+
+```
+12  1787491956557  Ser1.Data       Ser1  <bytes>  41434B0D
+13  1787491956558  Osc1.Channel3   Osc1  <trace>  Voltage  -0.001  1e-06  @3F0A19C4D2E7B815.wfm
+```
+
+Both halves move together: `--replay=PATH` finds the directory from the file's
+own name, so copying a recording off the bench means copying both, and a file
+whose directory was left behind fails loudly rather than replaying half a run.
+
+Naming the blobs after their contents rather than after the row that wrote one
+is what keeps the file diffable, which is the whole reason it is flat text: a
+sequence-numbered reference would be byte-identical between a run whose DUT
+answered correctly and one whose DUT did not. It also means a run that reads the
+same frame fifty times stores it once. A trace keeps its unit and timebase *in*
+the row for the same reason — two runs whose captures differ only in sample rate
+should differ visibly, without opening anything.
+
+**The rows are written as the run takes them,** not accumulated and dumped at the
+end, so a run that is killed part-way leaves the readings it had already taken.
+
 Opt-in, unlike the logs, and for the opposite reason: a log is evidence that a
 run happened and every run should leave one, while a recording is a tool for a
 particular investigation and is as long as the run is — a fifty-pass soak
@@ -1049,6 +1139,85 @@ a copy of its input. Both are also fatal if the path cannot be opened, checked
 before anything is measured — a caller who asked to record a run and silently
 got none, or asked to replay one and silently got live hardware, has been told
 the run did something it did not.
+
+### Readings that were never on a bench
+
+`--record`/`--replay` capture and reproduce a run that happened. Two more flags
+are for the run that has not: a DUT that does not exist yet, a fault that is
+hard to provoke on the bench, a rig in another building.
+
+```bash
+build/debug/app/run_scripts --skeleton=skeleton.tsv    # what do the scripts read?
+build/debug/app/run_scripts --inject=healthy.stim      # here is what they read
+```
+
+**`--skeleton` answers the question that blocks authoring anything.** A script's
+session keys — `Output5V.Vbase`, `Osc1.Acquisition`, `Ser1.Data`,
+`AcP1.A.Voltage` — come from `core::Port::qualifiedBy`, from each engine's
+`"<instrument>.<what>"` rule and from the DUT adapter, and are written down
+nowhere a person can read them. This runs the selection against a session that
+touches nothing and answers everything, and writes what the scripts *asked for*:
+
+```
+# Skeleton written by run_scripts --skeleton. This is a valid --replay file.
+# Every value below is a PLACEHOLDER -- no instrument was touched. ...
+0	1787494495696	AcP1.A.Voltage	AcP1	Voltage	0
+...
+10	1787494495696	Osc1.Acquisition	Osc1	<flag>	1
+12	1787494495696	Ser1.Data	Ser1	<bytes>
+```
+
+Edit the value column and it replays. It writes **no logs** and its exit status
+is about the file rather than the checks: a run that read placeholders tested
+nothing, and must not leave an RTF with a DUT serial in its header saying it
+did. One honest limit — a script whose control flow depends on what it read has
+more than one path, and a skeleton is the one the placeholders produce.
+
+**`--inject` takes the readings from a stimulus file** ([`core/stimulus.hpp`](libs/core/include/core/stimulus.hpp)),
+which is a different format from a recording on purpose:
+
+```
+# The DUT as it should behave. Keys from --skeleton.
+Output5V          = 5.01 V                  # sticky: however often it is read
+Output5V.Vmin     = 4.85 V, 4.70 V          # a list: one per read, in order
+Osc1.Acquisition  = true
+Ser1.Data         = <41 43 4B 0D 08>
+Osc1.Channel3     = trace( V, -0.001 s, 1e-06 s, "dip.samples")
+```
+
+Two rules carry the whole format. **One value is sticky; a list is a sequence**
+— the distinction `Measure.inject( "Output5V", 5.01_V)` and
+`Read.inject( "Ser1.Data", { ... })` already draw, spelled the same way. This is
+the thing a recording cannot express: every value in one is consumed once, so
+`--repeat=50` needs fifty passes' worth of rows, where the sticky line above
+answers a run of any length. And **a value is spelled the way a log spells it**
+— the payload forms are `core::describeValue`'s output character for character,
+so a reply can be read off a log line and pasted straight in.
+
+The unit symbols are exactly `core::quantities`' own — `V A W VA Ohm s dB Hz
+var`, and nothing at all for the dimensionless one. No prefixed spellings: the
+file's vocabulary *is* that list, so there is no second table to keep in step,
+and `1e-06 s` says what `1us` would have to be translated into anyway.
+
+Traces are **described, not encoded** — samples inline for a short one, or a
+plain file of numbers beside the stimulus file for a real one. There is no
+`ramp()`/`pulse()`/`sine()` vocabulary, deliberately: those would be a
+specification language invented here covering whichever shapes came up first,
+where a list of numbers covers every shape and is what a scope export, a
+spreadsheet or a model already produces.
+
+`--inject` layers over `--replay`, which is why both exist — it is how a
+captured failure gets re-run with one reading changed, to find out whether that
+reading was the cause. It is exclusive with the two modes that *write* a file,
+since injected readings written into one would be indistinguishable from
+observed ones.
+
+A bad line is fatal before anything is measured, and says where it is:
+
+```
+Could not read the stimulus file: stimulus line 2: 'Volts' is not a unit symbol
+  -- in 'Output3V3 = 3.3 Volts'
+```
 
 `tools/run-tests.sh [build-dir]` is the tester-facing picker: choose a group, then
 one, several or all of its tests. It offers the catalog and nothing else — unit
@@ -1098,6 +1267,13 @@ nothing a person wants and nothing a report needs, because its only reader is
 `--replay=`. Neither log can serve that purpose: they describe a run, in formats
 built for a person and for a SARIF server, while a replay needs the values
 themselves in the order they were taken and nothing else.
+
+That split is also why the logs are allowed to be lossy about a large value and
+the recording is not. A payload longer than a log line renders abridged with its
+true length beside it (`"BOOT v2.1 OK ..." (413 bytes)`), a trace renders as a
+summary and never as its samples, and every value column in both logs is bounded
+regardless of which verb produced it. None of that touches the recording, which
+holds every octet and every sample.
 
 ---
 

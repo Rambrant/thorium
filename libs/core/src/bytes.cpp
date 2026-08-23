@@ -41,6 +41,44 @@ namespace core
 
             return ( octet >= 0x20 && octet < 0x7F) || octet == '\t' || octet == '\r' || octet == '\n';
         }
+
+        //
+        // One octet, as describeValue's text branch spells it. Separate from
+        // that function purely so the loop there reads as the choice it is
+        // making rather than as two rendering rules inlined into one body.
+        //
+        auto appendAsText( std::string & out, const std::byte octet) -> void
+        {
+            switch( static_cast<unsigned char>( octet))
+            {
+                case '\t': out += "\\t";  break;
+                case '\r': out += "\\r";  break;
+                case '\n': out += "\\n";  break;
+                case '\\': out += "\\\\"; break;
+                case '"':  out += "\\\""; break;
+                default:   out += static_cast<char>( octet); break;
+            }
+        }
+
+        //
+        // One octet as two uppercase digits, space-separated from whatever is
+        // already there -- Bytes::hex()'s rule, applied one octet at a time so
+        // describeValue can stop early rather than building the hex of a
+        // four-megabyte payload and then discarding all but its head.
+        //
+        auto appendAsHex( std::string & out, const std::byte octet) -> void
+        {
+            std::array<char, 4> buffer{};
+
+            std::snprintf( buffer.data(), buffer.size(), "%02X", static_cast<unsigned>( static_cast<unsigned char>( octet)));
+
+            if( !out.empty())
+            {
+                out += ' ';
+            }
+
+            out += buffer.data();
+        }
     } // namespace
 
     Bytes::Bytes( const std::string_view text)
@@ -197,26 +235,57 @@ namespace core
 
     auto describeValue( const Bytes & value) -> std::string
     {
-        if( !std::ranges::all_of( value, isRenderableAsText))
-        {
-            return "<" + value.hex() + ">";
-        }
+        //
+        // The encoding is chosen from the whole payload even though only its
+        // head is rendered. Deciding from the head alone would be cheaper and
+        // would lie about exactly the payload worth being careful with -- a
+        // firmware image whose first forty bytes happen to be an ASCII banner
+        // would be announced as text, in quotes, and a reader would take the
+        // abridged head for the start of a string.
+        //
+        const auto asText = std::ranges::all_of( value, isRenderableAsText);
 
-        std::string result = "\"";
+        std::string body;
+        bool        abridged = false;
 
         for( const auto octet : value)
         {
-            switch( static_cast<unsigned char>( octet))
+            //
+            // Tested before the octet is appended rather than after, so the
+            // body never exceeds the bound by the width of whatever the last
+            // rendering happened to be -- an escape is two characters and a hex
+            // pair with its separator is three.
+            //
+            if( body.size() >= kMaxDescribedBody)
             {
-                case '\t': result += "\\t";  break;
-                case '\r': result += "\\r";  break;
-                case '\n': result += "\\n";  break;
-                case '\\': result += "\\\\"; break;
-                case '"':  result += "\\\""; break;
-                default:   result += static_cast<char>( octet); break;
+                abridged = true;
+                break;
+            }
+
+            if( asText)
+            {
+                appendAsText( body, octet);
+            }
+            else
+            {
+                appendAsHex( body, octet);
             }
         }
 
-        return result + "\"";
+        const auto open  = asText ? "\"" : "<";
+        const auto close = asText ? "\"" : ">";
+
+        if( !abridged)
+        {
+            return open + body + close;
+        }
+
+        //
+        // The ellipsis goes inside the delimiters and the true length outside
+        // them: what was cut is part of the payload, and how much there was of
+        // it is a fact about the payload rather than a character in it.
+        //
+        return open + body + ( asText ? "..." : " ...") + close +
+               " (" + std::to_string( value.size()) + " bytes)";
     }
 } // namespace core

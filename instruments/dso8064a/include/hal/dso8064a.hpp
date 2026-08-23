@@ -12,6 +12,7 @@
 #include "core/port.hpp"
 #include "core/quantity.hpp"
 #include "core/quantity_kind.hpp"
+#include "core/waveform.hpp"
 
 #include "hal/address.hpp"
 #include "hal/describe.hpp"
@@ -500,6 +501,36 @@ namespace hal
     };
 
     //
+    // :WAVeform -- which record to transfer off the instrument, for Fetch.
+    //
+    // Carries the channel and nothing else. Everything the transfer needs
+    // besides that is either fixed by this driver (the format: the samples come
+    // back scaled into volts, see fetchWaveform below) or already decided by
+    // the acquisition that produced the record -- how many points there are and
+    // how far apart they sit were settled when the scope triggered, and a
+    // :WAVeform setting cannot change them after the fact.
+    //
+    // Separate from DSO8064AChannelConfig even though both are "a channel and
+    // some settings", because they are instructions to different subsystems at
+    // different times: one configures an input before a capture, the other
+    // names a record to read out after one. Folding them together would make
+    // Setup( Osc1.channel<3>()) and Fetch( Osc1.channel<3>()) the same config
+    // reaching two verbs, and a Setup that had to ignore half its fields.
+    //
+    struct DSO8064AWaveformConfig
+    {
+        DSO8064A &  Instrument;
+
+        //
+        // Not optional, for DSO8064AChannelConfig::Channel's reason: a
+        // transfer with no source is not an underspecified instruction, it is
+        // not one at all. Filled in by DSO8064AChannel<N>, so a script can only
+        // produce one by naming a channel ValidDso8064aChannel accepts.
+        //
+        unsigned    Channel;
+    };
+
+    //
     // ---------------------------------------------------------------------
     // The fluent chains a script builds before handing them to a verb
     // ---------------------------------------------------------------------
@@ -806,6 +837,34 @@ namespace hal
             Config mConfig;
     };
 
+    class DSO8064AWaveformBuilder
+    {
+        public:
+            using Config = DSO8064AWaveformConfig;
+
+            DSO8064AWaveformBuilder( DSO8064A & instrument, const unsigned channel) :
+                mConfig{ instrument, channel }
+            {}
+
+            //
+            // No setters at all, and that is the point rather than an omission
+            // -- see DSO8064AWaveformConfig on why a transfer has nothing left
+            // to decide. It is still a builder rather than a bare config so
+            // that Fetch's argument reads like every other verb's, and so that
+            // the day this instrument grows something worth naming here (a
+            // sub-range of the record, a segment index) it grows a method
+            // rather than a new type.
+            //
+            [[nodiscard]]
+            auto config() const -> const Config &
+            {
+                return mConfig;
+            }
+
+        private:
+            Config mConfig;
+    };
+
     class DSO8064ASingleBuilder
     {
         public:
@@ -958,6 +1017,27 @@ namespace hal
             [[nodiscard]] auto positiveWidth()  -> core::Port<core::quantities::Time, DSO8064A>;
             [[nodiscard]] auto negativeWidth()  -> core::Port<core::quantities::Time, DSO8064A>;
 
+            //
+            // The whole captured record off this channel, for Fetch -- see
+            // core/trace.hpp.
+            //
+            // Not a Port and not a Measure, which is the distinction worth
+            // drawing here rather than in core: everything above answers one
+            // number about this channel and reaches the DUT point named at the
+            // Measure call, with the route closed and reopened around it. A
+            // trace is already inside the instrument, arrived over whatever
+            // route the capture was taken on, and is not a quantity a criterion
+            // can be pointed at (see core::Waveform on what a script does with
+            // one instead).
+            //
+            // Unlike the measurement methods above, this does NOT switch the
+            // instrument's mode or selected channel -- the channel travels in
+            // the config by value, so the sharp edge those fifteen carry (a
+            // handle taken before a later channel switch reads the later
+            // channel) does not exist here. Same as the setting builders.
+            //
+            [[nodiscard]] auto waveform() const -> DSO8064AWaveformBuilder;
+
         private:
             DSO8064A & mInstrument;
     };
@@ -969,7 +1049,7 @@ namespace hal
     // for why it existed) now that the real model is known, the same
     // retirement hal::L4411A gave the old generic hal::Dmm.
     //
-    // What it does, in the three groups a script uses:
+    // What it does, in the four groups a script uses:
     //
     //   Setup  -- :TRIGger, :TIMebase, :ACQuire instrument-wide, and
     //             :CHANnel<N> per input. Four builders, one per subsystem;
@@ -980,6 +1060,9 @@ namespace hal
     //             they are generic rather than scope-specific.
     //   Measure-- the :MEASure amplitude and timing families, channel-scoped
     //             via channel<N>()/DSO8064AChannel above.
+    //   Fetch  -- :WAVeform, the whole captured record off one channel rather
+    //             than one number measured from it. See core/trace.hpp for the
+    //             verb and core::Waveform for what comes back.
     //
     // Calling one of the Mode-tagged measurement methods switches the
     // instrument's current measurement mode *and* channel, the same way a
@@ -992,17 +1075,14 @@ namespace hal
     // obtained -- harmless for Measure(port, at(...))'s
     // read-immediately-and-discard usage.
     //
+    // Waveform transfer was deferred until the recording format could carry
+    // one, which is the right order and worth recording: an observation this
+    // framework could not replay would have been the one hole in --replay. It
+    // can now -- a trace row carries its unit and timebase and refers its
+    // samples to a file beside the recording (see core/recording.hpp) -- so
+    // the verb exists.
+    //
     // Still deliberately deferred:
-    //   - Waveform transfer (:WAVeform:SOURce/FORMat/DATA?/PREamble?) -- the
-    //     whole trace rather than one number off it. Not a driver problem so
-    //     much as a framework one: a waveform is a self-describing time
-    //     series (the preamble carries X origin/increment and Y
-    //     origin/increment, which is what turns raw levels into volts against
-    //     seconds), and the recording format every observation is replayed
-    //     through is one flat row per scalar (see core/recording.hpp). A
-    //     waveform verb that could not be replayed would be the one
-    //     observation in this framework that breaks --replay, which is a
-    //     worse outcome than not having it yet.
     //   - Segmented acquisition -- see AcquisitionMode::Segmented.
     //   - Duty cycle, overshoot, preshoot -- see DSO8064AChannel's own
     //     comment on why these wait on a core decision, not a driver one.
@@ -1256,6 +1336,33 @@ namespace hal
                 return mCompleted;
             }
 
+            //
+            // Fetch: on real hardware, :WAVeform:SOURce CHANnel<N>, then
+            // :WAVeform:PREamble? for the scaling and :WAVeform:DATA? for the
+            // block, with the raw levels turned into volts against seconds
+            // here -- (raw - yReference) * yIncrement + yOrigin, and the x
+            // pair carried straight into core::Waveform::Timing.
+            //
+            // The scaling belongs here and not one layer up, which is what
+            // core::Waveform stores values in units for: a raw level is a fact
+            // about this digitiser at this vertical setting, and this driver
+            // is the only thing that knows the encoding. A recording holding
+            // raw levels would be unreadable without the instrument that wrote
+            // it.
+            //
+            // Simulated here, so what comes back is whatever
+            // setSimulatedTrace() put there. Fetching a channel nothing was
+            // put on answers an empty trace rather than throwing, for the
+            // reason awaitAcquisition answers false rather than throwing: a
+            // script that reads out a record it never captured has not crashed,
+            // and the check it feeds is where that should surface.
+            //
+            [[nodiscard]]
+            auto fetchWaveform( const DSO8064AWaveformConfig & config) -> core::Waveform
+            {
+                return atChannel( config.Channel).Trace;
+            }
+
             // --- Test/simulation hooks -- real hardware has no such setters ---
             //
             // Channel is a plain runtime unsigned here (1-4): this is test
@@ -1265,6 +1372,11 @@ namespace hal
             auto setSimulatedVpp( const unsigned channel, const core::quantities::Voltage v) -> void
             {
                 atChannel( channel).Vpp = v;
+            }
+
+            auto setSimulatedTrace( const unsigned channel, core::Waveform trace) -> void
+            {
+                atChannel( channel).Trace = std::move( trace);
             }
 
             auto setSimulatedVmax( const unsigned channel, const core::quantities::Voltage v) -> void
@@ -1535,6 +1647,9 @@ namespace hal
                 std::optional<ChannelDisplay>             Display;
 
                 std::array<std::optional<MeasurementFault>, kModeCount> Faults{};
+
+                // What :WAVeform:DATA? would hand back for this input.
+                core::Waveform Trace{};
             };
 
             [[nodiscard]]
@@ -1587,6 +1702,13 @@ namespace hal
     auto DSO8064AChannel<N>::input( const ChannelInput value) const -> DSO8064AChannelBuilder
     {
         return DSO8064AChannelBuilder{ mInstrument, N }.input( value);
+    }
+
+    template<unsigned N>
+        requires ValidDso8064aChannel<N>
+    auto DSO8064AChannel<N>::waveform() const -> DSO8064AWaveformBuilder
+    {
+        return DSO8064AWaveformBuilder{ mInstrument, N };
     }
 
     template<unsigned N>
@@ -1758,6 +1880,33 @@ namespace hal
     }
 
     //
+    // ADL target for core::FetchEngine -- the trace verb, see core/trace.hpp.
+    //
+    [[nodiscard]]
+    inline auto fetchDriver( const DSO8064AWaveformConfig & config) -> core::Waveform
+    {
+        return config.Instrument.fetchWaveform( config);
+    }
+
+    //
+    // Which session slot a trace off this instrument files under, appended to
+    // the instrument id: "Osc1.Channel3".
+    //
+    // Present because this scope has to have it. Four channels hold four
+    // records at once, and the default "Osc1.Trace" would give all four one
+    // slot -- so a test injecting a channel-1 trace would find a channel-3
+    // Fetch taking it, and a recording of a run that captured two channels
+    // would replay them into each other. Exactly the collision
+    // core::Port::qualifiedBy prevents among this same scope's fifteen
+    // measurements ("Output5V.Vbase" rather than a second "Output5V").
+    //
+    [[nodiscard]]
+    inline auto traceQualifier( const DSO8064AWaveformConfig & config) -> std::string
+    {
+        return "Channel" + std::to_string( config.Channel);
+    }
+
+    //
     // ADL targets for the run journal -- see core/describe.hpp's own comment
     // on the describeConfig customization point.
     //
@@ -1840,6 +1989,20 @@ namespace hal
                 describeChoice(  prefix + "probe",     config.Probe),
                 describeChoice(  prefix + "display",   config.Display)
             })
+        };
+    }
+
+    //
+    // A trace's own line, which says only which channel it came off -- there is
+    // nothing else in the config (see DSO8064AWaveformConfig on why). What the
+    // trace *was* is the value column, and Fetch fills that with a summary
+    // rather than the samples; see core::describeValue for a core::Waveform.
+    //
+    inline auto describeConfig( const DSO8064AWaveformConfig & config) -> core::SourceDescription
+    {
+        return core::SourceDescription{
+            std::string( to_string( config.Instrument.id())),
+            "ch" + std::to_string( config.Channel)
         };
     }
 

@@ -37,6 +37,11 @@ namespace core
         return [ value]() -> std::optional<bool> { return value; };
     }
 
+    auto constantTraceSource( Waveform value) -> TraceSource
+    {
+        return [ value = std::move( value)]() -> std::optional<Waveform> { return value; };
+    }
+
     auto ScriptedSession::program( const std::string_view name, QuantityVariant value) -> void
     {
         program( name, constantSource( std::move( value)));
@@ -44,7 +49,7 @@ namespace core
 
     auto ScriptedSession::program( const std::string_view name, ValueSource source) -> void
     {
-        mSources.insert_or_assign( std::string( name), std::move( source));
+        mSources.program( name, std::move( source));
     }
 
     auto ScriptedSession::programData( const std::string_view name, Bytes value) -> void
@@ -54,7 +59,7 @@ namespace core
 
     auto ScriptedSession::programData( const std::string_view name, DataSource source) -> void
     {
-        mDataSources.insert_or_assign( std::string( name), std::move( source));
+        mDataSources.program( name, std::move( source));
     }
 
     auto ScriptedSession::programFlag( const std::string_view name, const bool value) -> void
@@ -64,7 +69,17 @@ namespace core
 
     auto ScriptedSession::programFlag( const std::string_view name, FlagSource source) -> void
     {
-        mFlagSources.insert_or_assign( std::string( name), std::move( source));
+        mFlagSources.program( name, std::move( source));
+    }
+
+    auto ScriptedSession::programTrace( const std::string_view name, Waveform value) -> void
+    {
+        programTrace( name, constantTraceSource( std::move( value)));
+    }
+
+    auto ScriptedSession::programTrace( const std::string_view name, TraceSource source) -> void
+    {
+        mTraceSources.program( name, std::move( source));
     }
 
     auto ScriptedSession::loadFromFile( const std::string & path) -> ScriptedSession
@@ -77,6 +92,14 @@ namespace core
         }
 
         //
+        // Derived from the recording's own path rather than asked for, so that
+        // a caller with a recording has everything it needs to replay it --
+        // see core::sidecarDirectoryFor, which is the one place the pairing
+        // rule is written down.
+        //
+        const auto sidecarDirectory = sidecarDirectoryFor( path);
+
+        //
         // Collected per point first, then turned into one source each. A
         // recording interleaves points in the order they were measured, so the
         // per-point sequence only exists once the whole file has been read --
@@ -85,13 +108,14 @@ namespace core
         std::unordered_map<std::string, std::vector<QuantityVariant>>  samples;
         std::unordered_map<std::string, std::vector<Bytes>>            payloads;
         std::unordered_map<std::string, std::vector<bool>>             flags;
+        std::unordered_map<std::string, std::vector<Waveform>>         traces;
 
         //
-        // Sorted into the two seams by which alternative each row holds, not by
-        // anything about its name -- a recording is a flat, interleaved stream
-        // and a row says for itself what it is (see core::RecordedValue).
+        // Sorted into the four seams by which alternative each row holds, not
+        // by anything about its name -- a recording is a flat, interleaved
+        // stream and a row says for itself what it is (see core::RecordedValue).
         //
-        for( auto & sample : readRecording( in))
+        for( auto & sample : readRecording( in, sidecarDirectory))
         {
             if( auto * payload = std::get_if<Bytes>( &sample.mValue))
             {
@@ -100,6 +124,10 @@ namespace core
             else if( const auto * flag = std::get_if<bool>( &sample.mValue))
             {
                 flags[ sample.mPointName].push_back( *flag);
+            }
+            else if( auto * trace = std::get_if<Waveform>( &sample.mValue))
+            {
+                traces[ sample.mPointName].push_back( std::move( *trace));
             }
             else
             {
@@ -124,6 +152,11 @@ namespace core
             session.programFlag( pointName, flagSourceOf( std::move( values)));
         }
 
+        for( auto & [ pointName, values] : traces)
+        {
+            session.programTrace( pointName, traceSourceOf( std::move( values)));
+        }
+
         return session;
     }
 
@@ -133,35 +166,18 @@ namespace core
         const QuantityKind                        kind,
         const std::function<QuantityVariant()> &) -> QuantityVariant
     {
-        const auto key = std::string( name);
-        const auto entry = mSources.find( key);
-
-        if( entry == mSources.end())
-        {
-            throw std::runtime_error(
-                "ScriptedSession: nothing programmed for point '" + key +
-                "' -- program() it, or load a recording that covers it");
-        }
-
         //
-        // A source that has run out is a hard error rather than a silent repeat
-        // of its last value: a script measuring a point more times than the
-        // test authored values for it has diverged from what was expected, and
-        // that is precisely the thing worth failing on. A source that should
-        // never run out simply never returns nullopt -- see core::ValueSource.
+        // Absence and exhaustion are both diagnosed by the slot map, in the
+        // words this seam was given -- see detail::ObservationSlots in
+        // core/session.hpp. What is left here is the one thing that is genuinely
+        // this seam's own: a value programmed in one unit and fetched as
+        // another.
         //
-        const auto value = entry->second();
+        auto value = mSources.next( name);
 
-        if( !value)
-        {
-            throw std::runtime_error(
-                "ScriptedSession: no programmed value left for point '" + key +
-                "' -- either program() more, load a longer recording, or the script is measuring it more times than expected");
-        }
+        checkKind( name, value, kind);
 
-        checkKind( name, *value, kind);
-
-        return *value;
+        return value;
     }
 
     auto ScriptedSession::fetchData(
@@ -169,32 +185,11 @@ namespace core
         std::string_view,
         const std::function<Bytes()> &) -> Bytes
     {
-        const auto key   = std::string( name);
-        const auto entry = mDataSources.find( key);
-
-        if( entry == mDataSources.end())
-        {
-            throw std::runtime_error(
-                "ScriptedSession: nothing programmed for '" + key +
-                "' -- programData() it, or load a recording that covers it");
-        }
-
         //
-        // Exhaustion is a hard error for the same reason it is on the quantity
-        // side: a script reading a port more times than the test authored
-        // replies for it has diverged from what was expected, and silently
-        // repeating the last reply would hide exactly that.
+        // Nothing beside the slot map here, unlike fetch above: a payload has
+        // no unit for a programmed answer to disagree with the call site about.
         //
-        auto value = entry->second();
-
-        if( !value)
-        {
-            throw std::runtime_error(
-                "ScriptedSession: no programmed payload left for '" + key +
-                "' -- either programData() more, load a longer recording, or the script is reading it more times than expected");
-        }
-
-        return std::move( *value);
+        return mDataSources.next( name);
     }
 
     auto ScriptedSession::fetchFlag(
@@ -202,34 +197,54 @@ namespace core
         std::string_view,
         const std::function<bool()> &) -> bool
     {
-        const auto key   = std::string( name);
-        const auto entry = mFlagSources.find( key);
+        //
+        // Exhaustion matters most on this seam of the three, which is worth
+        // saying somewhere: silently repeating the last answer would be a
+        // "capture completed" that was never observed, with real measurements
+        // checked against it. detail::ObservationSlots throws instead.
+        //
+        return mFlagSources.next( name);
+    }
 
-        if( entry == mFlagSources.end())
-        {
-            throw std::runtime_error(
-                "ScriptedSession: nothing programmed for '" + key +
-                "' -- programFlag() it, or load a recording that covers it");
-        }
+    auto ScriptedSession::fetchTrace(
+        const std::string_view              name,
+        std::string_view,
+        const std::function<Waveform()> &) -> Waveform
+    {
+        return mTraceSources.next( name);
+    }
+
+    auto RecordingSession::record(
+        const std::string_view  name,
+        const std::string_view  instrumentId,
+        RecordedValue           value) -> void
+    {
+        const auto wallClockMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+        auto sample = RecordedSample{
+            .mSequence            = mNextSequence++,
+            .mWallClockUnixMillis = static_cast<std::int64_t>( wallClockMillis),
+            .mPointName           = std::string( name),
+            .mInstrumentId        = std::string( instrumentId),
+            .mValue               = std::move( value)
+        };
 
         //
-        // Exhaustion is a hard error, as it is on the other two seams: a
-        // script that armed and awaited more captures than the test authored
-        // answers for has diverged from what was expected. Silently repeating
-        // the last answer would be the worst of the options here -- a
-        // "completed" that was never observed, with real measurements checked
-        // against it.
+        // One ordered stream whichever way it is going, which is the whole of
+        // what makes a replay faithful (see core::RecordedSample). A run that
+        // measured a rail, read a reply and measured again has to come back in
+        // that order, and the sequence number above is stamped here for both
+        // paths so it cannot depend on which one a run happened to take.
         //
-        const auto value = entry->second();
-
-        if( !value)
+        if( mWriter)
         {
-            throw std::runtime_error(
-                "ScriptedSession: no programmed flag left for '" + key +
-                "' -- either programFlag() more, load a longer recording, or the script is awaiting it more times than expected");
+            mWriter->write( sample);
         }
-
-        return *value;
+        else
+        {
+            mSamples.push_back( std::move( sample));
+        }
     }
 
     auto RecordingSession::fetch(
@@ -240,16 +255,7 @@ namespace core
     {
         auto value = mInner.fetch( name, instrumentId, kind, liveRead);
 
-        const auto wallClockMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-
-        mSamples.push_back( RecordedSample{
-            .mSequence            = mNextSequence++,
-            .mWallClockUnixMillis = static_cast<std::int64_t>( wallClockMillis),
-            .mPointName           = std::string( name),
-            .mInstrumentId        = std::string( instrumentId),
-            .mValue               = value
-        });
+        record( name, instrumentId, value);
 
         return value;
     }
@@ -261,23 +267,7 @@ namespace core
     {
         auto value = mInner.fetchData( name, instrumentId, liveRead);
 
-        const auto wallClockMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-
-        //
-        // Into the same ordered vector as the quantity samples, not a second
-        // one beside it. Replay correctness is a matter of order (see
-        // core::RecordedSample), and a run that measured a rail, read a reply
-        // and measured again has to come back in that order -- which two
-        // vectors, each with its own sequence, could not reconstruct.
-        //
-        mSamples.push_back( RecordedSample{
-            .mSequence            = mNextSequence++,
-            .mWallClockUnixMillis = static_cast<std::int64_t>( wallClockMillis),
-            .mPointName           = std::string( name),
-            .mInstrumentId        = std::string( instrumentId),
-            .mValue               = value
-        });
+        record( name, instrumentId, value);
 
         return value;
     }
@@ -289,23 +279,25 @@ namespace core
     {
         const auto value = mInner.fetchFlag( name, instrumentId, liveRead);
 
-        const auto wallClockMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
+        //
+        // Into the same ordered stream as the other two seams: an Await sits in
+        // the middle of a sequence whose meaning depends on where it sits --
+        // arm, drop the rail, wait, then measure the transient that the wait is
+        // the evidence for.
+        //
+        record( name, instrumentId, value);
 
-        //
-        // Into the same ordered vector as the other two seams, for the reason
-        // fetchData's own comment gives: order is the whole of what makes a
-        // replay faithful, and an Await sits in the middle of a sequence whose
-        // meaning depends on it -- arm, drop the rail, wait, then measure the
-        // transient that the wait is the evidence for.
-        //
-        mSamples.push_back( RecordedSample{
-            .mSequence            = mNextSequence++,
-            .mWallClockUnixMillis = static_cast<std::int64_t>( wallClockMillis),
-            .mPointName           = std::string( name),
-            .mInstrumentId        = std::string( instrumentId),
-            .mValue               = value
-        });
+        return value;
+    }
+
+    auto RecordingSession::fetchTrace(
+        const std::string_view              name,
+        const std::string_view              instrumentId,
+        const std::function<Waveform()> &   liveRead) -> Waveform
+    {
+        auto value = mInner.fetchTrace( name, instrumentId, liveRead);
+
+        record( name, instrumentId, value);
 
         return value;
     }

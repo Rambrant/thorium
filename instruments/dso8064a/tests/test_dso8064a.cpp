@@ -621,3 +621,80 @@ TEST( HalInstrument, DSO8064AACaptureAlwaysDescribesTheTimeoutsItWillUse)
     EXPECT_EQ( defaulted.Settings, "single.timeout=5 s, single.armTimeout=1 s");
     EXPECT_EQ( named.Settings,     "single.timeout=2 s, single.armTimeout=1 s");
 }
+
+//
+// Waveform transfer -- the :WAVeform half, for core::FetchEngine. See
+// core/trace.hpp for the verb and core::Waveform for what comes back.
+//
+
+TEST( HalInstrument, DSO8064AHandsBackTheCapturedRecordOffTheNamedChannel)
+{
+    hal::DSO8064A osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
+
+    const auto trace = core::Waveform{
+        core::quantityKindOf<core::quantities::Voltage>(),
+        core::Waveform::Timing{ -1_ms, core::quantities::Time{ 1e-06 } },
+        std::vector<double>{ 5.0, 4.6, 4.8, 5.0 } };
+
+    osc1.setSimulatedTrace( 3, trace);
+
+    EXPECT_EQ( hal::fetchDriver( osc1.channel<3>().waveform().config()), trace);
+}
+
+TEST( HalInstrument, DSO8064AAnsweringAChannelNothingCapturedGivesAnEmptyTrace)
+{
+    //
+    // Empty rather than an exception, for the reason awaitAcquisition answers
+    // false rather than throwing: a script reading out a record it never
+    // captured has not crashed, and the check it feeds is where that surfaces.
+    //
+    hal::DSO8064A osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
+
+    EXPECT_TRUE( hal::fetchDriver( osc1.channel<2>().waveform().config()).empty());
+}
+
+TEST( HalInstrument, DSO8064AFilesEachChannelsTraceUnderItsOwnSessionKey)
+{
+    //
+    // Four channels hold four records at once, so one slot for all of them
+    // would let an injected channel-1 trace answer a channel-3 Fetch -- the
+    // collision core::Port::qualifiedBy already prevents among this scope's
+    // fifteen measurements.
+    //
+    hal::DSO8064A osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
+
+    EXPECT_EQ( hal::traceQualifier( osc1.channel<1>().waveform().config()), "Channel1");
+    EXPECT_EQ( hal::traceQualifier( osc1.channel<3>().waveform().config()), "Channel3");
+}
+
+TEST( HalInstrument, DSO8064AWaveformBuilderCarriesItsChannelByValue)
+{
+    //
+    // Unlike the fifteen measurement methods, this does NOT switch the
+    // instrument's selected channel -- so the sharp edge they carry (a handle
+    // taken before a later switch reads the later channel) does not exist here.
+    //
+    hal::DSO8064A osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
+
+    osc1.setSimulatedTrace( 1, core::Waveform{
+        core::quantityKindOf<core::quantities::Voltage>(),
+        core::Waveform::Timing{},
+        std::vector<double>{ 3.3 } });
+
+    const auto channelOne = osc1.channel<1>().waveform();
+
+    (void) osc1.channel<3>().vpp();   // would switch the instrument for a Measure
+
+    ASSERT_EQ( hal::fetchDriver( channelOne.config()).size(), 1u);
+    EXPECT_DOUBLE_EQ( hal::fetchDriver( channelOne.config()).at( 0), 3.3);
+}
+
+TEST( HalInstrument, DSO8064AATraceIsDescribedByWhichChannelItCameOff)
+{
+    hal::DSO8064A osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
+
+    const auto described = hal::describeConfig( osc1.channel<4>().waveform().config());
+
+    EXPECT_EQ( described.Instrument, "Osc1");
+    EXPECT_EQ( described.Settings,   "ch4");
+}

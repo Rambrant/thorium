@@ -1590,3 +1590,232 @@ TEST_F( AcceptanceRecording, ARecordingPathThatCannotBeWrittenIsFatalAndRunsNoth
     EXPECT_TRUE( containsText( errPath(), mErr, "Could not open the recording"));
     EXPECT_TRUE( omitsText( outPath(), mOut, "RESULT"));
 }
+
+// ---------------------------------------------------------------------------
+// Authoring a replay: run_scripts --skeleton
+// ---------------------------------------------------------------------------
+
+namespace
+{
+    struct AcceptanceSkeleton : Acceptance {};
+} // namespace
+
+//
+// What the mode is for. A script's session keys are produced by
+// core::Port::qualifiedBy, by each engine's "<instrument>.<what>" rule and by
+// the DUT adapter -- there is nowhere a person can read the complete list, so
+// authoring a replay file by hand means reconstructing it from every script.
+// This writes it out, in the order the scripts ask for it.
+//
+TEST_F( AcceptanceSkeleton, TheSkeletonListsEveryReadingTheScriptsAskFor)
+{
+    EXPECT_EQ( run( { "--skeleton=skeleton.tsv" }), 0);
+
+    const auto tsv = readFile( mDir / "skeleton.tsv");
+
+    // The whole span of the run: the SETUP hook's readbacks, then each seam.
+    EXPECT_TRUE( containsText( mDir / "skeleton.tsv", tsv, "AcP1.A.Voltage\tAcP1\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "skeleton.tsv", tsv, "Output5V\tDmm1\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "skeleton.tsv", tsv, "Output5V.Vbase\tOsc1\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "skeleton.tsv", tsv, "Osc1.Acquisition\tOsc1\t<flag>"));
+    EXPECT_TRUE( containsText( mDir / "skeleton.tsv", tsv, "Ser1.Data\tSer1\t<bytes>"));
+}
+
+//
+// The reason the mode overrides the SETUP verdict. rigPowerOn() reads the rails
+// back and concludes the rig is dead when they answer zero -- and stopping
+// there would write a skeleton holding SETUP's own six readings and none of the
+// ones the tests take, which is the opposite of what was asked for.
+//
+TEST_F( AcceptanceSkeleton, AFailingSetupDoesNotTruncateTheSkeleton)
+{
+    EXPECT_EQ( run( { "--skeleton=skeleton.tsv" }), 0);
+
+    const auto tsv = readFile( mDir / "skeleton.tsv");
+
+    // Thirteen reads: six from the hook, seven from the three scripts.
+    EXPECT_EQ( std::ranges::count( tsv, '\n') - std::ranges::count( tsv, '#'), 13);
+}
+
+//
+// It is a recording, not something shaped like one -- so the file it writes can
+// be edited and handed straight back to --replay.
+//
+TEST_F( AcceptanceSkeleton, TheSkeletonIsAValidReplayFile)
+{
+    EXPECT_EQ( run( { "--skeleton=skeleton.tsv" }), 0);
+
+    // No throw, no "could not load" -- the placeholders drive a real run, which
+    // then fails its checks, because zero volts is not a working DUT.
+    EXPECT_EQ( run( { "--replay=skeleton.tsv", "--quiet", "--no-logs" }), 1);
+
+    EXPECT_TRUE( omitsText( errPath(), mErr, "Could not load"));
+}
+
+//
+// A skeleton run tested nothing, so it leaves no evidence that it did. Same
+// stance --safe takes: a mode that reports nothing gets no log to report it in.
+//
+TEST_F( AcceptanceSkeleton, ASkeletonRunWritesNoLogs)
+{
+    EXPECT_EQ( run( { "--skeleton=skeleton.tsv" }), 0);
+
+    EXPECT_TRUE( omitsText( outPath(), mOut, "RESULT"));
+
+    EXPECT_FALSE( std::filesystem::exists( mDir / "logs"));
+}
+
+//
+// And its exit status is about the file, not about the DUT. Returning the
+// verdicts of a run that read zeroes would tell a CI job something false about
+// hardware that was never connected.
+//
+TEST_F( AcceptanceSkeleton, TheExitStatusReportsTheFileNotTheVerdicts)
+{
+    EXPECT_EQ( run( { "--skeleton=skeleton.tsv" }), 0);
+
+    EXPECT_TRUE( containsText( outPath(), mOut, "placeholder"));
+}
+
+TEST_F( AcceptanceSkeleton, SkeletonIsExclusiveWithRecordAndReplay)
+{
+    EXPECT_EQ( run( { "--skeleton=out.tsv", "--record=rec.tsv" }), 1);
+    EXPECT_TRUE( containsText( errPath(), mErr, "exclusive"));
+
+    EXPECT_EQ( run( { "--skeleton=out.tsv", "--replay=in.tsv" }), 1);
+    EXPECT_TRUE( containsText( errPath(), mErr, "exclusive"));
+
+    EXPECT_FALSE( std::filesystem::exists( mDir / "out.tsv"));
+}
+
+// ---------------------------------------------------------------------------
+// Described readings: run_scripts --inject
+// ---------------------------------------------------------------------------
+
+namespace
+{
+    struct AcceptanceInject : Acceptance {};
+
+    //
+    // A DUT that behaves, written out. The keys are what --skeleton lists; the
+    // values are what a working unit would answer.
+    //
+    constexpr std::string_view kHealthyDut =
+        "# authored, not captured\n"
+        "AcP1.A.Voltage   = 115 V\n"
+        "AcP1.B.Voltage   = 115 V\n"
+        "AcP1.C.Voltage   = 115 V\n"
+        "DcP1.Voltage     = 28 V\n"
+        "DcP2.Voltage     = 28 V\n"
+        "DcP3.Voltage     = 24 V\n"
+        "Vout             = 12 V\n"
+        "Output5V         = 5.01 V\n"
+        "Output3V3        = 3.29 V\n"
+        "Output5V.Vbase   = 5 V\n"
+        "Osc1.Acquisition = true\n"
+        "Output5V.Vmin    = 4.85 V\n"
+        "Ser1.Data        = <41 43 4B 0D 08>\n";
+} // namespace
+
+TEST_F( AcceptanceInject, AnAuthoredFileDrivesTheWholeSuiteWithNoRig)
+{
+    writeFile( mDir / "healthy.stim", std::string( kHealthyDut));
+
+    EXPECT_EQ( run( { "--inject=healthy.stim", "--quiet", "--no-logs" }), 0);
+}
+
+//
+// The reason this file exists beside the recording format. Every value above is
+// sticky, so the same thirteen lines answer a run of any length -- where a
+// recording holds one value per read and needs fifty passes' worth of rows to
+// survive --repeat=50.
+//
+TEST_F( AcceptanceInject, AStickyValueAnswersEveryPassOfARepeatedRun)
+{
+    writeFile( mDir / "healthy.stim", std::string( kHealthyDut));
+
+    EXPECT_EQ( run( { "--inject=healthy.stim", "--repeat=3", "--quiet", "--no-logs" }), 0);
+}
+
+//
+// And a list is the other half of it: it is how an authored file describes a
+// DUT that misbehaves on one pass and not the others.
+//
+TEST_F( AcceptanceInject, AListAnswersOnePassEach)
+{
+    auto text = std::string( kHealthyDut);
+
+    text.replace( text.find( "Output5V.Vmin    = 4.85 V"),
+                  std::string( "Output5V.Vmin    = 4.85 V").size(),
+                  "Output5V.Vmin    = 4.85 V, 4.70 V, 4.90 V");
+
+    writeFile( mDir / "dips.stim", text);
+
+    // The middle pass dips 0.3 V below a 5 V baseline, past the 0.2 V limit.
+    EXPECT_EQ( run( { "--inject=dips.stim", "--repeat=3", "--no-logs" }), 1);
+
+    EXPECT_TRUE( containsText( outPath(), mOut, "0.3 V"));
+}
+
+//
+// Layering is why both flags exist: re-run a captured failure with one reading
+// changed, and find out whether that reading was the cause.
+//
+TEST_F( AcceptanceInject, InjectLayersOverAReplayedRecording)
+{
+    //
+    // Which is why both flags exist rather than one: --replay lays down a
+    // captured run and --inject changes named readings within it, so a
+    // recorded failure can be re-run with one value moved to find out whether
+    // that value was the cause.
+    //
+    // The recording here is a skeleton -- every reading zero -- because that is
+    // the one a test can produce without a rig. Replayed alone it fails at
+    // SETUP; with the authored values layered on top it passes, which is the
+    // override being asserted.
+    //
+    writeFile( mDir / "healthy.stim", std::string( kHealthyDut));
+
+    EXPECT_EQ( run( { "--skeleton=zeros.tsv" }), 0);
+
+    EXPECT_EQ( run( { "--replay=zeros.tsv", "--quiet", "--no-logs" }), 1);
+    EXPECT_EQ( run( { "--replay=zeros.tsv", "--inject=healthy.stim", "--quiet", "--no-logs" }), 0);
+}
+
+TEST_F( AcceptanceInject, AStimulusFileThatCannotBeReadIsFatalAndRunsNothing)
+{
+    EXPECT_EQ( run( { "--inject=no-such-file.stim", "--no-logs" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "Could not read the stimulus file"));
+    EXPECT_TRUE( omitsText( outPath(), mOut, "RESULT"));
+}
+
+//
+// A typo is reported where it is, before anything is measured -- naming the
+// line, its number and what is wrong with it, rather than surfacing three
+// scripts later as a point nobody programmed.
+//
+TEST_F( AcceptanceInject, ABadLineNamesItselfAndRunsNothing)
+{
+    writeFile( mDir / "bad.stim", "Output5V = 5.01 V\nOutput3V3 = 3.3 Volts\n");
+
+    EXPECT_EQ( run( { "--inject=bad.stim", "--no-logs" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "line 2"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "Volts"));
+    EXPECT_TRUE( omitsText( outPath(), mOut, "RESULT"));
+}
+
+TEST_F( AcceptanceInject, InjectIsExclusiveWithTheModesThatWriteAFile)
+{
+    writeFile( mDir / "healthy.stim", std::string( kHealthyDut));
+
+    EXPECT_EQ( run( { "--inject=healthy.stim", "--record=rec.tsv" }), 1);
+    EXPECT_TRUE( containsText( errPath(), mErr, "exclusive"));
+
+    EXPECT_EQ( run( { "--inject=healthy.stim", "--skeleton=sk.tsv" }), 1);
+    EXPECT_TRUE( containsText( errPath(), mErr, "exclusive"));
+
+    EXPECT_FALSE( std::filesystem::exists( mDir / "rec.tsv"));
+    EXPECT_FALSE( std::filesystem::exists( mDir / "sk.tsv"));
+}

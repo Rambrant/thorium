@@ -1,6 +1,7 @@
 #include "hal/measure.hpp"
 
 #include "hal/acquire.hpp"
+#include "hal/trace.hpp"
 
 #include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/wiring.hpp"
@@ -38,3 +39,11 @@ core::ReadEngine Read{ Measure.sessions() };
 //
 ArmEngine   Arm{};
 AwaitEngine Await{ Measure.sessions() };
+
+//
+// The fourth reading verb, off the same bank and for the same reason -- see
+// hal/trace.hpp and core/trace.hpp. A run that measures a rail, waits for a
+// capture and then takes the trace off the scope produces one ordered
+// recording covering all three, which is what makes replaying it faithful.
+//
+FetchEngine Fetch{ Measure.sessions() };

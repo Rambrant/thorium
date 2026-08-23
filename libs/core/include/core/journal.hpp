@@ -95,6 +95,14 @@ namespace core
         //
         Arm,
         Await,
+
+        //
+        // Taking a captured trace off an instrument (see core/trace.hpp). An
+        // observation, and so on Measure's and Read's side of the line, not
+        // Arm's -- what it produces is data a script checks, and a replay has
+        // to reproduce it.
+        //
+        Fetch,
         Verify,
         Safe,
         Note
@@ -178,6 +186,27 @@ namespace core
     // stagger against each other on adjacent rows.
     //
     inline constexpr std::string_view kUncheckedValue = "<unchecked>";
+
+    //
+    // The hard bound on JournalRecord::Value, applied by Journal::post to every
+    // value from every verb.
+    //
+    // core::describeValue already abridges a payload well below this, and knows
+    // enough to do it nicely -- the head, the encoding's delimiters, the true
+    // byte count (see kMaxDescribedBody in core/bytes.hpp). This is the
+    // backstop underneath that, and it is here rather than there because post()
+    // is the one place every value passes through: a verb added later, or a
+    // driver handing back a description of its own, cannot put an unbounded
+    // string into a log without coming past this line.
+    //
+    // Bounded at all because a Value is held far longer than it is looked at.
+    // core::SarifSink buffers every event for the whole run before writing, so
+    // one oversized value is paid for once per event and again at the end; the
+    // human report prints it into a twelve-character column. The observation
+    // itself is not what is being bounded -- that lives in the recording, at
+    // full fidelity, which is what --replay reads (see core/recording.hpp).
+    //
+    inline constexpr std::size_t kMaxJournalValueLength = 120;
 
     //
     // What a call site knows about one event. Everything a call site cannot

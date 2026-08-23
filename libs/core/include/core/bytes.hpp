@@ -140,6 +140,10 @@ namespace core
     // versus angle brackets) say without ambiguity which of the two a reader is
     // looking at.
     //
+    // Long payloads are abridged rather than written out in full, and that is
+    // a property of the *rendering*, not of the payload -- see
+    // kMaxDescribedBody directly below.
+    //
     // A non-template overload rather than another branch in core/format.hpp's
     // describeValue chain, so core/format.hpp keeps knowing nothing about this
     // header. It is found by ADL at every call site that has a Bytes to
@@ -187,6 +191,35 @@ namespace core
         [[nodiscard]]
         constexpr auto operator==( const BytePattern & other) const -> bool = default;
     };
+
+    //
+    // How much of a payload's body a rendering may spell out. Past this many
+    // characters it is abridged -- the head, an ellipsis inside whichever
+    // delimiters the encoding chose, and the payload's true length after them:
+    //
+    //     "BOOT v2.1 OK ..." (413 bytes)
+    //     <1B 5B 41 0D ...> (4096 bytes)
+    //
+    // A bound here rather than at each place a description is shown, because
+    // the places are not equivalent and only this one knows the byte count. A
+    // description travels into JournalRecord::Value, which every sink holds for
+    // the length of the run (core::SarifSink buffers all of them) and the human
+    // report prints in a twelve-character column. A four-kilobyte frame written
+    // out in hex is a twelve-kilobyte log line, held twice, per read.
+    //
+    // Not a loss of information, which is the reason this is allowed to be
+    // lossy at all: a description is what a reader reads, and the observation
+    // itself lives in the recording (see core/recording.hpp), which stores
+    // every octet and is what --replay feeds from. The one artifact that must
+    // round-trip does, and the two that must stay readable now can.
+    //
+    // The head is bounded and the count is not, so a description is at most
+    // this many characters plus the delimiters and the count -- a bound worth
+    // stating loosely rather than a promise about a total nobody measures.
+    // core::kMaxJournalValueLength is the hard backstop underneath it, applied
+    // to every value from every verb (see core/journal.hpp).
+    //
+    inline constexpr std::size_t kMaxDescribedBody = 48;
 
     [[nodiscard]]
     auto describeValue( const Bytes & value) -> std::string;

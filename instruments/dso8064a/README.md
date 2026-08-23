@@ -10,7 +10,7 @@ Reachable over `Gpib`, `Lan` or `Usb` (see `hal/address.hpp`).
 Modelled against the *Infiniium 54830-series Programmer's Reference*
 (54830-97014), which is the same command set the 8000 Series ships.
 
-## The three things a script does with it
+## The four things a script does with it
 
 ```cpp
 Setup( Osc1.timebase().timePerDivision( 10_ms).reference( TimebaseReference::Left));
@@ -22,9 +22,11 @@ const auto captured = Await( Osc1.single());
 
 const auto dip = Measure( Osc1.channel<3>().vbase(), at( dut::Output5V))
                - Measure( Osc1.channel<3>().vmin(),  at( dut::Output5V));
+
+const auto trace = Fetch( Osc1.channel<3>().waveform());   // the whole record
 ```
 
-`suite/scripts/ac_dropout_script.cpp` is that sequence written out in full.
+`suite/scripts/ac_dropout_script.cpp` is the first four written out in full.
 
 ## Setup — four subsystems, four builders
 
@@ -171,14 +173,47 @@ config by value. Both the channel view and the builder it returns are
 temporaries that whatever they produce safely outlives, which is tested
 explicitly.
 
+## Waveform transfer
+
+`Fetch` takes the whole captured record off one channel, where the fifteen
+measurements above each take one number out of it:
+
+```cpp
+const auto captured = Await( Osc1.single());
+
+Verify( FS_Transient_1::FS_Transient_Captured, captured);
+
+const auto trace = Fetch( Osc1.channel<3>().waveform());
+const auto dip   = trace.minimum<Voltage>();
+```
+
+What comes back is a `core::Waveform` — samples **already scaled into volts**,
+plus the timebase from `:WAVeform:PREamble?`. The scaling happens here and not
+one layer up, because a raw level is a fact about this digitiser at this
+vertical setting and this driver is the only thing that knows the encoding; a
+recording holding raw levels would be unreadable without the instrument that
+wrote it.
+
+Each channel files under its own session key — `"Osc1.Channel3"`, via
+`traceQualifier` — for the same reason the measurements carry `qualifiedBy`:
+four channels hold four records at once, and one slot would let an injected
+channel-1 trace answer a channel-3 `Fetch`.
+
+`waveform()` does **not** switch the instrument's selected channel, unlike the
+fifteen measurement methods — the channel travels in the config by value, so
+the sharp edge below does not apply to it.
+
+**Check the `Await` first.** A trace fetched after a capture that never
+completed is the previous acquisition, and it will look like a perfectly good
+trace.
+
+This was deferred until the recording format could carry one, which was the
+right order: an observation that could not be replayed would have been the one
+hole in `--replay`. A trace row now carries its unit and timebase and refers its
+samples to a file beside the recording (see `core/recording.hpp`).
+
 ## What it deliberately does not model
 
-- **Waveform transfer** (`:WAVeform:SOURce/FORMat/DATA?/PREamble?`) — the whole
-  trace rather than one number off it. Blocked less by the driver than by the
-  framework: a waveform is a self-describing time series, and the recording
-  format every observation replays through is one flat row per scalar (see
-  `core/recording.hpp`). A waveform verb that could not be replayed would be the
-  one observation in this framework that breaks `--replay`.
 - **Segmented acquisition** — the enumerator exists because the instrument has
   it; nothing else supports it, because it changes what a "capture" is and the
   acquisition verbs are written for the single-record case.

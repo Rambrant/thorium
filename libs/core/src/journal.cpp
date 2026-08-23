@@ -316,6 +316,20 @@ namespace core
     auto Journal::post( JournalRecord record) -> void
     {
         //
+        // The backstop on the value column -- see kMaxJournalValueLength in
+        // core/journal.hpp for why it is here and not at the call sites. Every
+        // value this framework produces today is already well inside it
+        // (core::describeValue abridges a payload with the byte count kept),
+        // so this trims nothing that exists and stands in the way of the one
+        // that does not exist yet.
+        //
+        if( record.Value.size() > kMaxJournalValueLength)
+        {
+            record.Value.resize( kMaxJournalValueLength - 3);
+            record.Value += "...";
+        }
+
+        //
         // Sequence advances whether or not anyone is listening, so the numbers
         // in a log never depend on which sinks a run happened to have -- two
         // runs of the same script produce the same sequence for the same

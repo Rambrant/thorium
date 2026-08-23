@@ -381,6 +381,44 @@ TEST_F( JournalTest, ChecksPostedOutsideATestDoNotReachTheNextOne)
     EXPECT_TRUE( core::journal().endTest());
 }
 
+//
+// The backstop on the value column -- see kMaxJournalValueLength in
+// core/journal.hpp. Nothing this framework produces today reaches it
+// (core::describeValue abridges a payload well below it), which is the point:
+// it exists for the verb that has not been written yet.
+//
+TEST_F( JournalTest, AnOversizedValueIsTrimmedBeforeAnySinkSeesIt)
+{
+    core::journal().begin( core::RunInfo{});
+
+    core::journal().post( core::JournalRecord{
+        .Method  = core::Verb::Read,
+        .Subject = "Ser1.Data",
+        .Value   = std::string( 5000, 'x')
+    });
+
+    ASSERT_EQ( mSink.Events.size(), 1u);
+
+    const auto & value = mSink.Events.front().Value;
+
+    EXPECT_EQ( value.size(), core::kMaxJournalValueLength);
+    EXPECT_TRUE( value.ends_with( "...")) << value;
+}
+
+TEST_F( JournalTest, AValueInsideTheBoundIsUntouched)
+{
+    core::journal().begin( core::RunInfo{});
+
+    core::journal().post( core::JournalRecord{
+        .Method  = core::Verb::Measure,
+        .Subject = "Output5V",
+        .Value   = "5.021 V"
+    });
+
+    ASSERT_EQ( mSink.Events.size(), 1u);
+    EXPECT_EQ( mSink.Events.front().Value, "5.021 V");
+}
+
 TEST( CoreJournalTime, PreEpochTimestampsDoNotProduceNegativeMilliseconds)
 {
     EXPECT_EQ( core::isoUtcFromUnixMillis( -1), "1969-12-31T23:59:59.999Z");

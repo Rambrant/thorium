@@ -233,9 +233,16 @@ namespace core
         // measurement of the transient at all, so a reader following the
         // verdict below it has to be able to see whether the capture landed.
         //
+        //
+        // Fetch is here for Read's reason: a trace that came back is a value a
+        // reader is checking the verdict below against, and its summary line
+        // says how long the record was and how far it swung -- which is what
+        // tells them the capture was the one the test meant.
+        //
         return event.Method == Verb::Measure
             || event.Method == Verb::Read
             || event.Method == Verb::Await
+            || event.Method == Verb::Fetch
             || event.Method == Verb::Verify;
     }
 
@@ -286,7 +293,8 @@ namespace core
             return {};
         }
 
-        if( event.Method == Verb::Measure || event.Method == Verb::Read || event.Method == Verb::Await)
+        if( event.Method == Verb::Measure || event.Method == Verb::Read ||
+            event.Method == Verb::Await   || event.Method == Verb::Fetch)
         {
             //
             // "measure Output5V  5.021 V  (Dmm1)  5Vdc supply port" -- the

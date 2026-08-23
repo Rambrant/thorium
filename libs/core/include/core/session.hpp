@@ -7,6 +7,7 @@
 #include <optional>
 #include <ostream>
 #include <ranges>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -16,6 +17,7 @@
 #include "core/bytes.hpp"
 #include "core/quantity_kind.hpp"
 #include "core/recording.hpp"
+#include "core/waveform.hpp"
 
 namespace core
 {
@@ -108,6 +110,32 @@ namespace core
                 std::string_view                  name,
                 std::string_view                  instrumentId,
                 const std::function<bool()> &     liveRead) -> bool = 0;
+
+            //
+            // And the seam a fourth time, for a captured trace -- the whole
+            // record an instrument holds after an acquisition (see
+            // core::FetchEngine in core/trace.hpp). Same contract as the other
+            // three in every respect.
+            //
+            // A fourth method rather than a fourth QuantityVariant alternative,
+            // and the argument is fetchData's applied to a different shape: a
+            // trace is not one number in one unit. It has a length, its
+            // elements have positions, the positions are times, and the
+            // criterion machinery underneath asQuantity<T>() -- an epsilon, a
+            // comparison, a single numeric column in both logs -- has nothing
+            // to do with any of that. What a script checks is a *reduction* of
+            // a trace, and a reduction is a QuantityVariant already.
+            //
+            // Pure, like the other three, and for the reason that has now been
+            // given three times and is worth the fourth: a session answering
+            // only some of these questions would replay part of a run and go
+            // live for the rest.
+            //
+            [[nodiscard]]
+            virtual auto fetchTrace(
+                std::string_view                  name,
+                std::string_view                  instrumentId,
+                const std::function<Waveform()> & liveRead) -> Waveform = 0;
     };
 
     //
@@ -143,6 +171,90 @@ namespace core
                 const std::function<bool()> & liveRead) -> bool override
             {
                 return liveRead();
+            }
+
+            [[nodiscard]]
+            auto fetchTrace(
+                std::string_view,
+                std::string_view,
+                const std::function<Waveform()> & liveRead) -> Waveform override
+            {
+                return liveRead();
+            }
+    };
+
+    //
+    // A session that answers every question with a placeholder and touches
+    // nothing -- what --skeleton runs the catalog against.
+    //
+    // The point is not the answers, which are worthless; it is the *keys*. A
+    // script's session keys are not written down anywhere a person can read
+    // them: "Output5V.Vbase", "Osc1.Acquisition", "Ser1.Data", "AcP1.A.Voltage"
+    // are produced by core::Port::qualifiedBy, by an engine's
+    // "<instrument>.<what>" rule and by the DUT adapter, and the only complete
+    // and correct list of them is what the scripts actually ask for. Running
+    // them against this session and recording the result produces exactly that
+    // list, in order, as a file that is already a valid recording -- so
+    // authoring a replay becomes editing a value column rather than
+    // reconstructing a schema by reading every script.
+    //
+    // The placeholders are chosen for path coverage, not for plausibility, and
+    // each is the answer that keeps a script going furthest:
+    //
+    //   - a reading is zero. Honest (this session measured nothing) and inert;
+    //     a NaN would propagate into every comparison downstream and could send
+    //     a script down a branch no real run would take.
+    //   - a capture completed. The alternative sends every script that checks
+    //     its Await straight to a Fail and past the readings it would have
+    //     taken, which is the one branch that loses keys.
+    //   - a payload is empty, and a trace has no samples. Neither has a
+    //     "keeps going" value to choose: any bytes at all would be a guess at a
+    //     protocol this session knows nothing about.
+    //
+    // Which is also the honest limitation, and it is worth stating wherever
+    // this is offered: a script whose control flow depends on what it read has
+    // more than one path through it, and a skeleton is one path -- the one
+    // these answers produce. It is a starting point that is complete for the
+    // straight-line case and a first approximation otherwise.
+    //
+    class PlaceholderSession : public ISession
+    {
+        public:
+            [[nodiscard]]
+            auto fetch(
+                std::string_view,
+                std::string_view,
+                const QuantityKind                        kind,
+                const std::function<QuantityVariant()> &) -> QuantityVariant override
+            {
+                return quantityVariantFromKind( kind, 0.0);
+            }
+
+            [[nodiscard]]
+            auto fetchData(
+                std::string_view,
+                std::string_view,
+                const std::function<Bytes()> &) -> Bytes override
+            {
+                return Bytes{};
+            }
+
+            [[nodiscard]]
+            auto fetchFlag(
+                std::string_view,
+                std::string_view,
+                const std::function<bool()> &) -> bool override
+            {
+                return true;
+            }
+
+            [[nodiscard]]
+            auto fetchTrace(
+                std::string_view,
+                std::string_view,
+                const std::function<Waveform()> &) -> Waveform override
+            {
+                return Waveform{};
             }
     };
 
@@ -200,10 +312,176 @@ namespace core
                 return mCurrent->fetchFlag( name, instrumentId, liveRead);
             }
 
+            [[nodiscard]]
+            auto fetchTrace(
+                const std::string_view             name,
+                const std::string_view             instrumentId,
+                const std::function<Waveform()> &  liveRead) -> Waveform override
+            {
+                return mCurrent->fetchTrace( name, instrumentId, liveRead);
+            }
+
         private:
             ISession &  mDefault;
             ISession *  mCurrent;
     };
+
+    namespace detail
+    {
+        //
+        // The body of sourceOf, dataSourceOf and flagSourceOf below, which
+        // differ in nothing at all but the element type they yield.
+        //
+        // Written once here rather than three times there, and that is a
+        // change of mind worth recording: the three public spellings used to
+        // carry three copies of this, on the argument that making them one
+        // template would put an element-type parameter into ScriptedSession's
+        // public shape and into every engine that names a source. That
+        // argument still holds -- and it is an argument about the *aliases*,
+        // not about their bodies. The aliases stay exactly as they were; only
+        // the duplicated implementation moved, into a namespace no call site
+        // spells. A fourth element type is coming (a captured trace, see
+        // core/recording.hpp), and three copies was the last point at which
+        // copying was cheaper than reading.
+        //
+        // Every reason the original body gives for its shape is unchanged and
+        // still applies: the range lives behind a unique_ptr so that moving
+        // the source -- which happens whenever one is stored, reassigned, or a
+        // map holding it rehashes -- never moves the range out from under an
+        // iterator into it; and begin() is called lazily, on the first value
+        // asked for, because a std::generator's begin() runs the caller's
+        // coroutine up to its first co_yield and a source that is built but
+        // never fetched from must not have run any of it.
+        //
+        template<typename T, std::ranges::input_range R>
+        [[nodiscard]]
+        auto rangeSource( R range) -> std::move_only_function<std::optional<T>()>
+        {
+            struct State
+            {
+                R                                          mRange;
+                std::optional<std::ranges::iterator_t<R>>  mCursor;
+            };
+
+            return [ state = std::make_unique<State>( std::move( range), std::nullopt)]() mutable
+                -> std::optional<T>
+            {
+                if( !state->mCursor)
+                {
+                    state->mCursor = std::ranges::begin( state->mRange);
+                }
+
+                if( *state->mCursor == std::ranges::end( state->mRange))
+                {
+                    return std::nullopt;
+                }
+
+                T value{ **state->mCursor };
+
+                //
+                // Deref-then-pre-increment rather than *it++: a
+                // std::generator's iterator is an input iterator whose
+                // post-increment returns void, so the usual one-liner does not
+                // compile for the case this function exists to support.
+                //
+                ++*state->mCursor;
+
+                return value;
+            };
+        }
+
+        //
+        // The three words a slot needs in order to explain itself when it has
+        // nothing left to give.
+        //
+        // Carried as data beside each slot rather than baked into the template,
+        // because the diagnosis is the whole value of these messages and a
+        // generic one would be worse than the three it replaces. "The script is
+        // reading it more times than expected" and "the script is measuring it
+        // more times than expected" send a reader to different lines of a
+        // script; "the script is fetching it more times than expected" sends
+        // them nowhere.
+        //
+        struct SlotWords
+        {
+            std::string_view  Noun;     // "value" / "payload" / "flag"
+            std::string_view  Program;  // which program* call fills this slot
+            std::string_view  Action;   // what a script does to consume one
+        };
+
+        //
+        // One seam's worth of scripted answers: a source per name, and the two
+        // ways asking for one can fail.
+        //
+        // ScriptedSession held three copies of this -- three maps, three
+        // insert_or_assign pairs, three find-then-call-then-throw bodies
+        // differing only in their nouns. The nouns are what SlotWords carries,
+        // so the behaviour is stated once and the diagnosis stays as specific
+        // as it was.
+        //
+        // Deliberately not part of ISession's shape and deliberately not
+        // public. ScriptedSession still offers program/programData/programFlag
+        // and still overrides fetch/fetchData/fetchFlag one for one -- a caller
+        // cannot tell this type exists, which is what makes it safe for it to
+        // be generic where those three are not (see ValueSource below on why
+        // they are not).
+        //
+        template<typename T>
+        class ObservationSlots
+        {
+            public:
+                using Source = std::move_only_function<std::optional<T>()>;
+
+                explicit ObservationSlots( const SlotWords words) : mWords( words) {}
+
+                auto program( const std::string_view name, Source source) -> void
+                {
+                    mSources.insert_or_assign( std::string( name), std::move( source));
+                }
+
+                //
+                // The next answer for this name, or a std::runtime_error saying
+                // which of the two things went wrong.
+                //
+                // A source that has run out is a hard error rather than a
+                // silent repeat of its last answer: a script consuming a name
+                // more times than the test authored answers for it has diverged
+                // from what was recorded, and that is precisely the thing worth
+                // failing on. A source that should never run out simply never
+                // returns nullopt -- see ValueSource below.
+                //
+                [[nodiscard]]
+                auto next( const std::string_view name) -> T
+                {
+                    const auto key   = std::string( name);
+                    const auto entry = mSources.find( key);
+
+                    if( entry == mSources.end())
+                    {
+                        throw std::runtime_error(
+                            "ScriptedSession: nothing programmed for '" + key + "' -- " +
+                            std::string( mWords.Program) + " it, or load a recording that covers it");
+                    }
+
+                    auto value = entry->second();
+
+                    if( !value)
+                    {
+                        throw std::runtime_error(
+                            "ScriptedSession: no programmed " + std::string( mWords.Noun) + " left for '" + key +
+                            "' -- either " + std::string( mWords.Program) +
+                            " more, load a longer recording, or the script is " + std::string( mWords.Action) +
+                            " it more times than expected");
+                    }
+
+                    return std::move( *value);
+                }
+
+            private:
+                std::unordered_map<std::string, Source>  mSources;
+                SlotWords                                mWords;
+        };
+    } // namespace detail
 
     //
     // Where a scripted point's values come from: call it for the next one,
@@ -254,37 +532,7 @@ namespace core
     [[nodiscard]]
     auto sourceOf( R range) -> ValueSource
     {
-        struct State
-        {
-            R                                          mRange;
-            std::optional<std::ranges::iterator_t<R>>  mCursor;
-        };
-
-        return [ state = std::make_unique<State>( std::move( range), std::nullopt)]() mutable
-            -> std::optional<QuantityVariant>
-        {
-            if( !state->mCursor)
-            {
-                state->mCursor = std::ranges::begin( state->mRange);
-            }
-
-            if( *state->mCursor == std::ranges::end( state->mRange))
-            {
-                return std::nullopt;
-            }
-
-            QuantityVariant value{ **state->mCursor };
-
-            //
-            // Deref-then-pre-increment rather than *it++: a std::generator's
-            // iterator is an input iterator whose post-increment returns void,
-            // so the usual one-liner does not compile for the case this
-            // function exists to support.
-            //
-            ++*state->mCursor;
-
-            return value;
-        };
+        return detail::rangeSource<QuantityVariant>( std::move( range));
     }
 
     //
@@ -296,11 +544,11 @@ namespace core
 
     //
     // The payload half of the same three ideas -- see ValueSource, sourceOf and
-    // constantSource above, each of which this mirrors exactly. Separate rather
-    // than generic over the element type purely because ValueSource is named in
-    // the public shape of ScriptedSession and MeasureEngine, and a template
-    // there would have made every one of those spellings carry an argument that
-    // is always one of two types.
+    // constantSource above, each of which this mirrors exactly. Named
+    // separately rather than made generic over the element type because
+    // ValueSource is named in the public shape of ScriptedSession and
+    // MeasureEngine; the body is shared (detail::rangeSource) even though the
+    // name is not.
     //
     using DataSource = std::move_only_function<std::optional<Bytes>()>;
 
@@ -309,31 +557,7 @@ namespace core
     [[nodiscard]]
     auto dataSourceOf( R range) -> DataSource
     {
-        struct State
-        {
-            R                                          mRange;
-            std::optional<std::ranges::iterator_t<R>>  mCursor;
-        };
-
-        return [ state = std::make_unique<State>( std::move( range), std::nullopt)]() mutable
-            -> std::optional<Bytes>
-        {
-            if( !state->mCursor)
-            {
-                state->mCursor = std::ranges::begin( state->mRange);
-            }
-
-            if( *state->mCursor == std::ranges::end( state->mRange))
-            {
-                return std::nullopt;
-            }
-
-            Bytes value{ **state->mCursor };
-
-            ++*state->mCursor;
-
-            return value;
-        };
+        return detail::rangeSource<Bytes>( std::move( range));
     }
 
     [[nodiscard]]
@@ -343,12 +567,17 @@ namespace core
     // And the flag half -- the same three ideas a third time, for the
     // yes/no observations core::ISession::fetchFlag answers.
     //
-    // Written out rather than made generic over the element type, which is
-    // now three near-identical blocks in one file and is still the right
-    // call: making them one template would put an element-type argument into
-    // ScriptedSession's public shape, into SessionBank's, and into every
-    // engine that names one of these -- three spellings gaining a parameter
-    // that is always one of three known types, to save two small functions.
+    // Spelled out as its own alias rather than made generic over the element
+    // type, and that is still the right call: one template here would put an
+    // element-type argument into ScriptedSession's public shape, into
+    // SessionBank's, and into every engine that names one of these -- three
+    // spellings gaining a parameter that is always one of a few known types.
+    //
+    // The *bodies* behind the three are another matter, and they are no longer
+    // written out three times: they delegate to detail::rangeSource at the top
+    // of this file. Naming the seam separately and implementing it separately
+    // were never the same decision, and only the first one was worth the
+    // repetition.
     //
     using FlagSource = std::move_only_function<std::optional<bool>()>;
 
@@ -357,35 +586,28 @@ namespace core
     [[nodiscard]]
     auto flagSourceOf( R range) -> FlagSource
     {
-        struct State
-        {
-            R                                          mRange;
-            std::optional<std::ranges::iterator_t<R>>  mCursor;
-        };
-
-        return [ state = std::make_unique<State>( std::move( range), std::nullopt)]() mutable
-            -> std::optional<bool>
-        {
-            if( !state->mCursor)
-            {
-                state->mCursor = std::ranges::begin( state->mRange);
-            }
-
-            if( *state->mCursor == std::ranges::end( state->mRange))
-            {
-                return std::nullopt;
-            }
-
-            bool value{ **state->mCursor };
-
-            ++*state->mCursor;
-
-            return value;
-        };
+        return detail::rangeSource<bool>( std::move( range));
     }
 
     [[nodiscard]]
     auto constantFlagSource( bool value) -> FlagSource;
+
+    //
+    // And the trace half -- the same three ideas a fourth time, for the
+    // captured records core::ISession::fetchTrace answers.
+    //
+    using TraceSource = std::move_only_function<std::optional<Waveform>()>;
+
+    template<std::ranges::input_range R>
+        requires std::constructible_from<Waveform, std::ranges::range_reference_t<R>>
+    [[nodiscard]]
+    auto traceSourceOf( R range) -> TraceSource
+    {
+        return detail::rangeSource<Waveform>( std::move( range));
+    }
+
+    [[nodiscard]]
+    auto constantTraceSource( Waveform value) -> TraceSource;
 
     //
     // A session that never touches hardware: it hands back pre-determined
@@ -429,23 +651,25 @@ namespace core
             auto program( std::string_view name, ValueSource source) -> void;
 
             //
-            // The payload half, kept in its own map rather than sharing one.
-            // A name is programmed for one kind of answer or the other, never
-            // both, and two maps make "nothing programmed for X" a question
-            // each seam answers about itself -- where one map would have made a
-            // quantity programmed under a name a serial read then asked for a
-            // type confusion to diagnose at fetch time instead of a plain
-            // absence.
+            // The payload half, kept in its own slot map rather than sharing
+            // one -- see this class's private section for why the maps stay
+            // separate.
             //
             auto programData( std::string_view name, Bytes value) -> void;
             auto programData( std::string_view name, DataSource source) -> void;
 
             //
-            // The flag half, in a third map for the same reason the payload
-            // half has a second one -- see programData's comment above.
+            // The flag half, in a third slot map for the same reason the
+            // payload half has a second one.
             //
             auto programFlag( std::string_view name, bool value) -> void;
             auto programFlag( std::string_view name, FlagSource source) -> void;
+
+            //
+            // The trace half, in a fourth slot map for the same reason.
+            //
+            auto programTrace( std::string_view name, Waveform value) -> void;
+            auto programTrace( std::string_view name, TraceSource source) -> void;
 
             //
             // Loads a recording (see core/recording.hpp) and queues its samples
@@ -472,10 +696,29 @@ namespace core
                 std::string_view               instrumentId,
                 const std::function<bool()> &  liveRead) -> bool override;
 
+            [[nodiscard]]
+            auto fetchTrace(
+                std::string_view                   name,
+                std::string_view                   instrumentId,
+                const std::function<Waveform()> &  liveRead) -> Waveform override;
+
         private:
-            std::unordered_map<std::string, ValueSource>  mSources;
-            std::unordered_map<std::string, DataSource>   mDataSources;
-            std::unordered_map<std::string, FlagSource>   mFlagSources;
+            //
+            // One slot map per seam, each carrying the words it explains itself
+            // with -- see detail::ObservationSlots and detail::SlotWords at the
+            // top of this file.
+            //
+            // Three members rather than one, still: a name is programmed for
+            // one kind of answer or the other and never both, and separate maps
+            // make "nothing programmed for X" a question each seam answers about
+            // itself. One map would have made a quantity programmed under a name
+            // a serial read then asked for, which is a type confusion to
+            // diagnose at fetch time rather than the plain absence it is.
+            //
+            detail::ObservationSlots<QuantityVariant>  mSources{     { "value",   "program()",     "measuring" } };
+            detail::ObservationSlots<Bytes>            mDataSources{ { "payload", "programData()", "reading"   } };
+            detail::ObservationSlots<bool>             mFlagSources{ { "flag",    "programFlag()", "awaiting"  } };
+            detail::ObservationSlots<Waveform>         mTraceSources{{ "trace",   "programTrace()","capturing" } };
     };
 
     //
@@ -489,6 +732,46 @@ namespace core
     {
         public:
             explicit RecordingSession( ISession & inner) : mInner( inner) {}
+
+            //
+            // Writes each sample out as it is observed rather than keeping it,
+            // through a writer the caller owns (see core::RecordingWriter).
+            //
+            // The in-memory default is what a unit test wants -- it asserts on
+            // the samples afterwards, and there is no file. It is not what a
+            // run wants once an observation can be large: a hundred captured
+            // traces held until the last script finishes is a hundred traces in
+            // memory, and the run most in need of its recording is the long
+            // soak most likely to be killed before it reaches the end. What has
+            // been streamed is on disk already.
+            //
+            // One direction only -- there is no stopStreaming(). A recording
+            // that was half streamed and half accumulated is two partial
+            // recordings, and the second half would be written after the first
+            // and out of order.
+            //
+            auto streamTo( RecordingWriter & writer) -> void
+            {
+                mWriter = &writer;
+            }
+
+            [[nodiscard]]
+            auto isStreaming() const -> bool
+            {
+                return mWriter != nullptr;
+            }
+
+            //
+            // How many observations have gone through, whichever way they went.
+            // samples().size() answers this only when nothing is streaming, and
+            // a caller reporting on the file it just wrote needs the number in
+            // both cases.
+            //
+            [[nodiscard]]
+            auto recordedCount() const -> std::uint64_t
+            {
+                return mNextSequence;
+            }
 
             [[nodiscard]]
             auto fetch(
@@ -510,15 +793,37 @@ namespace core
                 const std::function<bool()> &  liveRead) -> bool override;
 
             [[nodiscard]]
+            auto fetchTrace(
+                std::string_view                   name,
+                std::string_view                   instrumentId,
+                const std::function<Waveform()> &  liveRead) -> Waveform override;
+
+            //
+            // Empty while streaming, and that is not an oversight to be worked
+            // around: the samples went to the writer and are not here to be
+            // handed back. core::SessionBank::dump refuses rather than writing
+            // an empty recording over a full one.
+            //
+            [[nodiscard]]
             auto samples() const -> const std::vector<RecordedSample> &
             {
                 return mSamples;
             }
 
         private:
+            //
+            // The one place a sample is stamped and filed, so the three seams
+            // above cannot drift apart on the two things that make a recording
+            // replayable: the sequence number, and that all three go into one
+            // ordered stream. See core::SessionBank on why that is a
+            // correctness requirement rather than tidiness.
+            //
+            auto record( std::string_view name, std::string_view instrumentId, RecordedValue value) -> void;
+
             ISession &                   mInner;
             std::uint64_t                mNextSequence{ 0 };
             std::vector<RecordedSample>  mSamples;
+            RecordingWriter *            mWriter{ nullptr };
     };
 
     //
@@ -608,6 +913,22 @@ namespace core
             }
 
             //
+            // The trace half, named apart from the other three for the reason
+            // injectData and injectFlag give.
+            //
+            auto injectTrace( const std::string_view name, Waveform value) -> void
+            {
+                mScripted.programTrace( name, std::move( value));
+                mSwitchable.use( mScripted);
+            }
+
+            auto injectTrace( const std::string_view name, TraceSource source) -> void
+            {
+                mScripted.programTrace( name, std::move( source));
+                mSwitchable.use( mScripted);
+            }
+
+            //
             // Loads a recording and replays it in place of injected values --
             // discarding whatever was previously injected or loaded. One file
             // arms both seams, which is the point: see this class's own comment
@@ -632,11 +953,59 @@ namespace core
                 mScripted = ScriptedSession{};
             }
 
+            //
+            // Answers everything with a placeholder and touches nothing -- see
+            // core::PlaceholderSession for what the answers are and why. What
+            // --skeleton arms before running the catalog.
+            //
+            // Discards whatever was injected or loaded, like useLive: a run
+            // that is half placeholder and half real values would produce a
+            // skeleton that is missing exactly the keys the real values were
+            // covering.
+            //
+            auto usePlaceholders() -> void
+            {
+                mScripted = ScriptedSession{};
+
+                mSwitchable.use( mPlaceholder);
+            }
+
+            //
+            // Records into memory, to be written out with dump() at the end --
+            // what a unit test uses, and what a caller with nowhere to stream
+            // to uses.
+            //
             auto startRecording() -> void { mRecording = true;  }
+
+            //
+            // Records straight through the writer instead, one row per
+            // observation as it happens. What a real run uses: see
+            // core::RecordingSession::streamTo.
+            //
+            auto startRecording( RecordingWriter & writer) -> void
+            {
+                mRecorder.streamTo( writer);
+
+                mRecording = true;
+            }
+
             auto stopRecording()  -> void { mRecording = false; }
 
             auto dump( std::ostream & out) const -> void
             {
+                //
+                // A streamed recording has already been written, and there is
+                // nothing left here to write -- so this would quietly produce an
+                // empty file, very possibly on top of the recording that was
+                // just streamed into it. Refused rather than allowed to mean
+                // something surprising.
+                //
+                if( mRecorder.isStreaming())
+                {
+                    throw std::logic_error(
+                        "SessionBank::dump: this recording was streamed as it was taken and is already written");
+                }
+
                 writeRecording( out, mRecorder.samples());
             }
 
@@ -644,6 +1013,14 @@ namespace core
             auto samples() const -> const std::vector<RecordedSample> &
             {
                 return mRecorder.samples();
+            }
+
+            // How many observations this run has recorded -- see
+            // core::RecordingSession::recordedCount.
+            [[nodiscard]]
+            auto recordedCount() const -> std::uint64_t
+            {
+                return mRecorder.recordedCount();
             }
 
             //
@@ -658,10 +1035,11 @@ namespace core
             }
 
         private:
-            LiveSession        mLive;
-            ScriptedSession    mScripted;
-            SwitchableSession  mSwitchable{ mLive };
-            RecordingSession   mRecorder{ mSwitchable };
-            bool               mRecording{ false };
+            LiveSession         mLive;
+            PlaceholderSession  mPlaceholder;
+            ScriptedSession     mScripted;
+            SwitchableSession   mSwitchable{ mLive };
+            RecordingSession    mRecorder{ mSwitchable };
+            bool                mRecording{ false };
     };
 } // namespace core

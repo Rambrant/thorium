@@ -18,11 +18,12 @@
 #include "core/journal.hpp"
 #include "core/rtf_sink.hpp"
 #include "core/sarif_sink.hpp"
+#include "core/stimulus.hpp"
 #include "hal/measure.hpp"
 #include "hal/safing.hpp"
 
 //
-// Runner for the test-script catalog (core/active_test_catalog.hpp). Four
+// Runner for the test-script catalog (core/active_test_catalog.hpp). Five
 // modes, matching what tools/run-tests.sh expects:
 //
 //   run_scripts                    run every test in the catalog
@@ -33,6 +34,10 @@
 //   run_scripts --safe             drop the rig to a known idle state and
 //                                  exit -- no test is run, nothing is
 //                                  measured, nothing is reported
+//   run_scripts --skeleton=PATH    write out every reading the scripts ask
+//                                  for, against placeholder values, so a
+//                                  replay or stimulus file can be authored --
+//                                  no instrument is touched and no log is left
 //
 // That is the shape of the thing. For the flags themselves -- every spelling,
 // what each takes, one line on what each does -- run `run_scripts --help`, or
@@ -163,6 +168,42 @@
 // values it had just been fed, handing back a file that looks like a fresh
 // capture and is a copy of its input.
 //
+// A recording is one file plus, if the run observed anything too large to keep
+// in it, a directory named PATH.d beside it holding those payloads (see
+// core::sidecarDirectoryFor). Both move together: --replay=PATH finds the
+// directory from the file's own name, so copying a recording off the bench
+// means copying both, and a file whose directory was left behind fails loudly
+// rather than replaying half a run.
+//
+// ---------------------------------------------------------------------------
+// Readings that were never on a bench
+// ---------------------------------------------------------------------------
+//   --skeleton=PATH write a replay file of every reading the scripts ask for
+//   --inject=PATH   take readings from a stimulus file
+//
+// The two above capture and reproduce a run that happened. These two are for
+// the run that has not: a DUT that does not exist yet, a fault that is hard to
+// provoke on the bench, a rig that is in another building.
+//
+// --skeleton answers the question that blocks authoring one at all. A script's
+// session keys -- "Output5V.Vbase", "Osc1.Acquisition", "Ser1.Data" -- are
+// produced by core::Port::qualifiedBy, by each engine's "<instrument>.<what>"
+// rule and by the DUT adapter, and are written down nowhere a person can read
+// them. This runs the selection against core::PlaceholderSession, which touches
+// nothing and answers everything, and writes what the scripts *asked for* as a
+// file that is already a valid recording. It is a mode rather than a flag on a
+// run: it writes no logs and its exit status is about the file, because a run
+// that read placeholders tested nothing and must not leave evidence saying
+// otherwise.
+//
+// --inject then takes the readings from a stimulus file (see
+// core/stimulus.hpp), which is a different format from a recording on purpose.
+// A recording consumes each value once, in order, because that is what
+// reproducing a run means; a stimulus file can say "this point always reads
+// 5.01 V", which is the one thing an author needs most and a recording cannot
+// express at all. Layer it over --replay to re-run a captured failure with one
+// reading changed.
+//
 // Both are set up before the journal opens and before anything is measured, and
 // both are fatal if they cannot be -- see main() below on why that beats
 // discovering an unwritable path once the readings are already taken.
@@ -236,6 +277,25 @@ namespace
         [[= cli::Flag{ "--replay" }, = cli::Meta{ "PATH" },
            = cli::Doc{ "read readings from PATH instead of the rig" }]]
         std::optional<std::string>     ReplayPath;
+
+        //
+        // The authoring aid for the two above: run the selection against
+        // placeholder readings and write what the scripts *asked for*, so a
+        // replay file can be edited into existence instead of captured. See
+        // core::PlaceholderSession, and the mode's own comment in main().
+        //
+        [[= cli::Flag{ "--skeleton" }, = cli::Meta{ "PATH" },
+           = cli::Doc{ "write a replay file of every reading the scripts ask for" }]]
+        std::optional<std::string>     SkeletonPath;
+
+        //
+        // Readings described rather than captured -- see core/stimulus.hpp for
+        // the format, and this file's mode comment for how it layers over
+        // --replay.
+        //
+        [[= cli::Flag{ "--inject" }, = cli::Meta{ "PATH" },
+           = cli::Doc{ "take readings from a stimulus file (see docs)" }]]
+        std::optional<std::string>     InjectPath;
 
         [[= cli::Flag{ "--log-dir" }, = cli::Meta{ "DIR" },
            = cli::Doc{ "where both run logs are written (default: logs)" }]]
@@ -314,6 +374,42 @@ namespace
         if ( options.RecordPath && options.ReplayPath)
         {
             std::cerr << "--record= and --replay= are exclusive: recording a replay would just copy its input.\n";
+            return std::nullopt;
+        }
+
+        //
+        // And --skeleton is exclusive with both, for a sharper version of the
+        // same reason. It answers every reading with a placeholder, so pairing
+        // it with --record would write a file of zeroes that is indistinguishable
+        // from a captured one, and pairing it with --replay would discard the
+        // recording the caller asked to be replayed and then not tell them.
+        //
+        if ( options.SkeletonPath && ( options.RecordPath || options.ReplayPath))
+        {
+            std::cerr << "--skeleton= is exclusive with --record= and --replay=: it touches no instrument "
+                         "and every reading it writes is a placeholder.\n";
+            return std::nullopt;
+        }
+
+        //
+        // --inject is exclusive with the two that write a file and combinable
+        // with the one that reads one.
+        //
+        // Recording an injected run is the --record/--replay objection exactly:
+        // it would write out the values it was just handed, as a file that
+        // looks captured. A skeleton run is placeholders by definition, so
+        // injecting into one would produce a skeleton whose values are real for
+        // the injected keys and placeholders everywhere else -- a file nobody
+        // could tell apart from either.
+        //
+        // Layering over --replay is allowed, and is the reason to have both: it
+        // is how a captured failure gets re-run with one reading changed, to
+        // find out whether that reading was the cause.
+        //
+        if ( options.InjectPath && ( options.RecordPath || options.SkeletonPath))
+        {
+            std::cerr << "--inject= is exclusive with --record= and --skeleton=: both write a file, and "
+                         "injected readings would be written into it as if they had been observed.\n";
             return std::nullopt;
         }
 
@@ -629,7 +725,27 @@ namespace
             //
             const TeardownGuard teardown{ core::catalog::Teardown, allPassed };
 
-            if ( !runHook( core::catalog::Setup))
+            //
+            // A skeleton run goes on regardless of what SETUP concluded, and
+            // that is the mode's whole reason for overriding this rather than
+            // an exception squeezed in. SETUP powers the rig up and checks the
+            // rails; against placeholder readings of zero it concludes the rig
+            // is dead, and stopping there would write a skeleton holding the
+            // six readings SETUP itself took and none of the ones the tests
+            // would have. The verdict is meaningless here -- it is the verdict
+            // of a run that read zeroes -- so letting it truncate the
+            // enumeration would be the meaningless answer deciding the useful
+            // one.
+            //
+            // It does not make the enumeration complete. A script with its own
+            // "if this reading is wrong, give up" still gives up, and no
+            // placeholder can prevent that; see core::PlaceholderSession, which
+            // says so at the point where the answers are chosen. This removes
+            // the one such branch that would otherwise stop every test at once.
+            //
+            const auto setupPassed = runHook( core::catalog::Setup);
+
+            if ( !setupPassed && !options.SkeletonPath)
             {
                 std::cerr << "SETUP reported failure; no test was run.\n";
 
@@ -643,6 +759,8 @@ namespace
             }
             else
             {
+                allPassed = setupPassed && allPassed;
+
                 runPasses( options, allPassed);
             }
         }
@@ -767,13 +885,23 @@ int main( int argc, char ** argv)
     std::optional<core::SarifSink>    sarif;
     std::optional<core::RtfSink>      rtf;
 
-    if ( !options.Quiet)
+    //
+    // No sinks at all for a skeleton run, and the reason is the one the whole
+    // mode turns on: it did not test anything. Every reading in it is a
+    // placeholder, so its verdicts are noise -- and an RTF sitting in the log
+    // directory with a DUT serial in its header is evidence that a run
+    // happened. This one did not. Same stance --safe takes on the Safe event it
+    // posts: a mode that reports nothing gets no log to report it in.
+    //
+    const auto writingSkeleton = options.SkeletonPath.has_value();
+
+    if ( !options.Quiet && !writingSkeleton)
     {
         console.emplace( std::cout, options.Colour);
         core::journal().add( *console);
     }
 
-    if ( options.WriteLogs)
+    if ( options.WriteLogs && !writingSkeleton)
     {
         try
         {
@@ -819,13 +947,23 @@ int main( int argc, char ** argv)
     // would mean discovering it exactly when the data is most expensive to have
     // lost.
     //
-    std::ofstream recording;
+    //
+    // --record and --skeleton write the same kind of file through the same
+    // machinery, and differ only in where the values come from -- the rig, or
+    // core::PlaceholderSession. One path variable rather than two blocks, so
+    // that a skeleton is provably a recording rather than something shaped like
+    // one: the day the format grows a column, it grows in both.
+    //
+    const auto & streamPath = options.RecordPath ? options.RecordPath : options.SkeletonPath;
 
-    if ( options.RecordPath)
+    std::ofstream                        recording;
+    std::optional<core::RecordingWriter>  recordingWriter;
+
+    if ( streamPath)
     {
         try
         {
-            const auto path = std::filesystem::path( *options.RecordPath);
+            const auto path = std::filesystem::path( *streamPath);
 
             ensureParentDirectory( path);
 
@@ -835,6 +973,49 @@ int main( int argc, char ** argv)
             {
                 throw std::runtime_error( "could not open '" + path.string() + "' for writing");
             }
+
+            //
+            // Streamed as the run takes each reading rather than accumulated
+            // and dumped at the end -- see core::RecordingSession::streamTo.
+            // Two things follow that are worth knowing at this call site.
+            //
+            // A run that is killed part-way leaves the readings it had already
+            // taken, where before it left an empty file. That is the direction
+            // to fail in for a fifty-pass soak.
+            //
+            // And a heavy payload spills into the sidecar directory beside the
+            // file (core::sidecarDirectoryFor), which means a write can now
+            // fail *during* the run rather than only at the end of it. It
+            // throws where it fails, out through runTests, into the catch
+            // below -- reported, and the run marked failed, which is the same
+            // stance the block at the end of this function takes on a recording
+            // that could not be written.
+            //
+            //
+            // A header a person can read, which the format allows and nothing
+            // this program writes otherwise uses (see kCommentMarker in
+            // core/recording.hpp). Only on a skeleton, and that asymmetry is
+            // the point: a recording is a capture and speaks for itself, while
+            // a skeleton is a file somebody is about to edit and needs to know
+            // it is not evidence of anything.
+            //
+            if ( options.SkeletonPath)
+            {
+                recording
+                    << "# Skeleton written by run_scripts --skeleton. This is a valid --replay file.\n"
+                    << "# Every value below is a PLACEHOLDER -- no instrument was touched. Readings are\n"
+                    << "# zero, captures completed, payloads and traces are empty. Edit the value column.\n"
+                    << "#\n"
+                    << "# The keys and their order are what the scripts actually asked for, which is the\n"
+                    << "# part that cannot be written down by hand. A script whose control flow depends\n"
+                    << "# on what it read has more than one path through it, and this is the one these\n"
+                    << "# placeholders produce -- complete for the straight-line case, a first draft\n"
+                    << "# otherwise.\n"
+                    << "#\n"
+                    << "# sequence  wallClockMillis  point  instrument  kind  value\n";
+            }
+
+            recordingWriter.emplace( recording, core::sidecarDirectoryFor( path));
         }
         catch ( const std::exception & e)
         {
@@ -842,9 +1023,26 @@ int main( int argc, char ** argv)
             return 1;
         }
 
-        Measure.startRecording();
+        //
+        // Placeholders before recording, so that the recorder decorates a
+        // session that answers rather than one that reaches for the rig. Not
+        // conditional on anything else: --skeleton is exclusive with both other
+        // modes (see parseOptions), so there is nothing this can be discarding.
+        //
+        if ( options.SkeletonPath)
+        {
+            Measure.usePlaceholders();
+        }
+
+        Measure.startRecording( *recordingWriter);
     }
 
+    //
+    // Replay first, then inject, and the order is the whole meaning of using
+    // both: --replay lays down a captured run and --inject changes named
+    // readings within it. The other way round, the load would discard the
+    // injections and say nothing.
+    //
     if ( options.ReplayPath)
     {
         try
@@ -860,6 +1058,26 @@ int main( int argc, char ** argv)
         catch ( const std::exception & e)
         {
             std::cerr << "Could not load the recording to replay: " << e.what() << '\n';
+            return 1;
+        }
+    }
+
+    if ( options.InjectPath)
+    {
+        //
+        // Fatal if it cannot be read or does not parse, before anything is
+        // measured -- the stance --replay takes, for its reason. A caller who
+        // asked for described readings and silently got live hardware, or got
+        // the half of the file that parsed, has been told the run did something
+        // it did not.
+        //
+        try
+        {
+            core::injectStimulusFromFile( Measure.sessions(), *options.InjectPath);
+        }
+        catch ( const std::exception & e)
+        {
+            std::cerr << "Could not read the stimulus file: " << e.what() << '\n';
             return 1;
         }
     }
@@ -910,11 +1128,14 @@ int main( int argc, char ** argv)
     }
 
     //
-    // Written after the run block above has closed, so the file holds every
-    // reading the run took -- including any a TEARDOWN made on its way out.
+    // Closed out after the run block above, so the file holds every reading the
+    // run took -- including any a TEARDOWN made on its way out.
+    //
+    // The rows themselves went out as they were observed (see where the writer
+    // is built, further up); what is left here is the flush and the check.
     //
     // Deliberately outside the try/catch: a run that ended by throwing is the
-    // one whose readings are most worth having, so the recording is written
+    // one whose readings are most worth having, so the recording is closed out
     // for a failed run exactly as for a passing one.
     //
     // A recording that could not be written fails the run. The scripts may
@@ -922,21 +1143,20 @@ int main( int argc, char ** argv)
     // got one -- the same stance --sarif=/--rtf= take on a log that could not
     // be opened.
     //
-    if ( options.RecordPath)
+    if ( streamPath)
     {
         Measure.stopRecording();
-        Measure.dump( recording);
 
         recording.flush();
 
         if ( !recording)
         {
-            std::cerr << "Could not write the recording to " << *options.RecordPath << '\n';
+            std::cerr << "Could not write the recording to " << *streamPath << '\n';
 
             core::journal().post( core::JournalRecord{
                 .Method  = core::Verb::Note,
                 .Subject = "run",
-                .Detail  = "could not write the recording to " + *options.RecordPath
+                .Detail  = "could not write the recording to " + *streamPath
             });
 
             allPassed = false;
@@ -944,6 +1164,25 @@ int main( int argc, char ** argv)
     }
 
     core::journal().end( allPassed);
+
+    //
+    // A skeleton run reports on the file it wrote, not on the scripts. Its
+    // verdicts are the verdicts of a run that read zeroes, so returning them
+    // would tell a caller -- and a CI job -- something false about a DUT that
+    // was never connected. It succeeds if the file was written and fails if it
+    // was not, which is the only thing this mode actually claims.
+    //
+    if ( options.SkeletonPath)
+    {
+        if ( recording)
+        {
+            std::cout << "Wrote " << Measure.recordedCount() << " reads to "
+                      << *options.SkeletonPath << ".\n"
+                      << "Every value is a placeholder; edit the last column and replay it.\n";
+        }
+
+        return recording ? 0 : 1;
+    }
 
     return allPassed ? 0 : 1;
 }

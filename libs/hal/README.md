@@ -72,6 +72,7 @@ libs/hal/
         measure.hpp        # MeasureEngine alias + extern Measure/Read
         source.hpp         # Apply/Remove/Setup/Write -- the instrument-I/O verbs
         acquire.hpp        # Arm/Await -- the triggered-capture pair
+        trace.hpp          # Fetch -- the whole captured record off an instrument
         route.hpp          # Connect/Disconnect -- the fabric-only verbs
         safing.hpp         # safeRig()
 ```
