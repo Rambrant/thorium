@@ -62,6 +62,7 @@ no longer compiles, and belongs in `rig/tests/` (see `rig/README.md`).
 libs/hal/
     include/hal/
         address.hpp        # Gpib/Lan/Serial/Usb/Simulated -- how the PC reaches an instrument
+        api_version.hpp    # THORIUM_HAL_API_VERSION + the gate each driver asserts through
         vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
         switch_device.hpp  # SwitchDeviceKind/Model + card specs, SwitchDeviceId (from THORIUM_DEVICE_TABLE), kindOf/addressOf/cardOf/hasChannel
         switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
@@ -479,6 +480,40 @@ On the DUT side the same four conductors are `dut::AcInput::A/B/C/N` -- a
 `BUNDLE` of four `SOURCE_LINE`s (see `dut/adapter.inc` and `adapter.hpp`),
 grouped because they are one interface rather than four unrelated pins, and
 declared as source points because `AcP1` is cabled onto all four.
+
+## The driver API is versioned, and a driver says which version it wants
+
+The published driver API is exactly what `hal` exports (see the two-target split
+above), and `api_version.hpp` puts a number on it. Each driver under
+`instruments/` names the version it was written against:
+
+```cpp
+THORIUM_REQUIRE_HAL_API( 1);
+```
+
+This exists because a driver directory is meant to be zipped and dropped into
+another rig's `instruments/` as it stands, so a driver and the `hal` it is
+compiled against are distributed separately and can disagree. Ungated, that
+disagreement surfaces from the middle of a template instantiation; gated, it is
+one diagnostic naming the driver's own line. `instruments/README.md` has the
+driver-side story and a sample of the message.
+
+Two numbers, because one would make the gate a nuisance:
+`THORIUM_HAL_API_VERSION` rises on every change to the driver-facing API,
+additions included, while `THORIUM_HAL_API_OLDEST_SUPPORTED` rises only when a
+change actually breaks drivers written against older versions. The pair spans
+the range this `hal` claims to serve; a driver's number either falls in it or
+does not. **Changing anything a driver can see is what obliges you to move
+them** — the numbers are a promise this directory makes, and nothing derives or
+verifies them.
+
+Macros, not only the `hal::kApiVersion`/`hal::kOldestSupportedApiVersion`
+constants beside them, because a driver spanning two `hal` versions writes
+`#if THORIUM_HAL_API_VERSION >= 3` around the part that differs and an
+`inline constexpr int` cannot be asked that. And defined in the header rather
+than handed in as a compile definition, unlike the four rig file paths in
+`CMakeLists.txt`: those are facts about the linking rig, which only the build
+knows, where this is a fact about *these headers* and has to travel with them.
 
 ## Dmm's AC mode is stored on the instrument, not the port
 

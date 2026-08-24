@@ -15,8 +15,21 @@
 #include "core/waveform.hpp"
 
 #include "hal/address.hpp"
+#include "hal/api_version.hpp"
 #include "hal/describe.hpp"
 #include "hal/instrument.hpp"
+
+//
+// Which hal API version this driver was written against. A driver and the hal
+// it is compiled against are distributed separately -- this directory is meant
+// to be zipped and dropped into another rig's instruments/ as it stands (see
+// instruments/README.md) -- so the two can disagree, and this line is what
+// makes that disagreement one readable diagnostic instead of a failure deep
+// inside a template instantiation. A literal, never THORIUM_HAL_API_VERSION
+// itself, which would only assert that this hal matches this hal. See
+// hal/api_version.hpp for what the number means and when it moves.
+//
+THORIUM_REQUIRE_HAL_API( 1);
 
 namespace hal
 {

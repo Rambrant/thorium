@@ -64,6 +64,7 @@ add_library(hal STATIC
     src/instrument.cpp
     src/wiring.cpp
     include/hal/address.hpp        # header-only
+    include/hal/api_version.hpp    # header-only
     include/hal/vpc_location.hpp   # header-only
     include/hal/switch_device.hpp  # header-only
     include/hal/switch_fabric.hpp  # header-only

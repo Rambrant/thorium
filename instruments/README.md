@@ -121,14 +121,63 @@ then fails to compile instead of failing to open. `hal::Simulated` is in every
 driver's set without being listed, and is what a driver's own tests construct
 with. See `hal/address.hpp`.
 
+Leave the `THORIUM_REQUIRE_HAL_API` line copied from the template alone unless
+the new driver actually needs something newer than the version it names — see
+the next section for what the number means.
+
 Then add an `INSTRUMENT()` line to `rig/instrument.inc` and an `#include` to
 `rig/active_instruments.hpp` — the driver is available after the copy, and part
 of the rig after those two lines.
 
-## Not yet done
+## Which hal a driver was written against
 
-- **A hal API version gate.** A driver written against an older `hal` and
-  compiled against a newer one currently fails somewhere deep inside a template
-  instantiation. A `THORIUM_HAL_API_VERSION` in generic `hal` plus a
-  `static_assert` in each driver turns that into one readable line. Worth having
-  before any driver is distributed as a zip to anyone.
+A driver and the `hal` it compiles against travel separately — that is the
+entire point of a directory here being zippable — so the two can disagree.
+Each driver says which API version it was written for, one line after its
+includes:
+
+```cpp
+#include "hal/address.hpp"
+#include "hal/api_version.hpp"
+#include "hal/instrument.hpp"
+
+THORIUM_REQUIRE_HAL_API( 1);
+```
+
+Without it, the disagreement surfaces as a failure deep inside a template
+instantiation — the driver names a member of a `hal` type that has since changed
+shape, and the error arrives from the middle of `core::MeasureEngine` with a
+page of substituted template arguments in front of it and nothing in it saying
+*wrong hal version*. With it, both directions are one diagnostic pointing at the
+driver's own line:
+
+```
+api_version.hpp:150: error: static assertion failed: This instrument driver was
+written against a NEWER hal API than the one it is being compiled against:
+update libs/hal, or install the driver package matching this hal. [...]
+    note: in expansion of macro 'THORIUM_REQUIRE_HAL_API'
+    l4411a.hpp:23 | THORIUM_REQUIRE_HAL_API( 2);
+```
+
+Two numbers live in `hal/api_version.hpp`, and the second is what keeps the gate
+from becoming a nuisance:
+
+| | |
+|---|---|
+| `THORIUM_HAL_API_VERSION` | rises on every change to the driver-facing API, additions included |
+| `THORIUM_HAL_API_OLDEST_SUPPORTED` | rises only when a change actually breaks drivers written against older versions |
+
+So a driver asking for 1 against a `hal` at 5 that still supports 1 compiles,
+silently and correctly. A gate that failed on every additive bump would be
+switched off within a week.
+
+The number is written as a **literal**, never as `THORIUM_HAL_API_VERSION`
+itself — which would assert that this `hal` is compatible with this `hal`, and
+pass everywhere. All five drivers here are at 1.
+
+One thing the gate cannot do, worth knowing before trusting it: nothing derives
+those two numbers from the API they describe, or checks them against it. They
+are a promise `libs/hal` makes, kept by whoever changes a driver-facing header
+remembering to bump them. The gate catches a driver and a `hal` that were
+honestly labelled and still don't match — the zip-distribution case it exists
+for — and not a breaking change that went in without a bump.
