@@ -76,7 +76,7 @@
 //
 // What repeats is the *selection*, not each script: --select=A,B --repeat=3
 // runs A B A B A B, never A A A B B B. That is the unit a soak run cares
-// about -- "the tests, again" -- and it is also the unit SETUP/TEARDOWN
+// about -- "the tests, again" -- and it is also the unit RUN_SETUP/RUN_TEARDOWN
 // bracket, which they could not be if each script repeated on its own.
 //
 // The two combine as a bound and a stopping condition. --until-failure alone
@@ -93,16 +93,26 @@
 // ---------------------------------------------------------------------------
 // Bracketing a run
 // ---------------------------------------------------------------------------
-// A catalog may declare SETUP and TEARDOWN (see core/test_catalog.hpp) --
+// A catalog may declare RUN_SETUP and RUN_TEARDOWN (see core/test_catalog.hpp) --
 // typically powering the rig up and back down. They run once each, around
 // everything, including every repeat pass. Neither is required; a catalog
 // declaring neither behaves exactly as it did before they existed.
 //
+// A GROUP may declare SETUP and TEARDOWN of its own, bracketing that group's
+// tests inside the run-level pair. Two differences from it, both of them the
+// reason the group-level pair exists at all: they run only if something in their
+// group was selected, so a --select naming one test pays for that test's group
+// and no other; and they run once per pass over the selection, so --repeat=3
+// arms and disarms each selected group three times inside the single power-up
+// the run-level pair does. A failing SETUP skips its own group's tests and fails
+// the run, but leaves the other groups to run; a failing RUN_SETUP stops
+// everything.
+//
 // ids are only ever compared for a match against what's already in the
 // catalog -- never parsed into anything -- so a typo in --select can never be
 // a crash or an unintended run. It is a refusal: an id this catalog has no
-// test for fails the run before SETUP, naming every such id, and nothing at
-// all executes. See unmatchedSelection below on why a partly-valid list is
+// test for fails the run before RUN_SETUP, naming every such id, and nothing
+// at all executes. See unmatchedSelection below on why a partly-valid list is
 // treated the same way as a wholly invalid one.
 //
 // --safe exists for a caller outside this process. The rig console
@@ -195,10 +205,10 @@
 // Each row says which test took the reading, so the replayed test gets its own
 // rows rather than the front of each point's queue -- which, where two tests
 // measure one point, would be the other test's readings and a green verdict
-// about the wrong numbers. Readings taken outside any test (SETUP and TEARDOWN,
-// which bracket every selection) are kept whatever the selection says. A
-// recording with no rows for the selected tests is refused, naming the tests it
-// does hold. See core::ScriptedSession::loadFromFile, which owns the rule.
+// about the wrong numbers. Readings taken outside any test (a hook's -- either
+// level) are kept whatever the selection says. A recording with no rows for the
+// selected tests is refused, naming the tests it does hold. See
+// core::ScriptedSession::loadFromFile, which owns the rule.
 //
 // ---------------------------------------------------------------------------
 // Readings that were never on a bench
@@ -568,6 +578,109 @@ namespace
     }
 
     //
+    // Calls a hook if the catalog declared one. An absent hook succeeds --
+    // "there was nothing to do" is not a failure.
+    //
+    // Taking the hook as a parameter rather than testing core::catalog::Setup
+    // against nullptr at the call site is what keeps this compiling under
+    // -Werror both ways round: those constants are compile-time known, so a
+    // catalog that *does* declare a hook makes the null test provably useless
+    // and -Waddress rejects it, while a catalog that declares none needs
+    // exactly that test. A parameter is opaque to the warning and correct for
+    // both.
+    //
+    [[nodiscard]]
+    auto runHook( const core::RunHook hook) -> bool
+    {
+        return hook == nullptr || hook();
+    }
+
+    //
+    // Runs a teardown hook on the way out of whatever it brackets, whichever
+    // way that is -- the selection finishing, --until-failure stopping early,
+    // or a script throwing straight past everything. A destructor for the same
+    // reason hal::RigSafingGuard is one: the alternative is a call at each of
+    // those exits and a list to keep in step with the next one added.
+    //
+    // Serves both levels: the catalog's RUN_TEARDOWN around the whole selection
+    // (see runTests below) and a group's own TEARDOWN around that group's tests
+    // (see runOnePass). Nothing about the behaviour differs between them
+    // -- run it once, don't let it throw, fail the run if it reports failure --
+    // so `label` and `subject` are all that is passed in: what to call the hook
+    // in the message, and what to attribute the journal note to. Two guards
+    // with one difference between them would be two places to fix the next time
+    // a teardown gains a rule.
+    //
+    // Ordered *inside* main's hal::RigSafingGuard, so a run ends by doing what
+    // the suite asked for and only then the unconditional safing -- a teardown
+    // that expects the fabric still wired up gets it. A group's guard is inside
+    // the run's, for the same reason and in the same direction.
+    //
+    // Nothing escapes here. A destructor that throws while the stack is already
+    // unwinding from a failing script terminates the process, which would lose
+    // both logs and tell a rig console nothing about what went wrong.
+    //
+    class TeardownGuard
+    {
+        public:
+            TeardownGuard( const core::RunHook hook,
+                           bool &              allPassed,
+                           std::string         label   = "RUN_TEARDOWN",
+                           std::string         subject = "run")
+                : mHook( hook), mAllPassed( allPassed),
+                  mLabel( std::move( label)), mSubject( std::move( subject)) {}
+
+            ~TeardownGuard()
+            {
+                if ( !mHook)
+                    return;
+
+                try
+                {
+                    if ( !mHook())
+                        fail( mLabel + " reported failure");
+                }
+                catch ( const std::exception & e)
+                {
+                    fail( mLabel + " threw: " + e.what());
+                }
+                catch ( ...)
+                {
+                    fail( mLabel + " threw an unknown exception");
+                }
+            }
+
+        private:
+            //
+            // A failing teardown fails the run. The scripts may well all have
+            // passed, but a rig that did not shut down the way the suite says
+            // it should is not a run anybody should read as clean.
+            //
+            auto fail( const std::string & what) -> void
+            {
+                std::cerr << what << '\n';
+
+                core::journal().post( core::JournalRecord{
+                    .Method  = core::Verb::Note,
+                    .Subject = mSubject,
+                    .Detail  = what
+                });
+
+                mAllPassed = false;
+            }
+
+            core::RunHook     mHook;
+            bool &            mAllPassed;
+            std::string       mLabel;
+            std::string       mSubject;
+    };
+
+    // Defined below runOnePass, next to the group bracketing that calls it.
+    auto runSelectedTests( const core::TestGroup &                group,
+                           const std::vector<std::string_view> &  selection,
+                           bool &                                 allPassed) -> void;
+
+    //
     // One pass over the selection: every selected test, once, in catalog order.
     //
     // Bracketed with the journal's own group/test boundaries. Those calls are
@@ -583,8 +696,23 @@ namespace
     // --select naming one test would otherwise produce a log full of headings
     // for groups that contributed nothing.
     //
-    auto runOnePass( const std::vector<std::string_view> & selection) -> bool
+    // That same test is what a group's own SETUP/TEARDOWN hang off, and the
+    // reason they hang off it here rather than anywhere else: a group's hooks
+    // exist to establish something only that group's tests need, so a run that
+    // selected nothing from the group must not pay for it -- and on a rig, "pay
+    // for it" can mean leaving the DUT in a state the selected tests were never
+    // written against. No extra condition is needed for that; the hooks simply
+    // live inside the same `continue`.
+    //
+    // Inside beginGroup/endGroup, so whatever a hook posts is attributed to the
+    // group it belongs to -- and per pass, not per run: a --repeat=3 arms and
+    // disarms each selected group three times. RUN_SETUP/RUN_TEARDOWN are the
+    // pair that brackets the whole selection once (see runTests below).
+    //
+    auto runOnePass( const Options & options) -> bool
     {
+        const auto & selection = options.Selection;
+
         bool allPassed = true;
 
         for ( const auto & group : core::catalog::Catalog)
@@ -594,40 +722,102 @@ namespace
 
             core::journal().beginGroup( group.name, group.description);
 
-            for ( const auto & test : group.tests)
+            //
+            // Its own scope, for the same reason the run-level guard has one:
+            // the group's teardown must have run before endGroup closes the
+            // group it belongs to.
+            //
             {
-                if ( !isSelected( test.id, selection))
-                    continue;
-
-                core::journal().beginTest( test.id, test.description);
+                //
+                // Constructed before the group's setup runs, so a setup that
+                // failed half way through still gets its teardown -- the whole
+                // argument the run-level pair makes, one level in.
+                //
+                const TeardownGuard groupTeardown{ group.teardown, allPassed,
+                                                   "TEARDOWN for group '" + std::string( group.name) + "'",
+                                                   "group" };
 
                 //
-                // endTest is reached on the normal path only. A script that
-                // throws unwinds straight past it to main's handler, which ends
-                // the run as a failure -- deliberately not wrapped in a
-                // try/catch here that would swallow it into a per-test failure
-                // and carry on: an exception out of a script means the rig is in
-                // an unknown state, which is precisely what hal::RigSafingGuard
-                // and the --safe path exist for.
+                // A failing group setup skips that group's tests and fails the
+                // run, but says nothing about the other groups: they have their
+                // own hooks, or none, and a rig state this group could not
+                // establish is not evidence about theirs. That is the
+                // difference from a failing run-level RUN_SETUP, which stops
+                // everything.
                 //
-                // The script returns nothing: the verdict comes back from
-                // endTest, derived from the checks the script actually recorded
-                // (see core/journal.hpp on why it is derived rather than
-                // returned, and core/test_catalog.hpp on what that means for a
-                // script's signature). This loop's own fold is unchanged -- it
-                // is a fold over *tests*, which is a fact no single test has.
+                // Overridden under --skeleton exactly as the run-level one is,
+                // and for the same reason: against placeholder readings of zero
+                // a hook that checks anything concludes the rig is dead, and
+                // letting that truncate the enumeration would leave the
+                // skeleton missing every reading this group's tests would have
+                // asked for. See runTests below.
                 //
-                test.script();
+                if ( const auto setupPassed = runHook( group.setup); !setupPassed && !options.SkeletonPath)
+                {
+                    const auto what = "SETUP for group '" + std::string( group.name)
+                                    + "' reported failure; no test in it was run";
 
-                const bool passed = core::journal().endTest();
+                    std::cerr << what << ".\n";
 
-                allPassed &= passed;
+                    core::journal().post( core::JournalRecord{
+                        .Method  = core::Verb::Note,
+                        .Subject = "group",
+                        .Detail  = what
+                    });
+
+                    allPassed = false;
+                }
+                else
+                {
+                    allPassed &= setupPassed;
+
+                    runSelectedTests( group, selection, allPassed);
+                }
             }
 
             core::journal().endGroup();
         }
 
         return allPassed;
+    }
+
+    //
+    // The selected tests of one group, split out only so runOnePass above can
+    // keep its two hook levels readable -- the loop itself is unchanged.
+    //
+    auto runSelectedTests( const core::TestGroup &                group,
+                           const std::vector<std::string_view> &  selection,
+                           bool &                                 allPassed) -> void
+    {
+        for ( const auto & test : group.tests)
+        {
+            if ( !isSelected( test.id, selection))
+                continue;
+
+            core::journal().beginTest( test.id, test.description);
+
+            //
+            // endTest is reached on the normal path only. A script that
+            // throws unwinds straight past it to main's handler, which ends
+            // the run as a failure -- deliberately not wrapped in a
+            // try/catch here that would swallow it into a per-test failure
+            // and carry on: an exception out of a script means the rig is in
+            // an unknown state, which is precisely what hal::RigSafingGuard
+            // and the --safe path exist for.
+            //
+            // The script returns nothing: the verdict comes back from
+            // endTest, derived from the checks the script actually recorded
+            // (see core/journal.hpp on why it is derived rather than
+            // returned, and core/test_catalog.hpp on what that means for a
+            // script's signature). This loop's own fold is unchanged -- it
+            // is a fold over *tests*, which is a fact no single test has.
+            //
+            test.script();
+
+            const bool passed = core::journal().endTest();
+
+            allPassed &= passed;
+        }
     }
 
     //
@@ -682,90 +872,10 @@ namespace
         return options.UntilFailure ? std::numeric_limits<std::uint64_t>::max() : 1;
     }
 
-    //
-    // Calls a hook if the catalog declared one. An absent hook succeeds --
-    // "there was nothing to do" is not a failure.
-    //
-    // Taking the hook as a parameter rather than testing core::catalog::Setup
-    // against nullptr at the call site is what keeps this compiling under
-    // -Werror both ways round: those constants are compile-time known, so a
-    // catalog that *does* declare a hook makes the null test provably useless
-    // and -Waddress rejects it, while a catalog that declares none needs
-    // exactly that test. A parameter is opaque to the warning and correct for
-    // both.
-    //
-    [[nodiscard]]
-    auto runHook( const core::RunHook hook) -> bool
-    {
-        return hook == nullptr || hook();
-    }
 
     //
-    // Runs TEARDOWN on the way out of the run, whichever way that is -- the
-    // selection finishing, --until-failure stopping early, or a script throwing
-    // straight past everything. A destructor for the same reason
-    // hal::RigSafingGuard is one: the alternative is a call at each of those
-    // exits and a list to keep in step with the next one added.
-    //
-    // Ordered *inside* main's hal::RigSafingGuard, so a run ends by doing what
-    // the suite asked for and only then the unconditional safing -- a teardown
-    // that expects the fabric still wired up gets it.
-    //
-    // Nothing escapes here. A destructor that throws while the stack is already
-    // unwinding from a failing script terminates the process, which would lose
-    // both logs and tell a rig console nothing about what went wrong.
-    //
-    class TeardownGuard
-    {
-        public:
-            TeardownGuard( const core::RunHook hook, bool & allPassed) : mHook( hook), mAllPassed( allPassed) {}
-
-            ~TeardownGuard()
-            {
-                if ( !mHook)
-                    return;
-
-                try
-                {
-                    if ( !mHook())
-                        fail( "TEARDOWN reported failure");
-                }
-                catch ( const std::exception & e)
-                {
-                    fail( std::string( "TEARDOWN threw: ") + e.what());
-                }
-                catch ( ...)
-                {
-                    fail( "TEARDOWN threw an unknown exception");
-                }
-            }
-
-        private:
-            //
-            // A failing teardown fails the run. The scripts may well all have
-            // passed, but a rig that did not shut down the way the suite says
-            // it should is not a run anybody should read as clean.
-            //
-            auto fail( const std::string & what) -> void
-            {
-                std::cerr << what << '\n';
-
-                core::journal().post( core::JournalRecord{
-                    .Method  = core::Verb::Note,
-                    .Subject = "run",
-                    .Detail  = what
-                });
-
-                mAllPassed = false;
-            }
-
-            core::RunHook  mHook;
-            bool &         mAllPassed;
-    };
-
-    //
-    // The whole run: SETUP, then the selection as many times as asked, then
-    // TEARDOWN.
+    // The whole run: RUN_SETUP, then the selection as many times as asked, then
+    // RUN_TEARDOWN.
     //
     // The hooks bracket the *selection*, not each pass over it -- so
     // --repeat=50 powers the rig on once, runs the scripts fifty times, and
@@ -777,9 +887,9 @@ namespace
     auto runTests( const Options & options) -> bool
     {
         //
-        // Checked before SETUP: a --select naming a test this catalog does not
-        // have is a caller error, and powering a rig up to then not run what
-        // was asked for is not a helpful way to report it.
+        // Checked before RUN_SETUP: a --select naming a test this catalog does
+        // not have is a caller error, and powering a rig up to then not run
+        // what was asked for is not a helpful way to report it.
         //
         // Fails on *any* unmatched id rather than only on all of them, which is
         // the whole point -- see unmatchedSelection above. Nothing runs: a
@@ -810,19 +920,19 @@ namespace
         //
         {
             //
-            // Constructed before SETUP runs, so a setup that fails half way
+            // Constructed before RUN_SETUP runs, so a setup that fails half way
             // through -- supplies up, fabric not -- still gets its teardown.
             //
             const TeardownGuard teardown{ core::catalog::Teardown, allPassed };
 
             //
-            // A skeleton run goes on regardless of what SETUP concluded, and
+            // A skeleton run goes on regardless of what RUN_SETUP concluded, and
             // that is the mode's whole reason for overriding this rather than
-            // an exception squeezed in. SETUP powers the rig up and checks the
-            // rails; against placeholder readings of zero it concludes the rig
-            // is dead, and stopping there would write a skeleton holding the
-            // six readings SETUP itself took and none of the ones the tests
-            // would have. The verdict is meaningless here -- it is the verdict
+            // an exception squeezed in. RUN_SETUP powers the rig up and checks
+            // the rails; against placeholder readings of zero it concludes the
+            // rig is dead, and stopping there would write a skeleton holding
+            // the six readings RUN_SETUP itself took and none of the ones the
+            // tests would have. The verdict is meaningless here -- it is the verdict
             // of a run that read zeroes -- so letting it truncate the
             // enumeration would be the meaningless answer deciding the useful
             // one.
@@ -837,12 +947,12 @@ namespace
 
             if ( !setupPassed && !options.SkeletonPath)
             {
-                std::cerr << "SETUP reported failure; no test was run.\n";
+                std::cerr << "RUN_SETUP reported failure; no test was run.\n";
 
                 core::journal().post( core::JournalRecord{
                     .Method  = core::Verb::Note,
                     .Subject = "run",
-                    .Detail  = "SETUP reported failure; no test was run"
+                    .Detail  = "RUN_SETUP reported failure; no test was run"
                 });
 
                 allPassed = false;
@@ -886,7 +996,7 @@ namespace
                 });
             }
 
-            const bool passed = runOnePass( options.Selection);
+            const bool passed = runOnePass( options);
 
             allPassed &= passed;
 
@@ -1263,7 +1373,7 @@ int main( int argc, char ** argv)
 
     //
     // Closed out after the run block above, so the file holds every reading the
-    // run took -- including any a TEARDOWN made on its way out.
+    // run took -- including any a RUN_TEARDOWN made on its way out.
     //
     // The rows themselves went out as they were observed (see where the writer
     // is built, further up); what is left here is the flush and the check.

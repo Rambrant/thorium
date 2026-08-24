@@ -13,12 +13,22 @@ what to call them. Unlike the criteria variants, there's only one of these
 scenario, but always runs the same set of tests). See
 `core/active_test_catalog.hpp` for how it's consumed.
 
-The same file may declare `SETUP`/`TEARDOWN` -- the code bracketing the
+The same file may declare `RUN_SETUP`/`RUN_TEARDOWN` -- the code bracketing the
 selected scripts, typically powering the rig up and back down. Both are
-optional and independent; this catalog declares both -- `SETUP( rigPowerOn)`
-and `TEARDOWN( rigPowerOff)`, in `scripts/rig_power_on.cpp` and
+optional and independent; this catalog declares both -- `RUN_SETUP( rigPowerOn)`
+and `RUN_TEARDOWN( rigPowerOff)`, in `scripts/rig_power_on.cpp` and
 `scripts/rig_power_off.cpp`. See the README's "Bracket a run with setup and
 teardown" for how to add a pair, and `core::RunHook` for what they promise.
+
+A single `GROUP` may bracket itself the same way, with unqualified `SETUP`/
+`TEARDOWN` rows in its own table -- the qualifier is on the pair above because
+that one sits alone at file scope, where nothing around it says what it
+brackets. A group's hooks run only if something in that group was selected, and
+once per `--repeat` pass rather than once per run, which is the whole of the
+difference and the reason to reach for them: a rig state that only one group's
+tests need should not be established for a run that selected none of them. This
+catalog declares none; its groups need nothing beyond the run-level pair. See
+the README's "Bracket one group".
 
 The pair is worth reading for the distinction it draws against `hal::safeRig()`,
 which runs immediately after the teardown on every exit and looks like the same
@@ -99,8 +109,8 @@ suite/
         supply_rail_script.cpp
         console_script.cpp
         ac_dropout_script.cpp
-        rig_power_on.cpp             # the catalog's SETUP, not a test
-        rig_power_off.cpp            # the catalog's TEARDOWN, not a test
+        rig_power_on.cpp             # the catalog's RUN_SETUP, not a test
+        rig_power_off.cpp            # the catalog's RUN_TEARDOWN, not a test
     tests/
         verdict.hpp                  # verdictOf( script) -- a script returns no verdict to assert on
         test_fuse_register_script.cpp

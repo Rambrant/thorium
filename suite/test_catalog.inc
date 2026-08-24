@@ -6,8 +6,17 @@
 // test), rigPowerOff takes them back down in the inverse order. Read the two
 // files as one sequence and its reverse -- see suite/scripts/rig_power_on.cpp.
 //
-SETUP( rigPowerOn)
-TEARDOWN( rigPowerOff)
+RUN_SETUP(    rigPowerOn)
+RUN_TEARDOWN( rigPowerOff)
+
+//
+// No group below brackets itself. A GROUP may, with SETUP/TEARDOWN rows of its
+// own (see core/test_catalog.hpp), and those run only for a selection that
+// actually reaches the group -- which is the case for reaching for them: a rig
+// state one group's tests need and the others must not be given. The power
+// cycle above is not that case. Every test here wants it, which is why it is
+// stated once, at the top, for the whole run.
+//
 
 GROUP( OutputVoltage, "Tests validating DUT output voltage rails")
     TEST( FuseRegister, fuseRegisterScript, "Verify fuse register and output voltage")

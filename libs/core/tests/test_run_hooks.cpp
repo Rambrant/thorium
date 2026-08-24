@@ -1,9 +1,10 @@
 //
-// SETUP/TEARDOWN resolution, through the real core/active_test_catalog.hpp
-// rather than a re-implementation of its lookup.
+// Hook resolution -- RUN_SETUP/RUN_TEARDOWN around a run, SETUP/TEARDOWN
+// around one group -- through the real core/active_test_catalog.hpp rather than
+// a re-implementation of its lookup.
 //
 // This file supplies its own catalog (fixtures/hooked_catalog.inc, which
-// declares both hooks) instead of the shipped suite one, by redefining
+// declares all four) instead of the shipped suite one, by redefining
 // THORIUM_TEST_CATALOG/THORIUM_TEST_SCRIPTS before the include. That is also
 // why this is the only translation unit in core_tests that includes
 // active_test_catalog.hpp at all: it defines namespace core::catalog, and two
@@ -11,16 +12,20 @@
 // than two independent test cases.
 //
 // The other half of the mechanism -- an undeclared hook resolving to nullptr --
-// is what the shipped suite/test_catalog.inc's absent SETUP does (it declares
-// TEARDOWN alone), so every ordinary build of run_scripts and every acceptance
-// test already exercises that resolution. There is deliberately no second
-// fixture here restating it.
+// the shipped suite covers for the group-level pair, whose groups declare no
+// hooks at all, so every ordinary build of run_scripts and every acceptance
+// test already exercises that resolution. It is covered here too, by the
+// fixture's second group: the two resolutions differ (a namespace-scope
+// fallback the catalog can shadow, against a class member that is either there
+// or not, see core/active_test_catalog.hpp), and a group that declared nothing
+// sitting next to one that declared both is the cheapest way to pin both at
+// once.
 //
 // ---------------------------------------------------------------------------
 // Include order matters here, and is the reason this file reads oddly.
 //
-// core/test_catalog.hpp's GROUP/TEST/SETUP/TEARDOWN are object-like macros at
-// global scope, and GoogleTest's TEST is another one. Whichever header is
+// core/test_catalog.hpp's GROUP/TEST/SETUP/TEARDOWN and friends are
+// object-like macros at global scope, and GoogleTest's TEST is another one. Whichever header is
 // included second redefines the other's, which under -Werror is a hard error --
 // so the catalog is included first, its macros are retired once the fixture
 // catalog has been expanded, and only then does gtest.h arrive to define its
@@ -45,24 +50,32 @@
 #undef END_GROUP
 #undef SETUP
 #undef TEARDOWN
+#undef RUN_SETUP
+#undef RUN_TEARDOWN
 
 #include <gtest/gtest.h>
 
 namespace
 {
-    bool gSetupRan    = false;
-    bool gTeardownRan = false;
+    bool gSetupRan         = false;
+    bool gTeardownRan      = false;
+    bool gGroupSetupRan    = false;
+    bool gGroupTeardownRan = false;
 } // namespace
 
-auto fixtureSetup()    -> bool { gSetupRan    = true; return true; }
-auto fixtureTeardown() -> bool { gTeardownRan = true; return true; }
+auto fixtureSetup()         -> bool { gSetupRan         = true; return true; }
+auto fixtureTeardown()      -> bool { gTeardownRan      = true; return true; }
+auto fixtureGroupSetup()    -> bool { gGroupSetupRan    = true; return true; }
+auto fixtureGroupTeardown() -> bool { gGroupTeardownRan = true; return true; }
+
 //
 // Never actually run by these tests -- what they assert is that the catalog
-// resolved to it (see TheCatalogIsStillReadableAlongsideItsHooks below), so its
-// body has nothing to do. A script that a *runner* reached would have to record
-// a check to pass; this one is only ever pointed at.
+// resolved to them (see TheCatalogIsStillReadableAlongsideItsHooks below), so
+// their bodies have nothing to do. A script that a *runner* reached would have
+// to record a check to pass; these are only ever pointed at.
 //
-auto fixtureScript()   -> void {}
+auto fixtureScript()      -> void {}
+auto otherFixtureScript() -> void {}
 
 TEST( CoreRunHooks, ADeclaredSetupResolvesToTheNamedFunction)
 {
@@ -95,14 +108,73 @@ TEST( CoreRunHooks, HooksAreConstantExpressions)
 }
 
 //
-// Declaring hooks must not disturb the catalog itself -- SETUP/TEARDOWN sit
-// beside GROUP/TEST in the same file and have to stay independent of it.
+// Declaring hooks must not disturb the catalog itself -- RUN_SETUP and
+// RUN_TEARDOWN sit beside GROUP/TEST in the same file, and SETUP/TEARDOWN sit
+// inside the group table among the very rows they must not be confused with.
+// That last one is the claim worth having here: a group's tests are picked out
+// of its members by type (see core/active_test_catalog.hpp), so a hook member
+// landing in the tests array would show up as an extra test with a garbage
+// script.
 //
 TEST( CoreRunHooks, TheCatalogIsStillReadableAlongsideItsHooks)
 {
-    ASSERT_EQ( core::catalog::Catalog.size(), 1u);
+    ASSERT_EQ( core::catalog::Catalog.size(), 2u);
+
     EXPECT_EQ( core::catalog::Catalog[ 0].name, "OutputVoltage");
     ASSERT_EQ( core::catalog::Catalog[ 0].tests.size(), 1u);
     EXPECT_EQ( core::catalog::Catalog[ 0].tests[ 0].id, "FixtureTest");
     EXPECT_EQ( core::catalog::Catalog[ 0].tests[ 0].script, &fixtureScript);
+
+    EXPECT_EQ( core::catalog::Catalog[ 1].name, "Console");
+    ASSERT_EQ( core::catalog::Catalog[ 1].tests.size(), 1u);
+    EXPECT_EQ( core::catalog::Catalog[ 1].tests[ 0].id, "OtherFixtureTest");
+    EXPECT_EQ( core::catalog::Catalog[ 1].tests[ 0].script, &otherFixtureScript);
+}
+
+//
+// A group's own hooks, resolved onto the group that declared them -- and only
+// onto it. Both halves matter: hooks that leaked onto every group would arm a
+// rig state for tests that never asked for it, which is precisely what the
+// group-level pair exists to avoid.
+//
+TEST( CoreRunHooks, ADeclaredGroupHookResolvesOntoItsOwnGroup)
+{
+    ASSERT_NE( core::catalog::Catalog[ 0].setup,    nullptr);
+    ASSERT_NE( core::catalog::Catalog[ 0].teardown, nullptr);
+
+    gGroupSetupRan    = false;
+    gGroupTeardownRan = false;
+
+    EXPECT_TRUE( core::catalog::Catalog[ 0].setup());
+    EXPECT_TRUE( core::catalog::Catalog[ 0].teardown());
+
+    EXPECT_TRUE( gGroupSetupRan);
+    EXPECT_TRUE( gGroupTeardownRan);
+}
+
+//
+// The other resolution: a group that declared no hooks gets nullptr, not the
+// previous group's. The runner checks before calling (see runOnePass in
+// app/src/main.cpp), so nullptr is the whole of "this group has nothing to do".
+//
+TEST( CoreRunHooks, AGroupThatDeclaresNoHooksResolvesToNullptr)
+{
+    EXPECT_EQ( core::catalog::Catalog[ 1].setup,    nullptr);
+    EXPECT_EQ( core::catalog::Catalog[ 1].teardown, nullptr);
+}
+
+//
+// Group hooks are compile-time constants like everything else the catalog
+// names -- the same claim HooksAreConstantExpressions above makes for the
+// run-level pair, and the reason a misspelled hook is a compile error rather
+// than a lookup that finds nothing.
+//
+TEST( CoreRunHooks, GroupHooksAreConstantExpressions)
+{
+    static_assert( core::catalog::Catalog[ 0].setup    == &fixtureGroupSetup);
+    static_assert( core::catalog::Catalog[ 0].teardown == &fixtureGroupTeardown);
+    static_assert( core::catalog::Catalog[ 1].setup    == nullptr);
+    static_assert( core::catalog::Catalog[ 1].teardown == nullptr);
+
+    SUCCEED();
 }

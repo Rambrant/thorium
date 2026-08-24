@@ -138,7 +138,7 @@ namespace core
         {
             //
             // Rows outside any test are always kept -- see this function's
-            // comment in core/session.hpp on SETUP and TEARDOWN.
+            // comment in core/session.hpp on RUN_SETUP and RUN_TEARDOWN.
             //
             const auto scoped = sample.mTestId != kRunScope;
 
@@ -192,7 +192,7 @@ namespace core
             }
 
             throw std::runtime_error(
-                recordedTests.empty() ? message + " nothing but SETUP/TEARDOWN" : message);
+                recordedTests.empty() ? message + " nothing but hook readings" : message);
         }
 
         ScriptedSession session;
@@ -290,9 +290,10 @@ namespace core
         // so no seam between here and a script has to learn to carry a test
         // name it has no other use for.
         //
-        // Outside any test the journal answers empty, which is SETUP and
-        // TEARDOWN: recorded under kRunScope, so that a later replay of one
-        // test keeps their readings. Normalised here rather than at the writer
+        // Outside any test the journal answers empty, which is a hook --
+        // RUN_SETUP/RUN_TEARDOWN, or a group's own SETUP/TEARDOWN: recorded
+        // under kRunScope, so that a later replay of one test keeps their
+        // readings. Normalised here rather than at the writer
         // because this is the one place a run makes a sample, and samples() has
         // to agree with the file about what it says.
         //

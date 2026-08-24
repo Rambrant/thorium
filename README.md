@@ -98,7 +98,7 @@ Being honest about the edges matters more than the table above:
   runtime throw. See the comments in `libs/hal/include/hal/wiring.hpp`.
 - **Scripted-session unit mismatch.** Feeding a `Current` to a point declared
   `Voltage` throws, naming the point and both kinds.
-- **`--select` with an unknown test id** fails the run before `SETUP`, naming
+- **`--select` with an unknown test id** fails the run before `RUN_SETUP`, naming
   every id the catalog has no test for. One bad id in an otherwise valid list
   refuses the whole list rather than running the good half: a partial selection
   is not a smaller run somebody asked for, it is a list they got wrong, and
@@ -521,16 +521,19 @@ be caught disagreeing: a missing `allPassed &=` used to produce a human log
 reading `[PASS]` around a SARIF result reading `fail`, for the same test in the
 same run.
 
-A `SETUP`/`TEARDOWN` hook keeps its `bool`, and that is not an inconsistency: a
-hook runs outside any test bracket, so there is no per-test event stream to
-derive a verdict from, and what its `bool` means is "did the bracketing work",
-not "did the DUT pass".
+A hook — `RUN_SETUP`/`RUN_TEARDOWN` around the run, `SETUP`/`TEARDOWN` around
+one group — keeps its `bool`, and that is not an inconsistency: a hook runs
+outside any test bracket, so there is no per-test event stream to derive a
+verdict from, and what its `bool` means is "did the bracketing work", not "did
+the DUT pass".
 
 ### Bracket a run with setup and teardown
 
 Powering the rig up before the first script and back down after the last is a
-`SETUP`/`TEARDOWN` pair in the catalog, named as identifiers exactly the way
-`TEST` names a script:
+`RUN_SETUP`/`RUN_TEARDOWN` pair in the catalog, named as identifiers exactly the
+way `TEST` names a script. They go at the catalog's file scope, outside every
+`GROUP` — a group brackets itself with the unqualified pair instead, see
+[Bracket one group](#bracket-one-group):
 
 1. **Declare** them alongside the scripts in `suite/scripts.hpp`:
    ```cpp
@@ -540,8 +543,8 @@ Powering the rig up before the first script and back down after the last is a
 2. **Define** them in `suite/scripts/` like any other script file.
 3. **Register** them in `suite/test_catalog.inc`:
    ```cpp
-   SETUP(    rigPowerOn)
-   TEARDOWN( rigPowerOff)
+   RUN_SETUP(    rigPowerOn)
+   RUN_TEARDOWN( rigPowerOff)
 
    GROUP( OutputVoltage, "Tests validating DUT output voltage rails")
        TEST( SupplyRail, supplyRailScript, "Verify supply rail voltages via matrix")
@@ -549,9 +552,9 @@ Powering the rig up before the first script and back down after the last is a
    ```
 
 Both are optional and independent — declare one, both, or neither. A catalog
-with no `SETUP` line needs no placeholder for one; absence resolves to `nullptr`
-through ordinary name lookup (see `core/active_test_catalog.hpp`). The shipped
-catalog declares both: `suite/scripts/rig_power_on.cpp` brings this rig's
+with no `RUN_SETUP` line needs no placeholder for one; absence resolves to
+`nullptr` through ordinary name lookup (see `core/active_test_catalog.hpp`).
+The shipped catalog declares both: `suite/scripts/rig_power_on.cpp` brings this rig's
 sources up in order and checks each one came up, and
 `suite/scripts/rig_power_off.cpp` takes them down in the inverse order.
 
@@ -562,18 +565,73 @@ hook, not a different meaning for this one.
 
 Three things worth knowing:
 
-- **`TEARDOWN` runs on every way out** — the selection finishing, `--until-failure`
-  stopping early, a script throwing straight past everything, or **`SETUP` itself
-  failing**. It is a guard destructor for the same reason `hal::RigSafingGuard` is
-  one, and it is constructed *before* `SETUP` runs, so a power-up that energised
-  three rails and failed on the fourth is still powered back down. A setup hook
-  should therefore never call the teardown from its own failure path — that runs
-  it twice.
+- **`RUN_TEARDOWN` runs on every way out** — the selection finishing,
+  `--until-failure` stopping early, a script throwing straight past everything,
+  or **`RUN_SETUP` itself failing**. It is a guard destructor for the same reason
+  `hal::RigSafingGuard` is one, and it is constructed *before* `RUN_SETUP` runs,
+  so a power-up that energised three rails and failed on the fourth is still
+  powered back down. A setup hook should therefore never call the teardown from
+  its own failure path — that runs it twice.
 - **It runs before the unconditional safing**, so a teardown that expects the
   fabric still wired up gets it. `hal::safeRig()` follows afterwards regardless.
 - **A failing hook fails the run.** Setup returning `false` means no test runs at
   all; teardown returning `false` fails a run whose scripts all passed — a rig
   that didn't shut down the way the suite says it should is not a clean run.
+
+### Bracket one group
+
+A `GROUP` may bracket itself, with hooks written as rows of its own table:
+
+```cpp
+GROUP( Transient, "Tests validating DUT behaviour while a supply is disturbed")
+    SETUP(    armTransient)
+    TEST( AcDropout, acDropoutScript, "Verify the 5V rail rides a loss of the primary AC input")
+    TEARDOWN( disarmTransient)
+END_GROUP
+```
+
+Declared and defined exactly like the run-level pair (`core::RunHook`, a
+`[[nodiscard]] auto ... -> bool` in `suite/scripts.hpp`), optional and
+independent per group, and at most one of each — a second is a redefinition
+error where it is written.
+
+The unqualified spelling belongs to this pair because of where it is written:
+the group around it says what it brackets, so the name only has to say what it
+is. `RUN_SETUP` carries its qualifier because it sits alone at file scope with
+nothing around it to say. The two are not interchangeable and neither silently
+does the other's job — a `SETUP` at file scope and a `RUN_SETUP` inside a group
+are both compile errors, the first naming the mistake in the identifier it
+fails to find.
+
+Two things differ from `RUN_SETUP`/`RUN_TEARDOWN`, and they are the reason the
+group-level pair exists at all:
+
+- **They run only if something in their group was selected.**
+  `--select=AcDropout` arms the `Transient` group and no other; a `--select`
+  that names nothing in a group leaves that group's hooks untouched. This
+  matters beyond wasted time: a group's hooks are there to establish a rig state
+  *its* tests need, and imposing that state on a run of tests written without it
+  is a different run than the one that was asked for.
+- **They run once per pass, not once per run.** `--repeat=3` powers the rig up
+  once (`RUN_SETUP`) and arms and disarms each selected group three times
+  inside it.
+
+Everything else matches the run-level pair, including the two properties that
+matter most: the group's `TEARDOWN` is a guard destructor constructed *before*
+its `SETUP` runs — so a setup that got half way is still undone, and a script
+that throws still hits its group's teardown on the way out — and a failing hook
+fails the run.
+
+The one deliberate difference in failure handling: a failing `SETUP` skips
+**its own group's** tests and carries on with the rest of the selection, where a
+failing `RUN_SETUP` stops everything. A rig state one group could not establish
+says nothing about another group's, and discarding the rest of the selection
+would report less than the run actually knows. Both messages name what failed,
+the group-level one including the group.
+
+The shipped catalog declares no group hooks — `suite/test_catalog.inc` brackets
+the whole run with `rigPowerOn`/`rigPowerOff` and its groups need nothing beyond
+that — so a group that needs none stays exactly as it reads today.
 
 ### Run one script against several criteria groups
 
@@ -602,9 +660,9 @@ END_GROUP
 ```
 
 What the catalog stores is still an `auto (*)() -> void`, so nothing about the
-mechanism changes: the signature stays uniform, `Tests` stays a homogeneous
-array, and a misspelled group is still a compile error rather than a runtime
-lookup miss. Each `Verify` logs the group name its own criterion carries, so the
+mechanism changes: the signature stays uniform, a group's assembled test array
+stays homogeneous, and a misspelled group is still a compile error rather than a
+runtime lookup miss. Each `Verify` logs the group name its own criterion carries, so the
 two entries stay distinguishable in the report without the script being told
 which one it is.
 
@@ -1112,7 +1170,7 @@ the one every check in them was made against.
 **Repeating a run.** What repeats is the *selection*, not each script:
 `--select=A,B --repeat=3` runs `A B A B A B`, never `A A A B B B`. That is the
 unit a soak run cares about — "the tests, again" — and it is also the unit
-`SETUP`/`TEARDOWN` bracket.
+`RUN_SETUP`/`RUN_TEARDOWN` bracket.
 
 ```bash
 build/debug/app/run_scripts --repeat=50                    # fifty passes
@@ -1204,9 +1262,11 @@ point recorded. Two tests measuring one rail is all it takes, and the result is
 not an error — it is a green verdict about the wrong numbers.
 
 Readings taken outside any test carry `<run>` in that column instead of a test
-id, and no selection filters them out: `SETUP` and `TEARDOWN` bracket every
-selection, so a replay of one test still needs the readings that powered the rig
-up. A recording with no rows for the selected tests is refused up front, naming
+id, and no selection filters them out: `RUN_SETUP` and `RUN_TEARDOWN` bracket
+every selection, so a replay of one test still needs the readings that powered
+the rig up. A group's own hooks read the same way — they too run outside any
+test bracket — and a replay of one test brings its group's hooks with it, since
+selection decides which groups are bracketed at all. A recording with no rows for the selected tests is refused up front, naming
 the tests it does hold — the alternative is a first `Measure` complaining about a
 point name, which reports the symptom and leaves the cause to be guessed.
 

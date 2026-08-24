@@ -721,10 +721,11 @@ namespace core
             // error -- it is a green verdict about the wrong numbers.
             //
             // Rows carrying kRunScope are kept whatever the selection says.
-            // They are what SETUP and TEARDOWN read, and those run around every
-            // selection (see runHook in app/src/main.cpp), so filtering them
-            // out would leave a replay of one test unable to power up the rig
-            // it is not touching.
+            // They are what the hooks read -- RUN_SETUP/RUN_TEARDOWN around the
+            // selection, and a group's own SETUP/TEARDOWN around the tests of
+            // whichever groups the selection reaches (see runHook in
+            // app/src/main.cpp) -- so filtering them out would leave a replay
+            // of one test unable to power up the rig it is not touching.
             //
             // A selection that matches no recorded test is refused rather than
             // replayed as nothing: it means this recording is of a run that

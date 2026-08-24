@@ -1,7 +1,7 @@
 #include "../prelude.hpp"
 
 //
-// The catalog's SETUP: this rig's ordered power-up, run once before the first
+// The catalog's RUN_SETUP: this rig's ordered power-up, run once before the first
 // selected script. Its counterpart is rigPowerOff() alongside -- see that
 // file's comment for why an ordered sequence earns a hook of its own rather
 // than being left to hal::safeRig(), and README.md's "Bracket a run with setup

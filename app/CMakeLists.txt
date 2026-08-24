@@ -139,14 +139,19 @@ if(BUILD_TESTING_LAYERS)
     # up afterwards: a failing assertion names the file to go and read, and a
     # passing run still leaves real specimens of both log formats to look at.
     # See the test file's own header comment for the per-scenario layout.
-    # --- A second runner, over a catalog that declares SETUP/TEARDOWN ---
-    # suite/test_catalog.inc declares neither hook, on purpose, so no ordinary
-    # run exercises the runner's hook path at all. This target is the same
-    # main.cpp over a fixture catalog that does declare them, which is what
-    # lets the acceptance tests assert the things only a real run can show:
-    # that SETUP precedes every script and TEARDOWN follows the last one, that
-    # both happen once around all of --repeat's passes rather than once per
-    # pass, and that TEARDOWN still runs when a script throws.
+
+    # --- A second runner, over a catalog that declares hooks at both levels ---
+    # suite/test_catalog.inc declares RUN_SETUP/RUN_TEARDOWN and no group hooks,
+    # and neither of its two power scripts can show what the acceptance tests
+    # need to see: they print no ordering markers and rigPowerOff has no failure
+    # to report. This target is the same main.cpp over a fixture catalog whose
+    # hooks -- both levels of them -- announce themselves and can be made to
+    # fail on demand, which is what lets the tests assert the things only a real
+    # run can show: that RUN_SETUP precedes every script and RUN_TEARDOWN
+    # follows the last one, that both happen once around all of --repeat's
+    # passes rather than once per pass, that a group's own SETUP/TEARDOWN run
+    # per pass and only for a group the selection reached, and that every
+    # teardown still runs when a script throws.
     #
     # Same main.cpp deliberately, not a stand-in: a test binary that reimplemented
     # the run loop would be testing the reimplementation. The catalog is the only

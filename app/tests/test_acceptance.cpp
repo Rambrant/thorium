@@ -1210,7 +1210,7 @@ TEST_F( AcceptanceLogFiles, TwoRunsIntoOneDirectoryCoexist)
 // The property the flag is named for, and the one worth pinning from outside:
 // the *selection* is what repeats. Four tests over two passes must come back
 // A B C D A B C D, not A A B B C C D D -- which is what makes a pass a
-// meaningful unit for SETUP/TEARDOWN to bracket and for --until-failure to
+// meaningful unit for the hooks to bracket and for --until-failure to
 // stop at.
 //
 TEST_F( AcceptanceRepeat, RepeatRunsTheWholeSelectionEachPassRatherThanEachScript)
@@ -1302,16 +1302,23 @@ TEST_F( AcceptanceRepeat, ARepeatCountThatIsNotAPositiveNumberIsRejectedBeforeAn
 }
 
 // ---------------------------------------------------------------------------
-// Bracketing a run: SETUP / TEARDOWN
+// Bracketing a run: RUN_SETUP / RUN_TEARDOWN
 // ---------------------------------------------------------------------------
 //
 // Driven against run_scripts_hooked -- the same main.cpp over a catalog whose
 // hooks announce themselves on stdout and can be made to fail on demand (see
-// app/CMakeLists.txt). The shipped suite now declares both hooks too
+// app/CMakeLists.txt). The shipped suite now declares both run hooks too
 // (rigPowerOn/rigPowerOff), but neither can stand in here: they print no
 // ordering markers, and rigPowerOff has no failure to report at all. So the
 // claims below -- ordering around the scripts, bracketing every --repeat pass
 // once, a failing hook failing the run -- still need the fixture.
+//
+// The fixture's first group declares SETUP/TEARDOWN and its second
+// declares none, so every ordering below reads
+// setup, group-setup, script, group-teardown, other-script, teardown: the group
+// pair inside the run pair, around the tests of their own group only. The
+// group-level section further down is where that nesting is the subject rather
+// than the backdrop.
 //
 // What the shipped hooks do cover, on the real binary, is the scenario at the
 // end of this section: that the power-up and power-down actually happen, in
@@ -1322,7 +1329,8 @@ TEST_F( AcceptanceHooks, SetupRunsBeforeTheScriptsAndTeardownAfterThem)
 {
     EXPECT_EQ( runHooked( { "--no-color" }), 0);
 
-    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "script", "teardown" }));
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{
+        "setup", "group-setup", "script", "group-teardown", "other-script", "teardown" }));
 }
 
 //
@@ -1335,13 +1343,20 @@ TEST_F( AcceptanceHooks, TheHooksBracketEveryRepeatPassRatherThanEachOne)
 {
     EXPECT_EQ( runHooked( { "--repeat=3", "--no-color" }), 0);
 
-    EXPECT_EQ( hookOrder(),
-        ( std::vector<std::string>{ "setup", "script", "script", "script", "teardown" }));
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{
+        "setup",
+        "group-setup", "script", "group-teardown", "other-script",
+        "group-setup", "script", "group-teardown", "other-script",
+        "group-setup", "script", "group-teardown", "other-script",
+        "teardown" }));
 }
 
 //
 // A setup that fails means no test runs at all -- but teardown still does,
 // since a setup that got half way is exactly the case with something to undo.
+//
+// And no group is reached, so no group hook runs either: a RUN_SETUP that
+// failed is a rig that is not ready for any group, not for some of them.
 //
 TEST_F( AcceptanceHooks, AFailingSetupStopsTheRunButStillTearsDown)
 {
@@ -1349,7 +1364,7 @@ TEST_F( AcceptanceHooks, AFailingSetupStopsTheRunButStillTearsDown)
 
     EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "teardown" }));
 
-    EXPECT_TRUE( containsText( errPath(), mErr, "SETUP reported failure"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "RUN_SETUP reported failure"));
 }
 
 //
@@ -1361,7 +1376,13 @@ TEST_F( AcceptanceHooks, TeardownStillRunsWhenAScriptThrows)
 {
     EXPECT_EQ( runHooked( { "--no-color" }, { "THORIUM_FIXTURE_SCRIPT_THROWS=1" }), 1);
 
-    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "script", "teardown" }));
+    //
+    // The group's own teardown is on the way out too, and ahead of the run's --
+    // it is the guard nested inside, so it unwinds first. The second group never
+    // starts: the exception left the pass entirely.
+    //
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{
+        "setup", "group-setup", "script", "group-teardown", "teardown" }));
 
     EXPECT_TRUE( containsText( errPath(), mErr, "Uncaught exception during test run"));
 }
@@ -1374,9 +1395,10 @@ TEST_F( AcceptanceHooks, AFailingTeardownFailsAnOtherwisePassingRun)
 {
     EXPECT_EQ( runHooked( { "--no-color" }, { "THORIUM_FIXTURE_TEARDOWN_FAILS=1" }), 1);
 
-    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "script", "teardown" }));
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{
+        "setup", "group-setup", "script", "group-teardown", "other-script", "teardown" }));
 
-    EXPECT_TRUE( containsText( errPath(), mErr, "TEARDOWN reported failure"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "RUN_TEARDOWN reported failure"));
 }
 
 //
@@ -1388,7 +1410,13 @@ TEST_F( AcceptanceHooks, StoppingEarlyOnFailureStillTearsDown)
     EXPECT_EQ( runHooked( { "--repeat=5", "--until-failure", "--no-color" },
                           { "THORIUM_FIXTURE_SCRIPT_FAILS=1" }), 1);
 
-    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "script", "teardown" }));
+    //
+    // The failing pass is finished, not abandoned -- a recorded failure is not
+    // an exception -- so the rest of that pass, group teardown and second group
+    // included, still runs before the passes stop.
+    //
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{
+        "setup", "group-setup", "script", "group-teardown", "other-script", "teardown" }));
 }
 
 //
@@ -1401,6 +1429,85 @@ TEST_F( AcceptanceHooks, ASelectionMatchingNothingNeverReachesTheHooks)
 
     EXPECT_TRUE( hookOrder().empty());
     EXPECT_TRUE( containsText( errPath(), mErr, "No catalog test named"));
+}
+
+// ---------------------------------------------------------------------------
+// Bracketing one group: SETUP / TEARDOWN
+// ---------------------------------------------------------------------------
+//
+// The group-level pair, whose one substantive difference from the run-level one
+// is what these four tests are about: it is tied to the selection. A group whose
+// tests were all filtered out is not set up, and a group that was selected is
+// set up whether or not the rest of the catalog was.
+//
+
+//
+// The property the construct exists for. Selecting the second group's test runs
+// it with no group bracketing at all -- the first group's hooks are not "run and
+// harmless", they do not run. On a rig that is the difference between a state
+// established for tests that need it and a state imposed on tests written
+// without it.
+//
+TEST_F( AcceptanceHooks, AGroupWhoseTestsAreAllDeselectedIsNeverBracketed)
+{
+    EXPECT_EQ( runHooked( { "--select=OtherFixtureTest", "--no-color" }), 0);
+
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{ "setup", "other-script", "teardown" }));
+}
+
+//
+// The other direction: selecting the hooked group's one test brackets that
+// group and reaches nothing else. Note that the run-level pair still runs --
+// it brackets the selection, whatever the selection turned out to be.
+//
+TEST_F( AcceptanceHooks, SelectingATestBracketsItsOwnGroupAndNoOther)
+{
+    EXPECT_EQ( runHooked( { "--select=FixtureTest", "--no-color" }), 0);
+
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{
+        "setup", "group-setup", "script", "group-teardown", "teardown" }));
+}
+
+//
+// A failing SETUP is contained: its own group's tests do not run and the
+// run fails, but the groups after it still run. That is the deliberate
+// difference from a failing run-level RUN_SETUP (which stops everything) -- a rig
+// state one group could not establish says nothing about another group's, and
+// throwing away the rest of the selection would be reporting less than the run
+// actually knows.
+//
+// Its own teardown still runs, for the same reason the run-level pair's does:
+// the setup may have got half way.
+//
+TEST_F( AcceptanceHooks, AFailingGroupSetupSkipsItsOwnGroupOnly)
+{
+    EXPECT_EQ( runHooked( { "--no-color" }, { "THORIUM_FIXTURE_GROUP_SETUP_FAILS=1" }), 1);
+
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{
+        "setup", "group-setup", "group-teardown", "other-script", "teardown" }));
+
+    EXPECT_TRUE( containsText( errPath(), mErr,
+        "SETUP for group 'OutputVoltage' reported failure"));
+}
+
+//
+// And a failing TEARDOWN fails the run, exactly as the run-level one
+// does: a group that did not undo what it set up has left the rig in a state
+// the rest of the run was not written against, however well its tests went.
+//
+// The message names the group. There is one of these per group, so an
+// unqualified "TEARDOWN reported failure" would not say which -- and it is the
+// run-level pair, RUN_TEARDOWN, whose message needs no group in it.
+//
+TEST_F( AcceptanceHooks, AFailingGroupTeardownFailsAnOtherwisePassingRun)
+{
+    EXPECT_EQ( runHooked( { "--no-color" }, { "THORIUM_FIXTURE_GROUP_TEARDOWN_FAILS=1" }), 1);
+
+    EXPECT_EQ( hookOrder(), ( std::vector<std::string>{
+        "setup", "group-setup", "script", "group-teardown", "other-script", "teardown" }));
+
+    EXPECT_TRUE( containsText( errPath(), mErr,
+        "TEARDOWN for group 'OutputVoltage' reported failure"));
 }
 
 //
@@ -1474,9 +1581,9 @@ TEST_F( AcceptanceHooks, TheShippedHooksBracketTheRunWithAnOrderedPowerCycle)
 
 //
 // The question a script author is bound to ask when writing a power-up hook:
-// if SETUP fails half way through, who powers the rig back down? Not the hook
+// if RUN_SETUP fails half way through, who powers the rig back down? Not the hook
 // -- calling the teardown from inside the setup's own failure path would run it
-// twice, since main.cpp's TeardownGuard is constructed *before* SETUP precisely
+// twice, since main.cpp's TeardownGuard is constructed *before* RUN_SETUP
 // so that a setup which energised three rails and then failed on the fourth
 // still gets torn down.
 //
@@ -1504,7 +1611,7 @@ TEST_F( AcceptanceHooks, AFailedPowerUpIsStillPoweredBackDown)
 
     EXPECT_EQ( run( { "--replay=bad-setup.tsv", "--quiet" }), 1);
 
-    EXPECT_TRUE( containsText( errPath(), mErr, "SETUP reported failure; no test was run"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "RUN_SETUP reported failure; no test was run"));
 
     const auto sarif = findArtifact( ".sarif");
 
@@ -1547,7 +1654,7 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output5V\tDmm1\tVoltage"));
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output3V3\tDmm1\tVoltage"));
 
-    // "Every reading the run took" includes the ones the SETUP hook took before
+    // "Every reading the run took" includes the ones RUN_SETUP took before
     // the first script -- rigPowerOn() reads each source back to decide whether
     // the rig came up (see suite/scripts/rig_power_on.cpp). A hook's readings
     // are readings: its verdict gates the run, so a replay that could not
@@ -1607,7 +1714,7 @@ TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
     // runs before the scripts and checks each one, so a file without them
     // replays a run whose rig never came up. Three of the six are AcP1's
     // phases, keyed individually. They carry "<run>" in the test column rather
-    // than a test id, because SETUP belongs to the run -- see core::kRunScope,
+    // than a test id, because RUN_SETUP belongs to the run -- kRunScope,
     // and AReplayCanBeNarrowedToOneTest below for what the column is for.
     //
     // The last row is the console reply: kind "<bytes>", value unspaced hex.
@@ -1713,7 +1820,7 @@ TEST_F( AcceptanceRecording, AReplayCanBeNarrowedToOneTest)
 {
     run( { "--record=readings.tsv", "--quiet", "--no-logs" });
 
-    // One test out of the four the recording holds. SETUP still runs and still
+    // One test out of the four the recording holds. RUN_SETUP runs and still
     // finds its readings -- they are recorded under "<run>" (see
     // core::kRunScope), which no selection filters out.
     run( { "--replay=readings.tsv", "--select=SupplyRail", "--no-color" });
@@ -1840,7 +1947,7 @@ TEST_F( AcceptanceSkeleton, TheSkeletonListsEveryReadingTheScriptsAskFor)
 
     const auto tsv = readFile( mDir / "skeleton.tsv");
 
-    // The whole span of the run: the SETUP hook's readbacks, then each seam.
+    // The whole span of the run: the RUN_SETUP hook's readbacks, then each seam.
     EXPECT_TRUE( containsText( mDir / "skeleton.tsv", tsv, "AcP1.A.Voltage\tAcP1\tVoltage"));
     EXPECT_TRUE( containsText( mDir / "skeleton.tsv", tsv, "Output5V\tDmm1\tVoltage"));
     EXPECT_TRUE( containsText( mDir / "skeleton.tsv", tsv, "Output5V.Vbase\tOsc1\tVoltage"));
@@ -1849,9 +1956,9 @@ TEST_F( AcceptanceSkeleton, TheSkeletonListsEveryReadingTheScriptsAskFor)
 }
 
 //
-// The reason the mode overrides the SETUP verdict. rigPowerOn() reads the rails
+// The reason the mode overrides the RUN_SETUP verdict. rigPowerOn() reads
 // back and concludes the rig is dead when they answer zero -- and stopping
-// there would write a skeleton holding SETUP's own six readings and none of the
+// there would write a skeleton holding RUN_SETUP's six readings and none of
 // ones the tests take, which is the opposite of what was asked for.
 //
 TEST_F( AcceptanceSkeleton, AFailingSetupDoesNotTruncateTheSkeleton)
@@ -1998,7 +2105,7 @@ TEST_F( AcceptanceInject, InjectLayersOverAReplayedRecording)
     //
     // The recording here is a skeleton -- every reading zero -- because that is
     // the one a test can produce without a rig. Replayed alone it fails at
-    // SETUP; with the authored values layered on top it passes, which is the
+    // RUN_SETUP; with the authored values layered on top it passes, which is the
     // override being asserted.
     //
     writeFile( mDir / "healthy.stim", std::string( kHealthyDut));

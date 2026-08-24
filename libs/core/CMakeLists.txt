@@ -147,7 +147,7 @@ if(BUILD_TESTING_LAYERS)
     add_layer_tests(core core ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 
     # --- Fixture catalog, for tests/test_run_hooks.cpp ---
-    # A catalog declaring both SETUP and TEARDOWN, where the shipped
+    # A catalog declaring both RUN_SETUP and RUN_TEARDOWN, where the shipped
     # suite/test_catalog.inc declares only the latter -- see that test's own
     # header comment for why the undeclared-hook half needs no fixture.
     #

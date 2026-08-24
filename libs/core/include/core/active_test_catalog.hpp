@@ -37,15 +37,15 @@
 namespace core::catalog
 {
     //
-    // Fallbacks for a catalog that declares no SETUP/TEARDOWN of its own --
-    // which is the normal case, and must stay the case that needs no
+    // Fallbacks for a catalog that declares no RUN_SETUP/RUN_TEARDOWN of its
+    // own -- which is the normal case, and must stay the case that needs no
     // placeholder written anywhere.
     //
     // These have to be declared *before* namespace detail below, because that
-    // is what makes them findable from inside it. A catalog's own SETUP expands
-    // to a SetupHook in detail, which hides the one here; a catalog with no
-    // SETUP declares nothing, and unqualified lookup inside detail walks out to
-    // this one instead. That is the whole mechanism: ordinary name lookup, not
+    // is what makes them findable from inside it. A catalog's own RUN_SETUP
+    // expands to a SetupHook in detail, which hides the one here; a catalog
+    // with no RUN_SETUP declares nothing, and unqualified lookup inside detail
+    // walks out to this one instead. That is the whole mechanism: ordinary name lookup, not
     // a detection trick, and the reason the two resolutions below are written
     // unqualified rather than as detail::SetupHook.
     //
@@ -98,15 +98,29 @@ namespace core::catalog
         // re-#include walks in core/criterion.hpp and hal::safeRig()'s
         // replacing the third read of instrument.inc.
         //
-        // A group is recognised by shape -- a type in this namespace with the
-        // three static members GROUP produces -- rather than by inheriting a
-        // marker the way core::AdapterBundleTag is matched. A marker would be
-        // better, and is what BUNDLE does; it is not available here because
-        // GROUP is the general, dependency-free mechanism in
-        // core/test_catalog.hpp and the tables are already written. Matching on
-        // all three members together is narrow enough that nothing else a
-        // catalog could plausibly declare collides with it.
+        // A group is recognised by the marker it inherits (core::TestGroupTag,
+        // which GROUP attaches) rather than by the members it happens to have.
+        // This was a shape match -- a type with Name, Description and Tests --
+        // for as long as every group had exactly those three members, and had
+        // to stop being one when SETUP/TEARDOWN made the member
+        // list vary per group. The marker is the better test anyway, and is
+        // what hal::bundleLocationList() already matches core::AdapterBundleTag
+        // by: it asks what a type *is*, so nothing a catalog could plausibly
+        // declare alongside its groups can be mistaken for one.
         //
+        consteval auto isTestGroup( const std::meta::info type) -> bool
+        {
+            for( const auto base : std::meta::bases_of( type, std::meta::access_context::current()))
+            {
+                if( std::meta::type_of( base) == ^^core::TestGroupTag)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         consteval auto groupTypeInfos() -> std::vector<std::meta::info>
         {
             std::vector<std::meta::info> result;
@@ -118,23 +132,41 @@ namespace core::catalog
                     continue;
                 }
 
-                auto hasName = false, hasDescription = false, hasTests = false;
+                const auto type = std::meta::dealias( member);
 
-                for( const auto field : std::meta::members_of( member, std::meta::access_context::current()))
+                if( std::meta::is_class_type( type) && isTestGroup( type))
                 {
-                    if( !std::meta::is_variable( field))
-                    {
-                        continue;
-                    }
-
-                    const auto identifier = std::meta::identifier_of( field);
-
-                    hasName        = hasName        || identifier == "Name";
-                    hasDescription = hasDescription || identifier == "Description";
-                    hasTests       = hasTests       || identifier == "Tests";
+                    result.push_back( type);
                 }
+            }
 
-                if( hasName && hasDescription && hasTests)
+            return result;
+        }
+
+        constexpr auto groupRefs = std::define_static_array( groupTypeInfos());
+
+        //
+        // Every TEST of one group, in declaration order -- the array the
+        // runner walks, assembled from the group's own static members rather
+        // than accumulated by the TEST macro (see core/test_catalog.hpp on why
+        // that changed).
+        //
+        // Matched by type, the same way core::meta::detail::criterionMembers()
+        // matches a CRIT: remove_cv() first, because a static constexpr member
+        // reflects as const-qualified and an unqualified ^^core::TestCase
+        // would therefore match nothing at all. GROUP's own Name/Description
+        // and the hook members below are variables too, and this is what tells
+        // them apart from a test.
+        //
+        template<typename GroupT>
+        consteval auto testCaseMembers() -> std::vector<std::meta::info>
+        {
+            std::vector<std::meta::info> result;
+
+            for( const auto member : std::meta::members_of( ^^GroupT, std::meta::access_context::current()))
+            {
+                if( std::meta::is_variable( member) &&
+                    std::meta::remove_cv( std::meta::type_of( member)) == ^^core::TestCase)
                 {
                     result.push_back( member);
                 }
@@ -143,7 +175,75 @@ namespace core::catalog
             return result;
         }
 
-        constexpr auto groupRefs = std::define_static_array( groupTypeInfos());
+        //
+        // Promoted to static storage so the splices below have a genuinely
+        // constexpr entity to splice -- see core::meta::detail::members's own
+        // comment for the same requirement biting the same way. std::meta::info
+        // is fine to promote; core::TestCase would not be (its std::string_view
+        // members are not structural types on this standard library, see
+        // hal::detail::ConnectorWiringKey), which is why it is the *handles*
+        // that go through define_static_array here and the values that go into
+        // an ordinary std::array below.
+        //
+        template<typename GroupT>
+        constexpr auto testCaseRefs = std::define_static_array( testCaseMembers<GroupT>());
+
+        //
+        // The group's tests as values, in a constexpr object with static
+        // storage duration -- which is what lets core::TestGroup::tests be a
+        // span over it, exactly as it was a span over GROUP's own Tests array
+        // before.
+        //
+        template<typename GroupT>
+        constexpr auto testsOf = []
+        {
+            std::array<core::TestCase, testCaseRefs<GroupT>.size()> cases{};
+
+            std::size_t next = 0;
+
+            template for( constexpr auto testRef : testCaseRefs<GroupT>)
+            {
+                cases[ next++] = [: testRef :];
+            }
+
+            return cases;
+        }();
+
+        //
+        // A group's own hooks, or nullptr where it declared none.
+        //
+        // Ordinary member lookup in a requires-expression, not reflection:
+        // SETUP declares the member and no SETUP line leaves it
+        // absent, which is precisely the question `requires` answers. The
+        // run-level pair resolves its own absence by name lookup too (see the
+        // fallbacks above) -- differently, because a namespace-scope name can
+        // be shadowed by a nearer declaration while a class member cannot.
+        //
+        template<typename GroupT>
+        consteval auto setupOf() -> RunHook
+        {
+            if constexpr( requires { GroupT::GroupSetup; })
+            {
+                return GroupT::GroupSetup;
+            }
+            else
+            {
+                return nullptr;
+            }
+        }
+
+        template<typename GroupT>
+        consteval auto teardownOf() -> RunHook
+        {
+            if constexpr( requires { GroupT::GroupTeardown; })
+            {
+                return GroupT::GroupTeardown;
+            }
+            else
+            {
+                return nullptr;
+            }
+        }
     } // namespace detail
 
     //
@@ -166,7 +266,11 @@ namespace core::catalog
         {
             using GroupT = typename [: groupRef :];
 
-            groups[ next++] = core::TestGroup{ GroupT::Name, GroupT::Description, GroupT::Tests };
+            groups[ next++] = core::TestGroup{ GroupT::Name,
+                                               GroupT::Description,
+                                               detail::testsOf<GroupT>,
+                                               detail::setupOf<GroupT>(),
+                                               detail::teardownOf<GroupT>() };
         }
 
         return groups;

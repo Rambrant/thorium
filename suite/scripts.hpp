@@ -6,7 +6,7 @@
 // down into hal:: or dut:: directly for behavior -- only to construct the
 // device handle they're given.
 //
-// The catalog's SETUP/TEARDOWN hooks are declared here too, alongside the
+// The catalog's RUN_SETUP/RUN_TEARDOWN hooks are declared here too, alongside the
 // scripts rather than in a file of their own: they have the same signature,
 // live in the same suite/scripts/ directory, and are name-checked out of this
 // same header by core/active_test_catalog.hpp -- there is nothing for a
@@ -48,7 +48,7 @@
 // void: its verdict is derived from the checks it recorded (see
 // core/test_catalog.hpp and core::Journal::endTest).
 //
-// Not a test -- the catalog's TEARDOWN (see suite/test_catalog.inc). Powers
+// Not a test -- the catalog's RUN_TEARDOWN (see suite/test_catalog.inc). Powers
 // this rig down in a defined order after the last selected script has run:
 // every DC rail's output off before the primary AC source, then the isolation
 // relays that have one. Returns true unconditionally; it has no verdict to

@@ -86,8 +86,9 @@ namespace core
 
     //
     // The test column's value for an observation that belongs to the run rather
-    // than to any one test -- what SETUP and TEARDOWN read, since neither runs
-    // inside a test bracket (see runHook in app/src/main.cpp).
+    // than to any one test -- what a hook reads, whether it is the run's
+    // RUN_SETUP/RUN_TEARDOWN or one group's own SETUP/TEARDOWN, since none of
+    // them runs inside a test bracket (see runHook in app/src/main.cpp).
     //
     // Spelled rather than left empty, for two reasons. The reader's one
     // concession to an empty field is the value column, and it is deliberate
@@ -97,7 +98,7 @@ namespace core
     // guarantee to say something a token says better.
     //
     // The second is that a replay has to treat these rows differently from
-    // every other row -- they are never filtered out, because SETUP still runs
+    // every other row -- they are never filtered out, because a hook still runs
     // when a single test is replayed and still needs its readings. A rule that
     // important should key off a value the format names, not off absence.
     //

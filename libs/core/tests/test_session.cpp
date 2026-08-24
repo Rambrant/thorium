@@ -432,7 +432,7 @@ TEST( CoreSession, ASelectedReplayHasNothingLeftFromTheTestsItDropped)
 }
 
 //
-// SETUP and TEARDOWN run around every selection, so their readings survive one
+// The hooks run around every selection, so their readings survive one
 // -- see core::kRunScope. A replay of one test that could not power the rig up
 // would not be a replay of anything.
 //

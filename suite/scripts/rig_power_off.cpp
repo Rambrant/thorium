@@ -1,7 +1,7 @@
 #include "../prelude.hpp"
 
 //
-// The catalog's TEARDOWN: this rig's ordered power-down, run once after the
+// The catalog's RUN_TEARDOWN: this rig's ordered power-down, run once after the
 // last selected script -- including on the ways out that aren't the happy one
 // (--until-failure stopping early, a script throwing past everything), since
 // the runner holds it in a guard destructor. See suite/test_catalog.inc and
