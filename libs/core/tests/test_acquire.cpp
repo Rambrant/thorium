@@ -252,8 +252,8 @@ TEST_F( AcquireFixture, ARecordedCaptureReplaysAsTheAnswerThatWasRecorded)
 TEST( RecordingFlags, AFlagRowRoundTrips)
 {
     const std::vector<core::RecordedSample> samples{
-        { 0, 1'700'000'000'000, "Osc1.Acquisition", "Osc1", true },
-        { 1, 1'700'000'000'050, "Osc2.Acquisition", "Osc2", false }
+        { 0, 1'700'000'000'000, "AcDropout", "Osc1.Acquisition", "Osc1", true },
+        { 1, 1'700'000'000'050, "AcDropout", "Osc2.Acquisition", "Osc2", false }
     };
 
     std::ostringstream out;
@@ -272,13 +272,13 @@ TEST( RecordingFlags, AFlagRowIsSelfDescribingAndCannotCollideWithAUnit)
     // The kind column says which alternative the value column is in, spelled
     // with angle brackets so no unit name added to core/quantity_kind.hpp can
     // ever take the token -- see core::kFlagKind.
-    const std::vector<core::RecordedSample> samples{ { 0, 0, "Osc1.Acquisition", "Osc1", true } };
+    const std::vector<core::RecordedSample> samples{ { 0, 0, "AcDropout", "Osc1.Acquisition", "Osc1", true } };
 
     std::ostringstream out;
     core::writeRecording( out, samples);
 
     EXPECT_NE( out.str().find( "<flag>"), std::string::npos);
-    EXPECT_EQ( out.str(), "0\t0\tOsc1.Acquisition\tOsc1\t<flag>\t1\n");
+    EXPECT_EQ( out.str(), "0\t0\tAcDropout\tOsc1.Acquisition\tOsc1\t<flag>\t1\n");
 }
 
 TEST( RecordingFlags, AnythingButOneOrZeroInAFlagColumnIsACorruptRow)
@@ -289,7 +289,7 @@ TEST( RecordingFlags, AnythingButOneOrZeroInAFlagColumnIsACorruptRow)
     // the checks beneath it would then be failing for a reason the file does
     // not contain.
     //
-    std::istringstream in( "0\t0\tOsc1.Acquisition\tOsc1\t<flag>\tyes\n");
+    std::istringstream in( "0\t0\tAcDropout\tOsc1.Acquisition\tOsc1\t<flag>\tyes\n");
 
     EXPECT_THROW( (void)core::readRecording( in), std::runtime_error);
 }

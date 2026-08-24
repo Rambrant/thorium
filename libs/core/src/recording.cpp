@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <charconv>
 #include <cstdio>
 #include <format>
 #include <fstream>
@@ -52,6 +53,59 @@ namespace core
         auto roundTripped( const double value) -> std::string
         {
             return std::format( "{}", value);
+        }
+
+        //
+        // roundTripped's inverse, and strict where std::stod is not.
+        //
+        // The whole field has to be the number. from_chars stopping early means
+        // there is something after it, and taking the prefix is how a corrupt
+        // row becomes a plausible reading rather than an error: std::stod, which
+        // this replaced, reads "5.021" out of "5.021<tab>1e-06<tab>..." and
+        // discards the rest without a word. That is not a hypothetical -- it is
+        // exactly what a row of the wrong width does when it lands in the wrong
+        // columns, which is the one way a recording can be read wrong instead of
+        // rejected.
+        //
+        // Same check as parseNumber in core/src/stimulus.cpp, which reads
+        // hand-authored numbers and wanted it for the same reason.
+        //
+        [[nodiscard]]
+        auto parsedNumber( const std::string & text, const std::string & line, const std::string_view what) -> double
+        {
+            auto value = 0.0;
+
+            const auto [ end, error] = std::from_chars( text.data(), text.data() + text.size(), value);
+
+            if( error != std::errc{} || end != text.data() + text.size())
+            {
+                throw std::runtime_error(
+                    "readRecording: '" + text + "' is not a " + std::string( what) + ", in row '" + line + "'");
+            }
+
+            return value;
+        }
+
+        //
+        // The integral half, strict for the same reason and against the same
+        // hole: std::stoull( "0abc") is 0, silently.
+        //
+        template<typename IntegerT>
+        [[nodiscard]]
+        auto parsedInteger( const std::string & text, const std::string & line, const std::string_view what)
+            -> IntegerT
+        {
+            auto value = IntegerT{};
+
+            const auto [ end, error] = std::from_chars( text.data(), text.data() + text.size(), value);
+
+            if( error != std::errc{} || end != text.data() + text.size())
+            {
+                throw std::runtime_error(
+                    "readRecording: '" + text + "' is not a " + std::string( what) + ", in row '" + line + "'");
+            }
+
+            return value;
         }
 
         //
@@ -214,6 +268,36 @@ namespace core
         return recording.string() + ".d";
     }
 
+    auto writeSelectionHeader(
+        std::ostream &                         out,
+        const std::vector<std::string_view> &  selection) -> void
+    {
+        out << kCommentMarker << ' ' << kSelectionField;
+
+        if( selection.empty())
+        {
+            //
+            // Written rather than left off, so that the line's absence means
+            // "not a file this framework wrote" instead of being a third thing
+            // to interpret. See kEverySelection.
+            //
+            out << kEverySelection;
+        }
+        else
+        {
+            auto separator = std::string_view{};
+
+            for( const auto & test : selection)
+            {
+                out << separator << test;
+
+                separator = ",";
+            }
+        }
+
+        out << '\n';
+    }
+
     auto RecordingWriter::spill( const Bytes & payload, const std::string_view extension) -> std::string
     {
         const auto name = blobName( payload, extension);
@@ -279,8 +363,9 @@ namespace core
 
     auto RecordingWriter::write( const RecordedSample & sample) -> void
     {
-        mOut << sample.mSequence             << kSeparator
+        mOut << sample.mSequence            << kSeparator
              << sample.mWallClockUnixMillis  << kSeparator
+             << sample.mTestId              << kSeparator
              << sample.mPointName            << kSeparator
              << sample.mInstrumentId         << kSeparator;
 
@@ -362,15 +447,29 @@ namespace core
             }
 
             std::istringstream fields( line);
-            std::string        sequenceText, wallClockText, pointName, instrumentId, kindText, valueText;
+            std::string        sequenceText, wallClockText, testId, pointName, instrumentId, kindText, valueText;
 
             if( !std::getline( fields, sequenceText,  kSeparator) ||
                 !std::getline( fields, wallClockText, kSeparator) ||
+                !std::getline( fields, testId,        kSeparator) ||
                 !std::getline( fields, pointName,     kSeparator) ||
                 !std::getline( fields, instrumentId,  kSeparator) ||
                 !std::getline( fields, kindText,      kSeparator))
             {
                 throw std::runtime_error( "readRecording: malformed row '" + line + "'");
+            }
+
+            //
+            // Every column but the value has to carry something -- see
+            // kRunScope in core/recording.hpp on why an observation outside any
+            // test spells that rather than leaving this blank. Checked here
+            // because a blank test column would otherwise reach the replay's
+            // filter as an id no test has, and be silently dropped from a
+            // selection it should have been exempt from.
+            //
+            if( testId.empty())
+            {
+                throw std::runtime_error( "readRecording: row '" + line + "' has no test id" );
             }
 
             //
@@ -460,15 +559,17 @@ namespace core
             if( kindText == kTraceKind)
             {
                 //
-                // std::stod for the timebase, as the quantity branch below uses
-                // for its own number: a malformed one throws, which is what a
-                // corrupt row should do.
+                // parsedNumber for the timebase, as the quantity branch below
+                // uses for its own number: a malformed one throws, which is
+                // what a corrupt row should do -- and it has to be the whole
+                // field, which is what stops a row of the wrong width being
+                // read as a plausible one. See parsedNumber above.
                 //
                 value = Waveform{
                     quantityKindFromString( traceUnitText),
                     Waveform::Timing{
-                        quantities::Time{ std::stod( traceOriginText) },
-                        quantities::Time{ std::stod( traceIncrementText) } },
+                        quantities::Time{ parsedNumber( traceOriginText,    line, "trace origin") },
+                        quantities::Time{ parsedNumber( traceIncrementText, line, "trace increment") } },
                     unpackSamples( octetsOf( valueText), line) };
             }
             else if( kindText == kPayloadKind)
@@ -508,12 +609,13 @@ namespace core
             {
                 const auto kind = quantityKindFromString( kindText);
 
-                value = quantityVariantFromKind( kind, std::stod( valueText));
+                value = quantityVariantFromKind( kind, parsedNumber( valueText, line, "value"));
             }
 
             samples.push_back( RecordedSample{
-                .mSequence            = static_cast<std::uint64_t>( std::stoull( sequenceText)),
-                .mWallClockUnixMillis = static_cast<std::int64_t>( std::stoll( wallClockText)),
+                .mSequence            = parsedInteger<std::uint64_t>( sequenceText,  line, "sequence number"),
+                .mWallClockUnixMillis = parsedInteger<std::int64_t>(  wallClockText, line, "wall-clock time"),
+                .mTestId              = testId,
                 .mPointName           = pointName,
                 .mInstrumentId        = instrumentId,
                 .mValue               = std::move( value)

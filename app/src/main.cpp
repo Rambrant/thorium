@@ -17,6 +17,7 @@
 #include "core/console_sink.hpp"
 #include "core/criteria_variants.hpp"
 #include "core/journal.hpp"
+#include "core/recording.hpp"
 #include "core/rtf_sink.hpp"
 #include "core/sarif_sink.hpp"
 #include "core/stimulus.hpp"
@@ -172,12 +173,32 @@
 // values it had just been fed, handing back a file that looks like a fresh
 // capture and is a copy of its input.
 //
+// Every recording opens with a comment naming the tests its run was asked for
+// ("# select=<all>", or the ids from --select). Provenance for a person, since a
+// recording is as long as the run is and two files are otherwise
+// indistinguishable; never read back -- see core::writeSelectionHeader and
+// core::kCommentMarker.
+//
 // A recording is one file plus, if the run observed anything too large to keep
 // in it, a directory named PATH.d beside it holding those payloads (see
 // core::sidecarDirectoryFor). Both move together: --replay=PATH finds the
 // directory from the file's own name, so copying a recording off the bench
 // means copying both, and a file whose directory was left behind fails loudly
 // rather than replaying half a run.
+//
+// Combines with --select, which is how a whole run captured on the bench gets
+// one script debugged out of it at a desk:
+//
+//   run_scripts --record=readings.tsv                    # on the bench, everything
+//   run_scripts --replay=readings.tsv --select=SupplyRail  # at the desk, one script
+//
+// Each row says which test took the reading, so the replayed test gets its own
+// rows rather than the front of each point's queue -- which, where two tests
+// measure one point, would be the other test's readings and a green verdict
+// about the wrong numbers. Readings taken outside any test (SETUP and TEARDOWN,
+// which bracket every selection) are kept whatever the selection says. A
+// recording with no rows for the selected tests is refused, naming the tests it
+// does hold. See core::ScriptedSession::loadFromFile, which owns the rule.
 //
 // ---------------------------------------------------------------------------
 // Readings that were never on a bench
@@ -1096,12 +1117,21 @@ int main( int argc, char ** argv)
             // that could not be written.
             //
             //
-            // A header a person can read, which the format allows and nothing
-            // this program writes otherwise uses (see kCommentMarker in
-            // core/recording.hpp). Only on a skeleton, and that asymmetry is
-            // the point: a recording is a capture and speaks for itself, while
-            // a skeleton is a file somebody is about to edit and needs to know
-            // it is not evidence of anything.
+            // Provenance first, on every file this program writes: which tests
+            // the run was asked for. A recording is as long as the run is, so
+            // "is this a whole run or a narrow capture?" is the first thing
+            // somebody holding one needs, and it is not answerable from the
+            // rows without reading all of them. See core::writeSelectionHeader,
+            // which owns the spelling, and core::kCommentMarker on why nothing
+            // reads this back.
+            //
+            core::writeSelectionHeader( recording, options.Selection);
+
+            //
+            // Then prose, on a skeleton only, and that asymmetry is the point: a
+            // recording is a capture and speaks for itself, while a skeleton is
+            // a file somebody is about to edit and needs to know it is not
+            // evidence of anything.
             //
             if ( options.SkeletonPath)
             {
@@ -1116,7 +1146,7 @@ int main( int argc, char ** argv)
                     << "# placeholders produce -- complete for the straight-line case, a first draft\n"
                     << "# otherwise.\n"
                     << "#\n"
-                    << "# sequence  wallClockMillis  point  instrument  kind  value\n";
+                    << "# sequence  wallClockMillis  test  point  instrument  kind  value\n";
             }
 
             recordingWriter.emplace( recording, core::sidecarDirectoryFor( path));
@@ -1157,7 +1187,7 @@ int main( int argc, char ** argv)
             // regardless -- a replay run has nothing to safe, and safing
             // something already idle is what hal::safeRig() is built for.
             //
-            Measure.load( *options.ReplayPath);
+            Measure.load( *options.ReplayPath, options.Selection);
         }
         catch ( const std::exception & e)
         {

@@ -711,7 +711,30 @@ namespace core
             // Loads a recording (see core/recording.hpp) and queues its samples
             // per point name, in the order they were recorded.
             //
-            static auto loadFromFile( const std::string & path) -> ScriptedSession;
+            // selection names the catalog tests to take rows from; empty means
+            // all of them, the same convention --select itself uses (see
+            // isSelected in app/src/main.cpp). It is what makes a whole run's
+            // recording usable for debugging one script: without it, a replayed
+            // test dequeues from the front of each point's queue and so takes
+            // whatever the *first* test to touch that point recorded. Two tests
+            // measuring one rail is all it takes, and the result is not an
+            // error -- it is a green verdict about the wrong numbers.
+            //
+            // Rows carrying kRunScope are kept whatever the selection says.
+            // They are what SETUP and TEARDOWN read, and those run around every
+            // selection (see runHook in app/src/main.cpp), so filtering them
+            // out would leave a replay of one test unable to power up the rig
+            // it is not touching.
+            //
+            // A selection that matches no recorded test is refused rather than
+            // replayed as nothing: it means this recording is of a run that
+            // never included the test being asked for, and the alternative is a
+            // first Measure that fails complaining about a point name, which
+            // names the symptom and not the cause.
+            //
+            static auto loadFromFile(
+                const std::string &                     path,
+                const std::vector<std::string_view> &   selection = {}) -> ScriptedSession;
 
             [[nodiscard]]
             auto fetch(
@@ -970,9 +993,9 @@ namespace core
             // arms both seams, which is the point: see this class's own comment
             // on why a half-armed replay is the failure mode to rule out.
             //
-            auto load( const std::string & path) -> void
+            auto load( const std::string & path, const std::vector<std::string_view> & selection = {}) -> void
             {
-                mScripted = ScriptedSession::loadFromFile( path);
+                mScripted = ScriptedSession::loadFromFile( path, selection);
                 mSwitchable.use( mScripted);
             }
 

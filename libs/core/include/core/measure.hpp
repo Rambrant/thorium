@@ -539,7 +539,17 @@ namespace core
                 mSessions.inject( pointName, std::move( source));
             }
 
-            auto load( const std::string & path) -> void { mSessions.load( path); }
+            //
+            // selection restricts the replay to the rows a named set of tests
+            // recorded -- see core::ScriptedSession::loadFromFile, which owns
+            // the rule. Defaulted, so a script unit test replaying a recording
+            // of one test says nothing about selections.
+            //
+            auto load( const std::string & path, const std::vector<std::string_view> & selection = {}) -> void
+            {
+                mSessions.load( path, selection);
+            }
+
             auto useLive()                       -> void { mSessions.useLive(); }
             auto usePlaceholders()               -> void { mSessions.usePlaceholders(); }
             auto startRecording()                -> void { mSessions.startRecording(); }

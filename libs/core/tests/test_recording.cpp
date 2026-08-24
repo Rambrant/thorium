@@ -51,7 +51,8 @@ namespace
 
     auto payloadRow( const std::uint64_t sequence, const Bytes & payload) -> core::RecordedSample
     {
-        return core::RecordedSample{ sequence, 1000 + static_cast<std::int64_t>( sequence), "Ser1.Data", "Ser1", payload };
+        return core::RecordedSample{
+            sequence, 1000 + static_cast<std::int64_t>( sequence), "Console", "Ser1.Data", "Ser1", payload };
     }
 
     //
@@ -274,7 +275,7 @@ TEST_F( RecordingFiles, AReferenceIsNeverResolvedOutsideItsOwnDirectory)
     //
     for( const auto * reference : { "../secrets.bin", "/etc/passwd", "sub/dir.bin", "..", "" })
     {
-        std::istringstream in( std::string( "0\t0\tSer1.Data\tSer1\t<bytes>\t@") + reference + "\n");
+        std::istringstream in( std::string( "0\t0\tConsole\tSer1.Data\tSer1\t<bytes>\t@") + reference + "\n");
 
         EXPECT_THROW( (void) core::readRecording( in, sidecarPath()), std::runtime_error) << "reference: " << reference;
     }
@@ -370,7 +371,7 @@ namespace
 
     auto traceRow( const std::uint64_t sequence, const core::Waveform & trace) -> core::RecordedSample
     {
-        return core::RecordedSample{ sequence, 1000, "Osc1.Channel3", "Osc1", trace };
+        return core::RecordedSample{ sequence, 1000, "AcDropout", "Osc1.Channel3", "Osc1", trace };
     }
 } // namespace
 
@@ -457,14 +458,14 @@ TEST_F( RecordingFiles, ATraceWhoseSamplesAreNotWholeIsAMalformedRow)
     // is a byte short is corrupt rather than a trace with a partial sample on
     // the end.
     //
-    std::istringstream in( "0\t0\tOsc1.Channel3\tOsc1\t<trace>\tVoltage\t0\t1e-06\t000000000000000000\n");
+    std::istringstream in( "0\t0\tAcDropout\tOsc1.Channel3\tOsc1\t<trace>\tVoltage\t0\t1e-06\t000000000000000000\n");
 
     EXPECT_THROW( (void) core::readRecording( in, sidecarPath()), std::runtime_error);
 }
 
 TEST_F( RecordingFiles, ATraceRowMissingItsTimebaseIsAMalformedRow)
 {
-    std::istringstream in( "0\t0\tOsc1.Channel3\tOsc1\t<trace>\tVoltage\n");
+    std::istringstream in( "0\t0\tAcDropout\tOsc1.Channel3\tOsc1\t<trace>\tVoltage\n");
 
     EXPECT_THROW( (void) core::readRecording( in, sidecarPath()), std::runtime_error);
 }
@@ -507,4 +508,162 @@ TEST_F( RecordingFiles, AllFourSeamsShareOneRecordingAndReplayFromIt)
     EXPECT_TRUE( replayed.active().fetchFlag( "Osc1.Acquisition", "Osc1", []{ return false; }));
     EXPECT_EQ(   replayed.active().fetchTrace( "Osc1.Channel3",   "Osc1", []{ return core::Waveform{}; }), trace);
     EXPECT_EQ(   replayed.active().fetchData(  "Ser1.Data",       "Ser1", []{ return Bytes( "live"); }),   payload);
+}
+
+//
+// ---------------------------------------------------------------------
+// The test column
+// ---------------------------------------------------------------------
+//
+
+//
+// Which test a reading belongs to is part of the row, so it survives the round
+// trip like any other column -- and so a row stays independently meaningful
+// however it is filtered or sorted. See core::RecordedSample.
+//
+TEST( RecordingTestColumn, ATestIdRoundTrips)
+{
+    const std::vector<core::RecordedSample> samples{
+        { 0, 1000, "SupplyRail", "Output5V", "Dmm1",
+          core::QuantityVariant{ core::quantities::Voltage{ 5.0 } } },
+        { 1, 1001, std::string( core::kRunScope), "DcP1.Voltage", "DcP1",
+          core::QuantityVariant{ core::quantities::Voltage{ 28.0 } } }
+    };
+
+    std::ostringstream out;
+    core::writeRecording( out, samples);
+
+    std::istringstream in( out.str());
+    const auto         readBack = core::readRecording( in);
+
+    ASSERT_EQ( readBack.size(), 2u);
+    EXPECT_EQ( readBack[ 0].mTestId, "SupplyRail");
+    EXPECT_EQ( readBack[ 1].mTestId, core::kRunScope);
+}
+
+//
+// The test column sits between the timestamp and the point, so the row reads
+// left to right as when / which test / which point / which instrument. Asserted
+// on the text because this is the format, and a reader outside this repo parses
+// by position.
+//
+TEST( RecordingTestColumn, TheTestSitsBetweenTheTimestampAndThePoint)
+{
+    const std::vector<core::RecordedSample> samples{
+        { 0, 1000, "SupplyRail", "Output5V", "Dmm1",
+          core::QuantityVariant{ core::quantities::Voltage{ 5.0 } } }
+    };
+
+    std::ostringstream out;
+    core::writeRecording( out, samples);
+
+    EXPECT_EQ( out.str(), "0\t1000\tSupplyRail\tOutput5V\tDmm1\tVoltage\t5\n");
+}
+
+//
+// Every column but the value has to carry something. A blank test column would
+// otherwise reach a selected replay as an id no test has and be dropped from a
+// selection it should have been exempt from -- see core::kRunScope.
+//
+TEST( RecordingTestColumn, ARowWithNoTestIdIsMalformed)
+{
+    std::istringstream in( "0\t0\t\tOutput5V\tDmm1\tVoltage\t5.0\n");
+
+    EXPECT_THROW( (void)core::readRecording( in), std::runtime_error);
+}
+
+//
+// ---------------------------------------------------------------------
+// Numbers are parsed strictly
+// ---------------------------------------------------------------------
+//
+
+//
+// The whole field has to be the number. std::stod, which the reader used to
+// use, takes the leading number and discards the rest without a word -- so a
+// row of the wrong width, landing in the wrong columns, was read as a plausible
+// reading instead of being rejected. That is the one way this format can be
+// read wrong rather than refused.
+//
+TEST( RecordingNumbers, AValueWithTrailingRubbishIsMalformed)
+{
+    std::istringstream in( "0\t0\tSupplyRail\tOutput5V\tDmm1\tVoltage\t5.021rubbish\n");
+
+    EXPECT_THROW( (void)core::readRecording( in), std::runtime_error);
+}
+
+//
+// The same hole in the integral columns: std::stoull( "0abc") is 0, silently.
+//
+TEST( RecordingNumbers, ASequenceNumberWithTrailingRubbishIsMalformed)
+{
+    std::istringstream in( "0abc\t0\tSupplyRail\tOutput5V\tDmm1\tVoltage\t5.0\n");
+
+    EXPECT_THROW( (void)core::readRecording( in), std::runtime_error);
+}
+
+//
+// The concrete case: a row from the six-column format this replaced. Its unit
+// column lands in the kind column -- and "Voltage" is a real QuantityKind -- so
+// only the strict value parse stands between it and a trace being read back as
+// a plausible voltage at the wrong point.
+//
+TEST( RecordingNumbers, AnOldWidthTraceRowIsRefusedRatherThanReadAsAVoltage)
+{
+    std::istringstream in( "0\t0\tOsc1.Channel3\tOsc1\t<trace>\tVoltage\t0\t1e-06\t000000000000000000\n");
+
+    EXPECT_THROW( (void)core::readRecording( in), std::runtime_error);
+}
+
+//
+// ---------------------------------------------------------------------
+// The selection header
+// ---------------------------------------------------------------------
+//
+
+TEST( RecordingSelectionHeader, ASelectionIsWrittenAsAComment)
+{
+    std::ostringstream out;
+
+    core::writeSelectionHeader( out, { "SupplyRail", "StatusRegister" });
+
+    EXPECT_EQ( out.str(), "# select=SupplyRail,StatusRegister\n");
+}
+
+//
+// A run given no --select says so, rather than leaving the line off: absence
+// then means "not a file this framework wrote" instead of being a third state
+// to interpret. See core::kEverySelection.
+//
+TEST( RecordingSelectionHeader, NoSelectionIsWrittenAsEveryTest)
+{
+    std::ostringstream out;
+
+    core::writeSelectionHeader( out, {});
+
+    EXPECT_EQ( out.str(), "# select=<all>\n");
+}
+
+//
+// It is a comment, so the reader skips it like any other -- the header is
+// provenance for a person and is never read back. See core::kCommentMarker on
+// why that line is worth holding.
+//
+TEST( RecordingSelectionHeader, TheHeaderIsSkippedOnTheWayBackIn)
+{
+    std::ostringstream out;
+
+    core::writeSelectionHeader( out, { "SupplyRail" });
+
+    core::RecordingWriter writer( out);
+
+    writer.write( core::RecordedSample{
+        0, 1000, "SupplyRail", "Output5V", "Dmm1",
+        core::QuantityVariant{ core::quantities::Voltage{ 5.0 } } });
+
+    std::istringstream in( out.str());
+    const auto         readBack = core::readRecording( in);
+
+    ASSERT_EQ( readBack.size(), 1u);
+    EXPECT_EQ( readBack[ 0].mTestId, "SupplyRail");
 }

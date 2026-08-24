@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <ranges>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -257,6 +258,35 @@ namespace
         }
 
         return count;
+    }
+
+    //
+    // How many observations a recording holds: its rows, not its lines. The
+    // file also carries a comment header (see core::writeSelectionHeader), and
+    // a count of newlines would fold that in -- so a test asserting "seven
+    // readings" would be asserting seven readings plus however many lines of
+    // provenance the file happens to open with.
+    //
+    // '#' spelled out rather than taken from core::kCommentMarker, like every
+    // other expectation in this file: these tests run the binary as a process
+    // and read its artifacts back, so what they assert against is the format as
+    // published, not the constant the program happens to build with.
+    //
+    auto recordedRows( const std::string & recording) -> std::size_t
+    {
+        std::size_t rows = 0;
+
+        for ( const auto line : std::views::split( std::string_view( recording), '\n'))
+        {
+            const auto text = std::string_view( line);
+
+            if ( !text.empty() && text.front() != '#')
+            {
+                ++rows;
+            }
+        }
+
+        return rows;
     }
 
     auto containsText( const std::filesystem::path & artifact, const std::string & text, const std::string_view needle) -> ::testing::AssertionResult
@@ -1465,12 +1495,12 @@ TEST_F( AcceptanceHooks, TheShippedHooksBracketTheRunWithAnOrderedPowerCycle)
 TEST_F( AcceptanceHooks, AFailedPowerUpIsStillPoweredBackDown)
 {
     writeFile( mDir / "bad-setup.tsv",
-        "0\t0\tAcP1.A.Voltage\tAcP1\tVoltage\t100.0\n"    // outside 115 V +/-2 V
-        "1\t0\tAcP1.B.Voltage\tAcP1\tVoltage\t115.0\n"
-        "2\t0\tAcP1.C.Voltage\tAcP1\tVoltage\t115.0\n"
-        "3\t0\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
-        "4\t0\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
-        "5\t0\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n");
+        "0\t0\t<run>\tAcP1.A.Voltage\tAcP1\tVoltage\t100.0\n"    // outside 115 V +/-2 V
+        "1\t0\t<run>\tAcP1.B.Voltage\tAcP1\tVoltage\t115.0\n"
+        "2\t0\t<run>\tAcP1.C.Voltage\tAcP1\tVoltage\t115.0\n"
+        "3\t0\t<run>\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
+        "4\t0\t<run>\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
+        "5\t0\t<run>\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n");
 
     EXPECT_EQ( run( { "--replay=bad-setup.tsv", "--quiet" }), 1);
 
@@ -1555,7 +1585,7 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     //
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output5V.Vbase\tOsc1\tVoltage"));
 
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 13);   // six from setup, seven from the scripts
+    EXPECT_EQ( recordedRows( tsv), 13u);   // six from setup, seven from the scripts
 }
 
 //
@@ -1576,21 +1606,23 @@ TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
     // The six setup readings come first and have to be here too: rigPowerOn()
     // runs before the scripts and checks each one, so a file without them
     // replays a run whose rig never came up. Three of the six are AcP1's
-    // phases, keyed individually.
+    // phases, keyed individually. They carry "<run>" in the test column rather
+    // than a test id, because SETUP belongs to the run -- see core::kRunScope,
+    // and AReplayCanBeNarrowedToOneTest below for what the column is for.
     //
     // The last row is the console reply: kind "<bytes>", value unspaced hex.
     // 41 43 4B is "ACK", 0D the terminator, 08 a status byte with READY (bit 3)
     // set and FAULT (bit 7) clear -- what FS_Console_1 requires.
     writeFile( mDir / "passing.tsv",
-        "0\t0\tAcP1.A.Voltage\tAcP1\tVoltage\t115.0\n"
-        "1\t0\tAcP1.B.Voltage\tAcP1\tVoltage\t115.0\n"
-        "2\t0\tAcP1.C.Voltage\tAcP1\tVoltage\t115.0\n"
-        "3\t0\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
-        "4\t0\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
-        "5\t0\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n"
-        "6\t0\tVout\tDmm2\tVoltage\t12.0\n"
-        "7\t0\tOutput5V\tDmm1\tVoltage\t5.0\n"
-        "8\t0\tOutput3V3\tDmm1\tVoltage\t3.3\n"
+        "0\t0\t<run>\tAcP1.A.Voltage\tAcP1\tVoltage\t115.0\n"
+        "1\t0\t<run>\tAcP1.B.Voltage\tAcP1\tVoltage\t115.0\n"
+        "2\t0\t<run>\tAcP1.C.Voltage\tAcP1\tVoltage\t115.0\n"
+        "3\t0\t<run>\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
+        "4\t0\t<run>\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
+        "5\t0\t<run>\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n"
+        "6\t0\tFuseRegister\tVout\tDmm2\tVoltage\t12.0\n"
+        "7\t0\tSupplyRail\tOutput5V\tDmm1\tVoltage\t5.0\n"
+        "8\t0\tSupplyRail\tOutput3V3\tDmm1\tVoltage\t3.3\n"
         //
         // acDropoutScript's three: the rail's settled level before the input
         // is dropped, whether the capture completed, and how low the rail
@@ -1602,10 +1634,10 @@ TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
         // which is what makes this row worth being in the file rather than
         // assumed.
         //
-        "9\t0\tOutput5V.Vbase\tOsc1\tVoltage\t5.0\n"
-        "10\t0\tOsc1.Acquisition\tOsc1\t<flag>\t1\n"
-        "11\t0\tOutput5V.Vmin\tOsc1\tVoltage\t4.95\n"
-        "12\t0\tSer1.Data\tSer1\t<bytes>\t41434B0D08\n");
+        "9\t0\tAcDropout\tOutput5V.Vbase\tOsc1\tVoltage\t5.0\n"
+        "10\t0\tAcDropout\tOsc1.Acquisition\tOsc1\t<flag>\t1\n"
+        "11\t0\tAcDropout\tOutput5V.Vmin\tOsc1\tVoltage\t4.95\n"
+        "12\t0\tStatusRegister\tSer1.Data\tSer1\t<bytes>\t41434B0D08\n");
 
     EXPECT_EQ( run( { "--replay=passing.tsv", "--quiet" }), 0);
 
@@ -1636,6 +1668,97 @@ TEST_F( AcceptanceRecording, ARecordingReplaysToTheSameVerdict)
 }
 
 //
+// Every recording this program writes opens by saying which tests the run was
+// asked for. A recording is as long as the run is, so "whole run or narrow
+// capture?" is the first question about a file that arrived from a bench, and
+// the rows do not answer it without reading all of them.
+//
+TEST_F( AcceptanceRecording, ARecordingSaysWhichTestsItsRunWasAskedFor)
+{
+    run( { "--select=SupplyRail,StatusRegister", "--record=narrow.tsv", "--quiet", "--no-logs" });
+    run( { "--record=whole.tsv", "--quiet", "--no-logs" });
+
+    EXPECT_TRUE( containsText( mDir / "narrow.tsv", readFile( mDir / "narrow.tsv"),
+                               "# select=SupplyRail,StatusRegister"));
+
+    // A run given no --select says so rather than leaving the line off -- see
+    // core::kEverySelection.
+    EXPECT_TRUE( containsText( mDir / "whole.tsv", readFile( mDir / "whole.tsv"), "# select=<all>"));
+}
+
+//
+// And the header does not stop the file being a valid replay input: it is a
+// comment, which the reader skips like any other.
+//
+TEST_F( AcceptanceRecording, AHeaderedRecordingStillReplays)
+{
+    const int recorded = run( { "--record=readings.tsv", "--quiet", "--no-logs" });
+    const int replayed = run( { "--replay=readings.tsv", "--quiet", "--no-logs" });
+
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", readFile( mDir / "readings.tsv"), "# select="));
+    EXPECT_EQ( recorded, replayed);
+}
+
+//
+// What the test column buys at the command line: a whole run's recording, taken
+// once on the bench, and one script debugged out of it at a desk. Without it a
+// replayed test dequeues from the front of each point's queue and takes whatever
+// the first test to touch that point recorded (see
+// core::ScriptedSession::loadFromFile).
+//
+// The recording is captured by an ordinary run, not hand-authored, because the
+// property being asserted is that the two halves agree about what a test id is.
+//
+TEST_F( AcceptanceRecording, AReplayCanBeNarrowedToOneTest)
+{
+    run( { "--record=readings.tsv", "--quiet", "--no-logs" });
+
+    // One test out of the four the recording holds. SETUP still runs and still
+    // finds its readings -- they are recorded under "<run>" (see
+    // core::kRunScope), which no selection filters out.
+    run( { "--replay=readings.tsv", "--select=SupplyRail", "--no-color" });
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    const auto log = readFile( sarif);
+
+    EXPECT_TRUE(  containsText( sarif, log, "SupplyRail"));
+    EXPECT_FALSE( containsText( sarif, log, "FuseRegister"));
+    EXPECT_FALSE( containsText( sarif, log, "AcDropout"));
+    EXPECT_FALSE( containsText( sarif, log, "StatusRegister"));
+}
+
+//
+// The recording says which tests it covers, so asking it for one it does not
+// have is refused up front and names what it does have. The alternative is a
+// first Measure failing about a point name, which reports the symptom and
+// leaves the cause -- wrong recording for this selection -- to be guessed.
+//
+TEST_F( AcceptanceRecording, ReplayingATestTheRecordingDoesNotCoverIsFatalAndSaysWhatItHas)
+{
+    run( { "--select=SupplyRail", "--record=rail-only.tsv", "--quiet", "--no-logs" });
+
+    EXPECT_EQ( run( { "--replay=rail-only.tsv", "--select=AcDropout", "--quiet" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "no readings for the selected test"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "SupplyRail"));
+}
+
+//
+// And the recording of one test replays that test, which is the workflow the
+// two tests above bracket: capture narrow on the bench, replay it at the desk.
+//
+TEST_F( AcceptanceRecording, ARecordingOfOneTestReplaysThatTest)
+{
+    const int recorded = run( { "--select=SupplyRail", "--record=rail-only.tsv", "--quiet", "--no-logs" });
+    const int replayed = run( { "--replay=rail-only.tsv", "--select=SupplyRail", "--quiet", "--no-logs" });
+
+    EXPECT_EQ( recorded, replayed);
+}
+
+//
 // A repeated run records every pass, so replaying it needs the same pass count
 // -- the file is a value stream, not a per-test snapshot.
 //
@@ -1650,7 +1773,7 @@ TEST_F( AcceptanceRecording, EachRepeatPassIsRecorded)
     // over three passes, plus the six the setup took, once, because the hooks
     // bracket the whole selection rather than each pass (see AcceptanceHooks
     // above). Six rather than four since rigPowerOn() reads AcP1 once per phase.
-    EXPECT_EQ( std::ranges::count( tsv, '\n'), 27);
+    EXPECT_EQ( recordedRows( tsv), 27u);
 }
 
 //

@@ -1,10 +1,14 @@
 #include "core/session.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <set>
 #include <stdexcept>
 #include <utility>
 #include <variant>
+
+#include "core/journal.hpp"
 
 namespace core
 {
@@ -82,7 +86,9 @@ namespace core
         mTraceSources.program( name, std::move( source));
     }
 
-    auto ScriptedSession::loadFromFile( const std::string & path) -> ScriptedSession
+    auto ScriptedSession::loadFromFile(
+        const std::string &                    path,
+        const std::vector<std::string_view> &  selection) -> ScriptedSession
     {
         std::ifstream in( path);
 
@@ -115,8 +121,42 @@ namespace core
         // by anything about its name -- a recording is a flat, interleaved
         // stream and a row says for itself what it is (see core::RecordedValue).
         //
+        //
+        // Which tests the file actually has rows for, collected whether or not
+        // there is a selection to check against: it costs one insert per row and
+        // it is the whole of the refusal below. Ordered, so that two runs
+        // rejecting the same file word it the same way.
+        //
+        // Owning strings rather than views into the samples: the vector they
+        // came from is a temporary whose life ends with the loop, and the
+        // refusal that reads this comes after it.
+        //
+        std::set<std::string>  recordedTests;
+        auto                   matchedSelection = false;
+
         for( auto & sample : readRecording( in, sidecarDirectory))
         {
+            //
+            // Rows outside any test are always kept -- see this function's
+            // comment in core/session.hpp on SETUP and TEARDOWN.
+            //
+            const auto scoped = sample.mTestId != kRunScope;
+
+            if( scoped)
+            {
+                recordedTests.insert( sample.mTestId);
+            }
+
+            if( scoped && !selection.empty())
+            {
+                if( std::ranges::find( selection, sample.mTestId) == selection.end())
+                {
+                    continue;
+                }
+
+                matchedSelection = true;
+            }
+
             if( auto * payload = std::get_if<Bytes>( &sample.mValue))
             {
                 payloads[ sample.mPointName].push_back( std::move( *payload));
@@ -133,6 +173,26 @@ namespace core
             {
                 samples[ sample.mPointName].push_back( std::get<QuantityVariant>( sample.mValue));
             }
+        }
+
+        //
+        // Nothing in this recording belongs to any test that was asked for. The
+        // file is of a run that did not include them -- see this function's
+        // comment in core/session.hpp on why that is refused here rather than
+        // left to surface as a missing point name later.
+        //
+        if( !selection.empty() && !matchedSelection)
+        {
+            auto message = "ScriptedSession::loadFromFile: '" + path +
+                           "' has no readings for the selected test(s). It recorded:";
+
+            for( const auto & test : recordedTests)
+            {
+                message += ' ' + test;
+            }
+
+            throw std::runtime_error(
+                recordedTests.empty() ? message + " nothing but SETUP/TEARDOWN" : message);
         }
 
         ScriptedSession session;
@@ -222,9 +282,26 @@ namespace core
         const auto wallClockMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
 
+        //
+        // Which test this belongs to, taken from the journal rather than
+        // threaded in. The journal is already stamping every event with it (see
+        // JournalEvent in core/journal.hpp) for exactly the same reason a
+        // recording needs it, and it is reached the same way -- process-wide --
+        // so no seam between here and a script has to learn to carry a test
+        // name it has no other use for.
+        //
+        // Outside any test the journal answers empty, which is SETUP and
+        // TEARDOWN: recorded under kRunScope, so that a later replay of one
+        // test keeps their readings. Normalised here rather than at the writer
+        // because this is the one place a run makes a sample, and samples() has
+        // to agree with the file about what it says.
+        //
+        const auto runningTest = core::journal().currentTest();
+
         auto sample = RecordedSample{
             .mSequence            = mNextSequence++,
             .mWallClockUnixMillis = static_cast<std::int64_t>( wallClockMillis),
+            .mTestId              = runningTest.empty() ? std::string( kRunScope) : std::string( runningTest),
             .mPointName           = std::string( name),
             .mInstrumentId        = std::string( instrumentId),
             .mValue               = std::move( value)

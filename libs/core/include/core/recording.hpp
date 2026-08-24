@@ -57,14 +57,56 @@ namespace core
     // purely for a human reading the file later -- nothing in Thorium ever
     // dequeues by it.
     //
+    // mTestId is which catalog test was running when the observation was made,
+    // and it is what lets one test be replayed out of a whole run's recording
+    // (see core::ScriptedSession::loadFromFile, which owns that rule -- this
+    // file only reads and writes the column). Stamped from the journal, which
+    // already knows -- see core::RecordingSession::record.
+    //
+    // A field on the sample rather than structure in the file (a boundary line
+    // between one test's rows and the next) because a row that carries its own
+    // attribution stays independently meaningful. Rows can be filtered, sorted
+    // or grepped out of a recording and each one still says which test it
+    // belongs to; with a boundary line, any of those operations silently
+    // reattributes everything after the line it dropped.
+    //
+    // Empty is not a legal value: an observation made outside any test carries
+    // kRunScope. See that constant for why the distinction is spelled rather
+    // than left blank.
+    //
     struct RecordedSample
     {
         std::uint64_t   mSequence;
         std::int64_t    mWallClockUnixMillis;
+        std::string     mTestId;
         std::string     mPointName;
         std::string     mInstrumentId;
         RecordedValue   mValue;
     };
+
+    //
+    // The test column's value for an observation that belongs to the run rather
+    // than to any one test -- what SETUP and TEARDOWN read, since neither runs
+    // inside a test bracket (see runHook in app/src/main.cpp).
+    //
+    // Spelled rather than left empty, for two reasons. The reader's one
+    // concession to an empty field is the value column, and it is deliberate
+    // and narrow: an empty payload is a real observation, and every other
+    // column being non-empty is what makes a short row a malformed row rather
+    // than a row with a hole in it. A blank test column would spend that
+    // guarantee to say something a token says better.
+    //
+    // The second is that a replay has to treat these rows differently from
+    // every other row -- they are never filtered out, because SETUP still runs
+    // when a single test is replayed and still needs its readings. A rule that
+    // important should key off a value the format names, not off absence.
+    //
+    // Angle brackets for the same structural reason kPayloadKind has them: a
+    // test id is a C++ identifier (see the TEST entries in
+    // suite/test_catalog.inc), '<' is not a character an identifier may
+    // contain, and so no test added later can take this token.
+    //
+    inline constexpr std::string_view kRunScope = "<run>";
 
     //
     // The kind column's value for a byte payload, where a quantity row carries
@@ -90,15 +132,15 @@ namespace core
     // angle brackets and distinct from a QuantityKind's name for the same
     // structural reason -- see kPayloadKind above.
     //
-    // A trace row is the one row in this format that is not six fields wide.
+    // A trace row is the one row in this format that is not seven fields wide.
     // Where every other row is
     //
-    //   sequence  millis  point  instrument  kind  value
+    //   sequence  millis  test  point  instrument  kind  value
     //
     // a trace row carries the three facts that make its samples mean something
     // between the kind and them:
     //
-    //   sequence  millis  point  instrument  <trace>  unit  xOrigin  xIncrement  samples
+    //   sequence  millis  test  point  instrument  <trace>  unit  xOrigin  xIncrement  samples
     //
     // In the row rather than in the sample file beside it, deliberately. The
     // sidecar is the *payload* and nothing else -- no header, no encoding, so
@@ -132,7 +174,14 @@ namespace core
 
     //
     // Flat TSV, one row per sample, in the order they were recorded:
-    //   sequence  wallClockUnixMillis  pointName  instrumentId  kind  value
+    //   sequence  wallClockUnixMillis  testId  pointName  instrumentId  kind  value
+    //
+    // Ordered so that the row reads as a sentence left to right: when it
+    // happened, which test was running, which DUT point, through which
+    // instrument, and then what came back. The value stays last, which is not
+    // presentation -- the reader takes the value as "whatever remains of the
+    // line", which is what lets a trace row carry three extra columns ahead of
+    // its samples without the reader needing to count fields per kind.
     //
     // TSV rather than JSON/CSV-with-quoting: every field here is a single
     // token (no embedded commas or whitespace to escape), so a plain
@@ -196,17 +245,66 @@ namespace core
 
     //
     // A line beginning with this is skipped on the way in, along with a blank
-    // one. Nothing this framework writes produces either.
+    // one.
     //
-    // The syntax exists for the files it does not write. A recording is an
-    // input as well as an output -- --replay reads one, and nothing stops a
-    // file being authored rather than captured (which is the point of
-    // --skeleton, whose output is a valid recording with placeholder values in
-    // it). Such a file needs to be able to say what it is and what its numbers
-    // stand for, and a format whose only reader is a machine still has a person
-    // holding it open in an editor.
+    // The syntax exists because a recording is an input as well as an output --
+    // --replay reads one, and nothing stops a file being authored rather than
+    // captured (which is the point of --skeleton, whose output is a valid
+    // recording with placeholder values in it). Such a file needs to be able to
+    // say what it is and what its numbers stand for, and a format whose only
+    // reader is a machine still has a person holding it open in an editor.
+    //
+    // What this framework itself writes in comments is provenance and prose,
+    // never data: the selection header below, and --skeleton's warning that its
+    // values are placeholders. Nothing in a comment is ever read back. That is
+    // the line to hold -- the moment a replay took a fact from a comment rather
+    // than from the rows, an edited or stale header would outrank the
+    // observations underneath it.
     //
     inline constexpr char kCommentMarker = '#';
+
+    //
+    // The header every recording this framework writes begins with: which tests
+    // the run that produced it was asked to run.
+    //
+    //   # select=<all>
+    //   # select=SupplyRail,StatusRegister
+    //
+    // Provenance for a person, and the question they are most likely to have
+    // about a file that arrived from a bench: is this a whole run, or somebody's
+    // narrow capture? A recording is as long as the run is, and two files a
+    // fortnight apart are otherwise indistinguishable without reading every row.
+    //
+    // Deliberately not read back, and not what a selected replay checks itself
+    // against -- see the comment on kCommentMarker directly above, and
+    // core::ScriptedSession::loadFromFile, which keys its refusal on the test
+    // column of the rows. The rows are what a replay actually consumes, so they
+    // are the only honest answer to "does this file cover that test": a header
+    // can be edited, can be copied between files, and can outlive the rows it
+    // described. This one says what the run was told to do; the rows say what it
+    // did.
+    //
+    // A comment rather than a column, unlike the test id beside each reading.
+    // The selection is one fact about the run, not a fact about an observation,
+    // and a column would repeat it identically on every row -- which is both
+    // waste and a thing that can disagree with itself.
+    //
+    inline constexpr std::string_view kSelectionField = "select=";
+
+    // What the selection header carries for a run that was given no --select.
+    inline constexpr std::string_view kEverySelection = "<all>";
+
+    //
+    // Writes that header. One function so the two callers that write a
+    // recording -- --record and --skeleton (see app/src/main.cpp) -- cannot
+    // spell it two ways.
+    //
+    // Takes the stream rather than being a RecordingWriter member because it
+    // has to come first, and a writer is constructed to append rows.
+    //
+    auto writeSelectionHeader(
+        std::ostream &                         out,
+        const std::vector<std::string_view> &  selection) -> void;
 
     //
     // Where a recording's heavy payloads live: the recording's own path with

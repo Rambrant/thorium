@@ -350,9 +350,9 @@ TEST( CoreSession, ScriptedSessionLoadFromFilePreservesMultiplePoints)
 
     {
         std::ofstream out( path);
-        out << "0\t1000\tPointA\tDmm1\tVoltage\t1.0\n";
-        out << "1\t1001\tPointB\tDmm1\tCurrent\t2.0\n";
-        out << "2\t1002\tPointA\tDmm1\tVoltage\t3.0\n";
+        out << "0\t1000\tSomeTest\tPointA\tDmm1\tVoltage\t1.0\n";
+        out << "1\t1001\tSomeTest\tPointB\tDmm1\tCurrent\t2.0\n";
+        out << "2\t1002\tSomeTest\tPointA\tDmm1\tVoltage\t3.0\n";
     }
 
     auto session = core::ScriptedSession::loadFromFile( path.string());
@@ -363,6 +363,136 @@ TEST( CoreSession, ScriptedSessionLoadFromFilePreservesMultiplePoints)
         session.fetch( "PointB", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 2.0);
     EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
         session.fetch( "PointA", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 3.0);
+
+    std::remove( path.string().c_str());
+}
+
+//
+// ---------------------------------------------------------------------
+// Replaying one test out of a whole run's recording
+// ---------------------------------------------------------------------
+//
+namespace
+{
+    //
+    // A recording of a two-test run in which both tests measure the SAME point,
+    // which is the case the test column exists for. Written in the order a run
+    // would take them: First's reading, then Second's.
+    //
+    auto writeTwoTestRecording( const std::filesystem::path & path) -> void
+    {
+        std::ofstream out( path);
+
+        out << "0\t1000\t<run>\tSetupPoint\tDmm1\tVoltage\t28.0\n";
+        out << "1\t1001\tFirst\tSharedPoint\tDmm1\tVoltage\t1.0\n";
+        out << "2\t1002\tSecond\tSharedPoint\tDmm1\tVoltage\t2.0\n";
+    }
+} // namespace
+
+//
+// The bug this column was added for. Both tests measure SharedPoint, so its
+// queue holds First's reading and then Second's; a replay of Second alone used
+// to dequeue from the front and hand it First's 1.0 V. Not an error -- a verdict
+// about the wrong number, which is the worst thing a replay can produce.
+//
+TEST( CoreSession, ASelectedReplayTakesTheSelectedTestsOwnReadings)
+{
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_select_shared.tsv";
+
+    writeTwoTestRecording( path);
+
+    auto session = core::ScriptedSession::loadFromFile( path.string(), { "Second" });
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "SharedPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 2.0);
+
+    std::remove( path.string().c_str());
+}
+
+//
+// And the other half: what was NOT selected is gone, rather than queued behind
+// what was. A second fetch here would be Second's reading again if the filter
+// had merely reordered.
+//
+TEST( CoreSession, ASelectedReplayHasNothingLeftFromTheTestsItDropped)
+{
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_select_exhausted.tsv";
+
+    writeTwoTestRecording( path);
+
+    auto session = core::ScriptedSession::loadFromFile( path.string(), { "Second" });
+
+    (void)session.fetch( "SharedPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+
+    EXPECT_THROW(
+        (void)session.fetch( "SharedPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0)),
+        std::runtime_error);
+
+    std::remove( path.string().c_str());
+}
+
+//
+// SETUP and TEARDOWN run around every selection, so their readings survive one
+// -- see core::kRunScope. A replay of one test that could not power the rig up
+// would not be a replay of anything.
+//
+TEST( CoreSession, ASelectedReplayKeepsTheReadingsTakenOutsideAnyTest)
+{
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_select_setup.tsv";
+
+    writeTwoTestRecording( path);
+
+    auto session = core::ScriptedSession::loadFromFile( path.string(), { "Second" });
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "SetupPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 28.0);
+
+    std::remove( path.string().c_str());
+}
+
+//
+// An empty selection is "everything", the same convention --select itself uses,
+// so an existing replay is unaffected by any of the above.
+//
+TEST( CoreSession, AnEmptySelectionReplaysEveryTestsReadings)
+{
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_select_none.tsv";
+
+    writeTwoTestRecording( path);
+
+    auto session = core::ScriptedSession::loadFromFile( path.string());
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "SharedPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 1.0);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "SharedPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 2.0);
+
+    std::remove( path.string().c_str());
+}
+
+//
+// A recording of a run that never included the test being asked for. Refused
+// here, naming what it does hold, rather than left to surface later as a first
+// Measure complaining about a point name -- which names the symptom.
+//
+TEST( CoreSession, ASelectionThisRecordingHasNoTestForIsRefusedAndNamesWhatItHas)
+{
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_select_absent.tsv";
+
+    writeTwoTestRecording( path);
+
+    try
+    {
+        (void)core::ScriptedSession::loadFromFile( path.string(), { "Third" });
+        FAIL() << "Expected std::runtime_error";
+    }
+    catch( const std::runtime_error & error)
+    {
+        const std::string message( error.what());
+
+        EXPECT_TRUE( message.find( "First")  != std::string::npos) << message;
+        EXPECT_TRUE( message.find( "Second") != std::string::npos) << message;
+    }
 
     std::remove( path.string().c_str());
 }

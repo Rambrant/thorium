@@ -1086,7 +1086,7 @@ fails that build rather than being reported.
 | `--until-failure` | stop as soon as a pass fails |
 | `--safe` | drop the rig to idle and exit — no test, no log |
 | `--record=PATH` | write every reading the run took, in order (heavy payloads go to `PATH.d/`) |
-| `--replay=PATH` | take every reading from that file instead of the rig |
+| `--replay=PATH` | take every reading from that file instead of the rig (honours `--select`) |
 | `--skeleton=PATH` | write out every reading the scripts ask for, against placeholders |
 | `--inject=PATH` | take readings from a stimulus file — authored, not captured |
 | `--dut-serial=`, `--operator=` | traceability, into both logs |
@@ -1135,7 +1135,8 @@ build/debug/app/run_scripts --replay=readings.tsv      # run again off the file,
 ```
 
 Where the two logs describe a run, this is the readings themselves, in order
-(see `core/recording.hpp` for the format — flat TSV, one row per reading). It is
+(see `core/recording.hpp` for the format — flat TSV, one row per reading, each
+carrying the test that took it). It is
 what reproduces a bench failure at a desk: the replayed run takes its verdict
 from the file, so it passes or fails exactly as the recorded one did, with no
 instrument attached.
@@ -1170,6 +1171,45 @@ should differ visibly, without opening anything.
 **The rows are written as the run takes them,** not accumulated and dumped at the
 end, so a run that is killed part-way leaves the readings it had already taken.
 
+**Every recording says which tests its run was asked for,** on the first line:
+
+```
+# select=SupplyRail,StatusRegister
+```
+
+or `# select=<all>` for a run given no `--select`. Provenance for a person — a
+recording is as long as the run is, so *whole run or somebody's narrow capture?*
+is the first question about a file that arrived from a bench, and the rows do not
+answer it without reading all of them.
+
+It is a comment, so `--replay` skips it like any other, and nothing reads it
+back. That line is deliberate: the refusal below keys on the **rows**, because
+the rows are what a replay consumes. A header can be edited, copied between
+files, or outlive what it described — it says what the run was *told* to do,
+while the rows say what it *did*.
+
+**One test out of a whole run.** Every row says which test took the reading, so
+`--replay` combines with `--select` — capture broadly on the bench, then debug
+one script at a desk:
+
+```bash
+build/debug/app/run_scripts --record=readings.tsv                      # the whole run
+build/debug/app/run_scripts --replay=readings.tsv --select=SupplyRail  # one script of it
+```
+
+The selected test gets *its own* rows. That is the whole point of the column:
+readings are queued per DUT point, so without it a replayed test dequeues from
+the front of each point's queue and takes whatever the first test to touch that
+point recorded. Two tests measuring one rail is all it takes, and the result is
+not an error — it is a green verdict about the wrong numbers.
+
+Readings taken outside any test carry `<run>` in that column instead of a test
+id, and no selection filters them out: `SETUP` and `TEARDOWN` bracket every
+selection, so a replay of one test still needs the readings that powered the rig
+up. A recording with no rows for the selected tests is refused up front, naming
+the tests it does hold — the alternative is a first `Measure` complaining about a
+point name, which reports the symptom and leaves the cause to be guessed.
+
 Opt-in, unlike the logs, and for the opposite reason: a log is evidence that a
 run happened and every run should leave one, while a recording is a tool for a
 particular investigation and is as long as the run is — a fifty-pass soak
@@ -1201,12 +1241,13 @@ nowhere a person can read them. This runs the selection against a session that
 touches nothing and answers everything, and writes what the scripts *asked for*:
 
 ```
+# select=<all>
 # Skeleton written by run_scripts --skeleton. This is a valid --replay file.
 # Every value below is a PLACEHOLDER -- no instrument was touched. ...
-0	1787494495696	AcP1.A.Voltage	AcP1	Voltage	0
+0	1787494495696	<run>	AcP1.A.Voltage	AcP1	Voltage	0
 ...
-10	1787494495696	Osc1.Acquisition	Osc1	<flag>	1
-12	1787494495696	Ser1.Data	Ser1	<bytes>
+10	1787494495696	AcDropout	Osc1.Acquisition	Osc1	<flag>	1
+12	1787494495696	StatusRegister	Ser1.Data	Ser1	<bytes>
 ```
 
 Edit the value column and it replays. It writes **no logs** and its exit status
@@ -1374,7 +1415,7 @@ The live console view renders the same content as the RTF from the same events, 
 what an operator watched and what the report says cannot disagree.
 
 **`--record=` writes a third file, and it is not a log.** Flat TSV, one row per
-reading — `sequence, wallClockMillis, point, instrument, kind, value` — carrying
+reading — `sequence, wallClockMillis, test, point, instrument, kind, value` — carrying
 nothing a person wants and nothing a report needs, because its only reader is
 `--replay=`. Neither log can serve that purpose: they describe a run, in formats
 built for a person and for a SARIF server, while a replay needs the values

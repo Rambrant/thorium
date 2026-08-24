@@ -184,8 +184,9 @@ TEST( CoreSessionData, APayloadWithTabsAndNewlinesSurvivesTheFileRoundTrip)
     const auto awkward = Bytes( "a\tb\nc\r");
 
     const std::vector<core::RecordedSample> written{
-        core::RecordedSample{ 0, 1000, "Console", "Ser1", awkward },
-        core::RecordedSample{ 1, 1001, "Output5V", "Dmm1", core::QuantityVariant{ core::quantities::Voltage{ 5.0 } } }
+        core::RecordedSample{ 0, 1000, "Console", "Console", "Ser1", awkward },
+        core::RecordedSample{ 1, 1001, "SupplyRail", "Output5V", "Dmm1",
+                              core::QuantityVariant{ core::quantities::Voltage{ 5.0 } } }
     };
 
     std::ostringstream out;
@@ -207,7 +208,7 @@ TEST( CoreSessionData, APayloadWithTabsAndNewlinesSurvivesTheFileRoundTrip)
 TEST( CoreSessionData, AnEmptyPayloadRoundTrips)
 {
     const std::vector<core::RecordedSample> written{
-        core::RecordedSample{ 0, 1000, "Console", "Ser1", Bytes{} }
+        core::RecordedSample{ 0, 1000, "Console", "Console", "Ser1", Bytes{} }
     };
 
     std::ostringstream out;
@@ -234,7 +235,7 @@ TEST( CoreSessionData, AnEmptyPayloadRoundTrips)
 //
 TEST( CoreSessionData, ACorruptPayloadRowIsReportedAsAMalformedRow)
 {
-    std::istringstream in( "0\t0\tConsole\tSer1\t<bytes>\t4143Z\n");
+    std::istringstream in( "0\t0\tConsole\tConsole\tSer1\t<bytes>\t4143Z\n");
 
     try
     {
@@ -256,7 +257,7 @@ TEST( CoreSessionData, ACorruptPayloadRowIsReportedAsAMalformedRow)
 //
 TEST( CoreSessionData, ATruncatedPayloadRowIsReportedAsAMalformedRow)
 {
-    std::istringstream in( "0\t0\tConsole\tSer1\t<bytes>\t414\n");
+    std::istringstream in( "0\t0\tConsole\tConsole\tSer1\t<bytes>\t414\n");
 
     EXPECT_THROW( (void) core::readRecording( in), std::runtime_error);
 }
