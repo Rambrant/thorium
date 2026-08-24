@@ -24,6 +24,20 @@
 // that hole, closed: every verb that instructs, asserted not to.
 //
 
+//
+// Wrapped in an unnamed namespace, which is load-bearing rather than tidy.
+// Five files in this binary each declare a `namespace mock`, and several of
+// them spell the same names (Instrument, Fabric, Config) for deliberately
+// different types -- a mock is meant to satisfy exactly what its own test
+// needs. At external linkage that is one definition rule violation per shared
+// name: the linker keeps one body of an inline function and hands it another
+// file's struct layout, which does not fail to build and does not fail
+// predictably either. Internal linkage makes each file's mock its own, and ADL
+// still finds the customization points, since the associated namespace of a
+// type in an unnamed namespace is that namespace.
+//
+namespace
+{
 namespace mock
 {
     //
@@ -75,6 +89,18 @@ namespace mock
 
     inline auto writeDriver( const Config & config, const core::Bytes &) -> void { ++config.Target.Written; }
 
+    //
+    // Required of this mock, not optional: core::detail::energisedNow
+    // static_asserts it for any config with an applyDriver (see
+    // core/interlock.hpp), and this one has one. Derived from the counters the
+    // mock already keeps rather than a flag of its own, so it cannot disagree
+    // with what applyDriver/removeDriver were actually called for.
+    //
+    inline auto isEnergised( const Config & config) -> bool
+    {
+        return config.Target.Applied > config.Target.Removed;
+    }
+
     template<typename FabricT, typename InstrumentWiringT, typename ConnectorWiringT>
     auto connectDriver( FabricT &, const InstrumentWiringT &, const ConnectorWiringT &, const Config & config) -> void
     {
@@ -101,6 +127,7 @@ namespace mock
     struct Fabric {};
     struct Wiring {};
 } // namespace mock
+} // namespace
 
 namespace
 {

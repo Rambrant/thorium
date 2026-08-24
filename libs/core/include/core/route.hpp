@@ -6,6 +6,7 @@
 #include "core/at.hpp"
 #include "core/bench.hpp"
 #include "core/describe.hpp"
+#include "core/interlock.hpp"
 #include "core/journal.hpp"
 
 namespace core
@@ -30,10 +31,23 @@ namespace core
     //
     // The order these two are called in relative to Apply/Remove is a
     // hardware argument rather than a code one -- the relay should move while
-    // the path is dead, at both ends of the sequence -- and nothing in either
-    // file enforces it. See core/source.hpp's own comment, which states the
-    // rule, explains the wear it exists to avoid, and says when breaking it is
-    // the right call.
+    // the path is dead, at both ends of the sequence -- and neither of these
+    // engines refuses to break it. See core/source.hpp's own comment, which
+    // states the rule, explains the wear it exists to avoid, and says when
+    // breaking it is the right call.
+    //
+    // What they do now is *record* it. Both ask the driver whether its output
+    // is energised at the moment the relay moves (core::detail::energisedNow,
+    // an ADL probe in the shape of the connectDriver call below), and a Connect
+    // or Disconnect that moved a contact on a live path says so in its own
+    // journal event. That is not a softened veto -- it is the half that was
+    // actually missing. The rule was written down in eight places and checked
+    // in none, so the cost of breaking it fell on a relay months later with
+    // nothing in any log tying it to the run that did it, and a script that
+    // broke the rule deliberately (the safety-interlock case core/source.hpp
+    // names) read exactly like one that broke it by accident. See
+    // core/interlock.hpp, which is where the argument for recording this and
+    // refusing the other hazard is written out.
     //
     // These two live apart from Apply/Setup/Remove because they need things
     // those do not: they are generic over the same three externally-supplied
@@ -72,12 +86,32 @@ namespace core
             template<typename BuilderT>
             auto operator()( const BuilderT & builder) -> void
             {
+                //
+                // Asked before the driver call, not after, and this ordering is
+                // the whole of what makes the answer mean anything. Connect
+                // does not change whether the output is energised -- only Apply
+                // and Remove do -- so either side would report the same bool
+                // today. Reading it first says what the flag is *about*: the
+                // state the contacts closed into. A later Apply on the same
+                // instrument is the ordinary sequence and not a hot switch, and
+                // an engine that sampled afterwards would be one refactor away
+                // from calling it one.
+                //
+                // Gated on the bench for the same reason the driver call below
+                // is: a detached run closed no relay, so there is no contact
+                // that could have arced (see core/bench.hpp). This also keeps
+                // the probe itself off a replayed run's path, where the
+                // instrument objects hold whatever a previous live run left in
+                // them and their answer would be fiction.
+                //
+                const auto hotSwitched = bench().isAttached() && detail::energisedNow( builder.config());
+
                 if( bench().isAttached())
                 {
                     connectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config());
                 }
 
-                detail::postSourceEvent( Verb::Connect, builder.config(), false);
+                detail::postSourceEvent( Verb::Connect, builder.config(), false, hotSwitched);
             }
 
             //
@@ -103,6 +137,22 @@ namespace core
             template<typename BuilderT, typename BundleT>
             auto operator()( const BuilderT & builder, const At<AdapterBundle<BundleT>> & wrapped) -> void
             {
+                //
+                // Asked here too, and today the answer is always false: the one
+                // instrument this overload is reached for is a serial interface
+                // (hal::Racal1260), which has a setupDriver and no applyDriver,
+                // so core::detail::energisedNow reports cold by construction.
+                //
+                // Kept rather than skipped as dead code, because what makes it
+                // dead is a fact about this rig's instrument set and not about
+                // this overload. A bundled interface that does energise its
+                // lines -- a multi-phase source addressed as one bundle is the
+                // obvious one, and hal::Ac6834B is already three phases and a
+                // return -- would otherwise be the one routing call in the
+                // framework that moved a contact live and said nothing.
+                //
+                const auto hotSwitched = bench().isAttached() && detail::energisedNow( builder.config());
+
                 if( bench().isAttached())
                 {
                     connectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config(), wrapped.point);
@@ -127,8 +177,18 @@ namespace core
                     // what happened is that nothing did. The interface is still
                     // named in the value column beside it.
                     //
+                    // The hot-switch note joins the interface's description
+                    // rather than replacing it, unlike the unbundled overload
+                    // above -- there, Detail is otherwise empty and there is
+                    // nothing to join. Same shape core::MeasureEngine appends
+                    // an instrument's "unmeasurable" reason in, and for the
+                    // same reason: the pin (here, the interface) stays named on
+                    // the line that carries the warning.
                     .Detail     = bench().isAttached()
-                                      ? std::string( wrapped.point.Description)
+                                      ? ( hotSwitched
+                                              ? std::string( wrapped.point.Description) + " -- " +
+                                                hotSwitchDetail( Verb::Connect, described.Instrument)
+                                              : std::string( wrapped.point.Description))
                                       : std::string( kDetachedDetail),
                     .Instrument = described.Instrument,
                     .Value      = std::string( wrapped.point.Name)
@@ -154,18 +214,31 @@ namespace core
             template<typename BuilderT>
             auto operator()( const BuilderT & builder) -> void
             {
+                //
+                // Before the driver call -- see ConnectEngine's own comment on
+                // why. This is the half core/source.hpp's rule is usually
+                // broken on, and the one hal::safeRig() is ordered to avoid:
+                // contacts parting with current still flowing through them draw
+                // an arc that erodes and eventually welds them.
+                //
+                const auto hotSwitched = bench().isAttached() && detail::energisedNow( builder.config());
+
                 if( bench().isAttached())
                 {
                     disconnectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config());
                 }
 
-                detail::postSourceEvent( Verb::Disconnect, builder.config(), false);
+                detail::postSourceEvent( Verb::Disconnect, builder.config(), false, hotSwitched);
             }
 
             // The inverse of ConnectEngine's bundle overload -- see its comment.
             template<typename BuilderT, typename BundleT>
             auto operator()( const BuilderT & builder, const At<AdapterBundle<BundleT>> & wrapped) -> void
             {
+                // See ConnectEngine's bundle overload on why this is asked at
+                // all when today's answer cannot be anything but false.
+                const auto hotSwitched = bench().isAttached() && detail::energisedNow( builder.config());
+
                 if( bench().isAttached())
                 {
                     disconnectDriver( mFabric, mInstrumentWiring, mConnectorWiring, builder.config(), wrapped.point);
@@ -177,7 +250,10 @@ namespace core
                     .Method     = Verb::Disconnect,
                     .Subject    = described.Instrument,
                     .Detail     = bench().isAttached()
-                                      ? std::string( wrapped.point.Description)
+                                      ? ( hotSwitched
+                                              ? std::string( wrapped.point.Description) + " -- " +
+                                                hotSwitchDetail( Verb::Disconnect, described.Instrument)
+                                              : std::string( wrapped.point.Description))
                                       : std::string( kDetachedDetail),
                     .Instrument = described.Instrument,
                     .Value      = std::string( wrapped.point.Name)

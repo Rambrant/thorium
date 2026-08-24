@@ -161,6 +161,23 @@ namespace hal
     // where that card's address comes from -- while here they just track state
     // so routing logic can be exercised and asserted on.
     //
+    // What this class deliberately does NOT do is decide whether a path is
+    // electrically safe to close, even though README.md once called that "a
+    // runtime interlock the fabric does not yet have". It cannot: an element is
+    // a device and a channel, and the two hazards worth refusing are about
+    // things no SwitchElementId carries -- which VPC pin the route lands on,
+    // which instrument is cabled onto that pin, whether that instrument's
+    // output is on, and what quantity the reading at the far end is even for.
+    // Pushing all four in here would make the plumbing know about instruments
+    // and quantities, which is exactly the coupling SwitchElementId's own
+    // comment above exists to prevent.
+    //
+    // So the interlock sits where each of those facts already is: the routing
+    // verbs ask the driver whether it is live (core/route.hpp), and the routed
+    // Measure asks the rig which source lands on the pin it is about to reach
+    // (core/measure.hpp, hal/interlock.hpp). See core/interlock.hpp for the
+    // whole argument. What is left here is bookkeeping, and it stays that.
+    //
     // Each element's state is a use count, not a plain bool: a physical
     // relay is either open or closed, but two independent callers can both
     // legitimately need it closed at once -- e.g. Connect() holding a

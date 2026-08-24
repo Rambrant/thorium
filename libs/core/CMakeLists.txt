@@ -7,6 +7,7 @@ add_library(core STATIC
         src/stimulus.cpp
         src/format.cpp
         src/bench.cpp
+        src/interlock.cpp
         src/bytes.cpp
         src/waveform.cpp
         src/journal.cpp

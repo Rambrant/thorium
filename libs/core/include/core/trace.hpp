@@ -42,8 +42,11 @@ namespace core
     // before checking it, and has the same consequence: what comes back is the
     // *previous* acquisition, which will look like a perfectly good trace.
     // Nothing enforces the order, for the reason nothing enforces
-    // Arm-before-event or Connect-before-Apply -- it is a property of the
-    // instrument, not of this code.
+    // Arm-before-event -- it is a property of the instrument, not of this code,
+    // and there is nothing here to ask about it. Connect-before-Apply is no
+    // longer the third member of that list: a supply can be asked whether its
+    // output is on, so breaking that one is recorded even though it is still
+    // permitted (see core/interlock.hpp).
     //
     // [[nodiscard]], like Await and for a related reason: a Fetch whose result
     // is dropped has moved a megabyte off an instrument to no purpose, and is

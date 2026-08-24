@@ -98,9 +98,13 @@ Being honest about the edges matters more than the table above:
   runtime throw. See the comments in `libs/hal/include/hal/wiring.hpp`.
 - **Scripted-session unit mismatch.** Feeding a `Current` to a point declared
   `Voltage` throws, naming the point and both kinds.
-- **`--select` with an unknown test id** does not run that test rather than
-  failing. `tools/run-tests.sh` validates ids against the catalog before it gets
-  that far, but a hand-typed flag has no such help.
+- **`--select` with an unknown test id** fails the run before `SETUP`, naming
+  every id the catalog has no test for. One bad id in an otherwise valid list
+  refuses the whole list rather than running the good half: a partial selection
+  is not a smaller run somebody asked for, it is a list they got wrong, and
+  running most of it produces a report that has to be read twice to be trusted.
+  `tools/run-tests.sh` validates ids against the catalog before it gets that
+  far, but a hand-typed flag has no such help.
 - **Instrument I/O.** Real instruments are absent, mis-addressed or lying. That
   is what the runtime is for.
 - **A measurement the instrument declines to make.** Not an error and not a
@@ -123,9 +127,42 @@ Being honest about the edges matters more than the table above:
   reference-counted, and it refuses nothing. Two instruments sharing a pin is
   the intended behaviour — that is how a rail is measured while a supply holds
   it — so connect/disconnect symmetry does *not* mean only one thing is ever on
-  a node. Nothing today prevents closing a path that would be electrically
-  wrong (an ammeter across a driven rail, or opening a relay under load). That
-  is a runtime interlock the fabric does not yet have.
+  a node.
+
+  The two ways that can be electrically wrong get different answers, and
+  `core/interlock.hpp` is where the reasoning lives:
+
+  **An ammeter across a driven rail is refused.** A landing pin is deliberately
+  also tapped (see `core::PointKind`), so a current or resistance reading routed
+  onto a `SOURCE_POINT` is reachable today — and it puts a shunt across a rail
+  through relays sized for signals. `core::MeasureEngine` throws
+  `core::InterlockViolation` before composing the path, naming the pin, the rail
+  and the way out. A voltage tap on that same live pin stays permitted, because
+  that is the measurement the landing pin is worth declaring for. There is no
+  override flag: the escape hatch is `Remove` the rail first, which is the bench
+  procedure anyway.
+
+  **A relay moving under load is recorded, not refused.** Hot switching is a
+  wear argument rather than a damage one, and `core/source.hpp` has always said
+  the call belongs to whoever writes the sequence — a safety interlock dropping
+  a connection must not first wait out a ramp-down. What was missing was never
+  the veto but the trace: the rule was stated in eight comments and checked in
+  none, so a worn contact tied back to no run and a deliberate hot switch read
+  exactly like an accidental one. `Connect`/`Disconnect` now ask the driver
+  whether its output is live and say so in their own journal event.
+
+  Recorded is not the same as noticed, so there is one assertion on top of it:
+  `AcceptanceMachineLog.NoShippedScriptOrHookMovesARelayUnderLoad` runs the whole
+  catalog and fails if any hot-switch notice reaches the log, naming the
+  instrument. That is a claim about *this suite's scripts*, not about the
+  framework — a rig that wants a hot switch somewhere writes it, gets the note,
+  and does not have that test. It covers the paths a run actually takes, which is
+  the only thing a log can be checked on.
+
+  What this is not is a safety guarantee, for the same reason `hal::safeRig()`
+  is not one — see that file. It also answers from the rig's *global* instrument
+  objects, so a supply constructed locally in a test fixture is invisible to it,
+  correctly: that supply is not on the bench.
 
 ---
 
@@ -137,7 +174,8 @@ The single most important thing to understand about this tree is that it holds
 ```
 libs/            THE FRAMEWORK -- portable, knows nothing about this rig or DUT
   core/            units, criteria, predicates, the Measure/Verify/Apply verbs,
-                   sessions, the run journal and its log sinks
+                   sessions, the run journal and its log sinks, the electrical
+                   interlock
   hal/             switching fabric, wiring, and the API drivers are written
                    against -- the mechanism, not any one instrument
 
@@ -447,7 +485,8 @@ Three files, in this order:
        Verify( FS_Supply_1::FS_Supply_12V, rail);
 
        Remove(     DcP3.dc());   // ...and goes down before the relay opens.
-       Disconnect( DcP3.dc());   // A relay moved under load arcs and welds.
+       Disconnect( DcP3.dc());   // A relay moved under load arcs and welds --
+                                 // still allowed, but the log says you did it.
    }
    ```
    **No verdict is returned.** The script's outcome is derived from the checks it
@@ -780,8 +819,11 @@ setting itself up, nothing triggers, and the run reports a missing transient
 that was in fact there. Keysight's own Infiniium programmer's reference gives
 the sequence (`:SINGLE`, then poll `:AER?`) with the comment *"oscilloscope is
 armed and ready, enable DUT here"* on exactly the line `Remove` sits on above.
-So the ordering rule is **Arm, then cause the event**, and like
-Connect-before-Apply nothing enforces it.
+So the ordering rule is **Arm, then cause the event**, and nothing enforces it.
+Unlike Connect-before-Apply, breaking it is not even recorded: whether a scope
+was armed in time is a fact about the hardware's own state machine, and the
+framework has nothing to ask about it the way it can ask a supply whether its
+output is on.
 
 **`Await` returns `bool` rather than throwing on timeout.** "The transient never
 arrived" is a finding about the DUT, not an error in the bench — very possibly

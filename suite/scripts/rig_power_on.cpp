@@ -30,7 +30,11 @@ auto rigPowerOn() -> bool
     // closing onto an already-live supply arcs on contact bounce much as one
     // opening under load arcs on break, so the contacts move while the path is
     // dead in both directions. See core/source.hpp, which states the rule and
-    // says why nothing enforces it.
+    // says why it is recorded rather than refused -- a Connect written the other
+    // way round here would still close the relay, and would put "hot switching"
+    // in the log of every run using this rig. That log is asserted on, so it
+    // would also turn the build red: see
+    // AcceptanceMachineLog.NoShippedScriptOrHookMovesARelayUnderLoad.
     //
     // DcP1/DcP2 below get no Connect at all: they are hal::N6701ADirect, wired
     // straight through with no isolation relay, so there is nothing to

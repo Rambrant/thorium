@@ -116,7 +116,7 @@ namespace hal
         mEntries.push_back( SourceWiringEntry{ instrument, location });
     }
 
-    auto SourceWiring::find( const VpcLocation location) const -> InstrumentId
+    auto SourceWiring::findLanding( const VpcLocation location) const -> std::optional<InstrumentId>
     {
         for( const auto & entry : mEntries)
         {
@@ -124,6 +124,19 @@ namespace hal
             {
                 return entry.instrument;
             }
+        }
+
+        return std::nullopt;
+    }
+
+    auto SourceWiring::find( const VpcLocation location) const -> InstrumentId
+    {
+        // Expressed through findLanding rather than walking mEntries a second
+        // time, so the two answers cannot come to differ about what "lands
+        // here" means -- the throw is the only thing this adds.
+        if( const auto found = findLanding( location))
+        {
+            return *found;
         }
 
         throw std::runtime_error(

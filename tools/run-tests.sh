@@ -25,9 +25,15 @@
 # So there is exactly one binary reachable from here -- run_scripts, this
 # suite's catalog runner (see app/src/main.cpp) -- and the only choices are
 # which of its catalog tests to run. Unit tests, and the run_scripts CLI
-# acceptance tests (tools/acceptance.sh), belong to `ctest`:
+# acceptance tests (app/tests/test_acceptance.cpp), belong to `ctest`:
 #
 #     ctest --test-dir <build-dir> --output-on-failure
+#
+# The acceptance tests carry a label of their own, since they drive the real
+# runner and are the slow half:
+#
+#     ctest --test-dir <build-dir> -L  acceptance   # only those
+#     ctest --test-dir <build-dir> -LE acceptance   # everything else
 #
 # Nothing here should grow a way to invoke them. If a tester needs a
 # framework-level check run, that is a developer's job on a developer's build,

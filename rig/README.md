@@ -190,6 +190,7 @@ stop being packageable on its own — see `instruments/README.md`).
 | `test_source_instruments.cpp` | `Connect`/`Disconnect` being additive, which takes a DC supply and an AC source in one test |
 | `test_describe.cpp` | that the engines actually post `describeConfig`'s output to the journal |
 | `test_source_readback.cpp` | a source measuring its own output, and leaving the fabric untouched |
+| `test_interlock.cpp` | the electrical interlock end to end — the refusal half has to energise this rig's *real* `DcP3`, since `hal::energisedSourceAt` answers from the global instruments and this rig's `SOURCE_WIRING` |
 | `test_wiring_uniqueness.cpp` | that no two endpoints in `wiring.inc` claim one relay — the only file here that expands this rig's real tables |
 
 `test_describe.cpp` and `test_source_readback.cpp` are the ones that look

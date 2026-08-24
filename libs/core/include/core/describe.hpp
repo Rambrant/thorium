@@ -3,6 +3,7 @@
 #include <string>
 
 #include "core/bench.hpp"
+#include "core/interlock.hpp"
 #include "core/journal.hpp"
 
 //
@@ -62,8 +63,16 @@ namespace core
         // rather than something describeConfig decides, so a driver author has
         // one function to write per config type instead of one per verb.
         //
+        // hotSwitched defaults false because only the two routing verbs can be
+        // it -- a relay is the only thing here that moves, so Apply, Remove,
+        // Setup and Write have nothing to pass and are left untouched. It is
+        // handed in rather than worked out here, unlike the bench flag below,
+        // because answering it needs the ADL probe in core/interlock.hpp and
+        // the engine has already had to ask (it decides nothing on the answer,
+        // but the alternative is asking the driver the same question twice).
+        //
         template<typename ConfigT>
-        auto postSourceEvent( const Verb method, const ConfigT & config, const bool withSettings) -> void
+        auto postSourceEvent( const Verb method, const ConfigT & config, const bool withSettings, const bool hotSwitched = false) -> void
         {
             const auto described = describeConfig( config);
 
@@ -84,7 +93,18 @@ namespace core
                 // disagree -- and a parameter would be a second way to say it,
                 // which an engine could set wrongly.
                 //
-                .Detail     = bench().isAttached() ? std::string{} : std::string( kDetachedDetail),
+                //
+                // A detached run cannot hot switch, and the marker wins over
+                // the note rather than joining it: nothing reached a relay, so
+                // there was no contact to arc. The engines gate their own
+                // detection on the same flag, so hotSwitched is already false
+                // whenever this branch is taken -- writing the precedence out
+                // here states it rather than leaving it resting on that.
+                //
+                .Detail     = bench().isAttached()
+                                  ? ( hotSwitched ? hotSwitchDetail( method, described.Instrument)
+                                                  : std::string{})
+                                  : std::string( kDetachedDetail),
                 .Instrument = described.Instrument,
                 .Value      = withSettings ? described.Settings : std::string{}
             });

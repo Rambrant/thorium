@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <meta>
+#include <optional>
 #include <vector>
 
 #include "hal/instrument.hpp"
@@ -264,6 +265,21 @@ namespace hal
             // InstrumentWiring/ConnectorWiring's addWire() is the point.
             //
             auto addLanding( InstrumentId instrument, VpcLocation location) -> void;
+
+            //
+            // Which instrument lands on this pin, or nothing if none does.
+            //
+            // The non-throwing half of find() below, added for the electrical
+            // interlock (see hal/interlock.hpp): "is a source cabled onto this
+            // pin at all" is that caller's *first* question and an ordinary no
+            // is its commonest answer, so an exception would be control flow.
+            // Distinct from find() rather than replacing it, because the two
+            // callers genuinely differ -- code that has already established a
+            // pin is a landing pin wants the throw, since reaching it means an
+            // invariant broke somewhere upstream.
+            //
+            [[nodiscard]]
+            auto findLanding( VpcLocation location) const -> std::optional<InstrumentId>;
 
             //
             // Which instrument lands on this pin. Throws std::runtime_error

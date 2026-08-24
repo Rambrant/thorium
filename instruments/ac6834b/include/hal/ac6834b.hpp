@@ -1004,6 +1004,23 @@ namespace hal
         config.Instrument.removeOutput();
     }
 
+    //
+    // ADL target for the electrical interlock -- see hal::N6701A's own
+    // isEnergised for the contract, which is identical, and core/interlock.hpp
+    // for why every config with an applyDriver must have one.
+    //
+    // The source's own enabled flag, not a per-phase one. removeOutput() drops
+    // all three phases and the neutral return together (see this class's own
+    // safe()), and Connect/Disconnect close and open all four of its wiring
+    // entries as one unit -- so "is a contact about to move on a live path"
+    // has one answer here, not four.
+    //
+    template<typename Symmetry>
+    auto isEnergised( const Ac6834BConfig<Symmetry> & config) -> bool
+    {
+        return config.Instrument.isEnabled();
+    }
+
     namespace detail
     {
         //

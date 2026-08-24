@@ -131,8 +131,11 @@ auto acDropoutScript() -> void
 
     //
     // The event. Remove before Disconnect, so the relay opens on a dead path
-    // rather than under load -- see core/source.hpp, which states the rule
-    // and says why nothing enforces it.
+    // rather than under load -- see core/source.hpp, which states the rule and
+    // says why it is recorded rather than refused. Swapping these two lines is
+    // not a build error and not a failing script; what catches it is
+    // AcceptanceMachineLog.NoShippedScriptOrHookMovesARelayUnderLoad, which
+    // reads this run's own machine log.
     //
     Remove(     AcP1.ac());
     Disconnect( AcP1.ac());

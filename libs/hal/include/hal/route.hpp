@@ -31,8 +31,11 @@ using DisconnectEngine = core::DisconnectEngine<hal::SwitchFabric, hal::Instrume
 //
 // Note that the sequence nests rather than mirrors: the relay closes before
 // the output comes up and opens after it goes down, so it never moves under
-// load. Nothing here enforces that -- see core/source.hpp's own comment for
-// the reasoning and for when breaking it is the right call.
+// load. Nothing here refuses to break that -- but a Connect or Disconnect that
+// moved a contact on a live path records it in the run journal. See
+// core/source.hpp's own comment for the reasoning and for when breaking it is
+// the right call, and core/interlock.hpp for why this one is recorded rather
+// than refused.
 //
 // Defined once in hal/route.cpp, wired to the linking rig's fabric and its two
 // static wiring tables (see that rig's wiring.inc -- rig/wiring.inc in this

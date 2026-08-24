@@ -25,6 +25,13 @@ using core::at;
 // hal/measure.cpp) are just one concrete set of types happening to satisfy
 // this same shape; core::MeasureEngine never sees them.
 //
+//
+// Unnamed namespace, so this file's mock is this file's own -- see
+// test_bench.cpp's mock for why that is a correctness requirement in this
+// binary rather than a matter of taste.
+//
+namespace
+{
 namespace mock
 {
     enum class InstrumentId { Dmm1, Dmm2 };
@@ -157,6 +164,7 @@ namespace mock
             std::optional<std::string> mFault;
     };
 } // namespace mock
+} // namespace
 
 namespace
 {

@@ -12,6 +12,7 @@
 #include "core/adapter.hpp"
 #include "core/at.hpp"
 #include "core/format.hpp"
+#include "core/interlock.hpp"
 #include "core/journal.hpp"
 #include "core/port.hpp"
 #include "core/quantity_kind.hpp"
@@ -117,6 +118,15 @@ namespace core
                 const auto   instrumentId = port.instrumentId();
 
                 //
+                // Declared up here with the other two facts taken straight off
+                // the arguments, rather than further down beside its first use
+                // in the journal event: the interlock check inside liveRead
+                // below names the measuring instrument in its message, and a
+                // lambda can only capture what has already been declared.
+                //
+                const auto   instrumentName = std::string( to_string( instrumentId));
+
+                //
                 // Set by readOrSubstitute below if the instrument said it
                 // could not make this reading, and read again further down for
                 // the journal event -- see core::UnmeasurableReading.
@@ -162,6 +172,51 @@ namespace core
 
                 auto liveRead = [&]() -> QuantityVariant
                 {
+                    //
+                    // The electrical interlock, before any path is composed and
+                    // long before anything closes -- see core/interlock.hpp for
+                    // why this one hazard is refused where hot switching is
+                    // merely recorded.
+                    //
+                    // Two compile-time guards, so the check exists only where
+                    // the hazard does. Kind == Source is the pin half: only a
+                    // pin a supply is cabled onto can be held live by one, and
+                    // dut/tests/test_wiring_coverage.cpp makes it a compile
+                    // error for an ordinary POINT to be source-wired, so
+                    // Signal points are provably not at risk. requiresDeadNode
+                    // is the port half: a voltage or frequency tap onto a live
+                    // rail is the ordinary, valuable measurement a landing pin
+                    // is worth declaring for (see core::PointKind) and stays
+                    // permitted. Only their intersection -- an ammeter or an
+                    // ohmmeter routed to a rail -- is refused.
+                    //
+                    // Inside liveRead rather than around it, which is the same
+                    // placement the fabric work has and for the same reason: a
+                    // replayed or injected run never invokes this lambda, so it
+                    // cannot be refused for the state of a rig it is not
+                    // talking to. A run reading from a file has no rail to
+                    // short.
+                    //
+                    // energisedSourceAt is an unqualified call and resolves via
+                    // ADL on Loc's own type -- hal::VpcLocation here, so
+                    // hal::energisedSourceAt (see hal/interlock.hpp) -- exactly
+                    // the trick to_string( instrumentId) below already uses to
+                    // keep this header free of any hal:: dependency. Note it is
+                    // *not* wrapped in an `if constexpr( requires ...)`: a rig
+                    // that declares a source point and points a current-reading
+                    // port at it must answer this question, and a missing
+                    // overload is a compile error rather than a check that
+                    // quietly is not there.
+                    //
+                    if constexpr( Kind == PointKind::Source && requiresDeadNode( quantityKindOf<QuantityT>()))
+                    {
+                        if( const auto liveSource = energisedSourceAt( Loc); !liveSource.empty())
+                        {
+                            throw InterlockViolation(
+                                liveTapMessage( point.Name, instrumentName, quantityKindOf<QuantityT>(), liveSource));
+                        }
+                    }
+
                     //
                     // Each side's Path (see hal/switch_fabric.hpp) may be
                     // more than one element -- a mux narrowing down to a
@@ -219,8 +274,6 @@ namespace core
 
                     return value;
                 };
-
-                const auto instrumentName = std::string( to_string( instrumentId));
 
                 //
                 // Unwrapped to the concrete Quantity<Unit> before anything else

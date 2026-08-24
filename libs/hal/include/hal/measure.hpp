@@ -2,8 +2,20 @@
 
 #include "core/measure.hpp"
 #include "core/transfer.hpp"
+#include "hal/interlock.hpp"
 #include "hal/switch_fabric.hpp"
 #include "hal/wiring.hpp"
+
+//
+// hal/interlock.hpp is included for a reason worth stating, because nothing in
+// this file names anything from it: core::MeasureEngine's routed overload calls
+// energisedSourceAt unqualified, and ADL resolves that on hal::VpcLocation at
+// the point the overload is instantiated -- which is whichever script called
+// Measure(). This header is what every such script includes (see
+// suite/prelude.hpp), so this is where the declaration has to be in scope. The
+// call is not guarded by a `requires`, deliberately (see core/measure.hpp), so
+// dropping this include does not lose the interlock quietly -- it stops the
+// scripts that need it from compiling.
 
 //
 // The concrete instantiation of core::MeasureEngine for this rig -- see

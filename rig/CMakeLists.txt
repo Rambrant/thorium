@@ -10,10 +10,12 @@
 # "tests" section for the file-by-file argument, and instruments/README.md for
 # why a test naming two drivers cannot live in either driver's directory.
 #
-# Linked against hal_rig, not hal, and every one of the five files needs
-# something from that half: test_safing.cpp expands THORIUM_ACTIVE_INSTRUMENTS
-# and calls hal::safeRig(), and the other four drive the Apply/Connect/Measure
-# engines. hal_rig carries the driver targets as PUBLIC link libraries, so the
+# Linked against hal_rig, not hal, and every one of these files needs something
+# from that half: test_safing.cpp expands THORIUM_ACTIVE_INSTRUMENTS and calls
+# hal::safeRig(), test_interlock.cpp expands it and calls
+# hal::energisedSourceAt(), and the rest drive the Apply/Connect/Measure
+# engines. (No count here on purpose -- the last one went stale the first time a
+# file was added.) hal_rig carries the driver targets as PUBLIC link libraries, so the
 # driver headers these files include come with it -- nothing to add here.
 if(BUILD_TESTING_LAYERS)
     add_layer_tests(rig hal_rig ${CMAKE_CURRENT_SOURCE_DIR}/tests)

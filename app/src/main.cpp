@@ -98,8 +98,11 @@
 // declaring neither behaves exactly as it did before they existed.
 //
 // ids are only ever compared for a match against what's already in the
-// catalog -- never parsed into anything -- so a typo in --select just
-// means that test doesn't run, not a crash or an unintended one.
+// catalog -- never parsed into anything -- so a typo in --select can never be
+// a crash or an unintended run. It is a refusal: an id this catalog has no
+// test for fails the run before SETUP, naming every such id, and nothing at
+// all executes. See unmatchedSelection below on why a partly-valid list is
+// treated the same way as a wholly invalid one.
 //
 // --safe exists for a caller outside this process. The rig console
 // supervises a run as a child process, and on an abnormal exit it cannot
@@ -606,14 +609,42 @@ namespace
         return allPassed;
     }
 
-    // Whether the selection names anything this catalog actually has.
-    auto anythingSelected( const std::vector<std::string_view> & selection) -> bool
+    //
+    // Every id in the selection that this catalog has no test for.
+    //
+    // Replaces an earlier anythingSelected(), which asked the weaker question:
+    // whether *some* id matched. That let --select=SupplyRail,Typo run
+    // SupplyRail, ignore Typo, and exit zero -- a run that reports success
+    // while having quietly not done part of what it was asked. The caller's
+    // next act is to read a report and believe it covers what they named, so
+    // the silent half is the dangerous half.
+    //
+    // Every id is reported, not just the first: a mistyped --select is usually
+    // a mistyped *list*, and fixing one typo per run is a poor way to find out
+    // there were three.
+    //
+    // An empty selection means "run everything" (see isSelected above) and so
+    // has nothing unmatched -- the loop below is simply empty for it, which is
+    // why there is no special case here.
+    //
+    auto unmatchedSelection( const std::vector<std::string_view> & selection) -> std::vector<std::string_view>
     {
-        for ( const auto & group : core::catalog::Catalog)
-            if ( anySelected( group, selection))
-                return true;
+        std::vector<std::string_view> unmatched;
 
-        return false;
+        for ( const auto & id : selection)
+        {
+            bool found = false;
+
+            for ( const auto & group : core::catalog::Catalog)
+                for ( const auto & test : group.tests)
+                    if ( test.id == id)
+                        found = true;
+
+            if ( !found)
+                unmatched.push_back( id);
+        }
+
+        return unmatched;
     }
 
     //
@@ -725,13 +756,25 @@ namespace
     auto runTests( const Options & options) -> bool
     {
         //
-        // Checked before SETUP: a selection matching nothing is a caller error,
-        // and powering a rig up to then run no test at all is not a helpful way
-        // to report it.
+        // Checked before SETUP: a --select naming a test this catalog does not
+        // have is a caller error, and powering a rig up to then not run what
+        // was asked for is not a helpful way to report it.
         //
-        if ( !anythingSelected( options.Selection))
+        // Fails on *any* unmatched id rather than only on all of them, which is
+        // the whole point -- see unmatchedSelection above. Nothing runs: a
+        // partial selection is not a smaller run the caller asked for, it is a
+        // list they got wrong, and running the matching part of it produces a
+        // report that has to be read twice to be trusted.
+        //
+        if ( const auto unmatched = unmatchedSelection( options.Selection); !unmatched.empty())
         {
-            std::cerr << "No catalog test matched --select; nothing ran.\n";
+            std::cerr << "No catalog test named";
+
+            for ( const auto & id : unmatched)
+                std::cerr << " '" << id << "'";
+
+            std::cerr << " -- nothing ran. Use --list-tests for the ids this suite has.\n";
+
             return false;
         }
 

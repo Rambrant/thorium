@@ -392,6 +392,28 @@ namespace hal
     }
 
     //
+    // ADL target for the electrical interlock -- see core/interlock.hpp on the
+    // isEnergised customization point, and core::ConnectEngine/DisconnectEngine
+    // for the two callers. Answers whether this supply's output is on at the
+    // moment a relay in its path is about to move, which is the difference
+    // between a contact moving cold and one arcing.
+    //
+    // Required of this config rather than optional, and the requirement is
+    // checked: core::detail::energisedNow static_asserts it for any config that
+    // has an applyDriver, on the grounds that a config Apply can energise and
+    // that cannot say whether it currently is would silently report every
+    // relay move as cold. Defined for both Isolation kinds even though only
+    // SwitchableIsolation ever reaches Connect/Disconnect -- the question is
+    // about the output, which both kinds have, and constraining it would make
+    // the interlock's shape depend on whether there is a relay in the path.
+    //
+    template<typename Isolation>
+    auto isEnergised( const N6701AConfig<Isolation> & config) -> bool
+    {
+        return config.Instrument.isEnabled();
+    }
+
+    //
     // ADL target for the run journal -- see core/describe.hpp's own comment on the
     // describeConfig customization point, and hal::describeSetting in
     // hal/describe.hpp for the optional-field helper. Found the same way

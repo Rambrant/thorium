@@ -179,12 +179,13 @@ foreach(_thorium_instrument_target IN LISTS THORIUM_INSTRUMENT_TARGETS)
 endforeach()
 
 # --- hal_rig: the half that knows which instruments this rig actually has ---
-# route/measure/safing all expand THORIUM_ACTIVE_INSTRUMENTS, so all three
-# reach the rig's concrete driver globals (Dmm1, DcP1, ...) and therefore the
-# driver headers behind them -- see this file's own comment on the split above.
-# hal::safeRig() goes furthest: it reflects over the global namespace for every
-# hal::InstrumentTag-derived variable, which only works once those globals have
-# actually been declared (see hal/src/safing.cpp).
+# route/measure/safing/interlock all expand THORIUM_ACTIVE_INSTRUMENTS, so all
+# four reach the rig's concrete driver globals (Dmm1, DcP1, ...) and therefore
+# the driver headers behind them -- see this file's own comment on the split
+# above. safing and interlock go furthest: both reflect over the global
+# namespace for every hal::InstrumentTag-derived variable, which only works
+# once those globals have actually been declared (see hal/src/safing.cpp and
+# hal/src/interlock.cpp).
 #
 # src/source.cpp expands neither table -- Apply/Remove/Setup/Write hold no
 # state at all (see core/source.hpp) -- and so would compile perfectly well in
@@ -197,11 +198,13 @@ add_library(hal_rig STATIC
     src/route.cpp
     src/source.cpp
     src/safing.cpp
+    src/interlock.cpp
     include/hal/measure.hpp        # header-only
     include/hal/trace.hpp          # header-only
     include/hal/route.hpp          # header-only
     include/hal/source.hpp         # header-only
     include/hal/safing.hpp         # header-only
+    include/hal/interlock.hpp      # header-only
 )
 
 # PUBLIC on both counts. The driver targets carry the include directories the
@@ -216,9 +219,13 @@ target_compile_definitions(hal_rig PUBLIC
     THORIUM_ACTIVE_INSTRUMENTS="${THORIUM_ACTIVE_INSTRUMENTS}"
 )
 
-# PRIVATE, unlike the two above: rig/wiring.inc is expanded by src/route.cpp
-# and src/measure.cpp and nowhere else at all -- it builds file-local wiring
-# tables inside those two translation units, and no header exposes it.
+# PRIVATE, unlike the two above: rig/wiring.inc is expanded by src/route.cpp,
+# src/measure.cpp and src/interlock.cpp and nowhere else at all -- it builds
+# file-local wiring tables inside those three translation units, and no header
+# exposes it. That is exactly why hal::energisedSourceAt is an ordinary
+# declared-here/defined-there function rather than a template: the interlock's
+# answer needs this table, and the call sites that ask for it (every script
+# that measures) must not gain it. See hal/interlock.hpp.
 target_compile_definitions(hal_rig PRIVATE
     THORIUM_WIRING_TABLE="${THORIUM_WIRING_TABLE}"
 )
@@ -236,9 +243,10 @@ install(TARGETS hal_rig
 if(BUILD_TESTING_LAYERS)
     # Linked against hal, not hal_rig -- and that is the whole point of what is
     # left in this directory. The drivers took their own tests to
-    # instruments/*/tests/, and the five that needed this rig rather than a
-    # mechanism (test_call_syntax, test_safing, test_source_instruments,
-    # test_describe, test_source_readback) went to rig/tests/. What remains
+    # instruments/*/tests/, and the ones that needed this rig rather than a
+    # mechanism (test_call_syntax, test_safing, test_interlock,
+    # test_source_instruments, test_describe, test_source_readback) went to
+    # rig/tests/. What remains
     # names no driver, expands neither THORIUM_ACTIVE_INSTRUMENTS nor
     # THORIUM_WIRING_TABLE, and tests only hal's own generic machinery: the
     # fabric, the wiring tables, VpcLocation, the adapter macros, addresses,

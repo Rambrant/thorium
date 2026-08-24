@@ -204,7 +204,11 @@ its VPC pin (or four, for `AcP1`), so there is no point left to choose -- see
 `hal::N6701A`'s own comment on why a real power rail is cabled rather than
 routed. Where a relay does exist in the path, `Connect` closes it before the
 output comes up and `Disconnect` opens it after the output goes down, so the
-contacts never move under load -- see `core/source.hpp`.
+contacts never move under load -- see `core/source.hpp`. A sequence that gets
+that the wrong way round is not refused, but it is recorded: both verbs ask the
+driver whether its output is live at the moment the contact moves, through the
+`isEnergised` customization point, and a hot switch lands in the run journal.
+See `core/interlock.hpp`.
 
 Every one of those driver calls is conditional on a bench being attached (see
 `core/bench.hpp`) -- the stimulus counterpart to what `core::ISession` does for

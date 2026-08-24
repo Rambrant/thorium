@@ -728,15 +728,50 @@ TEST_F( AcceptanceSelection, SelectRunsOnlyTheNamedTest)
 }
 
 //
-// A typo in --select means that test doesn't run -- not a crash, and not a
-// silently-empty pass. (tools/run-tests.sh validates ids before it gets here,
-// but a caller typing the flag by hand has no such help.)
+// A typo in --select is refused -- not a crash, and not a silently-empty pass.
+// (tools/run-tests.sh validates ids before it gets here, but a caller typing
+// the flag by hand has no such help.)
 //
 TEST_F( AcceptanceSelection, SelectingNothingIsReportedRatherThanPassingVacuously)
 {
     EXPECT_EQ( run( { "--select=NoSuchTest" }), 1);
 
-    EXPECT_TRUE( containsText( errPath(), mErr, "No catalog test matched"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "No catalog test named"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "NoSuchTest"));
+}
+
+//
+// The half that used to slip through, and the reason the check is per-id rather
+// than "did anything match": a list with one good id and one typo ran the good
+// one and exited zero, so the report looked like a complete answer to what the
+// caller asked for and was not.
+//
+// Asserted on the exit status *and* on nothing having run, because either one
+// alone would be satisfied by the wrong fix -- reporting the typo while still
+// running SupplyRail would pass an exit-status check, and refusing silently
+// would pass a no-output check.
+//
+TEST_F( AcceptanceSelection, OneBadIdInAnOtherwiseValidSelectionRunsNothingAtAll)
+{
+    EXPECT_EQ( run( { "--select=SupplyRail,NoSuchTest" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "NoSuchTest"));
+
+    // The valid half is named nowhere: it did not run, and it is not the
+    // problem being reported either.
+    EXPECT_TRUE( omitsText( errPath(), mErr, "SupplyRail"));
+}
+
+//
+// Every unmatched id, not just the first -- a mistyped --select is usually a
+// mistyped list, and one typo per run is a poor way to discover there are two.
+//
+TEST_F( AcceptanceSelection, EveryUnmatchedIdIsNamedAtOnce)
+{
+    EXPECT_EQ( run( { "--select=NoSuchTest,AlsoMissing" }), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "NoSuchTest"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "AlsoMissing"));
 }
 
 // ---------------------------------------------------------------------------
@@ -976,6 +1011,75 @@ TEST_F( AcceptanceMachineLog, SarifCarriesEveryVerbAndKeysCriteriaByGroupAndId)
 
     // And the tolerance each check enforced, spelled out.
     EXPECT_TRUE( containsText( sarif, log, R"("criterion")"));
+}
+
+//
+// No script in the shipped suite, and neither of its hooks, moves a relay on a
+// live path.
+//
+// This is the check that was missing, and it is worth being clear about what it
+// is for. The interlock does not refuse hot switching -- that is deliberate, and
+// core/source.hpp gives the counterexample (a safety interlock dropping a
+// connection must not first wait out a supply's ramp-down). So a mis-ordered
+// Remove/Disconnect in a script breaks nothing, fails nothing, and exits zero.
+// Every other guarantee in this repo about that ordering was a comment.
+//
+// The rule is therefore asserted where it actually belongs -- about *this
+// suite's own scripts*, not about the framework. A rig that genuinely wants a
+// hot switch somewhere writes it, gets the note in its log, and does not have
+// this test. What it buys here is that swapping those two lines in any script
+// under suite/scripts/ turns from a silent relay-wear regression into a red
+// build naming the instrument.
+//
+// Note honestly what it does not cover: the paths a run does not take. A hot
+// switch inside a branch that this DUT's readings never reach (acDropoutScript
+// has one such branch -- see its `if( captured)`) would not appear here. This
+// is a check on the run, which is the only thing a log can be a check on.
+//
+TEST_F( AcceptanceMachineLog, NoShippedScriptOrHookMovesARelayUnderLoad)
+{
+    // The whole catalog, no --select: a guard that covered some scripts would
+    // read as though it covered all of them.
+    run( { "--quiet" });
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    const auto log = readFile( sarif);
+
+    //
+    // Named rather than merely counted. omitsText would report only that the
+    // phrase was present and in which file, and the first thing anyone seeing
+    // this fail needs is which instrument -- the notice carries it (see
+    // core::hotSwitchDetail), so the assertion should hand it over instead of
+    // sending a reader into a machine log to find it.
+    //
+    std::vector<std::string> notices;
+
+    for ( auto at = log.find( "hot switching"); at != std::string::npos; at = log.find( "hot switching", at + 1))
+    {
+        // To the end of the JSON string the notice sits in, which is exactly
+        // one Detail -- "hot switching -- relay opened while the output was
+        // energised (AcP1)".
+        const auto end = log.find( '"', at);
+
+        notices.push_back( log.substr( at, end == std::string::npos ? std::string::npos : end - at));
+    }
+
+    EXPECT_TRUE( notices.empty())
+        << "a shipped script or hook moved a relay on a live path -- put Remove before\n"
+           "Disconnect (or Connect before Apply); see core/source.hpp:\n  "
+        << [&notices]
+           {
+               std::string joined;
+
+               for ( const auto & notice : notices)
+                   joined += notice + "\n  ";
+
+               return joined;
+           }()
+        << "\n  in: " << sarif.string();
 }
 
 // ---------------------------------------------------------------------------
@@ -1266,7 +1370,7 @@ TEST_F( AcceptanceHooks, ASelectionMatchingNothingNeverReachesTheHooks)
     EXPECT_EQ( runHooked( { "--select=NoSuchTest" }), 1);
 
     EXPECT_TRUE( hookOrder().empty());
-    EXPECT_TRUE( containsText( errPath(), mErr, "No catalog test matched"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "No catalog test named"));
 }
 
 //

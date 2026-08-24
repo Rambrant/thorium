@@ -24,6 +24,13 @@ using namespace core::quantities;
 // mock is not one: "hand back the record you captured" is equally a transient
 // recorder or a datalogger with a memory behind it.
 //
+//
+// Unnamed namespace, so this file's mock is this file's own -- see
+// test_bench.cpp's mock for why that is a correctness requirement in this
+// binary rather than a matter of taste.
+//
+namespace
+{
 namespace mock
 {
     class Digitizer;
@@ -131,6 +138,7 @@ namespace mock
         return core::SourceDescription{ "Log1", "record" };
     }
 } // namespace mock
+} // namespace
 
 namespace
 {

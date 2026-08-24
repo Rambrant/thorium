@@ -25,6 +25,13 @@ using namespace core::quantities;
 // oscilloscope would have quietly made the tests below read as a claim about
 // oscilloscopes.
 //
+//
+// Unnamed namespace, so this file's mock is this file's own -- see
+// test_bench.cpp's mock for why that is a correctness requirement in this
+// binary rather than a matter of taste.
+//
+namespace
+{
 namespace mock
 {
     class Recorder;
@@ -101,6 +108,7 @@ namespace mock
         return core::SourceDescription{ "Rec1", "capture" };
     }
 } // namespace mock
+} // namespace
 
 namespace
 {

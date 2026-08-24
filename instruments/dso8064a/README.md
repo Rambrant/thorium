@@ -77,8 +77,9 @@ own "Single Shot Device Under Test" sequence is what this implements:
                                            // armed and ready, enable DUT here
 ```
 
-So the script's rule is: **Arm, then cause the event.** Nothing enforces it, for
-the same reason nothing enforces Connect-before-Apply.
+So the script's rule is: **Arm, then cause the event.** Nothing enforces it, and
+unlike Connect-before-Apply nothing records it either -- there is no equivalent
+of a supply's `isEnergised` to ask (see `core/interlock.hpp`).
 
 `Await` polls the done register against a timeout and returns `bool` — a
 transient that never arrived is a finding about the DUT, not an error in the

@@ -52,6 +52,16 @@ namespace core
     // rig_power_off.cpp for the same ordering written out as a rig's actual
     // power-up and power-down.
     //
+    // Not enforced still means not enforced -- but it is no longer unrecorded.
+    // Connect and Disconnect (core/route.hpp) ask the driver whether its output
+    // is energised at the moment a contact moves, and say so in their own
+    // journal event when it was. That does not narrow the choice this paragraph
+    // describes; it stops the choice from being invisible, which is a different
+    // thing and was the actual gap. Breaking the rule on purpose now reads as
+    // something the run says you did, rather than as indistinguishable from
+    // having got the order wrong. See core/interlock.hpp for why this hazard is
+    // recorded where the ammeter-across-a-rail one is refused.
+    //
     // Dispatch to the actual instrument driver happens via an ADL
     // customization point (an unqualified applyDriver/removeDriver call
     // inside operator() below), the same trick core/measure.hpp uses for
