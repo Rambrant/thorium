@@ -56,6 +56,17 @@ were not before: the five files that named concrete instruments moved to
 too — a test added to `tests/` that reaches an instrument global or an `Apply`
 no longer compiles, and belongs in `rig/tests/` (see `rig/README.md`).
 
+Three more followed them later, and the reason names the limit of that check:
+`test_switch_device.cpp`, `test_switch_fabric.cpp` and `test_wiring.cpp` all
+named this bench's cards — `SwitchDeviceId::Matrix1`, `Mux1`, `Spst1` — which is
+rig content, and the link line could not see it. An enumerator is not a global,
+so a test asserting the *contents* of `rig/devices.inc` linked plain `hal`
+perfectly happily. What found them was a second deployment: `dev/` declares no
+switching hardware, so there was no `Matrix1` to ask about and `hal_tests`
+stopped compiling (see `dev/README.md`). The rule this leaves is worth stating
+directly, since the build cannot enforce it: **a test in `libs/hal/tests/` may
+name hal's own types, and no enumerator that comes from a rig's `.inc` file.**
+
 ## Layout
 
 ```

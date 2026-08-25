@@ -11,7 +11,7 @@
 # CONFIGURE_DEPENDS makes CMake re-glob and reconfigure whenever that
 # directory's contents change, so a new suite/scripts/*.cpp just needs to
 # exist to be picked up on the next build -- no CMakeLists.txt edit.
-file(GLOB THORIUM_SUITE_SCRIPT_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/suite/scripts/*.cpp")
+file(GLOB THORIUM_SUITE_SCRIPT_SOURCES CONFIGURE_DEPENDS "${THORIUM_SUITE_DIR}/scripts/*.cpp")
 
 # Target is still named "scripts" -- it's a library of compiled test
 # scripts, which is still an accurate name, even though the folder
@@ -49,7 +49,7 @@ target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 # DUT being tested (the same reasoning that put adapter.inc there) -- see
 # dut/README.md.
 target_compile_definitions(scripts PRIVATE
-    THORIUM_PRODUCTION_CRITERIA="${CMAKE_SOURCE_DIR}/dut/criteria_production.inc"
+    THORIUM_PRODUCTION_CRITERIA="${THORIUM_DUT_DIR}/criteria_production.inc"
     THORIUM_CRITERIA_VARIANT_TABLES="${THORIUM_CRITERIA_VARIANT_TABLES}"
 )
 
@@ -64,8 +64,8 @@ target_compile_definitions(scripts PRIVATE
 # as part of run_scripts, not this scripts library, so it needs these
 # definitions to reach it via target_link_libraries below.
 target_compile_definitions(scripts PUBLIC
-    THORIUM_TEST_CATALOG="${CMAKE_SOURCE_DIR}/suite/test_catalog.inc"
-    THORIUM_TEST_SCRIPTS="${CMAKE_SOURCE_DIR}/suite/scripts.hpp"
+    THORIUM_TEST_CATALOG="${THORIUM_SUITE_DIR}/test_catalog.inc"
+    THORIUM_TEST_SCRIPTS="${THORIUM_SUITE_DIR}/scripts.hpp"
 )
 
 # Runner: executes all scripts against a real (or simulated) device
@@ -112,8 +112,33 @@ if(BUILD_TESTING_LAYERS)
     # no edit here -- exactly like the suite/scripts/*.cpp glob above, and for
     # a rather more pointed reason. A script this file failed to build fails to
     # link; a *test* this file failed to build just silently never runs.
-    add_layer_tests(scripts scripts ${CMAKE_SOURCE_DIR}/suite/tests)
+    add_layer_tests(scripts scripts ${THORIUM_SUITE_DIR}/tests)
 
+    # --- Acceptance tests: on for a deployment that brings its own ---
+    # app/tests/test_acceptance.cpp is the one test target in this tree that is
+    # deployment *content* living in a framework directory. It drives the built
+    # run_scripts as a subprocess and asserts on what comes back -- which means
+    # asserting on this suite's group and test names, this DUT's name in the
+    # report header, and this rig's instruments in the log. None of that is true
+    # of a second deployment, so the target is optional rather than
+    # unconditional, and a deployment that wants black-box coverage of its own
+    # runner writes it under its own suite's tests/ (see dev/README.md).
+    #
+    # The other half of what this block builds -- run_scripts_hooked over
+    # tests/fixtures/hooked_catalog.inc -- genuinely is framework-side: the
+    # fixture names no instrument and no DUT point, and what it tests is main.cpp's
+    # hook ordering. It is gated with the rest only because the assertions that
+    # read it live in the same file. Splitting the two is a reasonable follow-up
+    # and is not this change.
+    #
+    # ON by default, so the bench deployment is unchanged and a deployment that
+    # forgets to think about it gets the more thorough build rather than the
+    # quieter one.
+    option(THORIUM_ACCEPTANCE_TESTS
+        "Build app/tests/test_acceptance.cpp -- assumes THORIUM_SUITE_DIR is this repo's own suite/" ON)
+endif()
+
+if(BUILD_TESTING_LAYERS AND THORIUM_ACCEPTANCE_TESTS)
     # --- Acceptance tests: the run_scripts binary, driven as a subprocess ---
     # Runs the built run_scripts the way a rig console or a CI job does -- real
     # flags, real log files, exit statuses -- and asserts on what comes back
@@ -181,7 +206,9 @@ if(BUILD_TESTING_LAYERS)
     # `ctest -L acceptance` / `ctest -LE acceptance` -- since these are the only
     # tests here that shell out and touch the filesystem.
     gtest_discover_tests(acceptance_tests PROPERTIES LABELS acceptance)
+endif()
 
+if(BUILD_TESTING_LAYERS)
     # test_criteria_variants_compile.cpp #includes every variant .inc file
     # directly, into namespaces of its own, rather than through
     # core/active_criteria.hpp -- it is checking the variants against each
@@ -189,6 +216,6 @@ if(BUILD_TESTING_LAYERS)
     # core::criterion machinery but neither the scripts library nor the
     # THORIUM_CRITERIA_VARIANT_TABLES compile definition above.
     # test_fuse_register_script.cpp / test_supply_rail_script.cpp also rely on
-    # this to reach suite/scripts.hpp by a plain quoted #include.
+    # this to reach the suite's scripts.hpp by a plain quoted #include.
     target_include_directories(scripts_tests PRIVATE ${CMAKE_SOURCE_DIR})
 endif()

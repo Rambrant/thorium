@@ -14,6 +14,8 @@
 //
 #include "hal/l4411a.hpp"
 
+#include "core/meta.hpp"
+
 #include <gtest/gtest.h>
 
 #include <concepts>
@@ -57,13 +59,39 @@ TEST( HalInstrument, L4411AExposesBothVoltageAndCurrentPorts)
     EXPECT_DOUBLE_EQ( dmm1.current().rawMeasure().value(), 0.5);
 }
 
+//
+// Two ids taken from whatever the linking deployment declares, rather than the
+// literal Dmm1/Dmm2 this was first written with.
+//
+// The literals were a hidden dependency on one bench. Which enumerators
+// hal::InstrumentId has comes from that deployment's instrument.inc, and a
+// deployment with one meter on a desk has no Dmm2 -- so this file, in a
+// directory whose README calls it independently packageable, failed to compile
+// the first time it met a second rig (see dev/README.md). What the test is
+// actually about is that the driver carries the id it was given through to its
+// ports, which needs two distinct ids and does not care which two.
+//
+// Skipped rather than weakened on a deployment that declares only one: there is
+// then nothing for an instrument to be distinguishable *from*, and a version of
+// this that constructed two drivers on the same id would assert something true
+// of a bug.
+//
 TEST( HalInstrument, TwoL4411AsAreDistinguishableByInstrumentId)
 {
-    hal::L4411A dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
-    hal::L4411A dmm2{ hal::InstrumentId::Dmm2, hal::Simulated{} };
+    constexpr auto ids = core::meta::values<hal::InstrumentId>;
 
-    EXPECT_EQ( dmm1.voltage().instrumentId(), hal::InstrumentId::Dmm1);
-    EXPECT_EQ( dmm2.voltage().instrumentId(), hal::InstrumentId::Dmm2);
+    if constexpr( ids.size() < 2)
+    {
+        GTEST_SKIP() << "this deployment declares one instrument -- no second id to differ from";
+    }
+    else
+    {
+        hal::L4411A first{ ids[ 0], hal::Simulated{} };
+        hal::L4411A second{ ids[ 1], hal::Simulated{} };
+
+        EXPECT_EQ( first.voltage().instrumentId(), ids[ 0]);
+        EXPECT_EQ( second.voltage().instrumentId(), ids[ 1]);
+    }
 }
 
 TEST( HalInstrument, L4411AAcVoltagePortReadsTheAcSimulatedReading)

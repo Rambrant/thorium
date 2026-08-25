@@ -1,3 +1,22 @@
+//
+// Moved here from libs/hal/tests/, alongside test_switch_device.cpp -- see that
+// file's own note for the argument, which applies to this one with a twist
+// worth stating.
+//
+// What this file tests genuinely is the mechanism: use-counting, connect and
+// disconnect, a path composed from two independent wiring facts. None of that
+// is about any one bench. But it cannot be exercised without device ids, and
+// hal::SwitchDeviceId's enumerators come from the linking deployment's
+// devices.inc -- so a bench with no switching hardware has nothing to build a
+// SwitchElementId out of, and these tests have no inputs rather than failing
+// inputs.
+//
+// Which is the honest reason this lands in rig/tests/ rather than being made
+// deployment-agnostic: routing cannot be tested where there is nothing to
+// route. A deployment with cards runs these; one without does not exercise the
+// fabric at all, and should not pretend to. See dev/README.md on what that
+// costs the dev deployment's coverage.
+//
 #include "hal/switch_fabric.hpp"
 
 #include <gtest/gtest.h>

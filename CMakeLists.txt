@@ -63,6 +63,60 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+# --- Which deployment this build is ---
+# The framework half of this tree (libs/, instruments/) is portable and reaches
+# its rig, DUT and suite only through file paths (see the layer comment further
+# down, and libs/hal/README.md). Until now those paths were written out
+# longhand as ${CMAKE_SOURCE_DIR}/rig, /dut and /suite in this file and in
+# app/CMakeLists.txt, which made the portability structural but not
+# *reachable*: the framework could be pointed elsewhere, and this repo had no
+# way to point it.
+#
+# These three are that knob. A deployment is a directory triple -- which bench,
+# which device, which suite of scripts -- and everything else derives from it:
+# hal's four rig files below, the criteria variant tables, the test catalog,
+# and which tests/ directories the layer test targets glob.
+#
+# The default triple is this repo's own bench, so an ordinary configure is
+# unchanged. dev/ is the second one: a PC and one instrument, no switching
+# hardware and no DUT, for developing an instrument driver against real
+# hardware at a desk -- see dev/README.md. Select it with a preset
+# (cmake --list-presets) or by hand:
+#
+#     cmake -B build/dev -DTHORIUM_RIG_DIR=dev/rig \
+#         -DTHORIUM_DUT_DIR=dev/dut -DTHORIUM_SUITE_DIR=dev/suite
+#
+# PATH rather than STRING so a relative value is resolved against the build
+# directory the way CMake resolves every other path variable, and so the GUIs
+# offer a directory picker.
+#
+# One deployment per build directory, deliberately -- not two sets of targets
+# in one build. Every one of the derived facts above is a compile definition
+# baked into hal, core and the scripts library at *their* compile time (see
+# libs/hal/README.md's note on why an installed libhal.a belongs to one rig),
+# so two deployments in one build would need two copies of every library, and
+# `run_scripts` would need a name per deployment. Two build directories cost
+# nothing and keep the binary's identity unambiguous, which for a thing that
+# writes traceability headers is the property that matters.
+set(THORIUM_RIG_DIR "${CMAKE_SOURCE_DIR}/rig" CACHE PATH
+    "This deployment's rig data: instrument.inc, devices.inc, wiring.inc, active_instruments.hpp")
+set(THORIUM_DUT_DIR "${CMAKE_SOURCE_DIR}/dut" CACHE PATH
+    "This deployment's DUT data: adapter.inc and the criteria_<variant>.inc tables")
+set(THORIUM_SUITE_DIR "${CMAKE_SOURCE_DIR}/suite" CACHE PATH
+    "This deployment's suite: scripts/, test_catalog.inc, scripts.hpp, prelude.hpp")
+
+foreach(_thorium_deployment_var THORIUM_RIG_DIR THORIUM_DUT_DIR THORIUM_SUITE_DIR)
+    if(NOT IS_DIRECTORY "${${_thorium_deployment_var}}")
+        message(FATAL_ERROR
+            "${_thorium_deployment_var}='${${_thorium_deployment_var}}' is not a directory. "
+            "It must name one of this repository's deployment directories (rig/, dut/, "
+            "suite/ for the bench; dev/rig, dev/dut, dev/suite for the desk bench) or an "
+            "equivalent supplied from outside -- see dev/README.md.")
+    endif()
+endforeach()
+
+message(STATUS "Deployment: rig=${THORIUM_RIG_DIR} dut=${THORIUM_DUT_DIR} suite=${THORIUM_SUITE_DIR}")
+
 # --- Criteria/tolerance variants ---
 # Which tolerance tables the scripts layer's CRIT/CRITERIA checks are built
 # against: e.g. production hardware fresh off the line vs. a stress-chamber
@@ -84,7 +138,15 @@ include(CMakePackageConfigHelpers)
 # misspelled CRIT id fails to compile. Adding a variant is this one line plus
 # the matching dut/criteria_<name>.inc; everything the compiler and the runtime
 # selector need is generated from here (cmake/CriteriaVariants.cmake).
-set(THORIUM_KNOWN_CRITERIA_VARIANTS production stress aged)
+#
+# A cache entry rather than a plain set(), because the list is a property of the
+# DUT rather than of this repository: which tolerance tables exist is decided by
+# whoever writes THORIUM_DUT_DIR's criteria_*.inc files, and the dev deployment
+# has exactly one where the bench has three. The default is still spelled out
+# longhand here -- a glob over the DUT directory would discard the thing worth
+# reviewing, and the order matters (it is the order --criteria= indices mean).
+set(THORIUM_KNOWN_CRITERIA_VARIANTS "production;stress;aged" CACHE STRING
+    "Which criteria/tolerance tables THORIUM_DUT_DIR supplies, in index order")
 
 # Which of them a run uses when --criteria= is not given. A default rather than
 # a build-time restriction: a bench operator who forgets the flag gets the
@@ -106,7 +168,7 @@ include(CriteriaVariants)
 # THORIUM_PRODUCTION_CRITERIA and THORIUM_TEST_CATALOG already work.
 thorium_generate_criteria_variants(
     "${THORIUM_KNOWN_CRITERIA_VARIANTS}"
-    "${CMAKE_SOURCE_DIR}/dut"
+    "${THORIUM_DUT_DIR}"
     "${CMAKE_BINARY_DIR}/generated/thorium"
 )
 
@@ -242,14 +304,22 @@ endif()
 # libs/hal is a generic instrument-driver + switching-fabric library with no
 # instruments plugged into it at all -- it needs a rig to supply which
 # instruments exist, how they're wired, and what to call them, as three file
-# paths (see libs/hal/CMakeLists.txt's own comment). This repo IS that one
-# rig for now, so it points them at ./rig/ here; a separate rig repo pulling
-# hal in later would set these same three variables pointing at its own
+# paths (see libs/hal/CMakeLists.txt's own comment). This repo supplies them
+# from whichever deployment THORIUM_RIG_DIR names above; a separate rig repo
+# pulling hal in later would set these same four variables pointing at its own
 # rig/-equivalent instead -- see rig/README.md.
-set(THORIUM_ACTIVE_INSTRUMENTS "${CMAKE_SOURCE_DIR}/rig/active_instruments.hpp" CACHE FILEPATH "" FORCE)
-set(THORIUM_INSTRUMENT_TABLE "${CMAKE_SOURCE_DIR}/rig/instrument.inc" CACHE FILEPATH "" FORCE)
-set(THORIUM_WIRING_TABLE "${CMAKE_SOURCE_DIR}/rig/wiring.inc" CACHE FILEPATH "" FORCE)
-set(THORIUM_DEVICE_TABLE "${CMAKE_SOURCE_DIR}/rig/devices.inc" CACHE FILEPATH "" FORCE)
+#
+# Derived from THORIUM_RIG_DIR rather than being four knobs of their own, and
+# FORCE'd because of it: the four are one fact (which bench), and a build with
+# three of them from one rig and the fourth from another is not a configuration
+# anyone wants to be able to reach by accident. Point THORIUM_RIG_DIR somewhere
+# else to change them. A rig whose files are not named the way these four lines
+# expect is a rig consuming this framework from outside, which sets the four
+# directly before hal configures and never reaches this file at all.
+set(THORIUM_ACTIVE_INSTRUMENTS "${THORIUM_RIG_DIR}/active_instruments.hpp" CACHE FILEPATH "" FORCE)
+set(THORIUM_INSTRUMENT_TABLE "${THORIUM_RIG_DIR}/instrument.inc" CACHE FILEPATH "" FORCE)
+set(THORIUM_WIRING_TABLE "${THORIUM_RIG_DIR}/wiring.inc" CACHE FILEPATH "" FORCE)
+set(THORIUM_DEVICE_TABLE "${THORIUM_RIG_DIR}/devices.inc" CACHE FILEPATH "" FORCE)
 
 # --- Which instrument drivers are available to build against ---
 # The fourth thing a rig supplies libs/hal, alongside the three files above:
@@ -279,12 +349,47 @@ set(THORIUM_DEVICE_TABLE "${CMAKE_SOURCE_DIR}/rig/devices.inc" CACHE FILEPATH ""
 file(GLOB _thorium_instrument_manifests CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/instruments/*/CMakeLists.txt")
 
+# --- ...unless the deployment says which of them it wants ---
+# The glob above settles availability, and for the bench deployment that is the
+# whole story: a driver no INSTRUMENT() row names contributes no global, no
+# hal::InstrumentId enumerator and no object code, so building all five costs
+# nothing but compile time.
+#
+# It does cost one thing, and a second deployment is what made it visible: a
+# driver package's *tests* are object code, and every one of them constructs its
+# driver with an id from this bench's instrument list -- InstrumentId::Osc1 in
+# instruments/dso8064a/tests, ::AcP1 in ac6834b, ::Ser1 in racal1260. Those
+# enumerators do not exist on a bench that has no scope, no AC source and no
+# serial port, so a deployment declaring one instrument cannot build the other
+# four packages' tests at all. That is a real defect against the claim in
+# instruments/README.md that each directory is independently packageable, and it
+# is not fixed here -- see dev/README.md for what fixing it looks like.
+#
+# What this list does is let a deployment stop paying for packages it has no
+# instrument for. Empty means the glob, so the bench deployment and any existing
+# build directory are unchanged; a non-empty list names directories under
+# instruments/ and nothing else is configured.
+set(THORIUM_INSTRUMENT_PACKAGES "" CACHE STRING
+    "Which instruments/<dir> packages this deployment builds; empty means all of them")
+
 set(THORIUM_INSTRUMENT_DIRS "")
 
-foreach(_thorium_manifest IN LISTS _thorium_instrument_manifests)
-    get_filename_component(_thorium_dir "${_thorium_manifest}" DIRECTORY)
-    list(APPEND THORIUM_INSTRUMENT_DIRS "${_thorium_dir}")
-endforeach()
+if(THORIUM_INSTRUMENT_PACKAGES)
+    foreach(_thorium_package IN LISTS THORIUM_INSTRUMENT_PACKAGES)
+        if(NOT EXISTS "${CMAKE_SOURCE_DIR}/instruments/${_thorium_package}/CMakeLists.txt")
+            message(FATAL_ERROR
+                "THORIUM_INSTRUMENT_PACKAGES names '${_thorium_package}', but "
+                "instruments/${_thorium_package}/CMakeLists.txt does not exist.")
+        endif()
+
+        list(APPEND THORIUM_INSTRUMENT_DIRS "${CMAKE_SOURCE_DIR}/instruments/${_thorium_package}")
+    endforeach()
+else()
+    foreach(_thorium_manifest IN LISTS _thorium_instrument_manifests)
+        get_filename_component(_thorium_dir "${_thorium_manifest}" DIRECTORY)
+        list(APPEND THORIUM_INSTRUMENT_DIRS "${_thorium_dir}")
+    endforeach()
+endif()
 
 add_subdirectory(libs/core)
 add_subdirectory(libs/hal)
@@ -334,8 +439,15 @@ install(FILES
 # After libs/hal, not before: rig/ declares no library of its own, and the one
 # target it does declare -- rig_tests -- links hal_rig, which does not exist
 # until libs/hal has been configured (and, before that, the drivers it links).
-add_subdirectory(rig)
+#
+# Two arguments rather than one, because a deployment directory need not sit
+# below this one: add_subdirectory() can only infer a binary directory for a
+# source directory inside the tree, and THORIUM_RIG_DIR is free to point
+# outside it. Naming the binary directory after the layer rather than after the
+# path also keeps the build layout identical whichever deployment is selected,
+# so build/dev/rig and build/debug/rig hold the same thing for their own rigs.
+add_subdirectory(${THORIUM_RIG_DIR} ${CMAKE_BINARY_DIR}/rig)
 
-add_subdirectory(dut)
+add_subdirectory(${THORIUM_DUT_DIR} ${CMAKE_BINARY_DIR}/dut)
 #add_subdirectory(dsl)
 add_subdirectory(app)

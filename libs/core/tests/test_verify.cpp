@@ -202,7 +202,22 @@ TEST_F( CoreFail, NamedFormReportsTheReasonRatherThanTheCriterionsDescription)
 //
 TEST_F( CoreFail, NamedFormOnAMultiCriterionQuotesTheSelectedVariantsTolerance)
 {
-    ASSERT_TRUE( core::selectCriteriaVariant( "stress"));
+    //
+    // The second variant, by index rather than by the bench's name for it --
+    // see test_criteria_variants.cpp's own note on why core_tests must not
+    // assert what THORIUM_KNOWN_CRITERIA_VARIANTS contains. Skipped where there
+    // is no second variant: what this checks is that the *selected* one's
+    // tolerance is quoted, and with one variant there is no selection to get
+    // wrong.
+    //
+    const auto names = core::criteriaVariantNames();
+
+    if( names.size() < 2)
+    {
+        GTEST_SKIP() << "this deployment declares one criteria variant -- nothing to select between";
+    }
+
+    ASSERT_TRUE( core::selectCriteriaVariant( names[ 1]));
 
     core::Fail( WidensPerVariant, "no reading arrived");
 
@@ -214,7 +229,7 @@ TEST_F( CoreFail, NamedFormOnAMultiCriterionQuotesTheSelectedVariantsTolerance)
     EXPECT_EQ( event.SubjectGroup, "TestGroup");
 
     EXPECT_EQ( event.CriterionText, core::describeCriterion( EQ( 10.0).epsilon( 1.5)))
-        << "stress is the selected variant, so its tolerance is the one in force";
+        << "the second variant is selected, so its tolerance is the one in force";
 
     EXPECT_NE( event.CriterionText, core::describeCriterion( EQ( 10.0).epsilon( 0.5)));
 }

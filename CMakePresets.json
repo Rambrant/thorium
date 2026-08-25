@@ -68,6 +68,33 @@
     {
       "name": "windows-release",
       "inherits": ["release", "windows"]
+    },
+
+    {
+      "name": "dev-deployment",
+      "hidden": true,
+      "cacheVariables": {
+        "THORIUM_RIG_DIR": "${sourceDir}/dev/rig",
+        "THORIUM_DUT_DIR": "${sourceDir}/dev/dut",
+        "THORIUM_SUITE_DIR": "${sourceDir}/dev/suite",
+        "THORIUM_KNOWN_CRITERIA_VARIANTS": "production",
+        "THORIUM_INSTRUMENT_PACKAGES": "l4411a",
+        "THORIUM_DUT_NAME": "DevBench",
+        "THORIUM_RIG_NAME": "dev-desk",
+        "THORIUM_ACCEPTANCE_TESTS": "OFF"
+      }
+    },
+
+    {
+      "name": "macos-dev",
+      "inherits": ["dev-deployment", "debug", "macos"],
+      "binaryDir": "${sourceDir}/build/dev"
+    },
+
+    {
+      "name": "windows-dev",
+      "inherits": ["dev-deployment", "debug", "windows"],
+      "binaryDir": "${sourceDir}/build/dev"
     }
   ]
 

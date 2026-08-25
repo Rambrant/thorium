@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -388,7 +389,24 @@ namespace hal
     SwitchDeviceInfo{ SwitchDeviceModel::model, hal::address, hal::card },
 #define END_SWITCH_DEVICES
 
-        inline constexpr SwitchDeviceInfo switchDevices[] =
+        //
+        // std::array sized from the enum, not a plain `SwitchDeviceInfo[]`,
+        // and the reason is a rig with no switching hardware at all: a
+        // dev bench that is a PC and one instrument declares the table with
+        // no rows, and `SwitchDeviceInfo switchDevices[]` is then a
+        // zero-length array -- a GCC extension rather than C++, which
+        // std::size() below has no overload for. The deduced-bound form
+        // could not express "this rig has no cards" at all, which is a thing
+        // a rig is entitled to say (see dev/rig/devices.inc).
+        //
+        // Taking the bound from SwitchDeviceId also moves half the count
+        // check from the static_assert into the declaration: too many rows in
+        // the second read is now an excess-initializers error at this line.
+        // The assert stays for the other half and for its message, which
+        // names what actually went wrong where "too many initializers"
+        // does not.
+        //
+        inline constexpr std::array<SwitchDeviceInfo, core::meta::values<SwitchDeviceId>.size()> switchDevices =
         {
             #include THORIUM_DEVICE_TABLE
         };
@@ -397,7 +415,7 @@ namespace hal
 #pragma pop_macro( "SWITCH_DEVICE")
 #pragma pop_macro( "SWITCH_DEVICES")
 
-        static_assert( std::size( switchDevices) == core::meta::values<SwitchDeviceId>.size(),
+        static_assert( switchDevices.size() == core::meta::values<SwitchDeviceId>.size(),
                        "THORIUM_DEVICE_TABLE's two expansions disagree on how many devices this rig has");
     } // namespace detail
 

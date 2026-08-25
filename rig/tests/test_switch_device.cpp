@@ -1,3 +1,26 @@
+//
+// Moved here from libs/hal/tests/ -- the sixth file to make that trip, after
+// the five that went when the drivers moved out to instruments/ (see
+// libs/hal/CMakeLists.txt's own list). The reason is the same one, arrived at
+// from the other end: every assertion below names one of this bench's five
+// cards, so what the file checks is rig/devices.inc as much as it is the
+// mechanism that reads it.
+//
+// It sat in the generic library's test directory for as long as this repository
+// held one rig, and the link-line check that is supposed to catch exactly that
+// could not see it: hal_tests links plain hal so that a test reaching an
+// instrument global or an Apply fails to link, and a SwitchDeviceId enumerator
+// is neither. A second deployment found it immediately -- a bench with no
+// switching hardware has no Matrix1 to ask about, and hal_tests stopped
+// compiling.
+//
+// What is genuinely generic here is the *model* table -- that a 1260-45 is a
+// matrix, that its channels are <group><row><column> -- and those facts are
+// reachable through hal::SwitchDeviceModel without a declared device at all.
+// Splitting the file along that line is a real improvement and a separate
+// change; every assertion below currently goes through an id, which is why the
+// whole file moved rather than half of it.
+//
 #include "hal/switch_device.hpp"
 
 // hal::hop/crosspoint/bank live one header over, with hal::SwitchElementId --

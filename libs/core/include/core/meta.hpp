@@ -126,8 +126,19 @@ namespace core::meta
     // wants "DEBUG", not "Debug" -- see to_string_upper() below rather than
     // hand-writing a new switch.
     //
+    //
+    // [[maybe_unused]] on the parameter, for the one enum that has no
+    // enumerators to loop over. A rig with no switching hardware declares an
+    // empty SWITCH_DEVICES table, so hal::SwitchDeviceId is a legal enum with
+    // no values (see dev/rig/devices.inc) -- the template for below then
+    // expands to nothing, the parameter is genuinely never read, and
+    // -Wunused-but-set-parameter is right about the code and wrong about the
+    // intent. Nothing is lost by silencing it: for any enum that has
+    // enumerators the parameter is used, and the attribute permits rather than
+    // asserts.
+    //
     template<typename Enum>
-    [[nodiscard]] constexpr auto to_string( Enum value) -> std::string_view
+    [[nodiscard]] constexpr auto to_string( [[maybe_unused]] Enum value) -> std::string_view
     {
         std::string_view result = "Unknown";
 
@@ -149,7 +160,7 @@ namespace core::meta
     // default, ...) rather than baking one choice in here.
     //
     template<typename Enum>
-    [[nodiscard]] constexpr auto fromString( std::string_view text) -> std::optional<Enum>
+    [[nodiscard]] constexpr auto fromString( [[maybe_unused]] std::string_view text) -> std::optional<Enum>
     {
         std::optional<Enum> result;
 
@@ -173,7 +184,7 @@ namespace core::meta
     // is hand-written, not each name.
     //
     template<typename Enum>
-    [[nodiscard]] constexpr auto to_string_upper( Enum value) -> std::string_view
+    [[nodiscard]] constexpr auto to_string_upper( [[maybe_unused]] Enum value) -> std::string_view
     {
         std::string_view result = "UNKNOWN";
         std::size_t index = 0;

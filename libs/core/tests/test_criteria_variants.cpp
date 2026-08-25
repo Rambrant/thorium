@@ -42,6 +42,27 @@ namespace
     };
 
     //
+    // How many variants the linking deployment actually declares, and the guard
+    // the tests below that need more than one go through.
+    //
+    // These used to name this repository's bench tables outright --
+    // selectCriteriaVariant( "stress"), activeCriteriaVariant() == 2u -- which
+    // read as harmless in a repository with one deployment and was not: what
+    // THORIUM_KNOWN_CRITERIA_VARIANTS holds is a property of the DUT, and a
+    // deployment with one tolerance table has no "stress" to select. core_tests
+    // is the framework's own target, so it must not assert the contents of a
+    // list the framework does not own (the dev deployment declares exactly one
+    // -- see dev/dut/criteria_production.inc).
+    //
+    // By index rather than by name, therefore, and skipped rather than weakened
+    // where there are not enough: selection *between* variants is the mechanism
+    // under test, and a single-variant deployment has nothing to select between.
+    // A version of these that quietly asserted only what one variant can show
+    // would keep passing while testing nothing.
+    //
+    constexpr std::size_t kVariantsNeededForSelection = 3;
+
+    //
     // A MultiCriterion built by hand rather than through a merged table: the
     // dispatch under test cares only about the tuple's shape, and a hand-built
     // one lets a variant be given a deliberately distinguishable tolerance
@@ -75,11 +96,23 @@ TEST_F( CriteriaVariants, EveryKnownVariantIsCompiledIn)
 {
     const auto names = core::criteriaVariantNames();
 
-    EXPECT_EQ( names.size(), 3u);
+    ASSERT_FALSE( names.empty());
 
-    EXPECT_NE( std::ranges::find( names, std::string_view( "production")), names.end());
-    EXPECT_NE( std::ranges::find( names, std::string_view( "stress")),     names.end());
-    EXPECT_NE( std::ranges::find( names, std::string_view( "aged")),       names.end());
+    //
+    // The fallback is a single entry spelled "unknown" (see
+    // core/detail/no_criteria_variants.inc), so this is the assertion that
+    // distinguishes "generation ran and reached this binary" from "core was
+    // built without a criteria layer". Every real deployment names its tables
+    // something, and none of them names one that.
+    //
+    EXPECT_EQ( std::ranges::find( names, std::string_view( "unknown")), names.end())
+        << "the THORIUM_KNOWN_CRITERIA_VARIANTS generation did not reach this binary";
+
+    for( const auto name : names)
+    {
+        EXPECT_FALSE( name.empty());
+        EXPECT_TRUE( core::selectCriteriaVariant( name)) << "a declared variant must be selectable: " << name;
+    }
 }
 
 TEST_F( CriteriaVariants, TheDefaultIsOneOfThemAndIsActiveWithoutAsking)
@@ -97,10 +130,16 @@ TEST_F( CriteriaVariants, TheDefaultIsOneOfThemAndIsActiveWithoutAsking)
 
 TEST_F( CriteriaVariants, SelectingByNameMovesTheActiveVariant)
 {
-    ASSERT_TRUE( core::selectCriteriaVariant( "aged"));
+    const auto names = core::criteriaVariantNames();
 
-    EXPECT_EQ( core::activeCriteriaVariantName(), "aged");
-    EXPECT_EQ( core::activeCriteriaVariant(), 2u) << "aged is third in THORIUM_KNOWN_CRITERIA_VARIANTS";
+    for( std::size_t index = 0; index < names.size(); ++index)
+    {
+        ASSERT_TRUE( core::selectCriteriaVariant( names[ index]));
+
+        EXPECT_EQ( core::activeCriteriaVariantName(), names[ index]);
+        EXPECT_EQ( core::activeCriteriaVariant(), index)
+            << names[ index] << " is at position " << index << " in THORIUM_KNOWN_CRITERIA_VARIANTS";
+    }
 }
 
 //
@@ -110,10 +149,12 @@ TEST_F( CriteriaVariants, SelectingByNameMovesTheActiveVariant)
 //
 TEST_F( CriteriaVariants, AnUnknownNameChangesNothingAndSaysSo)
 {
-    ASSERT_TRUE( core::selectCriteriaVariant( "stress"));
+    const auto selected = core::criteriaVariantNames().back();
+
+    ASSERT_TRUE( core::selectCriteriaVariant( selected));
 
     EXPECT_FALSE( core::selectCriteriaVariant( "no-such-variant"));
-    EXPECT_EQ( core::activeCriteriaVariantName(), "stress") << "a rejected selection must not disturb the current one";
+    EXPECT_EQ( core::activeCriteriaVariantName(), selected) << "a rejected selection must not disturb the current one";
 }
 
 //
@@ -122,12 +163,19 @@ TEST_F( CriteriaVariants, AnUnknownNameChangesNothingAndSaysSo)
 //
 TEST_F( CriteriaVariants, TheSelectionCannotChangeOnceTheRunHasBegun)
 {
-    ASSERT_TRUE( core::selectCriteriaVariant( "stress"));
+    const auto names = core::criteriaVariantNames();
+
+    if( names.size() < 2)
+    {
+        GTEST_SKIP() << "this deployment declares one criteria variant -- no second one to try to move to";
+    }
+
+    ASSERT_TRUE( core::selectCriteriaVariant( names[ 0]));
 
     core::lockCriteriaVariant();
 
-    EXPECT_THROW( (void)core::selectCriteriaVariant( "aged"), std::logic_error);
-    EXPECT_EQ( core::activeCriteriaVariantName(), "stress");
+    EXPECT_THROW( (void)core::selectCriteriaVariant( names[ 1]), std::logic_error);
+    EXPECT_EQ( core::activeCriteriaVariantName(), names[ 0]);
 }
 
 // ---------------------------------------------------------------------------
@@ -141,13 +189,21 @@ TEST_F( CriteriaVariants, TheSelectionCannotChangeOnceTheRunHasBegun)
 //
 TEST_F( CriteriaVariants, VerifyAppliesTheSelectedVariantsTolerance)
 {
-    ASSERT_TRUE( core::selectCriteriaVariant( "production"));
-    EXPECT_FALSE( core::Verify( WideningCriterion, 11.0)) << "production's +/-0.5 must reject 11.0";
+    const auto names = core::criteriaVariantNames();
 
-    ASSERT_TRUE( core::selectCriteriaVariant( "stress"));
-    EXPECT_TRUE( core::Verify( WideningCriterion, 11.0)) << "stress's +/-1.5 must accept 11.0";
+    if( names.size() < kVariantsNeededForSelection)
+    {
+        GTEST_SKIP() << "WideningCriterion has three variants and dispatch is by index -- "
+                        "this deployment declares " << names.size();
+    }
 
-    ASSERT_TRUE( core::selectCriteriaVariant( "aged"));
+    ASSERT_TRUE( core::selectCriteriaVariant( names[ 0]));
+    EXPECT_FALSE( core::Verify( WideningCriterion, 11.0)) << "the first variant's +/-0.5 must reject 11.0";
+
+    ASSERT_TRUE( core::selectCriteriaVariant( names[ 1]));
+    EXPECT_TRUE( core::Verify( WideningCriterion, 11.0)) << "the second variant's +/-1.5 must accept 11.0";
+
+    ASSERT_TRUE( core::selectCriteriaVariant( names[ 2]));
     EXPECT_TRUE( core::Verify( WideningCriterion, 11.0));
 
     // ...and 13.0 is outside all three, so nothing here passes by accident.

@@ -192,6 +192,14 @@ stop being packageable on its own — see `instruments/README.md`).
 | `test_source_readback.cpp` | a source measuring its own output, and leaving the fabric untouched |
 | `test_interlock.cpp` | the electrical interlock end to end — the refusal half has to energise this rig's *real* `DcP3`, since `hal::energisedSourceAt` answers from the global instruments and this rig's `SOURCE_WIRING` |
 | `test_wiring_uniqueness.cpp` | that no two endpoints in `wiring.inc` claim one relay — the only file here that expands this rig's real tables |
+| `test_switch_device.cpp` | every assertion names one of this bench's five cards, so what it checks is `devices.inc` as much as the mechanism reading it |
+| `test_switch_fabric.cpp` | the fabric mechanism is generic, but it cannot be exercised without device ids, and those come from `devices.inc` |
+| `test_wiring.cpp` | the same, for path composition across the two wiring tables |
+
+The last three arrived from `libs/hal/tests/` after `dev/` existed — a bench with
+no switching hardware has no `Matrix1` for them to name. See `libs/hal/README.md`
+on why the `hal`/`hal_rig` link line did not catch them, and `dev/README.md` for
+the other three places the same assumption was hiding.
 
 `test_describe.cpp` and `test_source_readback.cpp` are the ones that look
 misplaced and aren't: "did `Apply` reach the log" is a claim about the
