@@ -115,6 +115,6 @@ rig/wiring.inc              WIRE_INSTRUMENT   four channels under one id: phases
 dut/adapter.inc             BUNDLE of four SOURCE_LINEs, one per conductor
 ```
 
-See `libs/hal/README.md` on why the neutral return is part of the model rather
+See `framework/hal/README.md` on why the neutral return is part of the model rather
 than left outside it as an unswitched wire — a decision about the adapter side
 of a three-phase connection rather than about this driver.

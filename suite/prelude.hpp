@@ -15,14 +15,14 @@
 // TEST( ..., someScript, ...) entry and wants nothing else at all -- that file
 // is compiled into main.cpp, which has no business seeing a criteria table or a
 // rig's instrument globals. The two stand-ins for scripts.hpp
-// (libs/runner/tests/fixtures/hooked_scripts.hpp,
-// libs/core/tests/fixtures/hooked_scripts.hpp) are pure declaration files for
+// (framework/runner/tests/fixtures/hooked_scripts.hpp,
+// framework/core/tests/fixtures/hooked_scripts.hpp) are pure declaration files for
 // exactly that reason, and scripts.hpp now matches them; everything a script
 // *body* needs collects here instead.
 //
 // This file reaches dut/ and rig/ by a plain repo-root-relative #include, the
 // way scripts.hpp always has. suite/ is deployment content, not framework, so
-// unlike anything under libs/ it is allowed to know which DUT and which rig it
+// unlike anything under framework/ it is allowed to know which DUT and which rig it
 // was built for. That is why there is no THORIUM_DUT_ADAPTER compile definition
 // to match THORIUM_PRODUCTION_CRITERIA: active_criteria.hpp needs one only
 // because it lives in core and must not name dut/ -- see the top-level

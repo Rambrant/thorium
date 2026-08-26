@@ -39,7 +39,7 @@ worth a verdict.
 
 - **Macro-generated entities do not appear as entities.** `INSTRUMENT_WIRING`
   and its two siblings expand to functions and variables (see
-  [hal/wiring.hpp](../../libs/hal/include/hal/wiring.hpp)); Doxygen documents
+  [hal/wiring.hpp](../../framework/hal/include/hal/wiring.hpp)); Doxygen documents
   the macro, not what it produces, so `hal::instrumentWiring`,
   `isInstrumentWired()` and the three builders exist here only as macro body
   text. Fixing it needs `MACRO_EXPANSION`/`EXPAND_AS_DEFINED` tuning,

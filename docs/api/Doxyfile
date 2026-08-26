@@ -16,7 +16,7 @@ GENERATE_LATEX         = NO
 
 # The framework and this deployment's content. Not docs/ (the deck) and not
 # third_party/.
-INPUT                  = libs dsl dut rig suite instruments
+INPUT                  = framework dsl dut rig suite instruments
 FILE_PATTERNS          = *.hpp *.cpp
 RECURSIVE              = YES
 EXCLUDE_PATTERNS       = */tests/* */third_party/* */cmake-build-*/*

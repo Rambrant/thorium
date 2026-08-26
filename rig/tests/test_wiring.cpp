@@ -1,5 +1,5 @@
 //
-// Moved here from libs/hal/tests/, alongside test_switch_device.cpp -- see that
+// Moved here from framework/hal/tests/, alongside test_switch_device.cpp -- see that
 // file's own note for the argument, which applies to this one with a twist
 // worth stating.
 //

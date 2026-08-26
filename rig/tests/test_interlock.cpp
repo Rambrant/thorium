@@ -26,7 +26,7 @@ using core::at;
 // core/interlock.hpp for the argument that shapes it, and README.md §1, which
 // used to list both of these hazards as things nothing prevented.
 //
-// This file belongs here rather than in libs/core/tests or in a driver's own
+// This file belongs here rather than in framework/core/tests or in a driver's own
 // directory, and for two different reasons depending on which half is being
 // tested.
 //

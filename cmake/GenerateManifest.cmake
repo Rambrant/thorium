@@ -1,5 +1,5 @@
 #
-# Runs at install time (see libs/runner/CMakeLists.txt's install(CODE ...)/
+# Runs at install time (see framework/runner/CMakeLists.txt's install(CODE ...)/
 # install(SCRIPT ...) pair right below its install(TARGETS run_scripts ...))
 # -- asks the just-installed run_scripts binary for its own test catalog
 # (--list-tests) and writes that out as manifest.json next to it. This is
@@ -35,7 +35,7 @@ endif()
 string(REPLACE "\n" ";" THORIUM_CATALOG_LINES "${THORIUM_CATALOG_RAW}")
 
 #
-# Turns "group|id|description" lines (see libs/runner/src/main.cpp's listTests())
+# Turns "group|id|description" lines (see framework/runner/src/main.cpp's listTests())
 # into a JSON array. Splits on only the first two '|'s, not every '|' in the
 # line -- a description containing one of its own (unlikely, but nothing
 # stops it) would otherwise get truncated at the wrong point.

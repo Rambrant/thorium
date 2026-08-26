@@ -10,7 +10,7 @@
 
 //
 // This file has no runtime assertions -- like test_static_constraints.cpp
-// in libs/core, the entire point is that it compiles. Every criteria
+// in framework/core, the entire point is that it compiles. Every criteria
 // variant for every script is #included here, each in its own namespace,
 // and checked against every other for group/id parity.
 //

@@ -7,7 +7,7 @@ adapter wiring, tolerance variants, the Measure singleton) lives under
 the device being tested, not of how tests are organized.
 
 `test_catalog.inc` -- the `GROUP`/`TEST`/`END_GROUP` test catalog (see
-`libs/core/include/core/test_catalog.hpp`) -- lists which scripts exist and
+`framework/core/include/core/test_catalog.hpp`) -- lists which scripts exist and
 what to call them. Unlike the criteria variants, there's only one of these
 (no `THORIUM_TEST_CATALOG_VARIANT` -- a build represents one hardware
 scenario, but always runs the same set of tests). See
@@ -73,7 +73,7 @@ answers. Note that `tests/` does *not* use the prelude -- see below.
 
 `scripts/` holds the scripts' definitions, one `.cpp` per script -- not built
 via a `CMakeLists.txt` of its own (this directory has none, deliberately), but
-discovered by `libs/runner/CMakeLists.txt`.
+discovered by `framework/runner/CMakeLists.txt`.
 
 `tests/` holds the tests *of* this suite's content -- the scripts -- plus
 `test_criteria_variants_compile.cpp`, which tests the criteria data that
@@ -107,14 +107,14 @@ drive, because that is what they actually assert about: this suite's group and
 test names, this DUT's name in the report header, this rig's instruments in the
 log. None of that is true of a second deployment, which brings its own
 `acceptance/` or sets `THORIUM_ACCEPTANCE_TESTS=OFF` and brings none -- see
-`dev/README.md`. `libs/runner/CMakeLists.txt` discovers the directory by glob,
+`dev/README.md`. `framework/runner/CMakeLists.txt` discovers the directory by glob,
 the same way it discovers `scripts/` and `tests/`.
 
 What is *not* here is the hook-ordering fixture the acceptance tests use as their
 second runner (`run_scripts_hooked`, over a catalog that announces its own
 `RUN_SETUP`/`SETUP` and can be made to fail on demand). That fixture names no
 instrument and no DUT point, and what it tests is the runner's ordering, so it is
-framework: `libs/runner/tests/fixtures/`.
+framework: `framework/runner/tests/fixtures/`.
 
 ## Layout
 
@@ -143,9 +143,9 @@ suite/
         test_acceptance.cpp          # the built run_scripts, driven as a subprocess
 ```
 
-Related: `libs/runner` (not this directory) is the runner -- `main.cpp` plus the
+Related: `framework/runner` (not this directory) is the runner -- `main.cpp` plus the
 two build targets (`scripts`, `run_scripts`) it needs -- and it is framework,
 packaged with `core` and `hal`, holding no DUT-specific content at all. It
-reaches this directory the same way `libs/hal` reaches `rig/`: as a path
+reaches this directory the same way `framework/hal` reaches `rig/`: as a path
 (`THORIUM_SUITE_DIR`), which is why this directory stays free of build files.
 `dut/` holds the DUT-specific data itself -- see `dut/README.md`.

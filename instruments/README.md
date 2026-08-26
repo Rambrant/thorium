@@ -25,9 +25,9 @@ Three steps, each deliberately in a different place:
 
 1. The **top-level `CMakeLists.txt`** globs `instruments/*/CMakeLists.txt` and
    collects the directory paths into `THORIUM_INSTRUMENT_DIRS` — the fifth
-   thing a rig supplies `libs/hal`, alongside the four `.inc`/`.hpp` file paths
-   it already supplied. `libs/` still reaches nothing outside itself.
-2. **`libs/hal/CMakeLists.txt`** `add_subdirectory()`s each of them, at the one
+   thing a rig supplies `framework/hal`, alongside the four `.inc`/`.hpp` file paths
+   it already supplied. `framework/` still reaches nothing outside itself.
+2. **`framework/hal/CMakeLists.txt`** `add_subdirectory()`s each of them, at the one
    point in the configure where it can: after `hal` (which every driver compiles
    against) and before `hal_rig` (which compiles against the drivers).
 3. **This directory's `CMakeLists.txt`** declares its own target and registers
@@ -49,7 +49,7 @@ quietly change what a rig measures.
 ## What a driver may depend on
 
 `Thorium::hal` and, through it, `Thorium::core`. That is the published driver
-API, and the two-target split in `libs/hal/CMakeLists.txt` is what makes it a
+API, and the two-target split in `framework/hal/CMakeLists.txt` is what makes it a
 real boundary rather than a naming convention.
 
 It is checked explicitly there, and worth knowing why: the natural assumption is
@@ -71,7 +71,7 @@ directory stops being packageable the moment one does.
 
 Tests that genuinely need several instruments together, or this rig's wiring,
 are rig-level integration tests and belong with the rig, not here. They live in
-`rig/tests/` — five files, which passed through `libs/hal/tests/` on their way
+`rig/tests/` — five files, which passed through `framework/hal/tests/` on their way
 out of this tree:
 
 | File | Why it can't live in a driver directory |
@@ -154,7 +154,7 @@ driver's own line:
 ```
 api_version.hpp:150: error: static assertion failed: This instrument driver was
 written against a NEWER hal API than the one it is being compiled against:
-update libs/hal, or install the driver package matching this hal. [...]
+update framework/hal, or install the driver package matching this hal. [...]
     note: in expansion of macro 'THORIUM_REQUIRE_HAL_API'
     l4411a.hpp:23 | THORIUM_REQUIRE_HAL_API( 2);
 ```
@@ -177,7 +177,7 @@ pass everywhere. All five drivers here are at 1.
 
 One thing the gate cannot do, worth knowing before trusting it: nothing derives
 those two numbers from the API they describe, or checks them against it. They
-are a promise `libs/hal` makes, kept by whoever changes a driver-facing header
+are a promise `framework/hal` makes, kept by whoever changes a driver-facing header
 remembering to bump them. The gate catches a driver and a `hal` that were
 honestly labelled and still don't match — the zip-distribution case it exists
 for — and not a breaking change that went in without a bump.

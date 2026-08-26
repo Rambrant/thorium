@@ -271,12 +271,12 @@ DECK = [
         'kicker': "Architecture",
         'title':  "Framework, drivers, and one bench's data",
         'body': [
-            rich(0, ("libs/  ", False, True), ("the portable framework — units, criteria, the verbs, the journal", False, False)),
+            rich(0, ("framework/  ", False, True), ("units, criteria, the verbs, the journal, the runner — portable", False, False)),
             rich(0, ("instruments/  ", False, True), ("one directory per driver, each packageable on its own", False, False)),
             rich(0, ("rig/ dut/ suite/  ", False, True), ("this bench, this device, these tests — data, not code", False, False)),
             p(""),
             note("A second bench testing a second device is its own repository.", accent=True),
-            note("It reuses libs/ untouched and brings its own three."),
+            note("It reuses framework/ untouched and brings its own three."),
         ],
     }),
 

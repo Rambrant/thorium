@@ -8,9 +8,9 @@ expresses DUT-specific data: flat, macro-driven `.inc` files (plus one
 concrete header) with no library of its own. The mechanism that makes sense
 of this data (`hal::InstrumentWiring`, `hal::SwitchFabric`, the driver
 classes themselves, the `INSTRUMENTS`/`INSTRUMENT_WIRING`/etc macros) all
-lives in `libs/hal/` -- see its README for why that split is possible, and
+lives in `framework/hal/` -- see its README for why that split is possible, and
 for the four `THORIUM_*` compile definitions (declared and validated in
-`libs/hal/CMakeLists.txt`) this directory's files are handed to hal through.
+`framework/hal/CMakeLists.txt`) this directory's files are handed to hal through.
 
 ## Layout
 
@@ -178,7 +178,7 @@ plugged into it at all.
 
 A directory of data with a test target, the same shape `dut/` has. What lands
 here is what belongs to neither of the two places a hal-side test would
-otherwise go: not to generic `libs/hal/`, because it names concrete
+otherwise go: not to generic `framework/hal/`, because it names concrete
 instruments, and not to any one `instruments/<model>/`, because it names more
 than one of them (a driver directory that reached for a second driver would
 stop being packageable on its own — see `instruments/README.md`).
@@ -196,8 +196,8 @@ stop being packageable on its own — see `instruments/README.md`).
 | `test_switch_fabric.cpp` | the fabric mechanism is generic, but it cannot be exercised without device ids, and those come from `devices.inc` |
 | `test_wiring.cpp` | the same, for path composition across the two wiring tables |
 
-The last three arrived from `libs/hal/tests/` after `dev/` existed — a bench with
-no switching hardware has no `Matrix1` for them to name. See `libs/hal/README.md`
+The last three arrived from `framework/hal/tests/` after `dev/` existed — a bench with
+no switching hardware has no `Matrix1` for them to name. See `framework/hal/README.md`
 on why the `hal`/`hal_rig` link line did not catch them, and `dev/README.md` for
 the other three places the same assumption was hiding.
 
@@ -230,11 +230,11 @@ points.
 ## A new rig
 
 A separate rig -- its own repo, its own bench, its own instruments -- reuses
-`libs/core/` and `libs/hal/` as-is (via `find_package`/`FetchContent`/
+`framework/core/` and `framework/hal/` as-is (via `find_package`/`FetchContent`/
 `add_subdirectory`, whichever that repo's own build prefers) and supplies
 its own four files in this same shape, pointed at by the same four
-`THORIUM_*` variables `libs/hal/CMakeLists.txt` requires. Its own `tests/`
+`THORIUM_*` variables `framework/hal/CMakeLists.txt` requires. Its own `tests/`
 comes with them, for the same reason this one exists: those tests name that
 rig's instruments, so they are that rig's content and not the framework's.
-Nothing under `libs/hal/` needs to change for any of it to work -- that's the
+Nothing under `framework/hal/` needs to change for any of it to work -- that's the
 point of the split this directory draws.

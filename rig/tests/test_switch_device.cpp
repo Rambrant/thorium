@@ -1,7 +1,7 @@
 //
-// Moved here from libs/hal/tests/ -- the sixth file to make that trip, after
+// Moved here from framework/hal/tests/ -- the sixth file to make that trip, after
 // the five that went when the drivers moved out to instruments/ (see
-// libs/hal/CMakeLists.txt's own list). The reason is the same one, arrived at
+// framework/hal/CMakeLists.txt's own list). The reason is the same one, arrived at
 // from the other end: every assertion below names one of this bench's five
 // cards, so what the file checks is rig/devices.inc as much as it is the
 // mechanism that reads it.

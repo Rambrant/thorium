@@ -9,7 +9,7 @@
 // without making that directory depend on the other driver, which is exactly
 // what would stop it being packageable on its own (see instruments/README.md).
 // It is really a test of Connect/Disconnect being additive rather than of
-// either supply, which is why it is here rather than in libs/hal/tests/ too:
+// either supply, which is why it is here rather than in framework/hal/tests/ too:
 // this is a rig-level test, and rig/tests/ is where those live now.
 //
 #include "hal/n6701a.hpp"

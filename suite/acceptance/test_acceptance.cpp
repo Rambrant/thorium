@@ -17,7 +17,7 @@
 // The one platform-dependent file in this codebase, and it earns it: this
 // file's entire job is to run another process and read what came back, which
 // is not something the standard library exposes a portable exit status or
-// quoting rule for. Note the contrast with libs/core, which deliberately reads
+// quoting rule for. Note the contrast with framework/core, which deliberately reads
 // the operator and host from environment variables rather than calling
 // gethostname() -- core is portable framework code with a choice, and this is a
 // test whose subject is a command line.
@@ -57,7 +57,7 @@
 // ---------------------------------------------------------------------------
 // Why this lives in the suite rather than beside the runner
 // ---------------------------------------------------------------------------
-// The binary under test is framework -- libs/runner builds it, and every line
+// The binary under test is framework -- framework/runner builds it, and every line
 // of it is portable across deployments. What is asserted about it here is not:
 // this suite's group and test names, this DUT's name in the report header, this
 // rig's instruments in the log, this deployment's three criteria variants. A
@@ -65,13 +65,13 @@
 //
 // So the tests belong to the deployment whose facts they encode, which is why
 // they sit in suite/acceptance/ and are discovered from there by glob (see
-// libs/runner/CMakeLists.txt). A second deployment writes its own, or sets
+// framework/runner/CMakeLists.txt). A second deployment writes its own, or sets
 // THORIUM_ACCEPTANCE_TESTS=OFF and writes none -- see dev/README.md.
 //
 // The hook-ordering fixture these tests drive as a second runner is the other
 // half of that split and went the other way: it names no instrument and no DUT
 // point, and what it tests is the runner's own ordering, so it is framework and
-// lives in libs/runner/tests/fixtures/.
+// lives in framework/runner/tests/fixtures/.
 //
 // ---------------------------------------------------------------------------
 // It is also meant to be read
@@ -81,7 +81,7 @@
 // meant to be called:
 //
 //     ctest --test-dir <build-dir> -L acceptance -V
-//     <build-dir>/libs/runner/acceptance_tests
+//     <build-dir>/framework/runner/acceptance_tests
 //
 // That is why the argument lists in each scenario below are written out
 // literally rather than built up from shared constants or helper wrappers: the
@@ -93,7 +93,7 @@
 // Artifacts are kept, on purpose
 // ---------------------------------------------------------------------------
 // Every scenario runs in its own directory under
-// <build>/libs/runner/acceptance/<suite>.<test>/ and everything it produced stays
+// <build>/framework/runner/acceptance/<suite>.<test>/ and everything it produced stays
 // there after the run:
 //
 //     command.txt   the exact invocation, so the directory explains itself
@@ -127,7 +127,7 @@
 namespace
 {
     //
-    // Both supplied by libs/runner/CMakeLists.txt: the built binary's real path (via a
+    // Both supplied by framework/runner/CMakeLists.txt: the built binary's real path (via a
     // $<TARGET_FILE:...> generator expression, so this works under any
     // generator or build layout) and where to keep artifacts.
     //
@@ -139,7 +139,7 @@ namespace
     // on stdout and can be made to fail on demand -- which the shipped suite's
     // real hooks cannot (see the AcceptanceHooks section below for why that
     // still matters now that the shipped catalog declares both). See
-    // libs/runner/CMakeLists.txt and libs/runner/tests/fixtures/.
+    // framework/runner/CMakeLists.txt and framework/runner/tests/fixtures/.
     //
     constexpr std::string_view kRunScriptsHooked = THORIUM_RUN_SCRIPTS_HOOKED_EXE;
 
@@ -247,7 +247,7 @@ namespace
     //
     // A path in the form the local shell expects -- separators included. CMake
     // hands this file its paths with forward slashes on every platform (see
-    // THORIUM_RUN_SCRIPTS_EXE in libs/runner/CMakeLists.txt), and while cmd.exe
+    // THORIUM_RUN_SCRIPTS_EXE in framework/runner/CMakeLists.txt), and while cmd.exe
     // tolerates those in a quoted argument, it does not in every position, and
     // a command.txt written with them is not something a Windows user can
     // paste back.
@@ -399,7 +399,7 @@ namespace
             }
 
             //
-            // The hook fixture's runner (see libs/runner/CMakeLists.txt), with the
+            // The hook fixture's runner (see framework/runner/CMakeLists.txt), with the
             // environment variables its scripts and hooks read to decide
             // whether to fail or throw. Same main.cpp as run() drives -- only
             // the catalog behind it differs.
@@ -670,7 +670,7 @@ TEST_F( AcceptanceCatalog, ListTestsPrintsOneLinePerTestAndWritesNoLog)
 
 //
 // What the rig console re-invokes after an abnormal child exit (see
-// libs/runner/src/main.cpp and hal/safing.hpp). Exits 0 unconditionally, and writes no
+// framework/runner/src/main.cpp and hal/safing.hpp). Exits 0 unconditionally, and writes no
 // log: this process is cleaning up after a *different* run, and the log it
 // would append to belongs to that dead run.
 //
@@ -687,7 +687,7 @@ TEST_F( AcceptanceSafing, SafeExitsCleanlyAndWritesNoLog)
 // ---------------------------------------------------------------------------
 
 //
-// --help is generated from the Options struct's annotations (see libs/runner/src/cli.hpp),
+// --help is generated from the Options struct's annotations (see framework/runner/src/cli.hpp),
 // which is the whole reason it is worth an acceptance test: the risk is not that
 // the text is badly worded, it is that a flag exists and no line describes it.
 //
@@ -1266,7 +1266,7 @@ TEST_F( AcceptanceLogFiles, TwoRunsIntoOneDirectoryCoexist)
     run( { "--quiet", "--select=SupplyRail" });
 
     //
-    // The stamp is second-resolution (see fileStamp in libs/runner/src/main.cpp), so
+    // The stamp is second-resolution (see fileStamp in framework/runner/src/main.cpp), so
     // two runs inside the same second would legitimately collide. Sleeping is
     // the honest way to test the property that actually matters -- that a
     // *later* run doesn't clobber an earlier one -- rather than asserting a
@@ -1390,7 +1390,7 @@ TEST_F( AcceptanceRepeat, ARepeatCountThatIsNotAPositiveNumberIsRejectedBeforeAn
 //
 // Driven against run_scripts_hooked -- the same main.cpp over a catalog whose
 // hooks announce themselves on stdout and can be made to fail on demand (see
-// libs/runner/CMakeLists.txt). The shipped suite now declares both run hooks too
+// framework/runner/CMakeLists.txt). The shipped suite now declares both run hooks too
 // (rigPowerOn/rigPowerOff), but neither can stand in here: they print no
 // ordering markers, and rigPowerOff has no failure to report at all. So the
 // claims below -- ordering around the scripts, bracketing every --repeat pass
@@ -2302,7 +2302,7 @@ namespace
 // file and then went on energising rails and closing relays for real, which was
 // survivable only because every driver here is still simulated. Now the machine
 // log says, per instruction, that it went nowhere -- and a run that says that is
-// a run in which no driver was called (see libs/core/tests/test_bench.cpp, which
+// a run in which no driver was called (see framework/core/tests/test_bench.cpp, which
 // asserts the driver side of the same claim against a counting mock).
 //
 TEST_F( AcceptanceBench, AReplayedRunInstructsNothing)

@@ -29,7 +29,7 @@
 // ADAPTER takes only a description: the group it opens is always `dut`, since
 // a build targets one DUT on one adapter (see hal/adapter.hpp's own comment).
 // The DUT's name for the logs is THORIUM_DUT_NAME, set in
-// libs/core/CMakeLists.txt -- not this file.
+// framework/core/CMakeLists.txt -- not this file.
 //
 ADAPTER( "Device X on standard adapter")
     POINT( Output5V,        A, 1, 3, "5Vdc supply port")

@@ -1,6 +1,6 @@
 //
-// hal::L4411A's own tests, moved here verbatim from libs/hal/tests/
-// test_instrument.cpp when this driver moved out of libs/hal into its own
+// hal::L4411A's own tests, moved here verbatim from framework/hal/tests/
+// test_instrument.cpp when this driver moved out of framework/hal into its own
 // directory. Test names are deliberately unchanged (still the HalInstrument
 // suite, still L4411A-prefixed) so the move is provably behaviour-preserving:
 // the same named tests run, in a different binary. Renaming the suite to
@@ -8,7 +8,7 @@
 // it is a separate change from the move, and doing both at once would have
 // destroyed the before/after comparison that makes the move safe.
 //
-// What is left behind in libs/hal/tests/test_instrument.cpp is the part that
+// What is left behind in framework/hal/tests/test_instrument.cpp is the part that
 // is genuinely about hal's generic mechanism rather than about any driver --
 // hal::InstrumentId and to_string() over it.
 //
@@ -192,7 +192,7 @@ TEST( HalInstrument, L4411AFourWireResistanceRequiresTheSensePathButTwoWireDoesN
 // Generic core::Port machinery rather than anything L4411A-specific, but it
 // needs a real driver to exercise it through and this is the one it was
 // written against -- so it travels with the driver rather than staying behind
-// in a libs/hal test that would then have had to keep including a driver
+// in a framework/hal test that would then have had to keep including a driver
 // header for this one case alone. core/tests/test_port.cpp covers the builder
 // chain itself without any instrument at all.
 //

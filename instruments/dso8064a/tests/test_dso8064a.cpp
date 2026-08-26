@@ -1,6 +1,6 @@
 //
-// hal::DSO8064A's own tests, moved here verbatim from libs/hal/tests/
-// test_instrument.cpp when this driver moved out of libs/hal into its own
+// hal::DSO8064A's own tests, moved here verbatim from framework/hal/tests/
+// test_instrument.cpp when this driver moved out of framework/hal into its own
 // directory -- the same lift hal::L4411A's tests got, and for the same reason.
 // Test names are unchanged (still the HalInstrument suite) so the move is
 // provably behaviour-preserving: the same named tests, in a different binary.

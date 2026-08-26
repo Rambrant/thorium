@@ -36,8 +36,8 @@ thorium_generate_criteria_variants(
 ```
 
 Sets `THORIUM_CRITERIA_VARIANT_TABLES` and `THORIUM_CRITERIA_VARIANT_NAMES` in
-the caller's scope, holding the two generated paths. `libs/core` and
-`libs/runner` pass those to the translation units that read them as compile
+the caller's scope, holding the two generated paths. `framework/core` and
+`framework/runner` pass those to the translation units that read them as compile
 definitions.
 
 **Two files, not one**, because the consumers want different things and neither
@@ -111,8 +111,8 @@ thing as a test file that exists but is deliberately not run.
 **The directory is a parameter** rather than assumed to be
 `${CMAKE_CURRENT_SOURCE_DIR}/tests`, because for one caller it isn't: the
 scripts layer's tests are suite content under the deployment's `tests/` while
-the target is declared in `libs/runner`. Passing it also stops this helper
-globbing a caller's own `tests/` behind its back — `libs/runner/tests/` holds the
+the target is declared in `framework/runner`. Passing it also stops this helper
+globbing a caller's own `tests/` behind its back — `framework/runner/tests/` holds the
 hook-ordering fixture, which belongs to a runner target rather than to a test
 executable of its own.
 
@@ -124,7 +124,7 @@ next build with no manual reconfigure.
 
 ## `GenerateManifest.cmake` — asking the built binary what it contains
 
-A **script**, not a module: `libs/runner/CMakeLists.txt` runs it via `install(SCRIPT)`
+A **script**, not a module: `framework/runner/CMakeLists.txt` runs it via `install(SCRIPT)`
 immediately after `install(TARGETS run_scripts ...)`. It executes the
 just-installed binary with `--list-tests` and writes the answer out as
 `manifest.json` beside it.
@@ -170,7 +170,7 @@ an installed `libhal.a` is only ever built for the one rig that supplied those
 paths when *it* was configured. A different rig has to build hal from source
 against its own `rig/`-equivalent, setting those variables before hal
 configures — not link a prebuilt hal from somebody else's install. See
-[`libs/hal/README.md`](../libs/hal/README.md).
+[`framework/hal/README.md`](../framework/hal/README.md).
 
 ---
 

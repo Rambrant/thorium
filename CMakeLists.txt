@@ -55,8 +55,8 @@ add_link_options(-fcontracts)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # GNUInstallDirs: standard, override-able CMAKE_INSTALL_{BINDIR,LIBDIR,
-# INCLUDEDIR} for everything installed below (libs/core, libs/hal,
-# libs/runner's run_scripts). CMakePackageConfigHelpers: configure_package_config_file()/
+# INCLUDEDIR} for everything installed below (framework/core, framework/hal,
+# framework/runner's run_scripts). CMakePackageConfigHelpers: configure_package_config_file()/
 # write_basic_package_version_file(), used once below to generate the
 # Thorium CMake package a separate rig repo would find_package()/
 # FetchContent this framework through.
@@ -64,9 +64,9 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 # --- Which deployment this build is ---
-# The framework half of this tree (libs/, instruments/) is portable and reaches
+# The framework half of this tree (framework/, instruments/) is portable and reaches
 # its rig, DUT and suite only through file paths (see the layer comment further
-# down, and libs/hal/README.md). Until now those paths were written out
+# down, and framework/hal/README.md). Until now those paths were written out
 # longhand as ${CMAKE_SOURCE_DIR}/rig, /dut and /suite in this file and in
 # the runner's CMakeLists.txt, which made the portability structural but not
 # *reachable*: the framework could be pointed elsewhere, and this repo had no
@@ -93,7 +93,7 @@ include(CMakePackageConfigHelpers)
 # One deployment per build directory, deliberately -- not two sets of targets
 # in one build. Every one of the derived facts above is a compile definition
 # baked into hal, core and the scripts library at *their* compile time (see
-# libs/hal/README.md's note on why an installed libhal.a belongs to one rig),
+# framework/hal/README.md's note on why an installed libhal.a belongs to one rig),
 # so two deployments in one build would need two copies of every library, and
 # `run_scripts` would need a name per deployment. Two build directories cost
 # nothing and keep the binary's identity unambiguous, which for a thing that
@@ -163,7 +163,7 @@ endif()
 include(CriteriaVariants)
 
 # Sets THORIUM_CRITERIA_VARIANT_TABLES / THORIUM_CRITERIA_VARIANT_NAMES to the
-# two generated files' paths; libs/core and libs/runner hand those to the translation
+# two generated files' paths; framework/core and framework/runner hand those to the translation
 # units that read them, as compile definitions, exactly the way
 # THORIUM_PRODUCTION_CRITERIA and THORIUM_TEST_CATALOG already work.
 thorium_generate_criteria_variants(
@@ -177,9 +177,9 @@ message(STATUS "Criteria variants: ${THORIUM_KNOWN_CRITERIA_VARIANTS} (default: 
 # --- Content revision, for the run logs' traceability header ---
 # Both log streams record which revision of this deployment's *content* -- the
 # test scripts, the DUT profile and criteria, the rig's wiring -- a run was
-# performed against (see core::RunInfo in libs/core/include/core/journal.hpp).
+# performed against (see core::RunInfo in framework/core/include/core/journal.hpp).
 # That is a different question from THORIUM_FRAMEWORK_VERSION, which versions
-# libs/: this versions what is being tested and how, which is the half that
+# framework/: this versions what is being tested and how, which is the half that
 # usually differs between two runs that disagree with each other.
 #
 # Derived from git, with --dirty, and that flag is the important part. This runs
@@ -193,7 +193,7 @@ message(STATUS "Criteria variants: ${THORIUM_KNOWN_CRITERIA_VARIANTS} (default: 
 # --always so a repository with no tags still yields the short sha rather than
 # failing; "unknown" if there is no git, or no repository, at all -- an
 # obviously-absent value rather than a plausible wrong one, the same choice
-# libs/core/src/journal.cpp makes for the rest of the header.
+# framework/core/src/journal.cpp makes for the rest of the header.
 find_package(Git QUIET)
 
 set(THORIUM_CONTENT_REVISION "unknown")
@@ -256,20 +256,20 @@ endif()
 
 # --- Layers ---
 # Two different things share this tree: a portable, rig-and-DUT-agnostic
-# framework (libs/), and this one deployment's content -- one rig testing
+# framework (framework/), and this one deployment's content -- one rig testing
 # one DUT (rig/, dut/, dsl/, suite/, all at the top level rather than under
-# libs/). A separate rig -- its own repo, its own bench, its own DUT -- would
-# reuse libs/ unchanged and write its own rig/dut/dsl/suite instead; nothing
-# here should ever make libs/ content depend on anything outside it.
+# framework/). A separate rig -- its own repo, its own bench, its own DUT -- would
+# reuse framework/ unchanged and write its own rig/dut/dsl/suite instead; nothing
+# here should ever make framework/ content depend on anything outside it.
 #
 # A deployment brings content, not a program. There used to be an app/ in that
 # list -- the runner, main.cpp and the "scripts" library -- and its presence at
 # the top level said, without meaning to, that a second deployment was expected
 # to write a main() of its own. It never was: app/ held nothing DUT-specific,
 # and the only thing tying it to this deployment was two compile definitions
-# naming files under suite/. That is the same parameterisation libs/hal already
-# uses for its four rig files, so the runner moved to libs/runner, where it is
-# packaged and versioned with core and hal. See libs/runner/CMakeLists.txt.
+# naming files under suite/. That is the same parameterisation framework/hal already
+# uses for its four rig files, so the runner moved to framework/runner, where it is
+# packaged and versioned with core and hal. See framework/runner/CMakeLists.txt.
 #
 # core  : foundational utilities, no dependencies on other layers
 # hal   : generic hardware abstraction layer (switching fabric, wiring,
@@ -277,14 +277,15 @@ endif()
 #         drivers are written against) -- depends on core, and on this rig's
 #         data below, but knows nothing rig-specific itself. Two targets:
 #         hal, which drivers compile against, and hal_rig, which compiles
-#         against the drivers -- see libs/hal/README.md
+#         against the drivers -- see framework/hal/README.md
 # instruments
 #       : one directory per instrument driver, each independently
 #         packageable, each declaring its own target and carrying its own
-#         tests -- framework content like libs/, but versioned and shipped a
-#         driver at a time rather than as one library, which is why it sits
-#         at the top level rather than under libs/; see
-#         instruments/README.md
+#         tests -- framework content, as portable as framework/ is, but not
+#         part of the same release. A directory here is zipped, versioned and
+#         handed to another rig on its own (see instruments/README.md), and
+#         that is why it sits at the top level: placement is what says what
+#         ships together, and a driver does not ship with the framework
 # rig   : this rig's data only (which instruments it has, how they're
 #         wired, what to call them) -- content only, no library of its own,
 #         the same shape dut/ uses for DUT-specific data; see rig/README.md.
@@ -299,20 +300,20 @@ endif()
 #         description document's own terms, for traceability between the
 #         requirement/test/development disciplines -- depends on dut + hal
 #         + core, the same reason it lives alongside them rather than under
-#         libs/
+#         framework/
 # runner: the runner (main.cpp, its argument parser) plus the "scripts"
 #         library it runs and the run_scripts binary both produce -- framework,
-#         under libs/ with core and hal. What it runs comes from the three
+#         under framework/ with core and hal. What it runs comes from the three
 #         deployment directories as file paths: the scripts themselves, the test
 #         catalog, scripts.hpp and prelude.hpp from suite/, and the
 #         criteria/tolerance variants from dut/, since tolerances are a property
 #         of the DUT being tested (see dut/README.md)
 
 # --- This rig's data for the generic hal library ---
-# libs/hal is a generic instrument-driver + switching-fabric library with no
+# framework/hal is a generic instrument-driver + switching-fabric library with no
 # instruments plugged into it at all -- it needs a rig to supply which
 # instruments exist, how they're wired, and what to call them, as three file
-# paths (see libs/hal/CMakeLists.txt's own comment). This repo supplies them
+# paths (see framework/hal/CMakeLists.txt's own comment). This repo supplies them
 # from whichever deployment THORIUM_RIG_DIR names above; a separate rig repo
 # pulling hal in later would set these same four variables pointing at its own
 # rig/-equivalent instead -- see rig/README.md.
@@ -330,10 +331,10 @@ set(THORIUM_WIRING_TABLE "${THORIUM_RIG_DIR}/wiring.inc" CACHE FILEPATH "" FORCE
 set(THORIUM_DEVICE_TABLE "${THORIUM_RIG_DIR}/devices.inc" CACHE FILEPATH "" FORCE)
 
 # --- Which instrument drivers are available to build against ---
-# The fourth thing a rig supplies libs/hal, alongside the three files above:
+# The fourth thing a rig supplies framework/hal, alongside the three files above:
 # where its instrument drivers live. One directory per driver, each with its
 # own CMakeLists.txt declaring its own target -- see instruments/README.md and
-# libs/hal/CMakeLists.txt's own comment on why the drivers are configured
+# framework/hal/CMakeLists.txt's own comment on why the drivers are configured
 # between hal and hal_rig rather than inside either.
 #
 # Discovered by glob rather than listed, and that is a smaller decision than it
@@ -399,14 +400,14 @@ else()
     endforeach()
 endif()
 
-add_subdirectory(libs/core)
-add_subdirectory(libs/hal)
+add_subdirectory(framework/core)
+add_subdirectory(framework/hal)
 
 # --- Package export: core + hal + the drivers as the reusable "Thorium" framework ---
 # core, hal, hal_rig and every instrument driver register themselves into the
 # ThoriumTargets export set via their own install(TARGETS ... EXPORT
-# ThoriumTargets ...) calls (see libs/core/CMakeLists.txt,
-# libs/hal/CMakeLists.txt, instruments/*/CMakeLists.txt) -- this is what turns
+# ThoriumTargets ...) calls (see framework/core/CMakeLists.txt,
+# framework/hal/CMakeLists.txt, instruments/*/CMakeLists.txt) -- this is what turns
 # that into an actual find_package()-able CMake package: ThoriumTargets.cmake
 # (the compiled targets, namespaced Thorium::core/Thorium::hal/...) plus
 # ThoriumConfig.cmake/ThoriumConfigVersion.cmake (what find_package(Thorium)
@@ -414,14 +415,14 @@ add_subdirectory(libs/hal)
 #
 # One thing this does NOT give a consumer: a hal that works for their rig
 # out of the box. hal's THORIUM_ACTIVE_INSTRUMENTS/THORIUM_INSTRUMENT_TABLE/
-# THORIUM_WIRING_TABLE/THORIUM_DEVICE_TABLE (see libs/hal/CMakeLists.txt) are baked in via
+# THORIUM_WIRING_TABLE/THORIUM_DEVICE_TABLE (see framework/hal/CMakeLists.txt) are baked in via
 # #include at hal's OWN compile time, so an installed libhal.a is only ever
 # built for the one rig that supplied those three paths when IT was
 # configured -- this repo's rig/, in this build. A different rig consuming
 # this package needs to build hal from source against its own rig/-
 # equivalent (FetchContent/add_subdirectory, setting those same three
 # variables before hal configures), not link against a prebuilt hal from
-# somewhere else's install -- see libs/hal/README.md.
+# somewhere else's install -- see framework/hal/README.md.
 install(EXPORT ThoriumTargets
     FILE ThoriumTargets.cmake
     NAMESPACE Thorium::
@@ -444,9 +445,9 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Thorium
 )
 
-# After libs/hal, not before: rig/ declares no library of its own, and the one
+# After framework/hal, not before: rig/ declares no library of its own, and the one
 # target it does declare -- rig_tests -- links hal_rig, which does not exist
-# until libs/hal has been configured (and, before that, the drivers it links).
+# until framework/hal has been configured (and, before that, the drivers it links).
 #
 # Two arguments rather than one, because a deployment directory need not sit
 # below this one: add_subdirectory() can only infer a binary directory for a
@@ -460,8 +461,8 @@ add_subdirectory(${THORIUM_DUT_DIR} ${CMAKE_BINARY_DIR}/dut)
 #add_subdirectory(dsl)
 
 # Last, and after the two deployment directories above rather than beside
-# libs/core and libs/hal, despite being framework like them: it globs
+# framework/core and framework/hal, despite being framework like them: it globs
 # THORIUM_SUITE_DIR for the scripts to compile and links hal_rig, so both the
-# content and the target have to exist first. Where a libs/ directory is
+# content and the target have to exist first. Where a framework/ directory is
 # configured has never been about where it sits on disk.
-add_subdirectory(libs/runner)
+add_subdirectory(framework/runner)

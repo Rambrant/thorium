@@ -49,7 +49,7 @@ namespace
     // A console interface to route to. No ADAPTER around it: ADAPTER opens the
     // fixed `dut` struct, and defining a second one in a translation unit that
     // may be linked alongside the real adapter is a clash waiting to happen --
-    // the same reason libs/hal/tests/test_adapter_macros.cpp declares its
+    // the same reason framework/hal/tests/test_adapter_macros.cpp declares its
     // bundle bare.
     //
     BUNDLE( Console, "RS232 debug console")

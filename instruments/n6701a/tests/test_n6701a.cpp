@@ -12,7 +12,7 @@
 //
 // One test did not come along: DcConnectAndDisconnectDoNotDisturbAnUnrelated-
 // AlreadyConnectedPath, which needs an Ac6834B to supply the unrelated path and
-// so genuinely spans two drivers. It stayed in libs/hal/tests/ -- see that
+// so genuinely spans two drivers. It stayed in framework/hal/tests/ -- see that
 // file's own comment.
 //
 #include "hal/n6701a.hpp"

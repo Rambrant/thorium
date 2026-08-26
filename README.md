@@ -95,7 +95,7 @@ Being honest about the edges matters more than the table above:
 - **Wiring lookup inside a measurement.** `hal::InstrumentWiring::find()` throws
   if an instrument has no entry. The compile-time backstop above covers the
   *connector* side for every declared point; the instrument side is still a
-  runtime throw. See the comments in `libs/hal/include/hal/wiring.hpp`.
+  runtime throw. See the comments in `framework/hal/include/hal/wiring.hpp`.
 - **Scripted-session unit mismatch.** Feeding a `Current` to a point declared
   `Voltage` throws, naming the point and both kinds.
 - **`--select` with an unknown test id** fails the run before `RUN_SETUP`, naming
@@ -172,7 +172,8 @@ The single most important thing to understand about this tree is that it holds
 **two different kinds of thing**:
 
 ```
-libs/            THE FRAMEWORK -- portable, knows nothing about this rig or DUT
+framework/       PORTABLE      -- knows nothing about this rig or this DUT,
+                 and depends on nothing outside itself
   core/            units, criteria, predicates, the Measure/Verify/Apply verbs,
                    sessions, the run journal and its log sinks, the electrical
                    interlock
@@ -181,8 +182,8 @@ libs/            THE FRAMEWORK -- portable, knows nothing about this rig or DUT
   runner/          main.cpp, its argument parser, and the build targets that
                    turn a deployment's suite into run_scripts
 
-instruments/     THE DRIVERS   -- one directory per instrument, each
-                 independently packageable, each with its own tests
+instruments/     THE DRIVERS   -- portable too, but shipped a driver at a time
+                 rather than with the framework, which is why it is not under it
 
 rig/             THIS BENCH'S DATA      -- which instruments, wired how,
                  plus the integration tests that need more than one of them
@@ -196,10 +197,10 @@ cmake/           build helpers -- generated criteria tables, the test-target
 docs/            the slide deck
 ```
 
-`libs/` never depends on anything outside it. A second rig testing a second
-device is a *separate repository* that reuses `libs/` unchanged and brings its
+`framework/` never depends on anything outside it. A second rig testing a second
+device is a *separate repository* that reuses `framework/` unchanged and brings its
 own `rig/`, `dut/` and `suite/` — content, not a program. It writes no `main()`:
-`libs/runner` owns the runner and reaches a deployment the same way `libs/hal`
+`framework/runner` owns the runner and reaches a deployment the same way `framework/hal`
 reaches a rig. Everything rig-specific gets to the framework through CMake file
 paths and a handful of compile definitions — never through an `#include`
 pointing outwards.
@@ -214,7 +215,7 @@ that cannot be recovered from the code.
 
 | | |
 |---|---|
-| [`libs/hal`](libs/hal/README.md) | The two-target `hal`/`hal_rig` split, the static wiring facts and how a route is composed, adapter points, and what is still a runtime check |
+| [`framework/hal`](framework/hal/README.md) | The two-target `hal`/`hal_rig` split, the static wiring facts and how a route is composed, adapter points, and what is still a runtime check |
 | [`instruments`](instruments/README.md) | Why each driver is its own packageable directory, and what a driver may assume |
 | [`cmake`](cmake/README.md) | The four build helpers: generated criteria tables, the per-layer test target, the install-time manifest, and the installed CMake package |
 
@@ -242,8 +243,8 @@ that cannot be recovered from the code.
 |---|---|
 | [`docs`](docs/README.md) | The slide deck, as `.pptx` and a self-contained `.html` |
 
-`libs/core`, `libs/runner`, `tools/` and `dsl/` have no README of their own — their
-rationale lives in the header and `CMakeLists.txt` comments, and for `libs/core`
+`framework/core`, `framework/runner`, `tools/` and `dsl/` have no README of their own — their
+rationale lives in the header and `CMakeLists.txt` comments, and for `framework/core`
 in this file's §1.
 
 ### How it is all connected
@@ -286,7 +287,7 @@ from":
   live, colour          human, colour,        machine, EVERY verb,
                         openable mid-run      SARIF 2.1.0
 
-  libs/runner walks suite/test_catalog.inc (GROUP / TEST), bracketing each
+  framework/runner walks suite/test_catalog.inc (GROUP / TEST), bracketing each
   group and test with journal boundaries -- which is how the logs know the
   names that a script, taking no parameters at all, cannot carry itself.
 ```
@@ -511,7 +512,7 @@ Three files, in this order:
 A wholly new `GROUP` costs nothing beyond that third step: `core::catalog::Catalog`
 is built by reflecting over whatever the catalog file declared, in declaration
 order. It used to be a hand-written list, which meant a new group had to be
-acknowledged in framework code *and* mirrored into both test-fixture catalogs,
+acknowledged in framework code *and* mirrored into the test-fixture catalog,
 so a suite gaining a group could not be a suite-only change.
 
 A script's signature is fixed to `() -> void` — it takes nothing and returns
@@ -1036,12 +1037,12 @@ whatever else was in the variable by then.
 Three edits, all genuine vocabulary:
 
 ```cpp
-// libs/core/include/core/quantity.hpp
+// framework/core/include/core/quantity.hpp
 struct degC_Type { static constexpr std::string_view Symbol = "degC"; };
 using Temperature = Quantity< degC_Type>;
 constexpr Temperature operator""_degC( long double v) { /* ... */ }   // optional
 
-// libs/core/include/core/quantity_kind.hpp -- the enumerator, named to match
+// framework/core/include/core/quantity_kind.hpp -- the enumerator, named to match
 enum class QuantityKind { /* ... */ Temperature };
 ```
 
@@ -1328,7 +1329,7 @@ nothing, and must not leave an RTF with a DUT serial in its header saying it
 did. One honest limit — a script whose control flow depends on what it read has
 more than one path, and a skeleton is the one the placeholders produce.
 
-**`--inject` takes the readings from a stimulus file** ([`core/stimulus.hpp`](libs/core/include/core/stimulus.hpp)),
+**`--inject` takes the readings from a stimulus file** ([`core/stimulus.hpp`](framework/core/include/core/stimulus.hpp)),
 which is a different format from a recording on purpose:
 
 ```
@@ -1555,7 +1556,7 @@ cmake --preset macos-debug -DTHORIUM_CRITERIA_VARIANT=stress
 | `BUILD_TESTING_LAYERS` | `ON` | build each layer's tests |
 | `THORIUM_ACTIVE_INSTRUMENTS`, `THORIUM_INSTRUMENT_TABLE`, `THORIUM_WIRING_TABLE` | this repo's `rig/` | the three paths a *separate* rig repo would point at its own data |
 
-The last four are how `libs/hal` stays generic: it is compiled against whichever
+The last four are how `framework/hal` stays generic: it is compiled against whichever
 rig supplied those paths, so an installed `libhal.a` is only ever valid for that
 one rig — a different bench builds hal from source against its own tables.
 
@@ -1600,7 +1601,7 @@ exactly that way: it advertised 317 for long enough that the real figure passed
 490.
 
 The acceptance tests are worth knowing about separately: they run the real binary
-with real flags and keep everything under `<build>/libs/runner/acceptance/<suite>.<test>/` —
+with real flags and keep everything under `<build>/framework/runner/acceptance/<suite>.<test>/` —
 the exact invocation, the console transcript, and both log files. A failing
 assertion names the file to open, and a passing run still leaves specimens of both
 log formats to look at. Every invocation is printed as it runs, so
@@ -1617,7 +1618,7 @@ log formats to look at. Every invocation is printed as it runs, so
   load-bearing choice away.
 - **Content is data, mechanism is code.** `.inc` files are flat, macro-driven
   tables meant to be readable by a test engineer — close to what a spec
-  spreadsheet looks like. The machinery that interprets them lives in `libs/`.
+  spreadsheet looks like. The machinery that interprets them lives in `framework/`.
 - **Guards are not simplicity.** Where a parallel list can be *derived* instead of
   asserted, derive it. A `static_assert` that catches a forgotten edit is strictly
   worse than a design with nothing to forget.

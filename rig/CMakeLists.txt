@@ -5,7 +5,7 @@
 #
 # What lands in this one is the tests that need *this rig* rather than a
 # mechanism: more than one instrument at a time, or the rig's own instrument
-# globals. They used to sit in libs/hal/tests/, which made hal_tests link
+# globals. They used to sit in framework/hal/tests/, which made hal_tests link
 # hal_rig and read as though the generic library owned them; see README.md's
 # "tests" section for the file-by-file argument, and instruments/README.md for
 # why a test naming two drivers cannot live in either driver's directory.
@@ -25,7 +25,7 @@ if(BUILD_TESTING_LAYERS)
     # one -- and reaches it by a plain quoted #include, repo-root-relative, the
     # way dut/tests/test_wiring_coverage.cpp reaches the same file. Note it does
     # NOT go through THORIUM_WIRING_TABLE: that definition is PRIVATE to
-    # hal_rig, deliberately (see libs/hal/CMakeLists.txt), and a test naming
+    # hal_rig, deliberately (see framework/hal/CMakeLists.txt), and a test naming
     # this repo's own rig by path is stating a fact about this directory rather
     # than reaching for a generic mechanism.
     target_include_directories(rig_tests PRIVATE ${CMAKE_SOURCE_DIR})

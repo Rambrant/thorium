@@ -28,7 +28,7 @@
 // The wiring tables are reached by a plain repo-root-relative #include, the way
 // rig/tests/test_wiring_uniqueness.cpp reaches the bench's -- not through
 // THORIUM_WIRING_TABLE, which is PRIVATE to hal_rig on purpose (see
-// libs/hal/CMakeLists.txt).
+// framework/hal/CMakeLists.txt).
 //
 #include "dev/rig/wiring.inc"
 

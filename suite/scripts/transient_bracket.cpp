@@ -16,7 +16,7 @@
 // Why a hook pair rather than the script putting the source back itself, which
 // is what acDropoutScript used to do:
 //
-//   - The teardown runs whether or not the test did. libs/runner/src/main.cpp
+//   - The teardown runs whether or not the test did. framework/runner/src/main.cpp
 //     constructs the group's TeardownGuard *before* the group's setup, so a
 //     restore written here happens on the paths where the script returned
 //     early, failed, or never started -- and a suite whose later groups depend
@@ -116,7 +116,7 @@ namespace
 // The Transient group's SETUP. Reads, and does not judge: it returns true
 // unconditionally, and that is a decision rather than an omission.
 //
-// A setup returning false skips its own group's tests (see libs/runner/src/main.cpp),
+// A setup returning false skips its own group's tests (see framework/runner/src/main.cpp),
 // so a hook here that insisted on finding a live AC input would skip AcDropout
 // in exactly the three modes where no Apply ever reaches a driver -- --replay,
 // --inject and --skeleton all detach the bench (core/bench.hpp). Those runs

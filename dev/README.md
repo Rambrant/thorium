@@ -1,7 +1,7 @@
 # dev/ -- the desk bench: a PC, one instrument, and nothing else
 
-This is a second **deployment**, not a second framework. `libs/` and
-`instruments/` are shared unchanged with the bench — including `libs/runner`,
+This is a second **deployment**, not a second framework. `framework/` and
+`instruments/` are shared unchanged with the bench — including `framework/runner`,
 which is the whole runner, so this directory brings no `main()` of its own; what
 it holds is the same three kinds of content `rig/`, `dut/` and `suite/` hold, for
 a rig that is one meter on a desk with a LAN cable to it.
@@ -84,10 +84,10 @@ fixed; they are recorded here because the shape recurs.
 |---|---|---|
 | `hal/switch_device.hpp` | at least one switching card — `SwitchDeviceInfo switchDevices[]` is a zero-length array otherwise, which is not C++ | `std::array` sized from the enum |
 | `core/meta.hpp` | at least one enumerator — the `template for` never reads the parameter over an empty enum, and `-Werror` caught it | `[[maybe_unused]]` on the three parameters |
-| `libs/hal/tests/` | this bench's five cards and eight instruments, by name, in the *generic* library's test target | `test_switch_device`/`test_switch_fabric`/`test_wiring` moved to `rig/tests/`; `test_instrument` reflects over whatever the deployment declares |
-| `libs/core/tests/` | three criteria variants named `production`/`stress`/`aged` | by index, skipped where the deployment has fewer |
+| `framework/hal/tests/` | this bench's five cards and eight instruments, by name, in the *generic* library's test target | `test_switch_device`/`test_switch_fabric`/`test_wiring` moved to `rig/tests/`; `test_instrument` reflects over whatever the deployment declares |
+| `framework/core/tests/` | three criteria variants named `production`/`stress`/`aged` | by index, skipped where the deployment has fewer |
 
-The `libs/` row is the interesting one. `hal_tests` links plain `hal` precisely so
+The `framework/` row is the interesting one. `hal_tests` links plain `hal` precisely so
 that a test reaching an instrument global or an `Apply` fails to link — and that
 check could not see any of this, because an *enumerator* is neither. The link line
 catches a test that reaches for the rig's objects; nothing caught a test that

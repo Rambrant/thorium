@@ -5,7 +5,7 @@ Device X on its standard adapter -- expressed as flat, macro-driven `.inc`
 files with no C++ logic of their own. There is deliberately no library here
 (no `add_library(dut ...)`): the mechanisms that make sense of this data
 (`core::AdapterPointTag`, `core::MeasureEngine`, the `CRITERIA`/`ADAPTER`
-macros themselves) all live in `libs/hal`/`libs/core` -- the portable,
+macros themselves) all live in `framework/hal`/`framework/core` -- the portable,
 DUT-agnostic framework -- not here, since this directory (like `rig/` and
 `suite/` alongside it) is this one deployment's content, not part of that
 framework; see the top-level `CMakeLists.txt`'s own comment on that split,
@@ -25,7 +25,7 @@ dut/
 
 ## adapter.inc
 
-`ADAPTER`/`POINT`/`END_ADAPTER` (see `libs/hal/include/hal/adapter.hpp`) --
+`ADAPTER`/`POINT`/`END_ADAPTER` (see `framework/hal/include/hal/adapter.hpp`) --
 mirroring `CRITERIA`/`CRIT`/`END_CRITERIA` below -- expand into the one
 `dut` struct: a fixed set of named points (e.g. `Output5V`),
 each carrying its VPC90 location baked into its own *type*
@@ -52,7 +52,7 @@ device doesn't change), this struct -- not some separate profile type --
 not a name: a build targets one DUT on one adapter, so the struct is always
 `dut`, and no call site has to repeat a name the build already fixed. The
 DUT's identity for the logs is `THORIUM_DUT_NAME` (see
-`libs/core/CMakeLists.txt`) -- a display string, not a C++ identifier.
+`framework/core/CMakeLists.txt`) -- a display string, not a C++ identifier.
 
 Like the criteria files below, this file is deliberately bare: just
 `ADAPTER( ... ) ... END_ADAPTER`, nothing else -- no `#pragma once`, no
@@ -68,7 +68,7 @@ includes the prelude and nothing else. `dut/tests/` does include this file
 directly, since those tests exercise the data itself.
 
 Reachability -- whether this rig's wiring (see
-`libs/hal/include/hal/wiring.hpp`) actually connects a given instrument to
+`framework/hal/include/hal/wiring.hpp`) actually connects a given instrument to
 a given point -- is still a runtime check, since `Loc`/`Kind` being
 compile-time values doesn't by itself make the *wiring table lookup*
 compile-time; see the `TODO(reflection)` in `hal/wiring.hpp` for what a
@@ -77,7 +77,7 @@ further upgrade there would look like.
 ## Criteria variants
 
 The tolerance tables (`CRITERIA`/`CRIT` blocks, see
-`libs/core/include/core/criterion.hpp`) for scripts that need more than one
+`framework/core/include/core/criterion.hpp`) for scripts that need more than one
 set of numbers: production hardware fresh off the line, a stress-chamber
 run, equipment that's been in service for years, etc. They live here, not
 in `suite/`, because a tolerance is a property of the DUT being tested --

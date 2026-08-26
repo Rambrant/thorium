@@ -11,7 +11,7 @@
 // and at a glance does the same job. safeRig() is the crash path: unconditional,
 // stateless, reflected over whatever InstrumentTag-derived globals happen to be
 // declared, in whatever order that reflection yields -- and it runs immediately
-// after this hook regardless of what happened here (libs/runner/src/main.cpp holds a
+// after this hook regardless of what happened here (framework/runner/src/main.cpp holds a
 // TeardownGuard and a hal::RigSafingGuard, in that order). This is the normal
 // path, and what earns it a file of its own is the one thing safeRig()
 // deliberately cannot express: a sequence. hal/src/safing.cpp says as much in
