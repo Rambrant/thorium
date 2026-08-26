@@ -8,7 +8,7 @@
 // criteria tables or adapter points a script body is written against. That
 // is also what lets scripts_tests build without the criteria compile
 // definitions, which are PRIVATE to the scripts library (see
-// app/CMakeLists.txt).
+// libs/runner/CMakeLists.txt).
 //
 #include "core/quantity.hpp"
 #include "hal/measure.hpp"

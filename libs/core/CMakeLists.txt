@@ -147,11 +147,25 @@ if(BUILD_TESTING_LAYERS)
     add_layer_tests(core core ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 
     # --- Fixture catalog, for tests/test_run_hooks.cpp ---
-    # A catalog declaring both RUN_SETUP and RUN_TEARDOWN, where the shipped
-    # suite/test_catalog.inc declares only the latter -- see that test's own
-    # header comment for why the undeclared-hook half needs no fixture.
+    # A catalog declaring all four hooks -- RUN_SETUP/RUN_TEARDOWN and, on one of
+    # its two groups, SETUP/TEARDOWN -- where the shipped suite/test_catalog.inc
+    # declares only the run-level pair. See that test's own header comment for
+    # why the undeclared-hook half needs no fixture of its own.
     #
-    # Absolute paths for the same reason app/CMakeLists.txt uses them for
+    # libs/runner's, not one of core's. There used to be a copy of it here, and
+    # the copy was the problem rather than the duplication: the two files stated
+    # the same catalog in the same shape and were free to drift, so a change to
+    # the hook mechanism could be made to pass here against a fixture the runner
+    # no longer matched. One fixture cannot do that. What it costs is that this
+    # test's expected descriptions are the ones libs/runner's acceptance tests
+    # print and assert on -- editing them for either reason fails the other,
+    # loudly and in one obvious place, which is the trade this is making.
+    #
+    # A test-only path, and it points *up* the layer stack. Nothing in libs/core
+    # itself acquires a dependency on libs/runner; core_tests reads one file from
+    # it, the same way it reads a path handed in by whoever configures the build.
+    #
+    # Absolute paths for the same reason libs/runner/CMakeLists.txt uses them for
     # THORIUM_TEST_CATALOG proper: the #include naming them lives in
     # core/active_test_catalog.hpp, so a path relative to the test file that
     # sets them would be resolved from the wrong directory entirely.
@@ -160,7 +174,7 @@ if(BUILD_TESTING_LAYERS)
     # reaches exactly the one translation unit that opts in by redefining them,
     # and no other core test acquires a catalog it never asked for.
     target_compile_definitions(core_tests PRIVATE
-        THORIUM_TEST_CATALOG_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/hooked_catalog.inc"
-        THORIUM_TEST_SCRIPTS_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/hooked_scripts.hpp"
+        THORIUM_TEST_CATALOG_FIXTURE="${CMAKE_SOURCE_DIR}/libs/runner/tests/fixtures/hooked_catalog.inc"
+        THORIUM_TEST_SCRIPTS_FIXTURE="${CMAKE_SOURCE_DIR}/libs/runner/tests/fixtures/hooked_scripts.hpp"
     )
 endif()

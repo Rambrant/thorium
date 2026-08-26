@@ -59,7 +59,7 @@ namespace core
     //
     // So: injecting is about where a value comes from, attachment is about
     // whether an instruction goes anywhere, and only a caller who knows the
-    // whole run -- app/src/main.cpp -- is in a position to say the second one.
+    // whole run -- libs/runner/src/main.cpp -- is in a position to say the second one.
     // It detaches for --replay, --inject and --skeleton, all three of which
     // mean the readings did not come from this rig; a run whose readings are
     // fiction must not be driving hardware.

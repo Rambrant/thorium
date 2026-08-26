@@ -49,16 +49,17 @@ include(GoogleTest)
 # A tests/ directory is the first kind -- there is no such thing as a test file
 # that exists but is deliberately not run. A layer that somehow needs one anyway
 # should declare that target itself rather than teach this function about
-# exceptions; app/CMakeLists.txt's acceptance_tests already does exactly that,
-# for its own unrelated reasons.
+# exceptions; libs/runner/CMakeLists.txt's acceptance_tests already does exactly
+# that, for its own unrelated reasons.
 #
 # The directory is a parameter rather than assumed to be
 # ${CMAKE_CURRENT_SOURCE_DIR}/tests, because for one caller it isn't: the
-# scripts layer's tests are suite content and live under suite/tests/, while the
-# target itself is declared in app/ (see app/CMakeLists.txt). Passing it also
-# keeps this helper from globbing a caller's own tests/ directory behind its
-# back -- app/tests/ holds test_acceptance.cpp, which is deliberately a target
-# of its own.
+# scripts layer's tests are suite content and live under the deployment's
+# tests/, while the target itself is declared in libs/runner (see
+# libs/runner/CMakeLists.txt). Passing it also keeps this helper from globbing a
+# caller's own tests/ directory behind its back -- libs/runner/tests/ holds the
+# hook-ordering fixture, which belongs to a runner target rather than to a test
+# executable of its own.
 #
 # CONFIGURE_DEPENDS so adding or deleting a tests/*.cpp is picked up by the next
 # build with no manual reconfigure.

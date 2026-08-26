@@ -15,7 +15,7 @@
 // TEST( ..., someScript, ...) entry and wants nothing else at all -- that file
 // is compiled into main.cpp, which has no business seeing a criteria table or a
 // rig's instrument globals. The two stand-ins for scripts.hpp
-// (app/tests/fixtures/hooked_scripts.hpp,
+// (libs/runner/tests/fixtures/hooked_scripts.hpp,
 // libs/core/tests/fixtures/hooked_scripts.hpp) are pure declaration files for
 // exactly that reason, and scripts.hpp now matches them; everything a script
 // *body* needs collects here instead.

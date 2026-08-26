@@ -99,7 +99,7 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 # itself, to generate hal::InstrumentId's enumerators -- see that header's own
 # comment -- so it has to reach anyone who includes that header, which is every
 # driver and every consumer of this library. Same reason
-# THORIUM_TEST_CATALOG/THORIUM_TEST_SCRIPTS are PUBLIC on app/'s scripts target
+# THORIUM_TEST_CATALOG/THORIUM_TEST_SCRIPTS are PUBLIC on libs/runner's scripts target
 # rather than PRIVATE like THORIUM_CRITERIA_VARIANT_TABLES (whose only consumer
 # is scripts' own .cpp files).
 #

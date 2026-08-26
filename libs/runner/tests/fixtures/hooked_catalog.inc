@@ -3,7 +3,13 @@
 //
 // The catalog for run_scripts_hooked -- the acceptance fixture that actually
 // declares hooks, which the shipped suite/test_catalog.inc does only at the run
-// level. See app/tests/test_acceptance.cpp for what is asserted about it.
+// level. See suite/acceptance/test_acceptance.cpp for what is asserted about it.
+//
+// Also the fixture libs/core/tests/test_run_hooks.cpp resolves, which is a
+// second reason the descriptions below are worth writing carefully: that test
+// asserts them literally, so this table is the single statement of what a hook's
+// prose is, for both the unit test of the resolution and the acceptance test of
+// the run. It used to be stated twice, once here and once under libs/core.
 //
 // Two groups, differing in exactly one thing: the first declares hooks of its
 // own and the second declares none. That is what makes the group-level pair's

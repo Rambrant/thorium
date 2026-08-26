@@ -2,9 +2,16 @@
 
 //
 // Declarations for the hook-fixture suite -- what core/active_test_catalog.hpp
-// includes via THORIUM_TEST_SCRIPTS when building run_scripts_hooked (see
-// app/CMakeLists.txt), and what hooked_catalog.inc's RUN_SETUP/RUN_TEARDOWN/TEST
-// entries are name-checked against.
+// includes via THORIUM_TEST_SCRIPTS, and what hooked_catalog.inc's
+// RUN_SETUP/RUN_TEARDOWN/TEST entries are name-checked against.
+//
+// Declarations only, and that is what lets two very different consumers share
+// one fixture. run_scripts_hooked links the definitions beside this file
+// (hooked_scripts.cpp), whose bodies announce themselves on stdout so the
+// acceptance tests can assert an ordering; libs/core/tests/test_run_hooks.cpp
+// defines its own bodies in its own translation unit, whose hooks set a flag it
+// can check. What both need to agree on is the table and these names -- see
+// libs/runner/CMakeLists.txt and libs/core/CMakeLists.txt for the two ways in.
 //
 // At global scope for the same reason suite/scripts.hpp is: so a catalog can
 // name one directly, with no "using namespace" of any suite-specific name.

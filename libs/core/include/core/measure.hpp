@@ -558,7 +558,7 @@ namespace core
             //
             // Records straight out through a writer as the run takes each
             // observation, rather than keeping them all until dump() -- what
-            // app/src/main.cpp uses. See core::RecordingSession::streamTo.
+            // libs/runner/src/main.cpp uses. See core::RecordingSession::streamTo.
             //
             auto startRecording( RecordingWriter & writer) -> void { mSessions.startRecording( writer); }
 

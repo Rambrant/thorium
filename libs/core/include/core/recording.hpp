@@ -88,7 +88,7 @@ namespace core
     // The test column's value for an observation that belongs to the run rather
     // than to any one test -- what a hook reads, whether it is the run's
     // RUN_SETUP/RUN_TEARDOWN or one group's own SETUP/TEARDOWN, since none of
-    // them runs inside a test bracket (see runHook in app/src/main.cpp).
+    // them runs inside a test bracket (see runHook in libs/runner/src/main.cpp).
     //
     // Spelled rather than left empty, for two reasons. The reader's one
     // concession to an empty field is the value column, and it is deliberate
@@ -297,7 +297,7 @@ namespace core
 
     //
     // Writes that header. One function so the two callers that write a
-    // recording -- --record and --skeleton (see app/src/main.cpp) -- cannot
+    // recording -- --record and --skeleton (see libs/runner/src/main.cpp) -- cannot
     // spell it two ways.
     //
     // Takes the stream rather than being a RecordingWriter member because it

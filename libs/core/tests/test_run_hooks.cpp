@@ -3,13 +3,28 @@
 // around one group -- through the real core/active_test_catalog.hpp rather than
 // a re-implementation of its lookup.
 //
-// This file supplies its own catalog (fixtures/hooked_catalog.inc, which
-// declares all four) instead of the shipped suite one, by redefining
-// THORIUM_TEST_CATALOG/THORIUM_TEST_SCRIPTS before the include. That is also
-// why this is the only translation unit in core_tests that includes
+// The catalog is a fixture rather than the shipped suite one, supplied by
+// redefining THORIUM_TEST_CATALOG/THORIUM_TEST_SCRIPTS before the include (the
+// two paths arrive as THORIUM_TEST_*_FIXTURE, see libs/core/CMakeLists.txt).
+// That is also why this is the only translation unit in core_tests that includes
 // active_test_catalog.hpp at all: it defines namespace core::catalog, and two
 // TUs defining it from different catalogs would be an ODR violation rather
 // than two independent test cases.
+//
+// The fixture is libs/runner's -- the same one run_scripts_hooked is built from
+// and the acceptance tests drive -- not a copy of it kept here. It was a copy
+// until the two files were reconciled, and the copy was worth removing for a
+// sharper reason than tidiness: two statements of the same catalog can drift, so
+// a change to the hook mechanism could be made to pass here against a shape the
+// runner no longer had. The consequence to know about is that the descriptions
+// asserted below are the ones the acceptance tests print and assert on too, so
+// editing them for either reason fails the other -- which is the point.
+//
+// What this file does keep is the hook and script *bodies*: it defines its own
+// below rather than linking the fixture's, because what these tests need from a
+// hook is a flag it can check, and what run_scripts_hooked needs is a line on
+// stdout. Only the declarations and the table are shared, which is all that has
+// to agree.
 //
 // The other half of the mechanism -- an undeclared hook resolving to nullptr --
 // the shipped suite covers for the group-level pair, whose groups declare no
@@ -32,7 +47,7 @@
 // own TEST.
 //
 // Nothing else in the tree hits this: the catalog macros are used by
-// suite/test_catalog.inc and app/src/main.cpp, neither of which links gtest,
+// suite/test_catalog.inc and libs/runner/src/main.cpp, neither of which links gtest,
 // and no other test includes active_test_catalog.hpp. This file is the one
 // place both meet, and undef-ing after use is the local fix -- worth knowing
 // if a suite ever wants a catalog and a gtest fixture in one translation unit.
@@ -72,7 +87,9 @@ auto fixtureGroupTeardown() -> bool { gGroupTeardownRan = true; return true; }
 // Never actually run by these tests -- what they assert is that the catalog
 // resolved to them (see TheCatalogIsStillReadableAlongsideItsHooks below), so
 // their bodies have nothing to do. A script that a *runner* reached would have
-// to record a check to pass; these are only ever pointed at.
+// to record a check to pass; these are only ever pointed at, which is why these
+// bodies are empty where the fixture's own (libs/runner/tests/fixtures/
+// hooked_scripts.cpp) announce themselves on stdout.
 //
 auto fixtureScript()      -> void {}
 auto otherFixtureScript() -> void {}
@@ -102,8 +119,8 @@ TEST( CoreRunHooks, ADeclaredTeardownResolvesToTheNamedFunction)
 //
 TEST( CoreRunHooks, AHookCarriesTheProseItWasDeclaredWith)
 {
-    EXPECT_EQ( core::catalog::Setup.description,    "The run-level setup this fixture resolves to");
-    EXPECT_EQ( core::catalog::Teardown.description, "The run-level teardown this fixture resolves to");
+    EXPECT_EQ( core::catalog::Setup.description,    "Announce the run-level setup");
+    EXPECT_EQ( core::catalog::Teardown.description, "Announce the run-level teardown");
 }
 
 //
@@ -163,14 +180,14 @@ TEST( CoreRunHooks, ADeclaredGroupHookResolvesOntoItsOwnGroup)
     EXPECT_TRUE( gGroupTeardownRan);
 
     // And the prose beside them, which is what a log heads them with.
-    EXPECT_EQ( core::catalog::Catalog[ 0].setup.description,    "This group's own setup");
-    EXPECT_EQ( core::catalog::Catalog[ 0].teardown.description, "This group's own teardown");
+    EXPECT_EQ( core::catalog::Catalog[ 0].setup.description,    "Announce this group's own setup");
+    EXPECT_EQ( core::catalog::Catalog[ 0].teardown.description, "Announce this group's own teardown");
 }
 
 //
 // The other resolution: a group that declared no hooks gets nullptr, not the
 // previous group's. The runner checks before calling (see runOnePass in
-// app/src/main.cpp), so nullptr is the whole of "this group has nothing to do".
+// libs/runner/src/main.cpp), so nullptr is the whole of "this group has nothing to do".
 //
 TEST( CoreRunHooks, AGroupThatDeclaresNoHooksResolvesToNullptr)
 {

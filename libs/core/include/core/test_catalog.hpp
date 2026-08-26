@@ -11,7 +11,7 @@ namespace core
     // is passed in -- that routing is resolved statically inside the script,
     // the same way GROUP/CRIT/MATRIX/POINT already are -- and no group/test
     // name either. The runner brackets every script with the journal's own
-    // group/test boundaries (see app/src/main.cpp), and each criterion already
+    // group/test boundaries (see libs/runner/src/main.cpp), and each criterion already
     // carries its group name into the log on its own (CRIT stamps it,
     // core::Verify posts it), so naming a script's own test to it would be a
     // second source for a fact the log already has from the first -- with the
@@ -109,7 +109,7 @@ namespace core
     //
     // What RUN_SETUP/RUN_TEARDOWN bracket is the *selection*, once, however
     // many times that selection is then repeated (see --repeat in
-    // app/src/main.cpp). A hook that should instead run per repetition would be
+    // libs/runner/src/main.cpp). A hook that should instead run per repetition would be
     // a different hook, not a different meaning for this one -- there is
     // nothing here to add it yet because nothing has needed it.
     //
@@ -119,7 +119,7 @@ namespace core
     // *when* it runs, and that is the runner's business, not the type's -- a
     // group's hooks run only if something in that group was selected, and once
     // per pass over the selection rather than once per run (see runOnePass in
-    // app/src/main.cpp).
+    // libs/runner/src/main.cpp).
     //
     // All four hooks are optional. A catalog declaring none is the normal case
     // and needs no placeholder; see core/active_test_catalog.hpp for how their
@@ -170,7 +170,7 @@ namespace core
     //
     // An absent hook is a default-constructed one: null, described by nothing.
     // The runner checks the pointer before calling, exactly as it did when this
-    // was a bare RunHook (see app/src/main.cpp).
+    // was a bare RunHook (see libs/runner/src/main.cpp).
     //
     struct Bracket
     {

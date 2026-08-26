@@ -178,6 +178,8 @@ libs/            THE FRAMEWORK -- portable, knows nothing about this rig or DUT
                    interlock
   hal/             switching fabric, wiring, and the API drivers are written
                    against -- the mechanism, not any one instrument
+  runner/          main.cpp, its argument parser, and the build targets that
+                   turn a deployment's suite into run_scripts
 
 instruments/     THE DRIVERS   -- one directory per instrument, each
                  independently packageable, each with its own tests
@@ -185,8 +187,8 @@ instruments/     THE DRIVERS   -- one directory per instrument, each
 rig/             THIS BENCH'S DATA      -- which instruments, wired how,
                  plus the integration tests that need more than one of them
 dut/             THIS DEVICE'S DATA     -- named test points, tolerance tables
-suite/           THIS SUITE'S CONTENT   -- test scripts and the catalog
-app/             THE RUNNER             -- main.cpp, build targets
+suite/           THIS SUITE'S CONTENT   -- test scripts, the catalog, and the
+                 black-box acceptance tests over this deployment's runner
 
 tools/           run-tests.sh (the tester's picker)
 cmake/           build helpers -- generated criteria tables, the test-target
@@ -195,10 +197,12 @@ docs/            the slide deck
 ```
 
 `libs/` never depends on anything outside it. A second rig testing a second
-device is a *separate repository* that reuses `libs/core` and `libs/hal`
-unchanged and brings its own `rig/`, `dut/`, `suite/` and `app/`. Everything
-rig-specific reaches the framework through four CMake file paths and a handful
-of compile definitions — never through an `#include` pointing outwards.
+device is a *separate repository* that reuses `libs/` unchanged and brings its
+own `rig/`, `dut/` and `suite/` — content, not a program. It writes no `main()`:
+`libs/runner` owns the runner and reaches a deployment the same way `libs/hal`
+reaches a rig. Everything rig-specific gets to the framework through CMake file
+paths and a handful of compile definitions — never through an `#include`
+pointing outwards.
 
 ### Every README in this tree
 
@@ -238,7 +242,7 @@ that cannot be recovered from the code.
 |---|---|
 | [`docs`](docs/README.md) | The slide deck, as `.pptx` and a self-contained `.html` |
 
-`libs/core`, `app/`, `tools/` and `dsl/` have no README of their own — their
+`libs/core`, `libs/runner`, `tools/` and `dsl/` have no README of their own — their
 rationale lives in the header and `CMakeLists.txt` comments, and for `libs/core`
 in this file's §1.
 
@@ -282,7 +286,7 @@ from":
   live, colour          human, colour,        machine, EVERY verb,
                         openable mid-run      SARIF 2.1.0
 
-  app/run_scripts walks suite/test_catalog.inc (GROUP / TEST), bracketing each
+  libs/runner walks suite/test_catalog.inc (GROUP / TEST), bracketing each
   group and test with journal boundaries -- which is how the logs know the
   names that a script, taking no parameters at all, cannot carry itself.
 ```
@@ -1100,7 +1104,7 @@ worth reviewing on its own can live beside the test rather than inside it.
 ```bash
 cmake --preset macos-debug          # or windows-debug
 cmake --build build/debug
-build/debug/app/run_scripts --dut-serial=SN-000123
+build/debug/bin/run_scripts --dut-serial=SN-000123
 ```
 
 Presets are a platform × build-type matrix — `macos-debug`, `macos-release`,
@@ -1165,8 +1169,8 @@ Exit code is 0 only if every selected test passed.
 all of them:
 
 ```bash
-build/debug/app/run_scripts                       # the build's default variant
-build/debug/app/run_scripts --criteria=stress     # stress-chamber tolerances
+build/debug/bin/run_scripts                       # the build's default variant
+build/debug/bin/run_scripts --criteria=stress     # stress-chamber tolerances
 ```
 
 An unknown name is fatal and lists the ones that would have worked — a runner
@@ -1181,9 +1185,9 @@ unit a soak run cares about — "the tests, again" — and it is also the unit
 `RUN_SETUP`/`RUN_TEARDOWN` bracket.
 
 ```bash
-build/debug/app/run_scripts --repeat=50                    # fifty passes
-build/debug/app/run_scripts --until-failure                # until something breaks
-build/debug/app/run_scripts --repeat=50 --until-failure    # at most fifty, stop on failure
+build/debug/bin/run_scripts --repeat=50                    # fifty passes
+build/debug/bin/run_scripts --until-failure                # until something breaks
+build/debug/bin/run_scripts --repeat=50 --until-failure    # at most fifty, stop on failure
 ```
 
 `--until-failure` on its own has no bound, deliberately: how many passes a DUT
@@ -1196,8 +1200,8 @@ fails the whole thing.
 that is an input as well as an output:
 
 ```bash
-build/debug/app/run_scripts --record=readings.tsv      # capture what the rig read
-build/debug/app/run_scripts --replay=readings.tsv      # run again off the file, no rig
+build/debug/bin/run_scripts --record=readings.tsv      # capture what the rig read
+build/debug/bin/run_scripts --replay=readings.tsv      # run again off the file, no rig
 ```
 
 Where the two logs describe a run, this is the readings themselves, in order
@@ -1259,8 +1263,8 @@ while the rows say what it *did*.
 one script at a desk:
 
 ```bash
-build/debug/app/run_scripts --record=readings.tsv                      # the whole run
-build/debug/app/run_scripts --replay=readings.tsv --select=SupplyRail  # one script of it
+build/debug/bin/run_scripts --record=readings.tsv                      # the whole run
+build/debug/bin/run_scripts --replay=readings.tsv --select=SupplyRail  # one script of it
 ```
 
 The selected test gets *its own* rows. That is the whole point of the column:
@@ -1297,8 +1301,8 @@ are for the run that has not: a DUT that does not exist yet, a fault that is
 hard to provoke on the bench, a rig in another building.
 
 ```bash
-build/debug/app/run_scripts --skeleton=skeleton.tsv    # what do the scripts read?
-build/debug/app/run_scripts --inject=healthy.stim      # here is what they read
+build/debug/bin/run_scripts --skeleton=skeleton.tsv    # what do the scripts read?
+build/debug/bin/run_scripts --inject=healthy.stim      # here is what they read
 ```
 
 **`--skeleton` answers the question that blocks authoring anything.** A script's
@@ -1596,7 +1600,7 @@ exactly that way: it advertised 317 for long enough that the real figure passed
 490.
 
 The acceptance tests are worth knowing about separately: they run the real binary
-with real flags and keep everything under `<build>/app/acceptance/<suite>.<test>/` —
+with real flags and keep everything under `<build>/libs/runner/acceptance/<suite>.<test>/` —
 the exact invocation, the console transcript, and both log files. A failing
 assertion names the file to open, and a passing run still leaves specimens of both
 log formats to look at. Every invocation is printed as it runs, so

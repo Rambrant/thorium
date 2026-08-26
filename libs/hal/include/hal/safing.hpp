@@ -49,7 +49,7 @@ namespace hal
     // separate process that supervises a suite binary and cannot reach
     // into that binary's hal::fabric or its instrument objects -- so on an
     // abnormal child exit it re-invokes the same suite binary with
-    // --safe (see app/src/main.cpp), which calls this and exits. A fresh
+    // --safe (see libs/runner/src/main.cpp), which calls this and exits. A fresh
     // process is the right thing rather than a compromise: real
     // instruments are addressed over LAN/GPIB, so a newly started process
     // can command them to idle perfectly well, and it does so with a clean
@@ -67,7 +67,7 @@ namespace hal
     // on a kind mismatch; see core/quantity_kind.hpp) -- as opposed to the
     // abnormal one safeRig() itself exists for: a supervising process
     // re-invoking this binary with --safe after the previous one is
-    // already dead and can't be unwound at all (see app/src/main.cpp).
+    // already dead and can't be unwound at all (see libs/runner/src/main.cpp).
     //
     // A destructor rather than a call at every return point: main() has
     // several (--list-tests, --safe, an unselected --select, allPassed/

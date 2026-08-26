@@ -89,7 +89,7 @@ namespace core
                 // Read here rather than passed in by the engine, even though
                 // the engine has just read the same flag to decide whether to
                 // call its driver. Single-threaded by construction (one script
-                // at a time, see app/src/main.cpp), so the two reads cannot
+                // at a time, see libs/runner/src/main.cpp), so the two reads cannot
                 // disagree -- and a parameter would be a second way to say it,
                 // which an engine could set wrongly.
                 //

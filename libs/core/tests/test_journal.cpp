@@ -158,7 +158,7 @@ TEST_F( JournalTest, EventsAreStampedWithTheRunningTest)
 // endTest and endGroup a further test may still follow, so an event there
 // belongs to the group but to no test. This is what keeps hal::RigSafingGuard's
 // Safe event -- posted from a destructor after everything has finished, see
-// app/src/main.cpp -- attributed to the run rather than to whichever test
+// libs/runner/src/main.cpp -- attributed to the run rather than to whichever test
 // happened to be last.
 //
 TEST_F( JournalTest, EventAttributionFollowsWhicheverBoundariesAreStillOpen)
@@ -445,7 +445,7 @@ TEST_F( JournalTest, ChecksInsideAHookDoNotCountTowardsATest)
 //
 // The tally belongs to one test, not to the run: a failure in one must not
 // darken the next, and a run's own verdict is the runner's fold over these
-// (see app/src/main.cpp).
+// (see libs/runner/src/main.cpp).
 //
 TEST_F( JournalTest, EachTestsVerdictIsIndependentOfTheOneBeforeIt)
 {

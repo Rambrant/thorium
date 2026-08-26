@@ -239,6 +239,6 @@ auto acDropoutScript() -> void
     // rigPowerOn had already established, kept in step by nothing; and a
     // restore written at the end of a script only runs on the path where the
     // script reaches its end, where the group's teardown runs on every path
-    // (app/src/main.cpp constructs its guard before the group's setup).
+    // (libs/runner/src/main.cpp constructs its guard before the group's setup).
     //
 }

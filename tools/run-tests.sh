@@ -23,9 +23,9 @@
 # DUT (or worse, the other way round).
 #
 # So there is exactly one binary reachable from here -- run_scripts, this
-# suite's catalog runner (see app/src/main.cpp) -- and the only choices are
+# suite's catalog runner (see libs/runner/src/main.cpp) -- and the only choices are
 # which of its catalog tests to run. Unit tests, and the run_scripts CLI
-# acceptance tests (app/tests/test_acceptance.cpp), belong to `ctest`:
+# acceptance tests (suite/acceptance/test_acceptance.cpp), belong to `ctest`:
 #
 #     ctest --test-dir <build-dir> --output-on-failure
 #
@@ -59,7 +59,7 @@ fi
 # --- The one binary this script drives -------------------------------------
 # Hardcoded rather than looked up from a table of choices: there is only one,
 # by design -- see this file's own comment above.
-BIN="$BUILD_DIR/app/run_scripts"
+BIN="$BUILD_DIR/bin/run_scripts"
 
 if [ ! -x "$BIN" ]; then
     echo "Suite runner not found or not built yet: $BIN" >&2
@@ -121,7 +121,7 @@ fi
 # Test ids are still accepted alongside the numbers, for anyone who knows the
 # one they want. That is not just muscle memory: an id typed here is checked
 # against the group before the run starts, where a typo passed straight to
-# --select would simply mean that test doesn't run (see app/src/main.cpp on why
+# --select would simply mean that test doesn't run (see libs/runner/src/main.cpp on why
 # the runner deliberately doesn't treat it as an error) -- a silent no-op is
 # much worse news to a tester than a re-prompt.
 #

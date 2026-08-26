@@ -55,6 +55,25 @@
 // core_tests already owns -- and deliberately strict about wiring.
 //
 // ---------------------------------------------------------------------------
+// Why this lives in the suite rather than beside the runner
+// ---------------------------------------------------------------------------
+// The binary under test is framework -- libs/runner builds it, and every line
+// of it is portable across deployments. What is asserted about it here is not:
+// this suite's group and test names, this DUT's name in the report header, this
+// rig's instruments in the log, this deployment's three criteria variants. A
+// bench with one meter and one script satisfies none of it.
+//
+// So the tests belong to the deployment whose facts they encode, which is why
+// they sit in suite/acceptance/ and are discovered from there by glob (see
+// libs/runner/CMakeLists.txt). A second deployment writes its own, or sets
+// THORIUM_ACCEPTANCE_TESTS=OFF and writes none -- see dev/README.md.
+//
+// The hook-ordering fixture these tests drive as a second runner is the other
+// half of that split and went the other way: it names no instrument and no DUT
+// point, and what it tests is the runner's own ordering, so it is framework and
+// lives in libs/runner/tests/fixtures/.
+//
+// ---------------------------------------------------------------------------
 // It is also meant to be read
 // ---------------------------------------------------------------------------
 // Every invocation is printed as it happens, tagged [  INVOKE  ], so running
@@ -62,7 +81,7 @@
 // meant to be called:
 //
 //     ctest --test-dir <build-dir> -L acceptance -V
-//     <build-dir>/app/acceptance_tests
+//     <build-dir>/libs/runner/acceptance_tests
 //
 // That is why the argument lists in each scenario below are written out
 // literally rather than built up from shared constants or helper wrappers: the
@@ -74,7 +93,7 @@
 // Artifacts are kept, on purpose
 // ---------------------------------------------------------------------------
 // Every scenario runs in its own directory under
-// <build>/app/acceptance/<suite>.<test>/ and everything it produced stays
+// <build>/libs/runner/acceptance/<suite>.<test>/ and everything it produced stays
 // there after the run:
 //
 //     command.txt   the exact invocation, so the directory explains itself
@@ -108,7 +127,7 @@
 namespace
 {
     //
-    // Both supplied by app/CMakeLists.txt: the built binary's real path (via a
+    // Both supplied by libs/runner/CMakeLists.txt: the built binary's real path (via a
     // $<TARGET_FILE:...> generator expression, so this works under any
     // generator or build layout) and where to keep artifacts.
     //
@@ -120,7 +139,7 @@ namespace
     // on stdout and can be made to fail on demand -- which the shipped suite's
     // real hooks cannot (see the AcceptanceHooks section below for why that
     // still matters now that the shipped catalog declares both). See
-    // app/CMakeLists.txt and app/tests/fixtures/.
+    // libs/runner/CMakeLists.txt and libs/runner/tests/fixtures/.
     //
     constexpr std::string_view kRunScriptsHooked = THORIUM_RUN_SCRIPTS_HOOKED_EXE;
 
@@ -228,7 +247,7 @@ namespace
     //
     // A path in the form the local shell expects -- separators included. CMake
     // hands this file its paths with forward slashes on every platform (see
-    // THORIUM_RUN_SCRIPTS_EXE in app/CMakeLists.txt), and while cmd.exe
+    // THORIUM_RUN_SCRIPTS_EXE in libs/runner/CMakeLists.txt), and while cmd.exe
     // tolerates those in a quoted argument, it does not in every position, and
     // a command.txt written with them is not something a Windows user can
     // paste back.
@@ -380,7 +399,7 @@ namespace
             }
 
             //
-            // The hook fixture's runner (see app/CMakeLists.txt), with the
+            // The hook fixture's runner (see libs/runner/CMakeLists.txt), with the
             // environment variables its scripts and hooks read to decide
             // whether to fail or throw. Same main.cpp as run() drives -- only
             // the catalog behind it differs.
@@ -651,7 +670,7 @@ TEST_F( AcceptanceCatalog, ListTestsPrintsOneLinePerTestAndWritesNoLog)
 
 //
 // What the rig console re-invokes after an abnormal child exit (see
-// app/src/main.cpp and hal/safing.hpp). Exits 0 unconditionally, and writes no
+// libs/runner/src/main.cpp and hal/safing.hpp). Exits 0 unconditionally, and writes no
 // log: this process is cleaning up after a *different* run, and the log it
 // would append to belongs to that dead run.
 //
@@ -668,7 +687,7 @@ TEST_F( AcceptanceSafing, SafeExitsCleanlyAndWritesNoLog)
 // ---------------------------------------------------------------------------
 
 //
-// --help is generated from the Options struct's annotations (see app/src/cli.hpp),
+// --help is generated from the Options struct's annotations (see libs/runner/src/cli.hpp),
 // which is the whole reason it is worth an acceptance test: the risk is not that
 // the text is badly worded, it is that a flag exists and no line describes it.
 //
@@ -1247,7 +1266,7 @@ TEST_F( AcceptanceLogFiles, TwoRunsIntoOneDirectoryCoexist)
     run( { "--quiet", "--select=SupplyRail" });
 
     //
-    // The stamp is second-resolution (see fileStamp in app/src/main.cpp), so
+    // The stamp is second-resolution (see fileStamp in libs/runner/src/main.cpp), so
     // two runs inside the same second would legitimately collide. Sleeping is
     // the honest way to test the property that actually matters -- that a
     // *later* run doesn't clobber an earlier one -- rather than asserting a
@@ -1371,7 +1390,7 @@ TEST_F( AcceptanceRepeat, ARepeatCountThatIsNotAPositiveNumberIsRejectedBeforeAn
 //
 // Driven against run_scripts_hooked -- the same main.cpp over a catalog whose
 // hooks announce themselves on stdout and can be made to fail on demand (see
-// app/CMakeLists.txt). The shipped suite now declares both run hooks too
+// libs/runner/CMakeLists.txt). The shipped suite now declares both run hooks too
 // (rigPowerOn/rigPowerOff), but neither can stand in here: they print no
 // ordering markers, and rigPowerOff has no failure to report at all. So the
 // claims below -- ordering around the scripts, bracketing every --repeat pass

@@ -151,7 +151,7 @@ namespace core
     // number no instrument produced, sitting in a log beside a criterion that
     // then passes or fails on it.
     //
-    // A combination app/src/main.cpp cannot produce: it detaches exactly for
+    // A combination libs/runner/src/main.cpp cannot produce: it detaches exactly for
     // the three modes that supply their own readings, so a detached run always
     // has a scripted session in front of this one. What this catches is the
     // in-process caller who detached and then did not arm anything -- an error,
@@ -713,7 +713,7 @@ namespace core
             //
             // selection names the catalog tests to take rows from; empty means
             // all of them, the same convention --select itself uses (see
-            // isSelected in app/src/main.cpp). It is what makes a whole run's
+            // isSelected in libs/runner/src/main.cpp). It is what makes a whole run's
             // recording usable for debugging one script: without it, a replayed
             // test dequeues from the front of each point's queue and so takes
             // whatever the *first* test to touch that point recorded. Two tests
@@ -724,7 +724,7 @@ namespace core
             // They are what the hooks read -- RUN_SETUP/RUN_TEARDOWN around the
             // selection, and a group's own SETUP/TEARDOWN around the tests of
             // whichever groups the selection reaches (see runHook in
-            // app/src/main.cpp) -- so filtering them out would leave a replay
+            // libs/runner/src/main.cpp) -- so filtering them out would leave a replay
             // of one test unable to power up the rig it is not touching.
             //
             // A selection that matches no recorded test is refused rather than

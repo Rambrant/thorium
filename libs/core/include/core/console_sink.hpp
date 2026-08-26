@@ -33,7 +33,7 @@ namespace core
             // colour = false writes the same lines with no escape sequences at
             // all, for a log being piped into a file or a CI job's output. Not
             // auto-detected from isatty(): that is a platform call this library
-            // has no other reason to make, and the caller (app/src/main.cpp,
+            // has no other reason to make, and the caller (libs/runner/src/main.cpp,
             // which owns the command line) is better placed to decide -- see
             // its --no-color flag.
             //

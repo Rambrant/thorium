@@ -55,8 +55,8 @@ add_link_options(-fcontracts)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # GNUInstallDirs: standard, override-able CMAKE_INSTALL_{BINDIR,LIBDIR,
-# INCLUDEDIR} for everything installed below (libs/core, libs/hal, app's
-# run_scripts). CMakePackageConfigHelpers: configure_package_config_file()/
+# INCLUDEDIR} for everything installed below (libs/core, libs/hal,
+# libs/runner's run_scripts). CMakePackageConfigHelpers: configure_package_config_file()/
 # write_basic_package_version_file(), used once below to generate the
 # Thorium CMake package a separate rig repo would find_package()/
 # FetchContent this framework through.
@@ -68,7 +68,7 @@ include(CMakePackageConfigHelpers)
 # its rig, DUT and suite only through file paths (see the layer comment further
 # down, and libs/hal/README.md). Until now those paths were written out
 # longhand as ${CMAKE_SOURCE_DIR}/rig, /dut and /suite in this file and in
-# app/CMakeLists.txt, which made the portability structural but not
+# the runner's CMakeLists.txt, which made the portability structural but not
 # *reachable*: the framework could be pointed elsewhere, and this repo had no
 # way to point it.
 #
@@ -163,7 +163,7 @@ endif()
 include(CriteriaVariants)
 
 # Sets THORIUM_CRITERIA_VARIANT_TABLES / THORIUM_CRITERIA_VARIANT_NAMES to the
-# two generated files' paths; libs/core and app hand those to the translation
+# two generated files' paths; libs/core and libs/runner hand those to the translation
 # units that read them, as compile definitions, exactly the way
 # THORIUM_PRODUCTION_CRITERIA and THORIUM_TEST_CATALOG already work.
 thorium_generate_criteria_variants(
@@ -257,11 +257,19 @@ endif()
 # --- Layers ---
 # Two different things share this tree: a portable, rig-and-DUT-agnostic
 # framework (libs/), and this one deployment's content -- one rig testing
-# one DUT (rig/, dut/, dsl/, suite/, app/, all at the top level rather than
-# under libs/). A separate rig -- its own repo, its own bench, its own
-# DUT -- would reuse libs/core and libs/hal unchanged and write its own
-# rig/dut/dsl/suite/app instead; nothing here should ever make libs/
-# content depend on anything outside it.
+# one DUT (rig/, dut/, dsl/, suite/, all at the top level rather than under
+# libs/). A separate rig -- its own repo, its own bench, its own DUT -- would
+# reuse libs/ unchanged and write its own rig/dut/dsl/suite instead; nothing
+# here should ever make libs/ content depend on anything outside it.
+#
+# A deployment brings content, not a program. There used to be an app/ in that
+# list -- the runner, main.cpp and the "scripts" library -- and its presence at
+# the top level said, without meaning to, that a second deployment was expected
+# to write a main() of its own. It never was: app/ held nothing DUT-specific,
+# and the only thing tying it to this deployment was two compile definitions
+# naming files under suite/. That is the same parameterisation libs/hal already
+# uses for its four rig files, so the runner moved to libs/runner, where it is
+# packaged and versioned with core and hal. See libs/runner/CMakeLists.txt.
 #
 # core  : foundational utilities, no dependencies on other layers
 # hal   : generic hardware abstraction layer (switching fabric, wiring,
@@ -292,13 +300,13 @@ endif()
 #         requirement/test/development disciplines -- depends on dut + hal
 #         + core, the same reason it lives alongside them rather than under
 #         libs/
-# app   : the runner (main.cpp) plus the "scripts" library it runs -- the
-#         scripts themselves, the test catalog, scripts.hpp and prelude.hpp
-#         live under
-#         suite/ rather than in app/, which holds no DUT-specific content at
-#         all; the criteria/tolerance variants live under dut/ instead,
-#         since tolerances are a property of the DUT being tested (see
-#         dut/README.md)
+# runner: the runner (main.cpp, its argument parser) plus the "scripts"
+#         library it runs and the run_scripts binary both produce -- framework,
+#         under libs/ with core and hal. What it runs comes from the three
+#         deployment directories as file paths: the scripts themselves, the test
+#         catalog, scripts.hpp and prelude.hpp from suite/, and the
+#         criteria/tolerance variants from dut/, since tolerances are a property
+#         of the DUT being tested (see dut/README.md)
 
 # --- This rig's data for the generic hal library ---
 # libs/hal is a generic instrument-driver + switching-fabric library with no
@@ -450,4 +458,10 @@ add_subdirectory(${THORIUM_RIG_DIR} ${CMAKE_BINARY_DIR}/rig)
 
 add_subdirectory(${THORIUM_DUT_DIR} ${CMAKE_BINARY_DIR}/dut)
 #add_subdirectory(dsl)
-add_subdirectory(app)
+
+# Last, and after the two deployment directories above rather than beside
+# libs/core and libs/hal, despite being framework like them: it globs
+# THORIUM_SUITE_DIR for the scripts to compile and links hal_rig, so both the
+# content and the target have to exist first. Where a libs/ directory is
+# configured has never been about where it sits on disk.
+add_subdirectory(libs/runner)

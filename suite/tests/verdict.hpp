@@ -8,7 +8,7 @@
 // A script's verdict is derived from the checks it recorded, by the journal, at
 // the point the test bracket closes (see core::Journal::endTest and
 // core/test_catalog.hpp). So a test that calls a script directly has to do what
-// app/src/main.cpp's runner does around it -- open a bracket, run it, close the
+// libs/runner/src/main.cpp's runner does around it -- open a bracket, run it, close the
 // bracket and take the answer -- and this is that, once, rather than three lines
 // copied into every fixture in this directory.
 //

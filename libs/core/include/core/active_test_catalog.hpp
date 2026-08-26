@@ -69,7 +69,7 @@ namespace core::catalog
     // The hooks that bracket a run, each with the prose its RUN_SETUP /
     // RUN_TEARDOWN line described it with -- or a null hook described by
     // nothing, where the catalog declared none. The runner checks before
-    // calling (see app/src/main.cpp).
+    // calling (see libs/runner/src/main.cpp).
     //
     inline constexpr Bracket Setup    = detail::ResolvedSetup;
     inline constexpr Bracket Teardown = detail::ResolvedTeardown;
@@ -86,13 +86,12 @@ namespace core::catalog
         // acknowledge it. The cost was not just the extra line. Because this
         // header is compiled against *whichever* catalog a target supplies, a
         // hardcoded list forced every catalog to declare every group name the
-        // list mentioned -- so the two test fixtures
-        // (app/tests/fixtures/hooked_catalog.inc,
-        // libs/core/tests/fixtures/hooked_catalog.inc) each had to carry a
-        // group named after one in the shipped suite, and adding a group to
-        // the shipped suite meant adding a matching one to both fixtures,
-        // changing what the acceptance tests observe. A suite gaining a test
-        // group could not be a suite-only change.
+        // list mentioned -- so the hook fixture
+        // (libs/runner/tests/fixtures/hooked_catalog.inc) had to carry a group
+        // named after one in the shipped suite, and adding a group to the
+        // shipped suite meant adding a matching one to the fixture, changing
+        // what the acceptance tests observe. A suite gaining a test group could
+        // not be a suite-only change.
         //
         // Reflection removes the list and the requirement together: a catalog
         // now declares what it declares, and this header reads it. Same move,

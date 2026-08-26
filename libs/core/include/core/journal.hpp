@@ -193,7 +193,7 @@ namespace core
     // time. Operator/HostName come from the environment (USER/LOGNAME and
     // HOSTNAME/HOST) -- a convenience, not a claim, which is why both are
     // overridable; DutSerial and CommandLine are left empty for the caller
-    // (see app/src/main.cpp) to fill in, since neither is derivable here.
+    // (see libs/runner/src/main.cpp) to fill in, since neither is derivable here.
     //
     [[nodiscard]]
     auto defaultRunInfo() -> RunInfo;
@@ -354,7 +354,7 @@ namespace core
             // belong to it.
             //
             // Only groups with at least one test actually running get these:
-            // see app/src/main.cpp, which is where the selection is known.
+            // see libs/runner/src/main.cpp, which is where the selection is known.
             //
             virtual auto onGroupStart( std::string_view, std::string_view) -> void {}
             virtual auto onGroupEnd( std::string_view) -> void {}
@@ -393,7 +393,7 @@ namespace core
         public:
             //
             // Sinks are referenced, never owned -- they outlive the journal's
-            // use of them because the caller holds them (see app/src/main.cpp,
+            // use of them because the caller holds them (see libs/runner/src/main.cpp,
             // where both file sinks are locals whose scope encloses the run).
             // That ordering matters: a sink's destructor is what closes its
             // file, and a journal that owned them would decide when that
@@ -447,7 +447,7 @@ namespace core
             //
             // No verdict comes back, for the same reason: a hook already
             // returns its own bool, and what that bool means is "did the
-            // bracketing work", not "did the DUT pass" (see app/src/main.cpp).
+            // bracketing work", not "did the DUT pass" (see libs/runner/src/main.cpp).
             //
             auto beginPhase( std::string_view phase, std::string_view title) -> void;
             auto endPhase() -> void;

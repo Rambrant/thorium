@@ -97,7 +97,7 @@ namespace core
             // Writes the log if onRunEnd never arrived. That is not a
             // theoretical path: hal::RigSafingGuard exists precisely because a
             // suite run can end by an exception propagating out of a script
-            // (see app/src/main.cpp), and the machine log for a run that failed
+            // (see libs/runner/src/main.cpp), and the machine log for a run that failed
             // that way is the one most worth having.
             //
             ~SarifSink() override;

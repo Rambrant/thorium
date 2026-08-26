@@ -1,9 +1,10 @@
 # dev/ -- the desk bench: a PC, one instrument, and nothing else
 
-This is a second **deployment**, not a second framework. `libs/`, `instruments/`
-and `app/` are shared unchanged with the bench; what this directory holds is the
-same three kinds of content `rig/`, `dut/` and `suite/` hold, for a rig that is
-one meter on a desk with a LAN cable to it.
+This is a second **deployment**, not a second framework. `libs/` and
+`instruments/` are shared unchanged with the bench — including `libs/runner`,
+which is the whole runner, so this directory brings no `main()` of its own; what
+it holds is the same three kinds of content `rig/`, `dut/` and `suite/` hold, for
+a rig that is one meter on a desk with a LAN cable to it.
 
 It exists for the work the bench cannot host: developing an instrument driver
 against real hardware. Today every driver in this repository answers from its own
@@ -15,7 +16,7 @@ of work, and doing it on the rack means booking the rack.
 cmake --preset macos-dev
 cmake --build build/dev
 ctest --test-dir build/dev
-./build/dev/app/run_scripts
+./build/dev/bin/run_scripts
 ```
 
 ## What it is
@@ -123,6 +124,14 @@ its driver header in `dev/rig/active_instruments.hpp`, its package in
 `THORIUM_INSTRUMENT_PACKAGES`, and the count in `dev/rig/tests/test_dev_rig.cpp` —
 which will fail until you change it, deliberately: what this bench is should not
 widen quietly.
+
+**Acceptance tests.** `dev/suite/acceptance/`, plus dropping
+`THORIUM_ACCEPTANCE_TESTS: "OFF"` from the `dev-deployment` preset. That option
+is off here because acceptance tests assert on a deployment's own facts — group
+names, the DUT in the report header, the rig's instruments — and the bench's
+(`suite/acceptance/test_acceptance.cpp`) assert on the bench's. The runner they
+drive is shared; what is asserted about it is not. Turning the option on with an
+empty directory is a configure error rather than a quiet skip.
 
 **A unit test.** `dev/suite/tests/` for a script (inject by key —
 `Measure.inject( "Dmm1.Voltage", ...)`, and `--skeleton` prints the keys),

@@ -101,7 +101,7 @@ namespace core
     // fixed, there is no locale involved, and this keeps the timestamp spelling
     // in one place small enough to read. std::gmtime's shared static buffer is
     // fine here -- a suite run is single-threaded by construction (one script
-    // at a time, see app/src/main.cpp), and the result is copied out
+    // at a time, see libs/runner/src/main.cpp), and the result is copied out
     // immediately.
     //
     auto isoUtcFromUnixMillis( const std::int64_t millis) -> std::string
@@ -197,7 +197,7 @@ namespace core
             // Read here rather than left to the caller, so that no caller can
             // forget it and produce a header claiming a bench that was not
             // there. Which does put an ordering requirement on whoever detaches:
-            // do it before assembling this, not after. app/src/main.cpp
+            // do it before assembling this, not after. libs/runner/src/main.cpp
             // therefore detaches immediately after parsing its options, ahead
             // of everything else it does -- see the comment there, which says
             // so at the point where the order matters.

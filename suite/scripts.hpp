@@ -20,7 +20,7 @@
 // each TEST(...) entry against the signatures below and needs nothing else;
 // that header is compiled into main.cpp, so anything added here lands in a
 // translation unit with no use for it. The two fixture stand-ins for this
-// file (app/tests/fixtures/hooked_scripts.hpp,
+// file (libs/runner/tests/fixtures/hooked_scripts.hpp,
 // libs/core/tests/fixtures/hooked_scripts.hpp) are bare declaration files
 // for that reason, and this one matches them.
 //

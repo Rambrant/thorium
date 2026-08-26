@@ -15,10 +15,13 @@
 //
 // Deliberately generic: nothing below knows anything about run_scripts, and the
 // whole vocabulary is the five annotation types in the "Vocabulary" section. It
-// lives in app/src/ rather than libs/core/include/ because main.cpp is its only
-// consumer and a general-purpose CLI framework is not something libs/core should
-// be committing to as installed public surface. If a second consumer ever
-// appears, that is the moment to move it, not before.
+// lives in libs/runner/src/ rather than in an include/ directory of its own,
+// let alone libs/core/include/, because main.cpp is its only consumer and a
+// general-purpose CLI framework is not something this framework should be
+// committing to as installed public surface. Being under libs/ now does not
+// change that: what libs/runner installs is the run_scripts binary, not a header
+// anyone compiles against. If a second consumer ever appears, that is the moment
+// to move it, not before.
 //
 // What this does NOT do, on purpose: invariants that span two flags (--record
 // with --replay), or a value whose legality only some other component knows
