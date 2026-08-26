@@ -10,12 +10,12 @@ RUN_SETUP(    rigPowerOn,  "Bring the AC input and the three DC supplies up, che
 RUN_TEARDOWN( rigPowerOff, "Take the supplies back down in the inverse order and open the fabric")
 
 //
-// No group below brackets itself. A GROUP may, with SETUP/TEARDOWN rows of its
-// own (see core/test_catalog.hpp), and those run only for a selection that
-// actually reaches the group -- which is the case for reaching for them: a rig
-// state one group's tests need and the others must not be given. The power
-// cycle above is not that case. Every test here wants it, which is why it is
-// stated once, at the top, for the whole run.
+// One group below brackets itself: Transient, whose test takes the primary AC
+// input away and whose TEARDOWN puts it back. That is the case a group-level
+// pair exists for -- a rig state one group disturbs and the others must be
+// handed intact -- and it runs only for a selection that actually reaches the
+// group. The power cycle above is not that case. Every test here wants it,
+// which is why it is stated once, at the top, for the whole run.
 //
 
 GROUP( OutputVoltage, "Tests validating DUT output voltage rails")
@@ -32,7 +32,9 @@ END_GROUP
 // being able to make from the command line.
 //
 GROUP( Transient, "Tests validating DUT behaviour while a supply is disturbed")
+    SETUP(    transientSetup,    "Record how the primary AC source is programmed, before its test drops it")
     TEST( AcDropout, acDropoutScript, "Verify the 5V rail rides a loss of the primary AC input")
+    TEARDOWN( transientTeardown, "Put the primary AC source back the way the setup found it")
 END_GROUP
 
 GROUP( Console, "Tests validating the DUT's RS232 debug console")

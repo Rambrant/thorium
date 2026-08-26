@@ -65,6 +65,21 @@ auto rigPowerOn() -> bool;
 auto rigPowerOff() -> bool;
 
 //
+// The Transient group's own pair, declared by SETUP/TEARDOWN inside that group
+// rather than at the catalog's file scope, so they run only for a selection
+// that actually reaches it (see suite/test_catalog.inc).
+//
+// They share state -- what AcP1 was programmed to when the group was entered --
+// which is why both live in one file where the run-level pair above is split
+// across two. See suite/scripts/transient_bracket.cpp.
+//
+[[nodiscard]]
+auto transientSetup() -> bool;
+
+[[nodiscard]]
+auto transientTeardown() -> bool;
+
+//
 // Verifies fuse register content and output voltage against expected
 // criteria. Demonstrates the declarative Criterion/Verify DSL style,
 // as opposed to the fluent TestCase style used above.

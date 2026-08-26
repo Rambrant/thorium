@@ -225,18 +225,20 @@ auto acDropoutScript() -> void
 
     //
     // ------------------------------------------------------------------
-    // Put the bench back the way the setup hook left it
+    // Putting the bench back is not this script's job
     // ------------------------------------------------------------------
     //
-    // This script is the only one in the suite that takes a source away, so
-    // it is the only one that has to give it back: every script after it is
-    // written against the rig rigPowerOn established (see
-    // suite/scripts/rig_power_on.cpp), and a suite whose results depend on
-    // which order its tests happened to run in is not a suite.
+    // The AC source stays off and disconnected when this returns. Its
+    // group's TEARDOWN puts it back -- see
+    // suite/scripts/transient_bracket.cpp, and suite/test_catalog.inc where
+    // the Transient group declares the pair.
     //
-    // Connect then Apply, nesting the same way the power-up sequence does --
-    // the relay closes on a dead path, then the output comes up.
+    // It used to be restored right here, with a trailing Connect/Apply naming
+    // 115 V / 400 Hz / 2 A a second time. Two things were wrong with that, and
+    // neither was the restoring. The values were a second copy of what
+    // rigPowerOn had already established, kept in step by nothing; and a
+    // restore written at the end of a script only runs on the path where the
+    // script reaches its end, where the group's teardown runs on every path
+    // (app/src/main.cpp constructs its guard before the group's setup).
     //
-    Connect( AcP1.ac());
-    Apply(   AcP1.ac().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 2_A));
 }

@@ -1660,12 +1660,13 @@ TEST_F( AcceptanceHooks, TheShippedHooksBracketTheRunWithAnOrderedPowerCycle)
     //
     // The power-down half is anchored rather than taken as the first
     // occurrence of each event, and that is not defensive coding -- it is what
-    // the test means. A script is allowed to remove and restore a source
-    // mid-run, and one of them does: acDropoutScript drops the primary AC to
-    // measure what the DUT's output rails do about it, then puts it back (see
-    // suite/scripts/ac_dropout_script.cpp). First-occurrence lookups would
-    // find *that* Remove and assert the teardown's ordering against an event
-    // belonging to a test.
+    // the test means. A source is allowed to come down and go back up mid-run,
+    // and one does: acDropoutScript drops the primary AC to measure what the
+    // DUT's output rails do about it (see
+    // suite/scripts/ac_dropout_script.cpp), and the Transient group's own
+    // TEARDOWN puts it back (suite/scripts/transient_bracket.cpp).
+    // First-occurrence lookups would find *that* Remove and assert the
+    // run-level teardown's ordering against an event belonging to a group.
     //
     // DcP1 is the anchor because nothing but the teardown ever removes it, so
     // its last occurrence is unambiguously the start of the power-down. Every
