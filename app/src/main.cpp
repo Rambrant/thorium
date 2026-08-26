@@ -578,10 +578,45 @@ namespace
     }
 
     //
+    // The journal bracket a hook runs inside, so that everything it posts is
+    // attributed to the SETUP or TEARDOWN it came from rather than floating
+    // between the group heading and the group's first test.
+    //
+    // RAII rather than a call at each end, for the reason every guard in this
+    // file is: a hook that throws unwinds straight past a closing call, and the
+    // phase would stay open over whatever the run did next -- which on this
+    // path is the safing pass, the one event a reader most needs attributed
+    // correctly.
+    //
+    class PhaseScope
+    {
+        public:
+            PhaseScope( const std::string_view phase, const std::string_view title)
+            {
+                core::journal().beginPhase( phase, title);
+            }
+
+            ~PhaseScope()
+            {
+                core::journal().endPhase();
+            }
+
+            PhaseScope( const PhaseScope &)                     = delete;
+            auto operator=( const PhaseScope &) -> PhaseScope & = delete;
+    };
+
+    // The two ids a phase can have -- named once, since the logs, this file and
+    // the README all have to agree on their spelling. What tells one "setup"
+    // from another is the group it sits in and the description the catalog gave
+    // it, not the id (see core::Bracket).
+    constexpr std::string_view kSetupPhase    = "setup";
+    constexpr std::string_view kTeardownPhase = "teardown";
+
+    //
     // Calls a hook if the catalog declared one. An absent hook succeeds --
     // "there was nothing to do" is not a failure.
     //
-    // Taking the hook as a parameter rather than testing core::catalog::Setup
+    // Taking the bracket as a parameter rather than testing core::catalog::Setup
     // against nullptr at the call site is what keeps this compiling under
     // -Werror both ways round: those constants are compile-time known, so a
     // catalog that *does* declare a hook makes the null test provably useless
@@ -589,10 +624,22 @@ namespace
     // exactly that test. A parameter is opaque to the warning and correct for
     // both.
     //
+    // That same parameter is what lets the phase bracket live here rather than
+    // at the call sites: the bracket has to open only when there is a hook to
+    // run, and a log claiming a group entered SETUP when the catalog declared
+    // none would be inventing a step. It also carries the description the log
+    // heads the hook with, so the two cannot be handed in separately and get
+    // out of step.
+    //
     [[nodiscard]]
-    auto runHook( const core::RunHook hook) -> bool
+    auto runHook( const core::Bracket bracket, const std::string_view phase) -> bool
     {
-        return hook == nullptr || hook();
+        if ( bracket.hook == nullptr)
+            return true;
+
+        const PhaseScope scope{ phase, bracket.description };
+
+        return bracket.hook();
     }
 
     //
@@ -623,21 +670,27 @@ namespace
     class TeardownGuard
     {
         public:
-            TeardownGuard( const core::RunHook hook,
+            TeardownGuard( const core::Bracket bracket,
                            bool &              allPassed,
                            std::string         label   = "RUN_TEARDOWN",
                            std::string         subject = "run")
-                : mHook( hook), mAllPassed( allPassed),
+                : mBracket( bracket), mAllPassed( allPassed),
                   mLabel( std::move( label)), mSubject( std::move( subject)) {}
 
             ~TeardownGuard()
             {
-                if ( !mHook)
+                if ( !mBracket.hook)
                     return;
+
+                //
+                // Opened only once there is a hook to run, exactly as runHook
+                // opens the setup one -- see there.
+                //
+                const PhaseScope scope{ kTeardownPhase, mBracket.description };
 
                 try
                 {
-                    if ( !mHook())
+                    if ( !mBracket.hook())
                         fail( mLabel + " reported failure");
                 }
                 catch ( const std::exception & e)
@@ -669,7 +722,7 @@ namespace
                 mAllPassed = false;
             }
 
-            core::RunHook     mHook;
+            core::Bracket     mBracket;
             bool &            mAllPassed;
             std::string       mLabel;
             std::string       mSubject;
@@ -752,7 +805,7 @@ namespace
                 // skeleton missing every reading this group's tests would have
                 // asked for. See runTests below.
                 //
-                if ( const auto setupPassed = runHook( group.setup); !setupPassed && !options.SkeletonPath)
+                if ( const auto setupPassed = runHook( group.setup, kSetupPhase); !setupPassed && !options.SkeletonPath)
                 {
                     const auto what = "SETUP for group '" + std::string( group.name)
                                     + "' reported failure; no test in it was run";
@@ -943,7 +996,7 @@ namespace
             // says so at the point where the answers are chosen. This removes
             // the one such branch that would otherwise stop every test at once.
             //
-            const auto setupPassed = runHook( core::catalog::Setup);
+            const auto setupPassed = runHook( core::catalog::Setup, kSetupPhase);
 
             if ( !setupPassed && !options.SkeletonPath)
             {

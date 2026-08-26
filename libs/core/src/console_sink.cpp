@@ -95,6 +95,16 @@ namespace core
         writeAll( humanTestHeadingLines( test, description));
     }
 
+    auto ConsoleSink::onPhaseStart( const std::string_view group, const std::string_view phase, const std::string_view title) -> void
+    {
+        writeAll( humanPhaseHeadingLines( group, phase, title));
+    }
+
+    auto ConsoleSink::onPhaseEnd( std::string_view) -> void
+    {
+        writeAll( humanPhaseClosingLines());
+    }
+
     auto ConsoleSink::onEvent( const JournalEvent & event) -> void
     {
         writeAll( humanEventLines( event));

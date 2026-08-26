@@ -12,17 +12,19 @@
 // and a group without to select instead.
 //
 // Every hook and script here announces itself on stdout, because that ordering
-// is the whole subject: a hook posts no journal event of its own, so the logs
-// cannot show what ran when.
+// is the whole subject and stdout is the one stream that carries hooks and
+// scripts in a single order. The machine log brackets each hook too (see
+// core::Journal::beginPhase), but a hook whose body posts nothing -- which is
+// every hook here -- shows up there as a boundary and nothing else.
 //
 
-RUN_SETUP(    fixtureSetup)
-RUN_TEARDOWN( fixtureTeardown)
+RUN_SETUP(    fixtureSetup,    "Announce the run-level setup")
+RUN_TEARDOWN( fixtureTeardown, "Announce the run-level teardown")
 
 GROUP( OutputVoltage, "The hook fixture's group with hooks of its own")
-    SETUP(    fixtureGroupSetup)
+    SETUP(    fixtureGroupSetup,    "Announce this group's own setup")
     TEST( FixtureTest, fixtureScript, "Announces itself so ordering can be asserted")
-    TEARDOWN( fixtureGroupTeardown)
+    TEARDOWN( fixtureGroupTeardown, "Announce this group's own teardown")
 END_GROUP
 
 GROUP( Console, "The hook fixture's group with no hooks of its own")

@@ -368,6 +368,16 @@ namespace core
         writeAll( humanTestHeadingLines( test, description));
     }
 
+    auto RtfSink::onPhaseStart( const std::string_view group, const std::string_view phase, const std::string_view title) -> void
+    {
+        writeAll( humanPhaseHeadingLines( group, phase, title));
+    }
+
+    auto RtfSink::onPhaseEnd( std::string_view) -> void
+    {
+        writeAll( humanPhaseClosingLines());
+    }
+
     auto RtfSink::onEvent( const JournalEvent & event) -> void
     {
         writeAll( humanEventLines( event));

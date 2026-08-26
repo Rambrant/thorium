@@ -15,8 +15,10 @@ scenario, but always runs the same set of tests). See
 
 The same file may declare `RUN_SETUP`/`RUN_TEARDOWN` -- the code bracketing the
 selected scripts, typically powering the rig up and back down. Both are
-optional and independent; this catalog declares both -- `RUN_SETUP( rigPowerOn)`
-and `RUN_TEARDOWN( rigPowerOff)`, in `scripts/rig_power_on.cpp` and
+optional and independent, and each takes a description the logs head it with
+(every hook is called `setup` or `teardown`, so that prose is what tells one
+from another); this catalog declares both -- `RUN_SETUP( rigPowerOn, "...")`
+and `RUN_TEARDOWN( rigPowerOff, "...")`, in `scripts/rig_power_on.cpp` and
 `scripts/rig_power_off.cpp`. See the README's "Bracket a run with setup and
 teardown" for how to add a pair, and `core::RunHook` for what they promise.
 

@@ -46,6 +46,17 @@ namespace
                 Descriptions.emplace_back( description);
             }
 
+            auto onPhaseStart( const std::string_view group, const std::string_view phase, const std::string_view title) -> void override
+            {
+                PhaseStarts.push_back( Boundary{ std::string( group), std::string( phase), false });
+                Descriptions.emplace_back( title);
+            }
+
+            auto onPhaseEnd( const std::string_view phase) -> void override
+            {
+                PhaseEnds.emplace_back( phase);
+            }
+
             auto onEvent( const core::JournalEvent & event) -> void override
             {
                 Events.push_back( event);
@@ -66,6 +77,8 @@ namespace
             std::vector<Boundary>          GroupStarts;
             std::vector<std::string>       GroupEnds;
             std::vector<Boundary>          TestStarts;
+            std::vector<Boundary>          PhaseStarts;
+            std::vector<std::string>       PhaseEnds;
             std::vector<std::string>       Descriptions;
             std::vector<core::JournalEvent> Events;
             std::vector<Boundary>          TestEnds;
@@ -342,6 +355,90 @@ TEST_F( JournalTest, EventsWithNoVerdictOfTheirOwnDoNotCountAsChecks)
     core::journal().post( core::JournalRecord{ .Method = core::Verb::Connect, .Subject = "DcP1" });
     core::journal().post( core::JournalRecord{ .Method = core::Verb::Measure, .Subject = "Output5V" });
 
+    EXPECT_FALSE( core::journal().endTest());
+}
+
+//
+// A hook's events are attributable without being a test's. The bracket runs
+// alongside the group's own -- inside it for a group's SETUP/TEARDOWN, outside
+// every group for the catalog's RUN_ pair -- and stamps a phase id that is
+// deliberately not a test id (see core::JournalEvent::Phase, and
+// core::kRunScope in core/recording.hpp for what depends on that).
+//
+TEST_F( JournalTest, EventsInsideAHookAreStampedWithItsPhase)
+{
+    core::journal().begin( core::RunInfo{});
+    core::journal().beginGroup( "OutputVoltage", {});
+
+    core::journal().beginPhase( "setup", "SETUP, bracketing this group's tests");
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Apply, .Subject = "DcP1" });
+    core::journal().endPhase();
+
+    // After the bracket closes, and still inside the group.
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Note, .Subject = "after" });
+
+    ASSERT_EQ( mSink.Events.size(), 2u);
+
+    EXPECT_EQ( mSink.Events[ 0].Group, "OutputVoltage");
+    EXPECT_EQ( mSink.Events[ 0].Phase, "setup");
+
+    // The phase is not a test, and must not be mistaken for one anywhere.
+    EXPECT_TRUE( mSink.Events[ 0].Test.empty());
+
+    EXPECT_TRUE( mSink.Events[ 1].Phase.empty());
+    EXPECT_EQ( mSink.Events[ 1].Group, "OutputVoltage");
+
+    ASSERT_EQ( mSink.PhaseStarts.size(), 1u);
+    EXPECT_EQ( mSink.PhaseStarts[ 0].Test,  "setup");
+
+    // The group the bracket ran inside -- what tells a group's own SETUP from
+    // the catalog's RUN_SETUP, since both spell their id the same way.
+    EXPECT_EQ( mSink.PhaseStarts[ 0].Group, "OutputVoltage");
+
+    ASSERT_EQ( mSink.PhaseEnds.size(), 1u);
+    EXPECT_EQ( mSink.PhaseEnds[ 0], "setup");
+
+    ASSERT_EQ( mSink.Descriptions.size(), 2u);
+    EXPECT_EQ( mSink.Descriptions[ 1], "SETUP, bracketing this group's tests");
+}
+
+//
+// The whole reason a phase is not beginTest with the id "setup": that bracket
+// opens the per-test tally, and endTest turns a bracket holding no check into a
+// failure that says so. A hook that verifies nothing is doing its job, and a
+// run whose only sin was a quiet SETUP must not go red for it.
+//
+TEST_F( JournalTest, AHookThatChecksNothingIsNotAFailedTest)
+{
+    core::journal().begin( core::RunInfo{});
+
+    core::journal().beginPhase( "setup", {});
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Apply, .Subject = "DcP1" });
+    core::journal().endPhase();
+
+    // One event, the one that was posted -- no "no check was recorded" verdict
+    // anywhere, because nothing here was a test.
+    ASSERT_EQ( mSink.Events.size(), 1u);
+    EXPECT_FALSE( mSink.Events[ 0].Passed.has_value());
+    EXPECT_TRUE( mSink.TestEnds.empty());
+}
+
+//
+// A check inside a hook is still nobody's test check -- the tally is opened by
+// beginTest and by nothing else, so a RUN_SETUP that verifies its rails cannot
+// satisfy the "at least one check" half of the next test's verdict.
+//
+TEST_F( JournalTest, ChecksInsideAHookDoNotCountTowardsATest)
+{
+    core::journal().begin( core::RunInfo{});
+
+    core::journal().beginPhase( "setup", {});
+    core::journal().post( core::JournalRecord{ .Method = core::Verb::Verify, .Subject = "28V", .Passed = true });
+    core::journal().endPhase();
+
+    core::journal().beginTest( "SupplyRail", {});
+
+    // Nothing was checked in the bracket that matters, so this fails.
     EXPECT_FALSE( core::journal().endTest());
 }
 

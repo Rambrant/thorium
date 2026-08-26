@@ -92,11 +92,15 @@ namespace core
     //
     // Not the same shape as a TestScript, and the difference is the point of
     // its being a distinct type rather than a reuse. A hook is not a test: it
-    // contributes no verdict of its own to the report, appears in no group, and
-    // -- since it runs outside any beginTest/endTest bracket -- has no per-test
-    // event stream for a verdict to be derived from. So it keeps a bool, and
-    // what that bool means is "did the bracketing work", not "did the DUT
-    // pass".
+    // contributes no verdict of its own to the report, and -- since it runs
+    // outside any beginTest/endTest bracket -- has no per-test event stream for
+    // a verdict to be derived from. So it keeps a bool, and what that bool
+    // means is "did the bracketing work", not "did the DUT pass".
+    //
+    // It is still bracketed, just not as a test: the runner opens a journal
+    // phase around it (see core::Journal::beginPhase), which is what puts the
+    // id "setup"/"teardown" and the readings a hook took into the machine log
+    // as something attributable rather than as events belonging to nothing.
     //
     // rigPowerOn is the one place a hand-folded verdict is still the right
     // shape (see suite/scripts/rig_power_on.cpp): it checks each source as it
@@ -150,15 +154,40 @@ namespace core
     struct TestGroupTag {};
 
     //
+    // A hook and the prose that says what it does -- what SETUP/TEARDOWN and
+    // RUN_SETUP/RUN_TEARDOWN each declare, and what the runner brackets a hook
+    // with.
+    //
+    // One struct rather than two members side by side wherever a hook is
+    // carried, because the two facts have to travel together: a hook's
+    // description is the only thing in a log that says which bracket a reader
+    // is looking at. Every hook spells its id "setup" or "teardown" -- both
+    // levels of them, in every group -- so a run with three bracketed groups
+    // has four things called "setup" in it, and the description is what tells
+    // them apart. Carried separately, the pair would be two things to keep in
+    // step at every hand-off, with the failure mode being a log that describes
+    // one group's setup and runs another's.
+    //
+    // An absent hook is a default-constructed one: null, described by nothing.
+    // The runner checks the pointer before calling, exactly as it did when this
+    // was a bare RunHook (see app/src/main.cpp).
+    //
+    struct Bracket
+    {
+        RunHook           hook{ nullptr };
+        std::string_view  description{};
+    };
+
+    //
     // Runtime-traversable view of one GROUP: its own name/description, a span
     // over its (compile-time-built) test cases, and the hooks that bracket
     // them. A UI walks a list of these to present "group -> tests" and to
     // collect a selection, without knowing anything about how the tests are
     // actually invoked.
     //
-    // setup/teardown are nullptr for a group that declared neither, which is
-    // the normal case -- the runner checks before calling, exactly as it does
-    // for the run-level pair.
+    // setup/teardown hold a null hook for a group that declared neither, which
+    // is the normal case -- the runner checks before calling, exactly as it
+    // does for the run-level pair.
     //
     struct TestGroup
     {
@@ -167,8 +196,8 @@ namespace core
 
         std::span<const TestCase> tests;
 
-        RunHook setup;
-        RunHook teardown;
+        Bracket setup;
+        Bracket teardown;
     };
 } // namespace core
 
@@ -224,13 +253,23 @@ namespace core
 // of that group's own table -- anywhere between GROUP and END_GROUP:
 //
 //   GROUP( Transient, "Tests validating DUT behaviour while a supply is disturbed")
-//       SETUP(    armTransient)
+//       SETUP(    armTransient,    "Arm the scope on the 5V rail")
 //       TEST( AcDropout, acDropoutScript, "...")
-//       TEARDOWN( disarmTransient)
+//       TEARDOWN( disarmTransient, "Disarm the scope and restore the AC input")
 //   END_GROUP
 //
 // Named as identifiers checked against a declaration, not strings looked up at
-// runtime, exactly the way TEST names a script.
+// runtime, exactly the way TEST names a script -- and described in prose beside
+// that, exactly the way TEST and GROUP are.
+//
+// The description is required rather than optional, and it earns the keystrokes
+// twice over. Every hook in a catalog is called "setup" or "teardown" in the
+// logs, at both levels and in every group, so a run bracketing three groups
+// writes four headings reading "setup" -- and the description is the entire
+// difference between them. It is also the only place a reader is told what a
+// bracket was *for*: a group's tests say what they check, and the state
+// somebody had to establish before them is otherwise recoverable only by
+// opening the hook's source.
 //
 // They run only if something in the group was actually selected -- a --select
 // naming one test in one group leaves every other group's hooks untouched,
@@ -255,25 +294,25 @@ namespace core
 // file scope it is not the assert that fires but the name that fails to
 // resolve, which is why that name reads as the advice it is.
 //
-#define SETUP( hook)                                                   \
+#define SETUP( hook, desc)                                             \
         static_assert( SetupAndTeardownBelongInsideAGroup,              \
             "SETUP( ...) belongs inside a GROUP -- the pair that "      \
             "brackets the whole run is RUN_SETUP/RUN_TEARDOWN");        \
-        static constexpr ::core::RunHook GroupSetup = hook;
+        static constexpr ::core::Bracket GroupSetup { hook, desc };
 
-#define TEARDOWN( hook)                                                \
+#define TEARDOWN( hook, desc)                                          \
         static_assert( SetupAndTeardownBelongInsideAGroup,              \
             "TEARDOWN( ...) belongs inside a GROUP -- the pair that "   \
             "brackets the whole run is RUN_SETUP/RUN_TEARDOWN");        \
-        static constexpr ::core::RunHook GroupTeardown = hook;
+        static constexpr ::core::Bracket GroupTeardown { hook, desc };
 
 //
 // RUN_SETUP / RUN_TEARDOWN: the code that brackets the whole selection, named
 // the same way -- and the outer pair to the two above. Written at the catalog's
 // file scope, outside every GROUP:
 //
-//   RUN_SETUP(    rigPowerOn)
-//   RUN_TEARDOWN( rigPowerOff)
+//   RUN_SETUP(    rigPowerOn,  "Bring this rig's sources up, in order")
+//   RUN_TEARDOWN( rigPowerOff, "Take them back down, in the inverse order")
 //
 // Both are optional and independent: declare one, both, or neither. A catalog
 // with no RUN_SETUP line needs no placeholder for one, which is what the
@@ -289,8 +328,8 @@ namespace core
 // they are; this pair sits on its own at file scope, where nothing around it
 // says what it brackets.
 //
-#define RUN_SETUP( hook)                                               \
-    inline constexpr ::core::RunHook SetupHook = hook;
+#define RUN_SETUP( hook, desc)                                         \
+    inline constexpr ::core::Bracket SetupHook { hook, desc };
 
-#define RUN_TEARDOWN( hook)                                            \
-    inline constexpr ::core::RunHook TeardownHook = hook;
+#define RUN_TEARDOWN( hook, desc)                                      \
+    inline constexpr ::core::Bracket TeardownHook { hook, desc };

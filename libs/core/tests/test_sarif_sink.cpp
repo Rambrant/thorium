@@ -363,6 +363,153 @@ TEST_F( SarifSinkTest, LogIsWrittenFromTheDestructorIfTheRunNeverClosed)
     EXPECT_TRUE( contains( text, "\"allPassed\": false"));
 }
 
+//
+// The catalog's own shape has nowhere else to go: SARIF has no per-run
+// structure section, and the titles a GROUP/TEST entry gives are otherwise
+// nowhere in the document at all.
+//
+TEST_F( SarifSinkTest, GroupAndTestBoundariesCarryTheirIdsAndTitles)
+{
+    {
+        core::SarifSink sink( mPath.string());
+
+        sink.onRunStart( runInfo());
+        sink.onGroupStart( "OutputVoltage", "Tests validating DUT output voltage rails");
+        sink.onTestStart( "SupplyRail", "Verify supply rail voltages via matrix");
+        sink.onEvent( verifyEvent( "FS_Supply_1", "FS_Supply_5V0", true));
+        sink.onRunEnd( true);
+    }
+
+    const auto text = readFile( mPath);
+
+    EXPECT_TRUE( isBalancedJson( text));
+
+    EXPECT_TRUE( contains( text, R"("ruleId": "Thorium/Group")"));
+    EXPECT_TRUE( contains( text, R"("ruleId": "Thorium/Test")"));
+
+    EXPECT_TRUE( contains( text, R"("title": "Tests validating DUT output voltage rails")"));
+    EXPECT_TRUE( contains( text, R"("title": "Verify supply rail voltages via matrix")"));
+
+    // The test is qualified by the group it is nested in, the group by nothing.
+    EXPECT_TRUE( contains( text, R"("fullyQualifiedName": "OutputVoltage")"));
+    EXPECT_TRUE( contains( text, R"("fullyQualifiedName": "OutputVoltage/SupplyRail")"));
+}
+
+//
+// A boundary is part of what the run did, not something the run found -- the
+// same standing the "pass 2 of 3" note has. A consumer counting a run's issues
+// must not count the catalog it walked.
+//
+TEST_F( SarifSinkTest, ABoundaryIsInformationalAndNotAFinding)
+{
+    {
+        core::SarifSink sink( mPath.string());
+
+        sink.onRunStart( runInfo());
+        sink.onGroupStart( "OutputVoltage", "Output rail tests");
+        sink.onTestStart( "SupplyRail", "Verify supply rails");
+        sink.onPhaseStart( "OutputVoltage", "setup", "SETUP, bracketing this group's tests");
+        sink.onRunEnd( true);
+    }
+
+    const auto text = readFile( mPath);
+
+    EXPECT_FALSE( contains( text, R"("level": "error")"));
+    EXPECT_FALSE( contains( text, R"("kind": "pass")"));
+    EXPECT_FALSE( contains( text, R"("kind": "fail")"));
+
+    // ...and no sequence invented for a result that was never posted.
+    EXPECT_FALSE( contains( text, R"("sequence")"));
+}
+
+//
+// A group whose every test was deselected, or whose SETUP refused, still ran --
+// and a log that shows nothing at all for it cannot be told from a log for a
+// run that never reached it.
+//
+TEST_F( SarifSinkTest, AGroupThatRanNoTestStillNamesItself)
+{
+    {
+        core::SarifSink sink( mPath.string());
+
+        sink.onRunStart( runInfo());
+        sink.onGroupStart( "Transient", "Tests validating DUT behaviour while a supply is disturbed");
+        sink.onGroupEnd( "Transient");
+        sink.onRunEnd( true);
+    }
+
+    const auto text = readFile( mPath);
+
+    EXPECT_TRUE( isBalancedJson( text));
+    EXPECT_TRUE( contains( text, R"("group": "Transient")"));
+}
+
+//
+// SETUP and TEARDOWN are what a group does to the rig before and after its
+// tests, and their readings are otherwise indistinguishable here from the first
+// test's -- neither carries a test id, deliberately (see
+// core::JournalEvent::Phase).
+//
+TEST_F( SarifSinkTest, ASetupBoundaryIsIdentifiedAndItsEventsCarryThePhase)
+{
+    {
+        core::SarifSink sink( mPath.string());
+
+        sink.onRunStart( runInfo());
+        sink.onGroupStart( "OutputVoltage", "Output rail tests");
+        sink.onPhaseStart( "OutputVoltage", "setup", "SETUP, bracketing this group's tests");
+
+        core::JournalEvent apply;
+        apply.Method  = core::Verb::Apply;
+        apply.Subject = "DcP1";
+        apply.Group   = "OutputVoltage";
+        apply.Phase   = "setup";
+        sink.onEvent( apply);
+
+        sink.onRunEnd( true);
+    }
+
+    const auto text = readFile( mPath);
+
+    EXPECT_TRUE( contains( text, R"("ruleId": "Thorium/Phase")"));
+    EXPECT_TRUE( contains( text, R"("phase": "setup")"));
+    EXPECT_TRUE( contains( text, R"("title": "SETUP, bracketing this group's tests")"));
+
+    // The hook is filed under the group it brackets, not beside it.
+    EXPECT_TRUE( contains( text, R"("fullyQualifiedName": "OutputVoltage/setup")"));
+}
+
+//
+// Both levels spell their id "setup", so what tells them apart is what encloses
+// them -- a group for the group's own pair, the run itself for the catalog's
+// RUN_SETUP/RUN_TEARDOWN.
+//
+TEST_F( SarifSinkTest, ARunLevelHookIsQualifiedByNothingAndAGroupsByItsGroup)
+{
+    {
+        core::SarifSink sink( mPath.string());
+
+        sink.onRunStart( runInfo());
+        sink.onPhaseStart( {}, "setup", "RUN_SETUP, bracketing the whole selection");
+        sink.onGroupStart( "OutputVoltage", "Output rail tests");
+        sink.onPhaseStart( "OutputVoltage", "setup", "SETUP, bracketing this group's tests");
+        sink.onGroupEnd( "OutputVoltage");
+
+        // After the last group has closed -- where RUN_TEARDOWN runs.
+        sink.onPhaseStart( {}, "teardown", "RUN_TEARDOWN, bracketing the whole selection");
+        sink.onRunEnd( true);
+    }
+
+    const auto text = readFile( mPath);
+
+    EXPECT_TRUE( contains( text, R"("fullyQualifiedName": "setup")"));
+    EXPECT_TRUE( contains( text, R"("fullyQualifiedName": "OutputVoltage/setup")"));
+
+    // The run's teardown is not filed inside whichever group happened to be last.
+    EXPECT_TRUE( contains( text, R"("fullyQualifiedName": "teardown")"));
+    EXPECT_FALSE( contains( text, R"("fullyQualifiedName": "OutputVoltage/teardown")"));
+}
+
 TEST( CoreSarifEscape, JsonSyntaxCharactersAreEscaped)
 {
     EXPECT_EQ( core::SarifSink::escape( "a\"b"),  "a\\\"b");

@@ -393,8 +393,11 @@ namespace
 
             //
             // The markers the hook fixture wrote, in the order it wrote them --
-            // "setup", "script", "teardown". A hook posts no journal event, so
-            // stdout is the only place its ordering is visible at all.
+            // "setup", "script", "teardown". The machine log brackets each hook
+            // (see TheMachineLogNamesBothLevelsOfBracketing below), but these
+            // hooks post nothing of their own and the scripts are not in that
+            // vocabulary at all, so stdout is the one stream carrying the whole
+            // order.
             //
             [[nodiscard]]
             auto hookOrder() const -> std::vector<std::string>
@@ -958,6 +961,19 @@ TEST_F( AcceptanceHumanLog, ConsoleCarriesTheHeaderTestNamesAndVerdicts)
     EXPECT_TRUE( containsText( outPath(), mOut, "[PASS]"));
     EXPECT_TRUE( containsText( outPath(), mOut, "[FAIL]"));
 
+    //
+    // The run's own bracket, at the level of the groups it brackets -- and its
+    // readings under it, where they used to sit between the header and the
+    // first group belonging to nothing.
+    //
+    // Headed by the prose its RUN_SETUP line described it with, the way a group
+    // and a test are headed by theirs. Every hook in a catalog is called
+    // "setup" or "teardown", so that description is what a reader has to tell
+    // one from another.
+    //
+    EXPECT_TRUE( containsText( outPath(), mOut, "\nsetup Bring the AC input"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "\nteardown Take the supplies back down"));
+
     // Measure and Verify only -- the sourcing/routing verbs and the safing pass
     // go to the machine log (see core/report.hpp).
     EXPECT_TRUE( omitsText( outPath(), mOut, "Safe"));
@@ -984,6 +1000,11 @@ TEST_F( AcceptanceHumanLog, RtfFileIsAColourCodedCompleteDocument)
     EXPECT_TRUE( containsText( rtf, document, "\\cf3"));   // red   -- a failing one
     EXPECT_TRUE( containsText( rtf, document, "OutputVoltage"));
     EXPECT_TRUE( containsText( rtf, document, "SupplyRail"));
+
+    // The same headings the console showed -- the two are the same log, and an
+    // operator who saw a line on screen that is not in the file has been misled.
+    EXPECT_TRUE( containsText( rtf, document, "Bring the AC input"));
+    EXPECT_TRUE( containsText( rtf, document, "Take the supplies back down"));
 }
 
 // ---------------------------------------------------------------------------
@@ -1041,6 +1062,49 @@ TEST_F( AcceptanceMachineLog, SarifCarriesEveryVerbAndKeysCriteriaByGroupAndId)
 
     // And the tolerance each check enforced, spelled out.
     EXPECT_TRUE( containsText( sarif, log, R"("criterion")"));
+}
+
+//
+// The catalog's own shape, in the machine log. Group and test already ride
+// along on every result as properties, which answers "which test was this?" but
+// not "what did the run consist of?" -- and the titles a GROUP/TEST entry gives
+// are otherwise nowhere in the file at all.
+//
+TEST_F( AcceptanceMachineLog, SarifNamesTheCatalogTheRunWalked)
+{
+    run( { "--quiet" });
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    const auto log = readFile( sarif);
+
+    EXPECT_TRUE( looksComplete( log)) << "truncated machine log: " << sarif.string();
+
+    EXPECT_TRUE( containsText( sarif, log, R"("ruleId": "Thorium/Group")"));
+    EXPECT_TRUE( containsText( sarif, log, R"("ruleId": "Thorium/Test")"));
+
+    // Each with the title its catalog entry gives it.
+    EXPECT_TRUE( containsText( sarif, log, "Tests validating DUT output voltage rails"));
+    EXPECT_TRUE( containsText( sarif, log, "Verify supply rail voltages via matrix"));
+
+    // A test is qualified by its group, so "which group did this belong to" is
+    // answerable from the location alone.
+    EXPECT_TRUE( containsText( sarif, log, R"("fullyQualifiedName": "OutputVoltage/SupplyRail")"));
+
+    //
+    // And the run's own bracket -- the shipped catalog declares
+    // RUN_SETUP/RUN_TEARDOWN and no group-level pair, so both hooks appear
+    // qualified by nothing.
+    //
+    EXPECT_TRUE( containsText( sarif, log, R"("ruleId": "Thorium/Phase")"));
+    EXPECT_TRUE( containsText( sarif, log, R"("fullyQualifiedName": "setup")"));
+    EXPECT_TRUE( containsText( sarif, log, R"("fullyQualifiedName": "teardown")"));
+
+    // The readings RUN_SETUP took, attributed to it rather than left looking
+    // like the first test's.
+    EXPECT_TRUE( containsText( sarif, log, R"("phase": "setup")"));
 }
 
 //
@@ -1466,6 +1530,56 @@ TEST_F( AcceptanceHooks, SelectingATestBracketsItsOwnGroupAndNoOther)
 
     EXPECT_EQ( hookOrder(), ( std::vector<std::string>{
         "setup", "group-setup", "script", "group-teardown", "teardown" }));
+}
+
+//
+// The same two levels, on the page. A group's own SETUP is indented with that
+// group's tests; the catalog's RUN_SETUP is unindented with the groups.
+//
+TEST_F( AcceptanceHooks, TheHumanLogHeadsEachHookAtTheLevelItBrackets)
+{
+    EXPECT_EQ( runHooked( { "--select=FixtureTest", "--no-color" }), 0);
+
+    // The run's pair, at the groups' level.
+    EXPECT_TRUE( containsText( outPath(), mOut, "\nsetup Announce the run-level setup"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "\nteardown Announce the run-level teardown"));
+
+    // The group's own, nested with its tests -- same id, different description,
+    // which is the pair of facts that tells the two levels apart.
+    EXPECT_TRUE( containsText( outPath(), mOut, "\n\tsetup Announce this group's own setup"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "\n\tteardown Announce this group's own teardown"));
+}
+
+//
+// Both levels spell their id "setup", and what tells them apart in the machine
+// log is what encloses them -- the group for a group's own pair, nothing for
+// the catalog's RUN_ pair. This fixture is the only catalog in the repository
+// that declares both, so it is the only place the distinction is observable.
+//
+TEST_F( AcceptanceHooks, TheMachineLogNamesBothLevelsOfBracketing)
+{
+    EXPECT_EQ( runHooked( { "--select=FixtureTest", "--no-color" }), 0);
+
+    const auto sarif = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarif.empty());
+
+    const auto log = readFile( sarif);
+
+    EXPECT_TRUE( looksComplete( log)) << "truncated machine log: " << sarif.string();
+
+    // The run's pair, bracketing the selection.
+    EXPECT_TRUE( containsText( sarif, log, R"("fullyQualifiedName": "setup")"));
+    EXPECT_TRUE( containsText( sarif, log, R"("fullyQualifiedName": "teardown")"));
+
+    // The group's own, bracketing its tests.
+    EXPECT_TRUE( containsText( sarif, log, R"("fullyQualifiedName": "OutputVoltage/setup")"));
+    EXPECT_TRUE( containsText( sarif, log, R"("fullyQualifiedName": "OutputVoltage/teardown")"));
+
+    // The group nothing brackets was deselected, and claims no hooks it has not
+    // got -- a log inventing a SETUP for a group that declared none would be
+    // reporting a step that never happened.
+    EXPECT_TRUE( omitsText( sarif, log, R"("fullyQualifiedName": "Console/setup")"));
 }
 
 //

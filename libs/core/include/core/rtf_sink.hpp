@@ -69,6 +69,8 @@ namespace core
             auto onRunStart( const RunInfo & info) -> void override;
             auto onGroupStart( std::string_view group, std::string_view description) -> void override;
             auto onTestStart( std::string_view test, std::string_view description) -> void override;
+            auto onPhaseStart( std::string_view group, std::string_view phase, std::string_view title) -> void override;
+            auto onPhaseEnd( std::string_view phase) -> void override;
             auto onEvent( const JournalEvent & event) -> void override;
             auto onTestEnd( std::string_view group, std::string_view test, bool passed) -> void override;
             auto onRunEnd( bool allPassed) -> void override;

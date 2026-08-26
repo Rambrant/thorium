@@ -231,6 +231,7 @@ namespace core
         mNextSequence = 0;
         mGroup.clear();
         mTest.clear();
+        mPhase.clear();
 
         for( auto * sink : mSinks)
         {
@@ -279,6 +280,27 @@ namespace core
         {
             sink->onTestStart( test, description);
         }
+    }
+
+    auto Journal::beginPhase( const std::string_view phase, const std::string_view title) -> void
+    {
+        mPhase = phase;
+
+        for( auto * sink : mSinks)
+        {
+            sink->onPhaseStart( mGroup, phase, title);
+        }
+    }
+
+    auto Journal::endPhase() -> void
+    {
+        for( auto * sink : mSinks)
+        {
+            sink->onPhaseEnd( mPhase);
+        }
+
+        // Cleared after the sinks are told, same as endTest below.
+        mPhase.clear();
     }
 
     auto Journal::endTest() -> bool
@@ -373,7 +395,8 @@ namespace core
             millis,
             isoUtcFromUnixMillis( millis),
             mGroup,
-            mTest
+            mTest,
+            mPhase
         };
 
         for( auto * sink : mSinks)

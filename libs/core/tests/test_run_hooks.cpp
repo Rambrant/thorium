@@ -79,20 +79,31 @@ auto otherFixtureScript() -> void {}
 
 TEST( CoreRunHooks, ADeclaredSetupResolvesToTheNamedFunction)
 {
-    ASSERT_NE( core::catalog::Setup, nullptr);
+    ASSERT_NE( core::catalog::Setup.hook, nullptr);
 
     gSetupRan = false;
-    EXPECT_TRUE( core::catalog::Setup());
+    EXPECT_TRUE( core::catalog::Setup.hook());
     EXPECT_TRUE( gSetupRan);
 }
 
 TEST( CoreRunHooks, ADeclaredTeardownResolvesToTheNamedFunction)
 {
-    ASSERT_NE( core::catalog::Teardown, nullptr);
+    ASSERT_NE( core::catalog::Teardown.hook, nullptr);
 
     gTeardownRan = false;
-    EXPECT_TRUE( core::catalog::Teardown());
+    EXPECT_TRUE( core::catalog::Teardown.hook());
     EXPECT_TRUE( gTeardownRan);
+}
+
+//
+// A hook's description travels with the hook, because a log has nothing else to
+// tell one "setup" from another: every hook in a catalog is called setup or
+// teardown, at both levels and in every group.
+//
+TEST( CoreRunHooks, AHookCarriesTheProseItWasDeclaredWith)
+{
+    EXPECT_EQ( core::catalog::Setup.description,    "The run-level setup this fixture resolves to");
+    EXPECT_EQ( core::catalog::Teardown.description, "The run-level teardown this fixture resolves to");
 }
 
 //
@@ -101,8 +112,8 @@ TEST( CoreRunHooks, ADeclaredTeardownResolvesToTheNamedFunction)
 //
 TEST( CoreRunHooks, HooksAreConstantExpressions)
 {
-    static_assert( core::catalog::Setup    == &fixtureSetup);
-    static_assert( core::catalog::Teardown == &fixtureTeardown);
+    static_assert( core::catalog::Setup.hook    == &fixtureSetup);
+    static_assert( core::catalog::Teardown.hook == &fixtureTeardown);
 
     SUCCEED();
 }
@@ -139,17 +150,21 @@ TEST( CoreRunHooks, TheCatalogIsStillReadableAlongsideItsHooks)
 //
 TEST( CoreRunHooks, ADeclaredGroupHookResolvesOntoItsOwnGroup)
 {
-    ASSERT_NE( core::catalog::Catalog[ 0].setup,    nullptr);
-    ASSERT_NE( core::catalog::Catalog[ 0].teardown, nullptr);
+    ASSERT_NE( core::catalog::Catalog[ 0].setup.hook,    nullptr);
+    ASSERT_NE( core::catalog::Catalog[ 0].teardown.hook, nullptr);
 
     gGroupSetupRan    = false;
     gGroupTeardownRan = false;
 
-    EXPECT_TRUE( core::catalog::Catalog[ 0].setup());
-    EXPECT_TRUE( core::catalog::Catalog[ 0].teardown());
+    EXPECT_TRUE( core::catalog::Catalog[ 0].setup.hook());
+    EXPECT_TRUE( core::catalog::Catalog[ 0].teardown.hook());
 
     EXPECT_TRUE( gGroupSetupRan);
     EXPECT_TRUE( gGroupTeardownRan);
+
+    // And the prose beside them, which is what a log heads them with.
+    EXPECT_EQ( core::catalog::Catalog[ 0].setup.description,    "This group's own setup");
+    EXPECT_EQ( core::catalog::Catalog[ 0].teardown.description, "This group's own teardown");
 }
 
 //
@@ -159,8 +174,13 @@ TEST( CoreRunHooks, ADeclaredGroupHookResolvesOntoItsOwnGroup)
 //
 TEST( CoreRunHooks, AGroupThatDeclaresNoHooksResolvesToNullptr)
 {
-    EXPECT_EQ( core::catalog::Catalog[ 1].setup,    nullptr);
-    EXPECT_EQ( core::catalog::Catalog[ 1].teardown, nullptr);
+    EXPECT_EQ( core::catalog::Catalog[ 1].setup.hook,    nullptr);
+    EXPECT_EQ( core::catalog::Catalog[ 1].teardown.hook, nullptr);
+
+    // Described by nothing either -- there is nothing there to describe, and a
+    // heading in a log is written only where a hook actually ran.
+    EXPECT_TRUE( core::catalog::Catalog[ 1].setup.description.empty());
+    EXPECT_TRUE( core::catalog::Catalog[ 1].teardown.description.empty());
 }
 
 //
@@ -171,10 +191,10 @@ TEST( CoreRunHooks, AGroupThatDeclaresNoHooksResolvesToNullptr)
 //
 TEST( CoreRunHooks, GroupHooksAreConstantExpressions)
 {
-    static_assert( core::catalog::Catalog[ 0].setup    == &fixtureGroupSetup);
-    static_assert( core::catalog::Catalog[ 0].teardown == &fixtureGroupTeardown);
-    static_assert( core::catalog::Catalog[ 1].setup    == nullptr);
-    static_assert( core::catalog::Catalog[ 1].teardown == nullptr);
+    static_assert( core::catalog::Catalog[ 0].setup.hook    == &fixtureGroupSetup);
+    static_assert( core::catalog::Catalog[ 0].teardown.hook == &fixtureGroupTeardown);
+    static_assert( core::catalog::Catalog[ 1].setup.hook    == nullptr);
+    static_assert( core::catalog::Catalog[ 1].teardown.hook == nullptr);
 
     SUCCEED();
 }

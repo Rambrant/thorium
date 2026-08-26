@@ -88,7 +88,13 @@ namespace core
     //
     // The log's body is two levels deep, matching the catalog's own shape:
     //
+    //     <hook id> <hook title>              -- the catalog's RUN_ pair
+    //         <log output>
+    //
     //     <group name> <group description>
+    //         <hook id> <hook title>          -- that group's own pair
+    //         <log output>
+    //
     //         <test name> <test description>
     //         <log output>
     //
@@ -117,6 +123,34 @@ namespace core
     //
     [[nodiscard]]
     auto humanTestHeadingLines( std::string_view test, std::string_view description) -> std::vector<ReportLine>;
+
+    //
+    // A SETUP/TEARDOWN bracket's own heading, spelled the same way a group's and
+    // a test's are -- the id, then its title quietly beside it.
+    //
+    // Indented like a test when a group encloses it, unindented like a group
+    // when nothing does. That is the whole reason the group is a parameter: a
+    // group's SETUP and the catalog's RUN_SETUP are both called "setup", and
+    // the level they sit at is the only thing that tells them apart on the page
+    // -- see core::IJournalSink::onPhaseStart.
+    //
+    // Emitted whether or not the hook goes on to log anything the human stream
+    // carries. A heading with nothing under it is not an empty heading: a hook
+    // that only sourced and routed says exactly that, and a report that showed
+    // nothing at all could not be told from one for a run where the bracket
+    // never ran.
+    //
+    [[nodiscard]]
+    auto humanPhaseHeadingLines( std::string_view group, std::string_view phase, std::string_view title) -> std::vector<ReportLine>;
+
+    //
+    // What closes that block -- the blank line a test's block gets from its
+    // RESULT row (see humanTestResultLines). A hook has no verdict to state, so
+    // it has nothing else to close on, and without this its last reading runs
+    // straight into the next group's heading.
+    //
+    [[nodiscard]]
+    auto humanPhaseClosingLines() -> std::vector<ReportLine>;
 
     //
     // One event's lines, or empty for an event the human stream doesn't carry

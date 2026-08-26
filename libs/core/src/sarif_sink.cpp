@@ -29,6 +29,18 @@ namespace core
         constexpr std::string_view kAdHocVerifyRule = "Thorium/Verify";
 
         //
+        // The rules the catalog boundaries report under -- one per kind rather
+        // than one shared "Thorium/Boundary", because the three answer
+        // different questions and a consumer asks them separately: "which
+        // groups did this run cover", "which tests ran", "did the rig get
+        // bracketed". Spelled like the verb rules for the same reason they are:
+        // they are the tool's own vocabulary, not the suite's.
+        //
+        constexpr std::string_view kGroupRule = "Thorium/Group";
+        constexpr std::string_view kTestRule  = "Thorium/Test";
+        constexpr std::string_view kPhaseRule = "Thorium/Phase";
+
+        //
         // Indentation, as whole strings rather than a computed repeat: the
         // document's nesting is fixed and shallow, and naming the levels makes
         // the writer below read like the JSON it produces.
@@ -373,10 +385,83 @@ namespace core
         mRules.emplace_back( id, "Thorium " + std::string( to_string( event.Method)) + " step");
     }
 
+    auto SarifSink::boundaryTextFor( const Entry what) -> BoundaryText
+    {
+        switch( what)
+        {
+            case Entry::Group: return { kGroupRule, "Group", "namespace" };
+            case Entry::Test:  return { kTestRule,  "Test",  "function"  };
+            case Entry::Phase: return { kPhaseRule, "Phase", "function"  };
+            case Entry::Event: break;
+        }
+
+        return {};
+    }
+
+    auto SarifSink::noteBoundary( const Entry what, const std::string_view id, const std::string_view title, const std::string_view enclosing) -> void
+    {
+        const auto text = boundaryTextFor( what);
+
+        if( std::none_of( mRules.begin(), mRules.end(),
+                [&text]( const auto & rule) { return rule.first == text.Rule; }))
+        {
+            mRules.emplace_back( std::string( text.Rule),
+                "The run entered a catalog " + std::string( text.Label) + " of this name");
+        }
+
+        JournalEvent boundary;
+        boundary.Subject = id;
+        boundary.Detail  = title;
+        boundary.Group   = enclosing;
+        boundary.TimeUtc = isoUtcFromUnixMillis( unixMillisNow());
+
+        mResults.push_back( Result{ what, std::move( boundary) });
+    }
+
+    //
+    // Enclosed by the run and by nothing else, so it qualifies itself -- see
+    // Result in the header on why a boundary's Group is what contains it rather
+    // than what it is.
+    //
+    auto SarifSink::onGroupStart( const std::string_view group, const std::string_view description) -> void
+    {
+        mGroup = group;
+
+        noteBoundary( Entry::Group, group, description, {});
+    }
+
+    //
+    // No boundary of its own -- what closes a group is the next one, or the end
+    // of the results array. What this *is* for is the enclosing name: the
+    // catalog's RUN_TEARDOWN runs after the last group has closed, and a stale
+    // mGroup would file the run's own teardown inside whichever group happened
+    // to run last.
+    //
+    auto SarifSink::onGroupEnd( std::string_view) -> void
+    {
+        mGroup.clear();
+    }
+
+    auto SarifSink::onTestStart( const std::string_view test, const std::string_view description) -> void
+    {
+        noteBoundary( Entry::Test, test, description, mGroup);
+    }
+
+    //
+    // The group comes in rather than off mGroup, so that what qualifies a hook
+    // is the bracket the journal actually had open when it ran -- see
+    // core::IJournalSink::onPhaseStart on why the two levels cannot be told
+    // apart any other way.
+    //
+    auto SarifSink::onPhaseStart( const std::string_view group, const std::string_view phase, const std::string_view title) -> void
+    {
+        noteBoundary( Entry::Phase, phase, title, group);
+    }
+
     auto SarifSink::onEvent( const JournalEvent & event) -> void
     {
         noteRule( event);
-        mEvents.push_back( event);
+        mResults.push_back( Result{ Entry::Event, event });
     }
 
     auto SarifSink::onRunEnd( const bool allPassed) -> void
@@ -529,18 +614,37 @@ namespace core
 
         out << kI3 << "},\n";
 
-        // --- results: every verb, in order ---
+        // --- results: every verb, and every catalog boundary, in order ---
         out << kI3 << quoted( "results") << ": [\n";
 
-        for( std::size_t i = 0; i < mEvents.size(); ++i)
+        for( std::size_t i = 0; i < mResults.size(); ++i)
         {
-            const auto & event = mEvents[ i];
+            const auto & [ what, event ] = mResults[ i];
+
+            // Empty for an ordinary event, which is what the three ternaries
+            // below fall back on.
+            const auto boundary = boundaryTextFor( what);
+
+            //
+            // A boundary is not a finding: it is informational at level none,
+            // exactly like a Measure or the "pass 2 of 3" note, and for the same
+            // reason -- it is part of what the run did, not something the run
+            // found. Its message opens with what kind of boundary it is and
+            // carries the title behind it, because that title is nowhere else
+            // in the document.
+            //
+            const auto ruleId  = ( what == Entry::Event) ? ruleIdFor( event)              : std::string( boundary.Rule);
+            const auto level   = ( what == Entry::Event) ? levelFor( event)               : std::string_view( "none");
+            const auto kind    = ( what == Entry::Event) ? kindFor( event)                : std::string_view( "informational");
+            const auto message = ( what == Entry::Event) ? messageFor( event)
+                                                         : std::string( boundary.Label) + " " + event.Subject
+                                                           + ( event.Detail.empty() ? "" : " -- " + event.Detail);
 
             out << kI4 << "{\n"
-                << kI5 << quoted( "ruleId") << ": " << quoted( ruleIdFor( event)) << ",\n"
-                << kI5 << quoted( "level") << ": " << quoted( levelFor( event)) << ",\n"
-                << kI5 << quoted( "kind") << ": " << quoted( kindFor( event)) << ",\n"
-                << kI5 << quoted( "message") << ": { " << quoted( "text") << ": " << quoted( messageFor( event)) << " },\n";
+                << kI5 << quoted( "ruleId") << ": " << quoted( ruleId) << ",\n"
+                << kI5 << quoted( "level") << ": " << quoted( level) << ",\n"
+                << kI5 << quoted( "kind") << ": " << quoted( kind) << ",\n"
+                << kI5 << quoted( "message") << ": { " << quoted( "text") << ": " << quoted( message) << " },\n";
 
             //
             // logicalLocations rather than physicalLocation: SARIF's usual
@@ -550,13 +654,15 @@ namespace core
             // the DUT point or criterion, qualified by the test that reached
             // it.
             //
+            const auto locationKind = ( what == Entry::Event) ? std::string_view( "member") : boundary.LocationKind;
+
             out << kI5 << quoted( "locations") << ": [\n"
                 << kI6 << "{\n"
                 << kI6 << kI1 << quoted( "logicalLocations") << ": [\n"
                 << kI6 << kI2 << "{\n"
                 << kI6 << kI2 << kI1 << quoted( "name") << ": " << quoted( subjectName( event)) << ",\n"
                 << kI6 << kI2 << kI1 << quoted( "fullyQualifiedName") << ": " << quoted( fullyQualifiedName( event)) << ",\n"
-                << kI6 << kI2 << kI1 << quoted( "kind") << ": " << quoted( "member") << "\n"
+                << kI6 << kI2 << kI1 << quoted( "kind") << ": " << quoted( locationKind) << "\n"
                 << kI6 << kI2 << "}\n"
                 << kI6 << kI1 << "]\n"
                 << kI6 << "}\n"
@@ -564,12 +670,51 @@ namespace core
 
             out << kI5 << quoted( "properties") << ": {\n";
 
+            //
+            // A boundary's properties are the boundary itself, addressably: what
+            // kind it is, the id under that kind's own key -- so "every result
+            // whose group property is OutputVoltage" picks up the group's own
+            // boundary along with everything inside it -- and the title.
+            //
+            // No sequence, deliberately: a boundary was never posted to the
+            // journal, so it has no place in the numbering, and a number
+            // invented for it would be one no event ever carried. Its position
+            // in this array and its timeUtc are what order it.
+            //
+            if( what != Entry::Event)
+            {
+                bool first = true;
+
+                property(         out, kI6, "boundary", boundary.Label, first);
+                optionalProperty( out, kI6, "group",    ( what == Entry::Group) ? event.Subject : event.Group, first);
+                optionalProperty( out, kI6, "test",     ( what == Entry::Test)  ? event.Subject : std::string{}, first);
+                optionalProperty( out, kI6, "phase",    ( what == Entry::Phase) ? event.Subject : std::string{}, first);
+                optionalProperty( out, kI6, "title",    event.Detail,  first);
+                optionalProperty( out, kI6, "timeUtc",  event.TimeUtc, first);
+
+                out << "\n"
+                    << kI5 << "}\n"
+                    << kI4 << "}" << ( ( i + 1 < mResults.size()) ? ",\n" : "\n");
+
+                continue;
+            }
+
             {
                 bool first = true;
 
                 property(         out, kI6, "verb",          to_string( event.Method), first);
                 optionalProperty( out, kI6, "group",         event.Group,              first);
                 optionalProperty( out, kI6, "test",          event.Test,               first);
+
+                //
+                // Which SETUP/TEARDOWN bracket this happened inside, where it
+                // happened inside one -- the readings a group's setup takes are
+                // otherwise indistinguishable in this file from the ones its
+                // first test takes, since neither carries a test id (see
+                // core::JournalEvent::Phase on why a hook's events must not
+                // borrow one).
+                //
+                optionalProperty( out, kI6, "phase",         event.Phase,              first);
                 optionalProperty( out, kI6, "criteriaGroup", event.SubjectGroup,       first);
                 optionalProperty( out, kI6, "instrument",    event.Instrument,         first);
                 optionalProperty( out, kI6, "value",         event.Value,              first);
@@ -603,7 +748,7 @@ namespace core
             }
 
             out << kI5 << "}\n"
-                << kI4 << "}" << ( ( i + 1 < mEvents.size()) ? ",\n" : "\n");
+                << kI4 << "}" << ( ( i + 1 < mResults.size()) ? ",\n" : "\n");
         }
 
         out << kI3 << "]\n"

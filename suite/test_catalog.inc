@@ -6,8 +6,8 @@
 // test), rigPowerOff takes them back down in the inverse order. Read the two
 // files as one sequence and its reverse -- see suite/scripts/rig_power_on.cpp.
 //
-RUN_SETUP(    rigPowerOn)
-RUN_TEARDOWN( rigPowerOff)
+RUN_SETUP(    rigPowerOn,  "Bring the AC input and the three DC supplies up, checking each rail as it comes")
+RUN_TEARDOWN( rigPowerOff, "Take the supplies back down in the inverse order and open the fabric")
 
 //
 // No group below brackets itself. A GROUP may, with SETUP/TEARDOWN rows of its

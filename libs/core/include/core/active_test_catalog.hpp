@@ -49,8 +49,8 @@ namespace core::catalog
     // a detection trick, and the reason the two resolutions below are written
     // unqualified rather than as detail::SetupHook.
     //
-    inline constexpr RunHook SetupHook    = nullptr;
-    inline constexpr RunHook TeardownHook = nullptr;
+    inline constexpr Bracket SetupHook    {};
+    inline constexpr Bracket TeardownHook {};
 
     namespace detail
     {
@@ -61,16 +61,18 @@ namespace core::catalog
         // here, inside detail, because that is the only scope where a catalog's
         // own declaration is visible to hide the fallback.
         //
-        inline constexpr RunHook ResolvedSetup    = SetupHook;
-        inline constexpr RunHook ResolvedTeardown = TeardownHook;
+        inline constexpr Bracket ResolvedSetup    = SetupHook;
+        inline constexpr Bracket ResolvedTeardown = TeardownHook;
     } // namespace detail
 
     //
-    // The hooks that bracket a run, or nullptr where the catalog declared
-    // none -- the runner checks before calling (see app/src/main.cpp).
+    // The hooks that bracket a run, each with the prose its RUN_SETUP /
+    // RUN_TEARDOWN line described it with -- or a null hook described by
+    // nothing, where the catalog declared none. The runner checks before
+    // calling (see app/src/main.cpp).
     //
-    inline constexpr RunHook Setup    = detail::ResolvedSetup;
-    inline constexpr RunHook Teardown = detail::ResolvedTeardown;
+    inline constexpr Bracket Setup    = detail::ResolvedSetup;
+    inline constexpr Bracket Teardown = detail::ResolvedTeardown;
 
     namespace detail
     {
@@ -210,7 +212,8 @@ namespace core::catalog
         }();
 
         //
-        // A group's own hooks, or nullptr where it declared none.
+        // A group's own hooks and their prose, or a null Bracket where it
+        // declared none.
         //
         // Ordinary member lookup in a requires-expression, not reflection:
         // SETUP declares the member and no SETUP line leaves it
@@ -220,7 +223,7 @@ namespace core::catalog
         // be shadowed by a nearer declaration while a class member cannot.
         //
         template<typename GroupT>
-        consteval auto setupOf() -> RunHook
+        consteval auto setupOf() -> Bracket
         {
             if constexpr( requires { GroupT::GroupSetup; })
             {
@@ -228,12 +231,12 @@ namespace core::catalog
             }
             else
             {
-                return nullptr;
+                return {};
             }
         }
 
         template<typename GroupT>
-        consteval auto teardownOf() -> RunHook
+        consteval auto teardownOf() -> Bracket
         {
             if constexpr( requires { GroupT::GroupTeardown; })
             {
@@ -241,7 +244,7 @@ namespace core::catalog
             }
             else
             {
-                return nullptr;
+                return {};
             }
         }
     } // namespace detail

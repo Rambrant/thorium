@@ -9,13 +9,13 @@
 // second group here, which is why the two groups differ.
 //
 
-RUN_SETUP(    fixtureSetup)
-RUN_TEARDOWN( fixtureTeardown)
+RUN_SETUP(    fixtureSetup,    "The run-level setup this fixture resolves to")
+RUN_TEARDOWN( fixtureTeardown, "The run-level teardown this fixture resolves to")
 
 GROUP( OutputVoltage, "A catalog group that exists only for the hook tests")
-    SETUP(    fixtureGroupSetup)
+    SETUP(    fixtureGroupSetup,    "This group's own setup")
     TEST( FixtureTest, fixtureScript, "Does nothing but be listed")
-    TEARDOWN( fixtureGroupTeardown)
+    TEARDOWN( fixtureGroupTeardown, "This group's own teardown")
 END_GROUP
 
 //

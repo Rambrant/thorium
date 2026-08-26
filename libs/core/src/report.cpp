@@ -312,6 +312,16 @@ namespace core
         return { titleLine( kIndent, test, description) };
     }
 
+    auto humanPhaseHeadingLines( const std::string_view group, const std::string_view phase, const std::string_view title) -> std::vector<ReportLine>
+    {
+        return { titleLine( group.empty() ? std::string_view{} : kIndent, phase, title) };
+    }
+
+    auto humanPhaseClosingLines() -> std::vector<ReportLine>
+    {
+        return { blankLine() };
+    }
+
     auto humanEventLines( const JournalEvent & event) -> std::vector<ReportLine>
     {
         if( !isHumanRelevant( event))

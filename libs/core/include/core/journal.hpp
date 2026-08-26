@@ -316,6 +316,20 @@ namespace core
         // belongs to the run, not to a test.
         std::string    Group{};
         std::string    Test{};
+
+        //
+        // The SETUP/TEARDOWN bracket that was running -- "setup" or "teardown"
+        // -- or empty outside one. See Journal::beginPhase below.
+        //
+        // A field of its own rather than Test carrying "setup", and that is not
+        // a matter of taste: the recording writes core::kRunScope into its test
+        // column for exactly these events (see core/recording.hpp and
+        // core::RecordingSession::record), and a replay of one selected test
+        // keeps those rows *because* they are not attributed to a test. Making
+        // a hook look like a test here would filter a group's SETUP readings
+        // out of the replay that needs them most.
+        //
+        std::string    Phase{};
     };
 
     //
@@ -348,6 +362,27 @@ namespace core
             // The test's own id and description -- the group is whichever
             // onGroupStart is currently open.
             virtual auto onTestStart( std::string_view, std::string_view) -> void {}
+
+            //
+            // A SETUP/TEARDOWN bracket: the group it is nested in, its id
+            // ("setup"/"teardown") and its title.
+            //
+            // Distinct from onTestStart because what it brackets is not a test:
+            // it has no verdict of its own to derive (see Journal::endTest on
+            // where a verdict comes from), and a hook that verifies nothing is
+            // doing its job rather than failing at it.
+            //
+            // And it takes the group where onTestStart deliberately does not,
+            // because here the group is not merely context -- it is the only
+            // thing that distinguishes the two levels. A group's own SETUP and
+            // the catalog's RUN_SETUP spell their id identically, so a sink is
+            // told which it is by the group being there or not: empty for the
+            // run's own pair, which runs outside every group. Both logs turn on
+            // it -- the machine log qualifies the name with it, the human log
+            // indents by it.
+            //
+            virtual auto onPhaseStart( std::string_view, std::string_view, std::string_view) -> void {}
+            virtual auto onPhaseEnd( std::string_view) -> void {}
             virtual auto onEvent( const JournalEvent &) -> void {}
             virtual auto onTestEnd( std::string_view, std::string_view, bool) -> void {}
             virtual auto onRunEnd( bool) -> void {}
@@ -396,6 +431,26 @@ namespace core
             auto endGroup() -> void;
 
             auto beginTest( std::string_view test, std::string_view description) -> void;
+
+            //
+            // A SETUP/TEARDOWN bracket, around a hook rather than around a
+            // script. Everything posted inside it is stamped with the phase id,
+            // so a group's setup readings are attributable in the machine log
+            // instead of floating between the group heading and its first test.
+            //
+            // Deliberately *not* beginTest with the id "setup": that bracket
+            // opens the per-test tally and endTest turns it into a verdict, so
+            // a hook run through it would post "no check was recorded" and fail
+            // a run whose only sin was a setup that verified nothing. See
+            // JournalEvent::Phase for the second reason -- what the recording
+            // does with a test id it does not recognise.
+            //
+            // No verdict comes back, for the same reason: a hook already
+            // returns its own bool, and what that bool means is "did the
+            // bracketing work", not "did the DUT pass" (see app/src/main.cpp).
+            //
+            auto beginPhase( std::string_view phase, std::string_view title) -> void;
+            auto endPhase() -> void;
 
             //
             // Closes the test and answers whether it passed -- derived from
@@ -455,11 +510,18 @@ namespace core
                 return mTest;
             }
 
+            [[nodiscard]]
+            auto currentPhase() const -> std::string_view
+            {
+                return mPhase;
+            }
+
         private:
             std::vector<IJournalSink *>  mSinks;
             RunInfo                      mRunInfo;
             std::string                  mGroup;
             std::string                  mTest;
+            std::string                  mPhase;
             std::uint64_t                mNextSequence{ 0 };
 
             //

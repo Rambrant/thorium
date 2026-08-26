@@ -370,6 +370,40 @@ TEST( CoreReport, GroupWithNoDescriptionIsJustItsName)
 }
 
 //
+// A hook's heading sits at the level of what it brackets: a group's own
+// SETUP/TEARDOWN indented with the group's tests, the catalog's RUN_ pair
+// unindented with the groups. That is the whole reason the group is a
+// parameter -- both spell their id "setup", and the level is what tells them
+// apart on the page.
+//
+TEST( CoreReport, AHookHeadingSitsAtTheLevelOfWhatItBrackets)
+{
+    const auto ofGroup = core::humanPhaseHeadingLines( "OutputVoltage", "setup", "SETUP, bracketing this group's tests");
+    const auto ofRun   = core::humanPhaseHeadingLines( {},              "setup", "RUN_SETUP, bracketing the whole selection");
+
+    ASSERT_EQ( ofGroup.size(), 1u);
+    ASSERT_EQ( ofRun.size(),   1u);
+
+    EXPECT_EQ( styleOfFirst( ofGroup), core::Emphasis::Heading);
+    EXPECT_EQ( styleOfFirst( ofRun),   core::Emphasis::Heading);
+
+    EXPECT_EQ( core::plainText( ofGroup[ 0]), "\tsetup SETUP, bracketing this group's tests");
+    EXPECT_EQ( core::plainText( ofRun[ 0]),   "setup RUN_SETUP, bracketing the whole selection");
+}
+
+//
+// A hook has no verdict to state, so nothing else closes its block -- where a
+// test's is closed by the blank trailing its RESULT row.
+//
+TEST( CoreReport, AHookBlockIsClosedByABlankLine)
+{
+    const auto lines = core::humanPhaseClosingLines();
+
+    ASSERT_EQ( lines.size(), 1u);
+    EXPECT_EQ( core::plainText( lines[ 0]), "");
+}
+
+//
 // The inner level: indented one tab, and naming only the test -- the group
 // heading above has already said which group this is.
 //

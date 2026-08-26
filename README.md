@@ -543,13 +543,21 @@ way `TEST` names a script. They go at the catalog's file scope, outside every
 2. **Define** them in `suite/scripts/` like any other script file.
 3. **Register** them in `suite/test_catalog.inc`:
    ```cpp
-   RUN_SETUP(    rigPowerOn)
-   RUN_TEARDOWN( rigPowerOff)
+   RUN_SETUP(    rigPowerOn,  "Bring the AC input and the three DC supplies up, checking each rail as it comes")
+   RUN_TEARDOWN( rigPowerOff, "Take the supplies back down in the inverse order and open the fabric")
 
    GROUP( OutputVoltage, "Tests validating DUT output voltage rails")
        TEST( SupplyRail, supplyRailScript, "Verify supply rail voltages via matrix")
    END_GROUP
    ```
+
+The description is required, exactly as `GROUP`'s and `TEST`'s are, and it is
+what the logs head the hook with. Every hook in a catalog is called `setup` or
+`teardown` — both levels of them, in every group — so a run bracketing three
+groups writes four headings reading `setup`, and this prose is the whole of what
+tells them apart. It is also the only place a reader is told what the bracket
+was *for*: the tests say what they check, and the state somebody had to
+establish before them is otherwise only in the hook's source.
 
 Both are optional and independent — declare one, both, or neither. A catalog
 with no `RUN_SETUP` line needs no placeholder for one; absence resolves to
@@ -584,9 +592,9 @@ A `GROUP` may bracket itself, with hooks written as rows of its own table:
 
 ```cpp
 GROUP( Transient, "Tests validating DUT behaviour while a supply is disturbed")
-    SETUP(    armTransient)
+    SETUP(    armTransient,    "Arm the scope on the 5V rail before the dropout")
     TEST( AcDropout, acDropoutScript, "Verify the 5V rail rides a loss of the primary AC input")
-    TEARDOWN( disarmTransient)
+    TEARDOWN( disarmTransient, "Disarm the scope and restore the AC input")
 END_GROUP
 ```
 
@@ -1453,12 +1461,25 @@ Criteria          production
 Bench             attached
 Suite/DUT/rig     5a4052f
 --------------------------------------------------------------------
+setup Bring the AC input and the three DC supplies up, checking each rail as it comes
+	measure DcP1.Voltage                28 V        (DcP1)  instrument readback
+	verify                              28 V        = 28 V +/-0.1 V   [PASS]  ...
+
 OutputVoltage Tests validating DUT output voltage rails
 	SupplyRail Verify supply rail voltages via matrix
 	measure Output5V                    5.021 V     (Dmm1)  5Vdc supply port
 	verify  FS_Supply_1::FS_Supply_5V0  5.021 V     = 5 V +/-0.05 V   [PASS]  ...
 	RESULT  SupplyRail                                                [PASS]
+
+teardown Take the supplies back down in the inverse order and open the fabric
 ```
+
+A hook gets a heading of its own — its id, then the description its catalog line
+gave it, exactly the way a group and a test are headed. It sits at the level of
+what it brackets: a `GROUP`'s own `SETUP`/`TEARDOWN` is indented with that
+group's tests, the catalog's `RUN_SETUP`/`RUN_TEARDOWN` unindented with the
+groups. Without the heading, the rails `RUN_SETUP` checked read as belonging to
+no test at all; without the description, every one of them would read `setup`.
 
 It is a **valid, openable RTF document after every logged event** — the closing
 brace is rewritten and seeked back over on each flush — so it can be read while a
@@ -1470,6 +1491,30 @@ that explains a failed reading. Each criterion becomes a SARIF rule keyed
 `FS_Supply_1/FS_Supply_5V0` — its own group and id, the pair a test spec traces
 to — so "results for rule X" means "every time this requirement was checked",
 across runs and DUTs. Values carry both formatted text and a bare number.
+
+It also carries the **catalog it walked**. Entering a group, a test, or a
+`SETUP`/`TEARDOWN` bracket is itself a result — informational, level `none`,
+exactly like the `pass 2 of 3` note a `--repeat` run leaves — under the rules
+`Thorium/Group`, `Thorium/Test` and `Thorium/Phase`:
+
+```json
+{ "ruleId": "Thorium/Test",  "kind": "informational",
+  "message": { "text": "Test SupplyRail -- Verify supply rail voltages via matrix" },
+  "properties": { "boundary": "Test", "group": "OutputVoltage",
+                  "test": "SupplyRail", "title": "Verify supply rail voltages via matrix" } }
+```
+
+A hook's id is `setup` or `teardown`, its `title` is the description its catalog
+line gave it, and which level it is is the group that qualifies it:
+`OutputVoltage/setup` is that group's own `SETUP`, plain `setup` is the
+catalog's `RUN_SETUP`. Every event a hook posted carries `"phase":
+"setup"` too — without it, the readings a group's setup takes are
+indistinguishable here from its first test's, since a hook's events deliberately
+carry no test id (that is what keeps them in a `--replay` of one test; see
+`core/recording.hpp`).
+
+That is the only place the titles from `GROUP`/`TEST` appear at all, and it is
+what lets a group whose every test was deselected still say it was reached.
 
 The live console view renders the same content as the RTF from the same events, so
 what an operator watched and what the report says cannot disagree.
