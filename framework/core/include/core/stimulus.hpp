@@ -4,9 +4,11 @@
 #include <istream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "core/quantity_kind.hpp"
 #include "core/session.hpp"
+#include "core/waveform.hpp"
 
 namespace core
 {
@@ -129,6 +131,57 @@ namespace core
     // The same, from a path, with baseDirectory taken from it.
     //
     auto injectStimulusFromFile( SessionBank & bank, const std::filesystem::path & path) -> void;
+
+    //
+    // The samples in a file of numbers -- the second half of
+    //
+    //     Osc1.Channel3 = trace( V, -0.001 s, 1e-06 s, "dip.samples")
+    //
+    // on its own, for a caller that wants the trace rather than the file.
+    //
+    // Public because that was the only way to get samples off a disk: a test
+    // holding four thousand real ones had to author a stimulus file to reach
+    // them, or write its own reader -- and a second reader is a second answer
+    // to what a sample file is. There is one, this is it, and the parser above
+    // calls it too, so a file means the same thing from both directions.
+    //
+    // The format is the trace() argument's own: numbers, whitespace separated,
+    // one per line or not, so whatever produced them -- a scope export, a
+    // spreadsheet column, a model -- needs no reformatting. Relative paths are
+    // the caller's own, resolved against the working directory; it is
+    // injectStimulusFromFile that resolves them against a stimulus file,
+    // because there it is the file that named them.
+    //
+    // Throws std::runtime_error naming the file if it cannot be opened, holds
+    // anything that is not a number, or holds no numbers at all. The last one
+    // is the failed export -- a truncated capture, a wrong path that happened
+    // to name an empty file -- and left alone it arms a trace whose every
+    // reduction throws "there is no minimum of nothing" somewhere later,
+    // pointing nowhere near the file. The inline [ ] form is still an empty
+    // trace: an author who writes it has said so on purpose.
+    //
+    [[nodiscard]]
+    auto readSamples( const std::filesystem::path & path) -> std::vector<double>;
+
+    //
+    // Those samples with a timebase around them -- what a script unit test
+    // feeds Fetch.inject when the capture it is testing against is a real one:
+    //
+    //     Fetch.inject( "Osc1.Channel3",
+    //                   core::traceFromFile( core::quantityKindOf<Voltage>(),
+    //                                        { -1e-3_s, 1e-06_s }, "dip.samples"));
+    //
+    // The kind and the timing are arguments rather than anything read out of
+    // the file, and the file is bare numbers rather than carrying them: a
+    // column of samples is what every tool already exports, and a header on top
+    // of it would be a file format invented here -- the same trade the trace()
+    // form makes, and it has to be the same one, since both read the same file.
+    //
+    [[nodiscard]]
+    auto traceFromFile(
+        QuantityKind                   kind,
+        Waveform::Timing               timing,
+        const std::filesystem::path &  path) -> Waveform;
 
     //
     // The unit symbol a quantity of this kind is written with -- "V", "s", and

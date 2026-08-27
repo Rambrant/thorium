@@ -246,32 +246,6 @@ namespace core
             return parseQuantity( text);
         }
 
-        //
-        // The numbers in a trace's sample file: whitespace-separated, one per
-        // line or not, so that whatever produced it -- a scope export, a
-        // spreadsheet column, a model -- needs no reformatting.
-        //
-        [[nodiscard]]
-        auto readSampleFile( const std::filesystem::path & path) -> std::vector<double>
-        {
-            std::ifstream in( path);
-
-            if( !in)
-            {
-                throw std::runtime_error( "could not open the sample file '" + path.string() + "'");
-            }
-
-            std::vector<double>  samples;
-            std::string          token;
-
-            while( in >> token)
-            {
-                samples.push_back( parseNumber( token, "a sample"));
-            }
-
-            return samples;
-        }
-
         auto parseTrace( const std::string_view text, const std::filesystem::path & baseDirectory) -> Waveform
         {
             if( text.back() != ')')
@@ -322,7 +296,13 @@ namespace core
                     throw std::runtime_error( "'" + std::string( samplesText) + "' is missing its closing quote");
                 }
 
-                samples = readSampleFile( baseDirectory / samplesText.substr( 1, samplesText.size() - 2));
+                //
+                // core::readSamples, not a reader of its own: the file this
+                // line names and the file a caller hands traceFromFile are the
+                // same file, and two readers would be two answers to what is
+                // in it.
+                //
+                samples = readSamples( baseDirectory / samplesText.substr( 1, samplesText.size() - 2));
             }
             else if( samplesText.starts_with( "["))
             {
@@ -556,5 +536,47 @@ namespace core
         // pairing core::sidecarDirectoryFor gives a recording.
         //
         injectStimulus( bank, in, path.parent_path());
+    }
+
+    auto readSamples( const std::filesystem::path & path) -> std::vector<double>
+    {
+        std::ifstream in( path);
+
+        if( !in)
+        {
+            throw std::runtime_error( "could not open the sample file '" + path.string() + "'");
+        }
+
+        //
+        // The file named in the message, not just the offending token. These
+        // numbers live in a different file from the trace() line that names
+        // them, so the stimulus line number this gets re-thrown with points at
+        // the wrong file on its own -- and a caller who came in through
+        // traceFromFile has no line number at all.
+        //
+        const auto what = "a sample in '" + path.string() + "'";
+
+        std::vector<double>  samples;
+        std::string          token;
+
+        while( in >> token)
+        {
+            samples.push_back( parseNumber( token, what));
+        }
+
+        if( samples.empty())
+        {
+            throw std::runtime_error( "the sample file '" + path.string() + "' holds no numbers");
+        }
+
+        return samples;
+    }
+
+    auto traceFromFile(
+        const QuantityKind             kind,
+        const Waveform::Timing         timing,
+        const std::filesystem::path &  path) -> Waveform
+    {
+        return Waveform{ kind, timing, readSamples( path) };
     }
 } // namespace core

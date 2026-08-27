@@ -92,6 +92,11 @@ namespace core
             // Feeds a canned trace, bypassing hal entirely -- the trace-side
             // twin of Measure.inject, Read.inject and Await.inject.
             //
+            // A trace spelled out in a test is a handful of samples; a real one
+            // is a file of them, and core::traceFromFile (see core/stimulus.hpp)
+            // is how it gets here -- the same file, read the same way, that a
+            // stimulus line's trace( V, ..., "dip.samples") names.
+            //
             auto inject( const std::string_view name, Waveform value) -> void
             {
                 mSessions.injectTrace( name, std::move( value));

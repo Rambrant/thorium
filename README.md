@@ -1098,6 +1098,20 @@ from an authored stimulus file, so a test whose scenario is long enough to be
 worth reviewing on its own can live beside the test rather than inside it.
 `Measure.useLive()` goes back to hardware.
 
+For one trace rather than a whole scenario, `core::traceFromFile( kind, timing,
+path)` reads a plain file of numbers into a `Waveform` — the same file, read by
+the same reader, that a stimulus line's `trace( V, ..., "dip.samples")` names:
+
+```cpp
+Fetch.inject( "Osc1.Channel3",
+              core::traceFromFile( core::quantityKindOf<Voltage>(),
+                                   { -1e-3_s, 1e-06_s }, "dip.samples"));
+```
+
+`core::readSamples( path)` is the numbers alone. Both name the file in every
+failure they report — including an empty one, which is a truncated export
+rather than a trace of nothing.
+
 ---
 
 ## 4. Running a suite
