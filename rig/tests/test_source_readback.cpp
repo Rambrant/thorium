@@ -1,15 +1,15 @@
 #include "hal/ac6834b.hpp"
-#include "hal/measure.hpp"
+#include "hal/verbs/measure.hpp"
 #include "hal/n6701a.hpp"
-#include "hal/route.hpp"
-#include "hal/source.hpp"
+#include "hal/verbs/route.hpp"
+#include "hal/verbs/source.hpp"
 
 #include <gtest/gtest.h>
 
 #include <string>
 #include <vector>
 
-#include "core/journal.hpp"
+#include "core/journal/journal.hpp"
 
 //
 // A source measuring its own output, over its own interface -- the reading that

@@ -3,7 +3,7 @@
 //
 // The dev bench's switching hardware: none.
 //
-// An empty table rather than a missing one, for the reason hal/wiring.hpp
+// An empty table rather than a missing one, for the reason hal/topology/wiring.hpp
 // gives for the empty SOURCE_WIRING table: the readers are declared
 // unconditionally and defined only by this expansion, so omitting the file
 // would make a translation unit that asks "which cards are there" fail to

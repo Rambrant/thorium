@@ -8,7 +8,7 @@
 # INTERFACE, not STATIC: the driver is header-only, as every driver in this tree
 # is. That is not an accident of these particular models -- an instrument driver
 # is a type whose Port-returning members are consumed as types by the call site
-# (see core/port.hpp), so its definitions have to be visible to whoever measures
+# (see core/driver/port.hpp), so its definitions have to be visible to whoever measures
 # through it. A driver that grows a real .cpp (talking to a VISA library, say)
 # becomes STATIC here and nothing outside this file needs to know.
 add_library(hal_dso8064a INTERFACE)

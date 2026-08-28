@@ -12,20 +12,20 @@
 #include <vector>
 
 #include "cli.hpp"
-#include "core/active_test_catalog.hpp"
-#include "core/bench.hpp"
-#include "core/console_sink.hpp"
-#include "core/criteria_variants.hpp"
-#include "core/journal.hpp"
-#include "core/recording.hpp"
-#include "core/rtf_sink.hpp"
-#include "core/sarif_sink.hpp"
-#include "core/stimulus.hpp"
-#include "hal/measure.hpp"
-#include "hal/safing.hpp"
+#include "core/catalog/active_test_catalog.hpp"
+#include "core/session/bench.hpp"
+#include "core/journal/console_sink.hpp"
+#include "core/criteria/criteria_variants.hpp"
+#include "core/journal/journal.hpp"
+#include "core/session/recording.hpp"
+#include "core/journal/rtf_sink.hpp"
+#include "core/journal/sarif_sink.hpp"
+#include "core/session/stimulus.hpp"
+#include "hal/verbs/measure.hpp"
+#include "hal/verbs/safing.hpp"
 
 //
-// Runner for the test-script catalog (core/active_test_catalog.hpp). Five
+// Runner for the test-script catalog (core/catalog/active_test_catalog.hpp). Five
 // modes, matching what tools/run-tests.sh expects:
 //
 //   run_scripts                    run every test in the catalog
@@ -57,7 +57,7 @@
 // production, stress, aged) is compiled into this one binary, and this is what
 // picks between them; without the flag, the variant the build was configured
 // for applies (core::defaultCriteriaVariantName()). See suite/README.md for the
-// mechanism and core/criteria_variants.hpp for the seam.
+// mechanism and core/criteria/criteria_variants.hpp for the seam.
 //
 // An unrecognised name is fatal, and lists the ones that would have worked --
 // same stance as an unknown flag, and for a stronger reason: a runner that
@@ -93,7 +93,7 @@
 // ---------------------------------------------------------------------------
 // Bracketing a run
 // ---------------------------------------------------------------------------
-// A catalog may declare RUN_SETUP and RUN_TEARDOWN (see core/test_catalog.hpp) --
+// A catalog may declare RUN_SETUP and RUN_TEARDOWN (see core/catalog/test_catalog.hpp) --
 // typically powering the rig up and back down. They run once each, around
 // everything, including every repeat pass. Neither is required; a catalog
 // declaring neither behaves exactly as it did before they existed.
@@ -132,7 +132,7 @@
 //
 // A normal run (no flag, or --select) safes the rig too, on every way out
 // of runTests() below -- completing, or a script throwing -- via
-// hal::RigSafingGuard (see hal/safing.hpp). That's a different situation
+// hal::RigSafingGuard (see hal/verbs/safing.hpp). That's a different situation
 // from --safe's: this process is still alive and its stack is still
 // intact, so there's a scope for a guard to run at the end of, rather
 // than a dead process a supervisor has to clean up after from the
@@ -141,13 +141,13 @@
 // ---------------------------------------------------------------------------
 // Logging
 // ---------------------------------------------------------------------------
-// A run produces two logs, from one event stream (see core/journal.hpp):
+// A run produces two logs, from one event stream (see core/journal/journal.hpp):
 //
 //   --sarif=PATH   machine-readable, SARIF 2.1.0, every verb the run executed
 //                  (Measure, Apply, Remove, Connect, Disconnect, Verify, and
-//                  the safing pass) -- core/sarif_sink.hpp
+//                  the safing pass) -- core/journal/sarif_sink.hpp
 //   --rtf=PATH     human-readable, colour-coded, Measure and Verify only, with
-//                  each test's name and verdict marked out -- core/rtf_sink.hpp
+//                  each test's name and verdict marked out -- core/journal/rtf_sink.hpp
 //
 // Both carry the same traceability header: framework version, criteria variant,
 // DUT and rig name, operator, host, start time, command line (see
@@ -168,7 +168,7 @@
 //   --replay=PATH   take every reading from that file instead of the rig
 //
 // A third artifact, and the only one that is an input as well as an output (see
-// core/recording.hpp for the format). Where the two logs above describe a run --
+// core/session/recording.hpp for the format). Where the two logs above describe a run --
 // for a person, and for a server -- this is the readings themselves, so the same
 // run can be played back afterwards with no rig attached: to reproduce a failure
 // at a desk, to step through what a script actually saw, or to re-run a suite
@@ -232,7 +232,7 @@
 // otherwise.
 //
 // --inject then takes the readings from a stimulus file (see
-// core/stimulus.hpp), which is a different format from a recording on purpose.
+// core/session/stimulus.hpp), which is a different format from a recording on purpose.
 // A recording consumes each value once, in order, because that is what
 // reproducing a run means; a stimulus file can say "this point always reads
 // 5.01 V", which is the one thing an author needs most and a recording cannot
@@ -247,7 +247,7 @@
 // Whether a run reaches a bench at all
 // ---------------------------------------------------------------------------
 //
-// --replay, --inject and --skeleton each detach the bench (see core/bench.hpp),
+// --replay, --inject and --skeleton each detach the bench (see core/session/bench.hpp),
 // and the invariant behind all three is one sentence: a run whose readings are
 // fiction must not be driving hardware.
 //
@@ -325,7 +325,7 @@ namespace
         bool                           UntilFailure{ false };
 
         //
-        // The replayable value stream (core/recording.hpp), separate from the
+        // The replayable value stream (core/session/recording.hpp), separate from the
         // two report logs below: those describe a run for a person and for a
         // server, this one is the readings themselves, in order, so the same
         // run can be played back with no rig attached.
@@ -349,7 +349,7 @@ namespace
         std::optional<std::string>     SkeletonPath;
 
         //
-        // Readings described rather than captured -- see core/stimulus.hpp for
+        // Readings described rather than captured -- see core/session/stimulus.hpp for
         // the format, and this file's mode comment for how it layers over
         // --replay.
         //
@@ -478,7 +478,7 @@ namespace
         // checks above are rejected here: this is the last moment at which
         // nothing has happened yet. core::selectCriteriaVariant validates and
         // applies in one step -- it owns the list of legal names (generated
-        // from THORIUM_KNOWN_CRITERIA_VARIANTS, see core/criteria_variants.hpp),
+        // from THORIUM_KNOWN_CRITERIA_VARIANTS, see core/criteria/criteria_variants.hpp),
         // so there is no second copy of it here to fall out of step with it.
         //
         // Not applying anything when the flag is absent is what leaves the
@@ -740,7 +740,7 @@ namespace
     // what make the logs catalog-aware: everything a script posts inside them
     // is attributed to that group and test, so neither the script nor Measure
     // nor Verify has to know its own test's name (they can't -- a script takes
-    // no parameters at all, see core/test_catalog.hpp on why), and the human
+    // no parameters at all, see core/catalog/test_catalog.hpp on why), and the human
     // log can state each group once with its description and nest its tests
     // under it.
     //
@@ -860,8 +860,8 @@ namespace
             //
             // The script returns nothing: the verdict comes back from
             // endTest, derived from the checks the script actually recorded
-            // (see core/journal.hpp on why it is derived rather than
-            // returned, and core/test_catalog.hpp on what that means for a
+            // (see core/journal/journal.hpp on why it is derived rather than
+            // returned, and core/catalog/test_catalog.hpp on what that means for a
             // script's signature). This loop's own fold is unchanged -- it
             // is a fold over *tests*, which is a fact no single test has.
             //
@@ -1390,7 +1390,7 @@ int main( int argc, char ** argv)
         // safe on their behalf.
         //
         // Inside journal().begin()/end() rather than outside, so the Safe event
-        // this guard's destructor produces (see hal/src/safing.cpp) lands in
+        // this guard's destructor produces (see hal/src/verbs/safing.cpp) lands in
         // the machine log for the run it belongs to.
         hal::RigSafingGuard safeOnExit;
 

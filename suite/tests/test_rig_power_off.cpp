@@ -9,9 +9,9 @@
 // test of a hook is no more a script than a test of a script is.
 //
 #include THORIUM_ACTIVE_INSTRUMENTS
-#include "hal/route.hpp"
-#include "hal/source.hpp"
-#include "hal/switch_fabric.hpp"
+#include "hal/verbs/route.hpp"
+#include "hal/verbs/source.hpp"
+#include "hal/fabric/switch_fabric.hpp"
 
 #include <gtest/gtest.h>
 

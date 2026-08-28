@@ -670,7 +670,7 @@ TEST_F( AcceptanceCatalog, ListTestsPrintsOneLinePerTestAndWritesNoLog)
 
 //
 // What the rig console re-invokes after an abnormal child exit (see
-// framework/runner/src/main.cpp and hal/safing.hpp). Exits 0 unconditionally, and writes no
+// framework/runner/src/main.cpp and hal/verbs/safing.hpp). Exits 0 unconditionally, and writes no
 // log: this process is cleaning up after a *different* run, and the log it
 // would append to belongs to that dead run.
 //
@@ -968,7 +968,7 @@ TEST_F( AcceptanceHumanLog, ConsoleCarriesTheHeaderTestNamesAndVerdicts)
 
     //
     // Each check states what was required next to what was measured -- the
-    // criterion's own predicate, rendered (see core/predicate_text.hpp), not
+    // criterion's own predicate, rendered (see core/criteria/predicate_text.hpp), not
     // just the prose from its CRIT entry.
     //
     EXPECT_TRUE( containsText( outPath(), mOut, "FS_Supply_1::FS_Supply_5V0"));
@@ -994,7 +994,7 @@ TEST_F( AcceptanceHumanLog, ConsoleCarriesTheHeaderTestNamesAndVerdicts)
     EXPECT_TRUE( containsText( outPath(), mOut, "\nteardown Take the supplies back down"));
 
     // Measure and Verify only -- the sourcing/routing verbs and the safing pass
-    // go to the machine log (see core/report.hpp).
+    // go to the machine log (see core/journal/report.hpp).
     EXPECT_TRUE( omitsText( outPath(), mOut, "Safe"));
 }
 
@@ -1132,7 +1132,7 @@ TEST_F( AcceptanceMachineLog, SarifNamesTheCatalogTheRunWalked)
 //
 // This is the check that was missing, and it is worth being clear about what it
 // is for. The interlock does not refuse hot switching -- that is deliberate, and
-// core/source.hpp gives the counterexample (a safety interlock dropping a
+// core/verbs/source.hpp gives the counterexample (a safety interlock dropping a
 // connection must not first wait out a supply's ramp-down). So a mis-ordered
 // Remove/Disconnect in a script breaks nothing, fails nothing, and exits zero.
 // Every other guarantee in this repo about that ordering was a comment.
@@ -1182,7 +1182,7 @@ TEST_F( AcceptanceMachineLog, NoShippedScriptOrHookMovesARelayUnderLoad)
 
     EXPECT_TRUE( notices.empty())
         << "a shipped script or hook moved a relay on a live path -- put Remove before\n"
-           "Disconnect (or Connect before Apply); see core/source.hpp:\n  "
+           "Disconnect (or Connect before Apply); see core/verbs/source.hpp:\n  "
         << [&notices]
            {
                std::string joined;
@@ -1775,7 +1775,7 @@ TEST_F( AcceptanceHooks, AFailedPowerUpIsStillPoweredBackDown)
 //
 // A third artifact, and unlike the two logs it is an input as well as an
 // output: --record writes the readings a run took, --replay feeds them back to
-// a later run with no rig attached. See core/recording.hpp for the format.
+// a later run with no rig attached. See core/session/recording.hpp for the format.
 //
 
 TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
@@ -1804,7 +1804,7 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     // row carries "<bytes>" where a quantity row carries its unit's name, and
     // its value is unspaced hex rather than the text it may be -- see
     // core::kPayloadKind on why the token cannot collide with a unit, and
-    // core/recording.hpp on why the value is not written as text.
+    // core/session/recording.hpp on why the value is not written as text.
     //
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Ser1.Data\tSer1\t<bytes>"));
 
@@ -1813,7 +1813,7 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     // acDropoutScript arms actually completed. A flag row carries "<flag>"
     // where a quantity row carries its unit and a payload row carries
     // "<bytes>", and its value is 1 or 0 -- see core::kFlagKind, and
-    // core/acquire.hpp on why an Await is recorded at all.
+    // core/verbs/acquire.hpp on why an Await is recorded at all.
     //
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Osc1.Acquisition\tOsc1\t<flag>"));
 

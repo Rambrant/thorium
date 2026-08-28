@@ -8,9 +8,9 @@
 // read it off instead.
 //
 #include THORIUM_ACTIVE_INSTRUMENTS
-#include "hal/route.hpp"
-#include "hal/source.hpp"
-#include "hal/switch_fabric.hpp"
+#include "hal/verbs/route.hpp"
+#include "hal/verbs/source.hpp"
+#include "hal/fabric/switch_fabric.hpp"
 
 #include <gtest/gtest.h>
 
@@ -48,7 +48,7 @@ namespace
         //
         // What acDropoutScript does to the source, and the only part of it this
         // bracket is paired with. Remove before Disconnect -- the relay opens on
-        // a dead path (see core/source.hpp).
+        // a dead path (see core/verbs/source.hpp).
         //
         static auto dropTheAcInput() -> void
         {
@@ -155,7 +155,7 @@ TEST_F( TransientBracketFixture, LeavesAnUndisturbedSourceAloneRatherThanReconne
 // And the mirror of that, one pass earlier: a setup that finds the source
 // already down must not energise one. This is the detached-bench case --
 // --replay, --inject and --skeleton all reach a group's hooks with no Apply
-// having gone anywhere (see core/bench.hpp).
+// having gone anywhere (see core/session/bench.hpp).
 //
 TEST_F( TransientBracketFixture, DoesNotEnergiseASourceTheSetupFoundAlreadyDown)
 {

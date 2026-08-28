@@ -11,7 +11,7 @@
 //
 // The split from scripts.hpp alongside it runs the opposite way from what the
 // names suggest. scripts.hpp is the *declarations* file, and its only reader is
-// core/active_test_catalog.hpp via THORIUM_TEST_SCRIPTS, which name-checks each
+// core/catalog/active_test_catalog.hpp via THORIUM_TEST_SCRIPTS, which name-checks each
 // TEST( ..., someScript, ...) entry and wants nothing else at all -- that file
 // is compiled into main.cpp, which has no business seeing a criteria table or a
 // rig's instrument globals. The two stand-ins for scripts.hpp
@@ -41,11 +41,11 @@
 // Remove sourcing counterparts. at(...) comes with them.
 //
 #include "rig/active_instruments.hpp"
-#include "hal/measure.hpp"
-#include "hal/source.hpp"
-#include "hal/route.hpp"
-#include "hal/acquire.hpp"
-#include "hal/trace.hpp"
+#include "hal/verbs/measure.hpp"
+#include "hal/verbs/source.hpp"
+#include "hal/verbs/route.hpp"
+#include "hal/verbs/acquire.hpp"
+#include "hal/verbs/trace.hpp"
 
 //
 // The verdict verbs, unqualified -- so a script writes Verify( ...) next to
@@ -56,15 +56,15 @@
 //
 // Fail comes with it, and has to: it is what a script writes where a check
 // could not be made at all, so it appears in the same bodies and on the same
-// footing as Verify (see core/verify.hpp).
+// footing as Verify (see core/criteria/verify.hpp).
 //
 // A using-declaration in a header, deliberately, and confined to this one:
-// core/active_test_catalog.hpp does not include this file, so nothing outside a
+// core/catalog/active_test_catalog.hpp does not include this file, so nothing outside a
 // script translation unit is affected. It mirrors active_criteria.hpp's own
 // using-directives, and for the same reason -- see its comment on why the
 // merged tables have to land unqualified.
 //
-#include "core/verify.hpp"
+#include "core/criteria/verify.hpp"
 
 using core::Verify;
 using core::Fail;
@@ -76,13 +76,13 @@ using core::Fail;
 // deliberately promises to whatever includes it. A script writing an ad-hoc
 // EQ( 12.0_V).epsilon( 0.05_V) needs no further include of its own.
 //
-#include "core/active_criteria.hpp"
+#include "core/criteria/active_criteria.hpp"
 
 //
-// The adapter points -- dut::Output5V and friends. hal/adapter.hpp has to come
+// The adapter points -- dut::Output5V and friends. hal/topology/adapter.hpp has to come
 // first, for the ADAPTER/POINT macros the .inc is written in; that ordering
 // rule is precisely the kind of thing worth stating once here instead of at the
 // top of every script.
 //
-#include "hal/adapter.hpp"
+#include "hal/topology/adapter.hpp"
 #include "dut/adapter.inc"

@@ -10,7 +10,7 @@
 // Written out as three empty blocks rather than left out, and this is not a
 // formality: hal::instrumentWiring, hal::connectorWiring and hal::sourceWiring
 // are defined by these expansions and declared elsewhere, so a missing block
-// is a link error rather than an empty table. hal/wiring.hpp's own comment on
+// is a link error rather than an empty table. hal/topology/wiring.hpp's own comment on
 // END_SOURCE_WIRING makes the same point for the rig that has no fixed-wired
 // sources.
 //

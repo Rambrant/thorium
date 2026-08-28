@@ -5,8 +5,8 @@
 #include <stdexcept>
 #include <string_view>
 
-#include "core/predicates.hpp"
-#include "core/verify.hpp"
+#include "core/criteria/predicates.hpp"
+#include "core/criteria/verify.hpp"
 
 //
 // The suite behind run_scripts_hooked: two scripts and four hooks -- the pair

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "core/journal.hpp"
+#include "core/journal/journal.hpp"
 
 //
 // What a script's own test needs now that a script returns nothing.
 //
 // A script's verdict is derived from the checks it recorded, by the journal, at
 // the point the test bracket closes (see core::Journal::endTest and
-// core/test_catalog.hpp). So a test that calls a script directly has to do what
+// core/catalog/test_catalog.hpp). So a test that calls a script directly has to do what
 // framework/runner/src/main.cpp's runner does around it -- open a bracket, run it, close the
 // bracket and take the answer -- and this is that, once, rather than three lines
 // copied into every fixture in this directory.

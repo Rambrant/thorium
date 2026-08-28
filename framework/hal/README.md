@@ -13,7 +13,7 @@ hardware sits between them, how they're wired, or what to call any of it
 at configure time -- see `THORIUM_ACTIVE_INSTRUMENTS`/
 `THORIUM_INSTRUMENT_TABLE`/`THORIUM_DEVICE_TABLE`/`THORIUM_WIRING_TABLE` in
 this directory's `CMakeLists.txt` -- the same
-compile-definition-swap mechanism `core/active_criteria.hpp` already uses
+compile-definition-swap mechanism `core/criteria/active_criteria.hpp` already uses
 for `THORIUM_CRITERIA_VARIANT_TABLES`. This repo's own top-level `CMakeLists.txt`
 sets those four to point at `rig/`, since this repo is (for now) both the
 library and its one rig; a separate rig repo pulling this library in later
@@ -72,22 +72,62 @@ name hal's own types, and no enumerator that comes from a rig's `.inc` file.**
 ```
 framework/hal/
     include/hal/
-        address.hpp        # Gpib/Lan/Serial/Usb/Simulated -- how the PC reaches an instrument
-        api_version.hpp    # THORIUM_HAL_API_VERSION + the gate each driver asserts through
-        vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
-        switch_device.hpp  # SwitchDeviceKind/Model + card specs, SwitchDeviceId (from THORIUM_DEVICE_TABLE), kindOf/addressOf/cardOf/hasChannel
-        switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
-        instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_TABLE
-        wiring.hpp         # InstrumentWiring/ConnectorWiring + WIRE macros
-        adapter.hpp        # ADAPTER/POINT/END_ADAPTER macros
-        describe.hpp       # the describe customization point drivers hook into
-        measure.hpp        # MeasureEngine alias + extern Measure/Read
-        source.hpp         # Apply/Remove/Setup/Write -- the instrument-I/O verbs
-        acquire.hpp        # Arm/Await -- the triggered-capture pair
-        trace.hpp          # Fetch -- the whole captured record off an instrument
-        route.hpp          # Connect/Disconnect -- the fabric-only verbs
-        safing.hpp         # safeRig()
+        driver/                # the kit an instrument driver is written against
+            api_version.hpp    # THORIUM_HAL_API_VERSION + the gate each driver asserts through
+            address.hpp        # Gpib/Lan/Serial/Usb/Simulated -- how the PC reaches an instrument
+            instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_TABLE
+            describe.hpp       # the describe customization point drivers hook into
+        fabric/                # the switching hardware itself
+            switch_device.hpp  # SwitchDeviceKind/Model + card specs, SwitchDeviceId (from THORIUM_DEVICE_TABLE), kindOf/addressOf/cardOf/hasChannel
+            switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
+        topology/              # how this bench is put together
+            vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
+            adapter.hpp        # ADAPTER/POINT/END_ADAPTER macros
+            bundle.hpp         # BUNDLE/LINE -- the pins that are one physical interface
+            wiring.hpp         # InstrumentWiring/ConnectorWiring/SourceWiring + WIRE macros
+        verbs/                 # this rig's instantiation of core's generic engines
+            measure.hpp        # MeasureEngine alias + extern Measure/Read
+            route.hpp          # Connect/Disconnect -- the fabric-only verbs
+            source.hpp         # Apply/Remove/Setup/Write -- the instrument-I/O verbs
+            acquire.hpp        # Arm/Await -- the triggered-capture pair
+            trace.hpp          # Fetch -- the whole captured record off an instrument
+            interlock.hpp      # energisedSourceAt -- the rig half of the electrical interlock
+            safing.hpp         # safeRig()
 ```
+
+`src/` and `tests/` mirror those four folders.
+
+Three of the names are shared with `framework/core/include/core/`, and the
+pairing is exact rather than thematic. `verbs/` holds one header per
+`core/verbs/` header of the same name -- `hal/verbs/measure.hpp` is the
+instantiation of `core/verbs/measure.hpp` for this rig, and so on for
+route/source/acquire/trace/interlock. `topology/adapter.hpp` is the concrete
+half of `core/topology/adapter.hpp`, which parameterises the location
+generically (`template<auto Loc>`) precisely so that the generic half can stay
+in core -- `core/verbs/route.hpp` and `core/verbs/measure.hpp` both include it,
+so it could never move here. `driver/` names the same kit as `core/driver/`
+from the other side.
+
+`verbs/` is also exactly the `hal_rig` target, and the other three are exactly
+`hal` -- so the folder split and the target split are the same line, drawn once
+in the directory tree and once in `CMakeLists.txt`. That line is what the
+`instruments/` tree depends on: a driver compiles against `hal`, and
+`hal_rig` compiles against the drivers.
+
+Note what `driver/` does *not* claim. It is the set of headers that are about
+being a driver rather than about this bench, not the whole surface a driver may
+use -- that is everything the `hal` target exports, and the drivers do reach
+`fabric/` and `topology/` as well, because `connectDriver`/`disconnectDriver`
+take a `SwitchFabric &` and both wiring tables. The contract is enforced by the
+target graph, not by the folder name.
+
+The `fabric/` and `topology/` line is hardware versus map: `fabric/` models the
+switching hardware and knows nothing about VPC pins or DUTs, and `topology/`
+maps this bench onto it. `wiring.hpp` sits in `topology/` for that reason --
+it includes `fabric/switch_fabric.hpp` and not the reverse. It holds all three
+of the rig's static wiring facts, including `SourceWiring`, which is the one
+that is deliberately *not* a fabric path, because `rig/wiring.inc` declares all
+three in one file.
 
 No driver headers: all five now live under `instruments/`, one directory each,
 and are still spelled `#include "hal/<model>.hpp"`, in `namespace hal`, at every
@@ -116,7 +156,7 @@ independent facts -- not one combined table keyed by (instrument, pin),
 which would need an entry per *combination* even though the underlying
 physical facts are only per instrument and per pin. Both
 `core::MeasureEngine` and `core::ConnectEngine`/`core::DisconnectEngine` (see
-`framework/core/include/core/measure.hpp`, `framework/core/include/core/route.hpp`)
+`framework/core/include/core/verbs/measure.hpp`, `framework/core/include/core/verbs/route.hpp`)
 compose the two into one crosspoint command at the moment a measurement or
 a routing call is actually made. `Apply`/`Remove` compose nothing: they are
 instrument I/O and never touch the fabric at all.
@@ -135,7 +175,7 @@ rather than `POINT`, so the adapter never describes a driven rail as an
 ordinary pin.
 
 A rig's own `wiring.inc` (`rig/wiring.inc` in this repo, reached from
-`hal/measure.cpp`/`hal/route.cpp` via `THORIUM_WIRING_TABLE` rather than a
+`hal/verbs/measure.cpp`/`hal/verbs/route.cpp` via `THORIUM_WIRING_TABLE` rather than a
 hardcoded path -- see this directory's own `CMakeLists.txt`) holds the
 actual data, built via
 `INSTRUMENT_WIRING`/`WIRE_INSTRUMENT`/`END_INSTRUMENT_WIRING` and
@@ -145,7 +185,7 @@ table, unlike `CRITERIA` (several groups per file), so these macros build
 one fixed, namespaced global (`hal::instrumentWiring`/`hal::connectorWiring`)
 rather than taking a name. `ADAPTER` is the same one-per-build case and takes
 no name either.
-Both `hal/measure.cpp` and `hal/route.cpp` `#include` it, since each is its
+Both `hal/verbs/measure.cpp` and `hal/verbs/route.cpp` `#include` it, since each is its
 own translation unit needing its own declaration of the (inline) tables --
 see `wiring.inc`'s own comment.
 
@@ -155,7 +195,7 @@ see `wiring.inc`'s own comment.
 `CRITERIA`/`CRIT`/`END_CRITERIA`: each `POINT` becomes a genuine
 `static constexpr` member of the group struct, carrying its location as a
 template parameter on `core::AdapterPointTag<Loc>`
-(see `framework/core/include/core/adapter.hpp`) rather than as runtime data.
+(see `framework/core/include/core/topology/adapter.hpp`) rather than as runtime data.
 That is what makes a misspelled point name a "no such member" compile
 error -- see `dut/README.md` for the concrete examples, since the actual
 DUT profile data lives there, not here.
@@ -173,7 +213,7 @@ same pin can be read for voltage, current or frequency without being
 redeclared.
 
 `Measure`/`Apply`/`Remove` all take a point wrapped in `core::at(...)`
-(see `framework/core/include/core/at.hpp`), not an `AdapterPointTag` directly --
+(see `framework/core/include/core/verbs/at.hpp`), not an `AdapterPointTag` directly --
 `at(...)` exists purely to make a call site read as "at this DUT point" the
 same way `_V`/`_A` literals make a bare number read as a `Quantity`. A bare
 point with no `at(...)` simply has no matching overload -- a third kind of
@@ -197,7 +237,7 @@ into this instantiation.
 `source.hpp`/`source.cpp` assemble the `Apply`/`Remove` objects every script
 sources through, the same way `measure.hpp`/`measure.cpp` do for `Measure`:
 `core::ApplyEngine`/`core::RemoveEngine` (see
-`framework/core/include/core/source.hpp`), which -- unlike `MeasureEngine` --
+`framework/core/include/core/verbs/source.hpp`), which -- unlike `MeasureEngine` --
 take no rig types at all, since routing moved out from under them into
 `route.hpp`/`route.cpp` (`Connect`/`Disconnect`). Where `Measure` takes a
 `core::Port`, `Apply` and `Remove` each take a *builder* --
@@ -216,14 +256,14 @@ its VPC pin (or four, for `AcP1`), so there is no point left to choose -- see
 `hal::N6701A`'s own comment on why a real power rail is cabled rather than
 routed. Where a relay does exist in the path, `Connect` closes it before the
 output comes up and `Disconnect` opens it after the output goes down, so the
-contacts never move under load -- see `core/source.hpp`. A sequence that gets
+contacts never move under load -- see `core/verbs/source.hpp`. A sequence that gets
 that the wrong way round is not refused, but it is recorded: both verbs ask the
 driver whether its output is live at the moment the contact moves, through the
 `isEnergised` customization point, and a hot switch lands in the run journal.
-See `core/interlock.hpp`.
+See `core/verbs/interlock.hpp`.
 
 Every one of those driver calls is conditional on a bench being attached (see
-`core/bench.hpp`) -- the stimulus counterpart to what `core::ISession` does for
+`core/session/bench.hpp`) -- the stimulus counterpart to what `core::ISession` does for
 the reading verbs. A `--replay`, `--inject` or `--skeleton` run instructs
 nothing at all, and the machine log says so per instruction rather than
 omitting it or claiming otherwise.
@@ -231,7 +271,7 @@ omitting it or claiming otherwise.
 Dispatch to the actual instrument (`applyDriver`/`removeDriver`, defined
 alongside each builder in `n6701a.hpp`/`ac6834b.hpp`) happens via ADL on
 the builder's `.config()` type, the same trick `core::MeasureEngine` uses
-for `to_string(instrumentId)` -- `core/source.hpp` itself has no dependency
+for `to_string(instrumentId)` -- `core/verbs/source.hpp` itself has no dependency
 on `hal::` at all.
 
 ## Instrument identity (DcP1..DcP4/AcP1) vs. instrument class (N6701A/Ac6834B)

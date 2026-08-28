@@ -63,14 +63,32 @@ include(GoogleTest)
 #
 # CONFIGURE_DEPENDS so adding or deleting a tests/*.cpp is picked up by the next
 # build with no manual reconfigure.
+#
+# GLOB_RECURSE rather than GLOB, so a layer can group its tests into
+# subdirectories mirroring its own include/ layout (tests/criteria/ against
+# include/core/criteria/, and so on) without each new subdirectory having to be
+# remembered here. This is the same argument the paragraphs above make, applied
+# one level down and with the same failure mode behind it: a flat glob does not
+# fail when a test moves into a subdirectory, it silently stops compiling it,
+# and the suite goes green by omission -- exactly the outcome globbing was
+# adopted to prevent. A subdirectory under tests/ is grouping, never opt-out.
+#
+# The corollary is that a tests/ directory passed to this function may contain
+# nothing but tests, at any depth. Sources that live under a tests/ tree but
+# belong to some other target -- framework/runner/tests/fixtures/ is the one
+# example in this repo -- must sit under a directory that is never handed to
+# this function, which is already true there (the scripts layer's call passes
+# ${THORIUM_SUITE_DIR}/tests, not framework/runner/tests). Deliberately not
+# solved by teaching this function to skip a magic directory name: per the note
+# above, a layer with a genuine exception declares its own target.
 function(add_layer_tests LAYER_NAME LINK_LIB TESTS_DIR)
-    file(GLOB TEST_SOURCES CONFIGURE_DEPENDS "${TESTS_DIR}/*.cpp")
+    file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS "${TESTS_DIR}/*.cpp")
 
     # An empty glob would otherwise reach add_executable as "no sources", whose
     # diagnostic names the target rather than the directory that came up empty.
     if(NOT TEST_SOURCES)
         message(FATAL_ERROR
-            "add_layer_tests(${LAYER_NAME}): no *.cpp in '${TESTS_DIR}' -- either "
+            "add_layer_tests(${LAYER_NAME}): no *.cpp under '${TESTS_DIR}' -- either "
             "that path is wrong, or the layer has no tests yet and should not be "
             "declaring an empty test target.")
     endif()

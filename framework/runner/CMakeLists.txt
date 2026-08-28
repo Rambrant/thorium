@@ -39,15 +39,15 @@ add_library(scripts STATIC
 # see framework/hal/CMakeLists.txt on why that is a separate target from the generic
 # hal the drivers themselves compile against. hal comes along transitively.
 #
-# src/main.cpp needs the same three (Measure from hal/measure.hpp, safeRig and
-# RigSafingGuard from hal/safing.hpp), and reaches them through this target,
+# src/main.cpp needs the same three (Measure from hal/verbs/measure.hpp, safeRig and
+# RigSafingGuard from hal/verbs/safing.hpp), and reaches them through this target,
 # which run_scripts links below.
 target_link_libraries(scripts PUBLIC hal_rig core)
 
 target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 
 # --- Criteria/tolerance variants ---
-# Points core/active_criteria.hpp at the two files it reads.
+# Points core/criteria/active_criteria.hpp at the two files it reads.
 #
 # THORIUM_CRITERIA_VARIANT_TABLES is generated (cmake/CriteriaVariants.cmake,
 # called from the top-level CMakeLists.txt) and holds *every* known variant's
@@ -60,7 +60,7 @@ target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 # criteria_production.inc -- and now has two jobs: other variants reference "the
 # same value as production" through it via CRIT_FROM_PRODUCTION, and it is the
 # reference table the merged criteria are generated from (see
-# core/active_criteria.hpp's pass 2 on why it is the right one for that).
+# core/criteria/active_criteria.hpp's pass 2 on why it is the right one for that).
 #
 # Absolute paths, so no extra include-directory wrangling. The criteria live
 # under the deployment's dut/, not here, because the tolerances they hold are a
@@ -72,7 +72,7 @@ target_compile_definitions(scripts PRIVATE
 )
 
 # --- Test catalog ---
-# THORIUM_TEST_CATALOG points core/active_test_catalog.hpp at the deployment's
+# THORIUM_TEST_CATALOG points core/catalog/active_test_catalog.hpp at the deployment's
 # test_catalog.inc; THORIUM_TEST_SCRIPTS points it at its scripts.hpp (the
 # declarations every TEST(...) is checked against -- declarations only, which is
 # why pointing main.cpp at it costs nothing; what a script body needs is in the
@@ -265,7 +265,7 @@ endif()
 if(BUILD_TESTING_LAYERS)
     # test_criteria_variants_compile.cpp #includes every variant .inc file
     # directly, into namespaces of its own, rather than through
-    # core/active_criteria.hpp -- it is checking the variants against each
+    # core/criteria/active_criteria.hpp -- it is checking the variants against each
     # other, not building the merged table scripts use, so it needs
     # core::criterion machinery but neither the scripts library nor the
     # THORIUM_CRITERIA_VARIANT_TABLES compile definition above.

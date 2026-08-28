@@ -9,11 +9,11 @@
 // One extra verb here that the other script tests do not need: Await, whose
 // answer is injected the same way a reading is. That is the whole reason a
 // single-shot capture is expressible as an ordinary unit test with no bench
-// attached -- see core/acquire.hpp.
+// attached -- see core/verbs/acquire.hpp.
 //
-#include "core/quantity.hpp"
-#include "hal/acquire.hpp"
-#include "hal/measure.hpp"
+#include "core/quantities/quantity.hpp"
+#include "hal/verbs/acquire.hpp"
+#include "hal/verbs/measure.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -22,8 +22,8 @@
 
 #include <gtest/gtest.h>
 
-#include "core/criteria_variants.hpp"
-#include "core/journal.hpp"
+#include "core/criteria/criteria_variants.hpp"
+#include "core/journal/journal.hpp"
 
 using core::quantities::Voltage;
 
@@ -270,7 +270,7 @@ TEST_F( AcDropoutFixture, NoVariantMakesAMissingCaptureAcceptable)
 // as unchecked, would attach this run's silence to a requirement it has no
 // evidence either way about. So exactly one unattributed unchecked row is
 // recorded, carrying the reason as its prose (see core::Fail in
-// core/verify.hpp, and the script's own comment on the branch).
+// core/criteria/verify.hpp, and the script's own comment on the branch).
 //
 // FS_Transient_Captured is a different matter and is checked for real on this
 // path: "did the capture land" is a question this run does have an answer to.

@@ -2,13 +2,13 @@
 
 #include <type_traits>
 
-#include "core/port.hpp"
-#include "core/quantity.hpp"
-#include "core/quantity_kind.hpp"
+#include "core/driver/port.hpp"
+#include "core/quantities/quantity.hpp"
+#include "core/quantities/quantity_kind.hpp"
 
-#include "hal/address.hpp"
-#include "hal/api_version.hpp"
-#include "hal/instrument.hpp"
+#include "hal/driver/address.hpp"
+#include "hal/driver/api_version.hpp"
+#include "hal/driver/instrument.hpp"
 
 //
 // Which hal API version this driver was written against. A driver and the hal
@@ -18,7 +18,7 @@
 // makes that disagreement one readable diagnostic instead of a failure deep
 // inside a template instantiation. A literal, never THORIUM_HAL_API_VERSION
 // itself, which would only assert that this hal matches this hal. See
-// hal/api_version.hpp for what the number means and when it moves.
+// hal/driver/api_version.hpp for what the number means and when it moves.
 //
 THORIUM_REQUIRE_HAL_API( 1);
 
@@ -67,7 +67,7 @@ namespace hal
             // the back panel -- no GPIB connector, unlike the rack-mount
             // 34411A it otherwise shares everything with. So a rig row
             // addressing one of its Dmms over GPIB fails to compile rather
-            // than failing to open, see hal::ReachableOver in hal/address.hpp
+            // than failing to open, see hal::ReachableOver in hal/driver/address.hpp
             // -- which is also where the reasoning lives for why the bus
             // *kind* is checked here and the address itself is just a value
             // this driver carries.
@@ -136,7 +136,7 @@ namespace hal
             //
             // 4-wire (Kelvin) ohms: separate sense leads cancel out lead
             // resistance, same as pressing the front-panel 4W OHMS key --
-            // requiresSensePath() (see core/port.hpp) is what actually
+            // requiresSensePath() (see core/driver/port.hpp) is what actually
             // tells core::MeasureEngine to route this instrument's sense
             // channel and the DUT point's sense channel alongside the
             // normal force path, only for this one reading. A plain
@@ -160,7 +160,7 @@ namespace hal
             // Nothing to do, and that is a hardware fact rather than an
             // unfinished implementation: a DMM is a passive instrument --
             // it sources nothing into the DUT, so there is no output for
-            // hal::safeRig() (see hal/safing.hpp) to drop. Its leads are
+            // hal::safeRig() (see hal/verbs/safing.hpp) to drop. Its leads are
             // taken off the DUT by the fabric's own openAll(), which
             // safeRig() does after this, not by anything this instrument
             // is asked to do.
@@ -170,7 +170,7 @@ namespace hal
             // on every instrument in the rig's instrument.inc
             // unconditionally, so a driver that lacks it fails to compile
             // -- see
-            // hal::SafeableInstrument in hal/instrument.hpp. Had safing
+            // hal::SafeableInstrument in hal/driver/instrument.hpp. Had safing
             // instead been opt-in (an ADL customization point in the shape
             // of applyDriver/connectDriver, say, defaulting to a no-op for
             // anything that doesn't provide one), a *source* instrument

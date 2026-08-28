@@ -27,7 +27,7 @@
 // stand in for the spec's "5VOutput"/"3V3Output".
 //
 // ADAPTER takes only a description: the group it opens is always `dut`, since
-// a build targets one DUT on one adapter (see hal/adapter.hpp's own comment).
+// a build targets one DUT on one adapter (see hal/topology/adapter.hpp's own comment).
 // The DUT's name for the logs is THORIUM_DUT_NAME, set in
 // framework/core/CMakeLists.txt -- not this file.
 //

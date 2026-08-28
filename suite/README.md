@@ -7,11 +7,11 @@ adapter wiring, tolerance variants, the Measure singleton) lives under
 the device being tested, not of how tests are organized.
 
 `test_catalog.inc` -- the `GROUP`/`TEST`/`END_GROUP` test catalog (see
-`framework/core/include/core/test_catalog.hpp`) -- lists which scripts exist and
+`framework/core/include/core/catalog/test_catalog.hpp`) -- lists which scripts exist and
 what to call them. Unlike the criteria variants, there's only one of these
 (no `THORIUM_TEST_CATALOG_VARIANT` -- a build represents one hardware
 scenario, but always runs the same set of tests). See
-`core/active_test_catalog.hpp` for how it's consumed.
+`core/catalog/active_test_catalog.hpp` for how it's consumed.
 
 The same file may declare `RUN_SETUP`/`RUN_TEARDOWN` -- the code bracketing the
 selected scripts, typically powering the rig up and back down. Both are
@@ -51,7 +51,7 @@ shape under another name.
 
 `scripts.hpp` holds the test scripts' declarations, at global scope
 deliberately (see the comment there) -- which is what lets
-`core/active_test_catalog.hpp` name one directly in a `TEST(...)` without
+`core/catalog/active_test_catalog.hpp` name one directly in a `TEST(...)` without
 knowing any suite-specific namespace at all. It is declarations *only*: that
 header is compiled into `main.cpp` via `THORIUM_TEST_SCRIPTS`, which has no
 use for instruments or criteria tables.

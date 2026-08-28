@@ -6,7 +6,7 @@ Keysight L4411A 6.5-digit system DMM. Header-only, `namespace hal`, included as
 Target: `hal_l4411a` / `Thorium::hal_l4411a`. Depends on `Thorium::hal` only.
 
 Reachable over `Lan` or `Usb` — LXI packaging, no GPIB connector, and the
-constructor is constrained to say so (see `hal/address.hpp`).
+constructor is constrained to say so (see `hal/driver/address.hpp`).
 
 ## What it measures
 

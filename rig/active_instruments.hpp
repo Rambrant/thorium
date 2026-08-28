@@ -1,18 +1,18 @@
 #pragma once
 
-#include "hal/address.hpp"
-#include "hal/instrument.hpp"
+#include "hal/driver/address.hpp"
+#include "hal/driver/instrument.hpp"
 #include "hal/l4411a.hpp"
 #include "hal/dso8064a.hpp"
 #include "hal/n6701a.hpp"
 #include "hal/ac6834b.hpp"
 #include "hal/racal1260.hpp"
-#include "hal/switch_fabric.hpp"
+#include "hal/fabric/switch_fabric.hpp"
 
 //
 // INSTRUMENTS / INSTRUMENT / END_INSTRUMENTS: declarative instrument list,
 // mirroring INSTRUMENT_WIRING/WIRE_INSTRUMENT/END_INSTRUMENT_WIRING in
-// hal/wiring.hpp -- see rig/instrument.inc. Unlike wiring's table (a
+// hal/topology/wiring.hpp -- see rig/instrument.inc. Unlike wiring's table (a
 // single InstrumentWiring object accumulated one addWire() at a time),
 // each INSTRUMENT here declares its own independent global -- Dmm1 IS the
 // DMM plugged into the rig, addressed directly by name, no factory
@@ -33,7 +33,7 @@
 // (id), not two -- there is no rig where a script-facing global is named
 // anything other than the identity it addresses, so a separate name
 // parameter would just be the same word written twice at every call site
-// (see hal/instrument.hpp's own comment on the same token feeding its
+// (see hal/driver/instrument.hpp's own comment on the same token feeding its
 // enum's enumerators from this exact file).
 //
 // address is a fixed column rather than one more of the trailing
@@ -83,11 +83,11 @@ namespace hal
     // it lives here rather than alongside whichever DUT/adapter happens to
     // be under test (see dut/adapter.inc). Unlike Dmm1 etc above,
     // nothing outside of assembling the Measure object (see
-    // hal/measure.cpp) needs to name this directly, so it stays properly
+    // hal/verbs/measure.cpp) needs to name this directly, so it stays properly
     // namespaced rather than joining the unqualified globals.
     //
     // The fixed wiring data itself (which channel each instrument/connector
-    // pin is on) lives in rig/wiring.inc, not here -- see hal/wiring.hpp.
+    // pin is on) lives in rig/wiring.inc, not here -- see hal/topology/wiring.hpp.
     //
     inline SwitchFabric fabric;
 } // namespace hal

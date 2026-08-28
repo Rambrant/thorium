@@ -8,9 +8,9 @@
 // body is written against. Same split as
 // suite/tests/test_supply_rail_script.cpp, and for the same reason.
 //
-#include "core/bytes.hpp"
-#include "core/journal.hpp"
-#include "hal/measure.hpp"
+#include "core/quantities/bytes.hpp"
+#include "core/journal/journal.hpp"
+#include "hal/verbs/measure.hpp"
 
 #include <gtest/gtest.h>
 
@@ -155,7 +155,7 @@ TEST_F( ConsoleFixture, ATruncatedReplyFailsRatherThanThrowing)
 // not evidence that the DUT is unready or faulted -- it is evidence of nothing
 // at all -- so each criterion is recorded as unchecked rather than as failed,
 // and a consumer tracking either one across runs sees that this run could not
-// answer it (see core::Fail in core/verify.hpp).
+// answer it (see core::Fail in core/criteria/verify.hpp).
 //
 // Worth a test of its own rather than trusting the line above, because the
 // return value is false either way. This path used to post a single ad-hoc

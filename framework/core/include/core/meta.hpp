@@ -15,7 +15,7 @@ namespace core::meta
         // std::meta::info itself is fine to promote to static storage (see
         // enumerators<Enum> below), unlike a struct with a std::string_view
         // member (see hal::detail::ConnectorWiringKey's own comment in
-        // hal/wiring.hpp for why that one isn't), so nothing here needs to
+        // hal/topology/wiring.hpp for why that one isn't), so nothing here needs to
         // work around a non-structural-type limit -- the enumerator's name
         // and value are pulled out of each info directly, at the point
         // to_string()/fromString() below actually use it.
@@ -122,9 +122,9 @@ namespace core::meta
     // Returns the enumerator's own spelling verbatim (Enum::Debug ->
     // "Debug"), which is exactly what hal::InstrumentId/core::QuantityKind/
     // hal::SwitchDeviceKind want (see each one's own to_string test). Where
-    // the wanted string ISN'T the enumerator's own spelling -- core::LogLevel
-    // wants "DEBUG", not "Debug" -- see to_string_upper() below rather than
-    // hand-writing a new switch.
+    // the wanted string ISN'T the enumerator's own spelling -- an enum whose
+    // log text is shouted, Debug -> "DEBUG" rather than "Debug" -- see
+    // to_string_upper() below rather than hand-writing a new switch.
     //
     //
     // [[maybe_unused]] on the parameter, for the one enum that has no
@@ -176,12 +176,17 @@ namespace core::meta
     }
 
     //
-    // Same idea as to_string() above, uppercased -- for the enum whose
-    // to_string wants Enum::Debug -> "DEBUG" rather than "Debug" (see
-    // core::to_string(LogLevel)). Still reflects Enum's own enumerators, so
-    // an added enumerator needs no matching update here either; only the
-    // transform (ASCII-uppercase, see detail::toUpperAscii's own comment)
-    // is hand-written, not each name.
+    // Same idea as to_string() above, uppercased -- for an enum whose
+    // to_string wants Enum::Debug -> "DEBUG" rather than "Debug". Still
+    // reflects Enum's own enumerators, so an added enumerator needs no
+    // matching update here either; only the transform (ASCII-uppercase, see
+    // detail::toUpperAscii's own comment) is hand-written, not each name.
+    //
+    // No enum in the framework currently wants this -- core::LogLevel, which
+    // did, went away with core::Logger. Kept because it is the pair to
+    // to_string() rather than a feature of its own: an enum that wants
+    // shouting should reflect for it the same way, not hand-write a switch.
+    // test_meta.cpp exercises it against its own enum.
     //
     template<typename Enum>
     [[nodiscard]] constexpr auto to_string_upper( [[maybe_unused]] Enum value) -> std::string_view

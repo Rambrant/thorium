@@ -7,7 +7,7 @@
 // cards that share one -- by which card in that chassis it is. The sibling of
 // rig/instrument.inc, and read the same way -- twice, once to generate
 // hal::SwitchDeviceId's enumerators and once to carry the model/address/card of
-// each (see hal/switch_device.hpp's own comment on why the second read cannot
+// each (see hal/fabric/switch_device.hpp's own comment on why the second read cannot
 // be replaced by reflection the way most of this codebase's re-#include spots
 // were).
 //
@@ -15,7 +15,7 @@
 // hardware the PC talks to just as an instrument is. A switching device
 // measures nothing and sources nothing: no script ever names one, only
 // wiring.inc does, and hal::InstrumentId is what a *reading* is identified by.
-// See hal/switch_device.hpp for that argument in full, and hal/README.md for
+// See hal/fabric/switch_device.hpp for that argument in full, and hal/README.md for
 // the naming this rig settled on -- driver for the code, instrument for the
 // hardware a script names, switch device for the plumbing it doesn't.
 //
@@ -37,7 +37,7 @@
 // hal::Gpib and differ in Card( n) -- the same "one box, several endpoints"
 // shape DcP1..DcP4 have with their mainframe, where the slot is likewise its
 // own column and not a field on the address (see hal::CardAddress, and
-// hal/address.hpp on why a 1260 card number must not be written as a 488
+// hal/driver/address.hpp on why a 1260 card number must not be written as a 488
 // secondary).
 //
 // The Agilent E1472A is the one card that is not one of those: an ordinary

@@ -95,7 +95,7 @@ Being honest about the edges matters more than the table above:
 - **Wiring lookup inside a measurement.** `hal::InstrumentWiring::find()` throws
   if an instrument has no entry. The compile-time backstop above covers the
   *connector* side for every declared point; the instrument side is still a
-  runtime throw. See the comments in `framework/hal/include/hal/wiring.hpp`.
+  runtime throw. See the comments in `framework/hal/include/hal/topology/wiring.hpp`.
 - **Scripted-session unit mismatch.** Feeding a `Current` to a point declared
   `Voltage` throws, naming the point and both kinds.
 - **`--select` with an unknown test id** fails the run before `RUN_SETUP`, naming
@@ -130,7 +130,7 @@ Being honest about the edges matters more than the table above:
   a node.
 
   The two ways that can be electrically wrong get different answers, and
-  `core/interlock.hpp` is where the reasoning lives:
+  `core/verbs/interlock.hpp` is where the reasoning lives:
 
   **An ammeter across a driven rail is refused.** A landing pin is deliberately
   also tapped (see `core::PointKind`), so a current or resistance reading routed
@@ -143,7 +143,7 @@ Being honest about the edges matters more than the table above:
   procedure anyway.
 
   **A relay moving under load is recorded, not refused.** Hot switching is a
-  wear argument rather than a damage one, and `core/source.hpp` has always said
+  wear argument rather than a damage one, and `core/verbs/source.hpp` has always said
   the call belongs to whoever writes the sequence — a safety interlock dropping
   a connection must not first wait out a ramp-down. What was missing was never
   the veto but the trace: the rule was stated in eight comments and checked in
@@ -174,11 +174,23 @@ The single most important thing to understand about this tree is that it holds
 ```
 framework/       PORTABLE      -- knows nothing about this rig or this DUT,
                  and depends on nothing outside itself
-  core/            units, criteria, predicates, the Measure/Verify/Apply verbs,
-                   sessions, the run journal and its log sinks, the electrical
-                   interlock
-  hal/             switching fabric, wiring, and the API drivers are written
-                   against -- the mechanism, not any one instrument
+  core/            quantities/  unit-tagged values and the arithmetic on them
+                   criteria/    predicates, the CRITERIA/CRIT tables, Verify
+                   verbs/       Measure/Apply/Connect/Arm/Fetch, and the
+                                electrical interlock they consult
+                   session/     live, replayed or injected readings, and
+                                whether the rig is attached at all
+                   journal/     the run event stream and its log sinks
+                   catalog/     the GROUP/TEST tables a suite declares
+                   topology/    the generic half of the DUT-point machinery
+                   driver/      what an instrument driver names from core
+  hal/             fabric/      the switching hardware -- devices, elements,
+                                the path a route closes
+                   topology/    this bench: VPC coordinates, the adapter and
+                                bundle tables, and the wiring that maps them
+                                onto the fabric
+                   driver/      the kit a driver is written against
+                   verbs/       this rig's instantiation of core's engines
   runner/          main.cpp, its argument parser, and the build targets that
                    turn a deployment's suite into run_scripts
 
@@ -196,6 +208,14 @@ cmake/           build helpers -- generated criteria tables, the test-target
                  helper, the install-time manifest, the installed package
 docs/            the slide deck
 ```
+
+`core/` and `hal/` share three of those folder names -- `verbs/`, `topology/`
+and `driver/` -- wherever the pairing is real rather than thematic:
+`hal/verbs/measure.hpp` is the instantiation of `core/verbs/measure.hpp` for
+this rig, and the same holds for route, source, acquire, trace and interlock.
+The generic half stays in core because it is generic, not because of where it
+happens to sit. `core/meta.hpp` is the one header in either library with no
+group: it is enum reflection, belonging to no layer and used by several.
 
 `framework/` never depends on anything outside it. A second rig testing a second
 device is a *separate repository* that reuses `framework/` unchanged and brings its
@@ -339,7 +359,7 @@ END_INSTRUMENTS
 
 The address is mandatory, and which bus kinds a row may use is fixed by its
 driver — `Gpib(...)` on an L4411A is a compile error, because an LXI box has no
-GPIB connector (see `hal/address.hpp`).
+GPIB connector (see `hal/driver/address.hpp`).
 
 Nothing else. `hal::InstrumentId`, the global handle, and the safing sweep are
 all derived from this list — safing reflects over `InstrumentTag`-derived globals
@@ -566,7 +586,7 @@ establish before them is otherwise only in the hook's source.
 
 Both are optional and independent — declare one, both, or neither. A catalog
 with no `RUN_SETUP` line needs no placeholder for one; absence resolves to
-`nullptr` through ordinary name lookup (see `core/active_test_catalog.hpp`).
+`nullptr` through ordinary name lookup (see `core/catalog/active_test_catalog.hpp`).
 The shipped catalog declares both: `suite/scripts/rig_power_on.cpp` brings this rig's
 sources up in order and checks each one came up, and
 `suite/scripts/rig_power_off.cpp` takes them down in the inverse order.
@@ -816,7 +836,7 @@ appear reads as a run that did not need it. Recorded as *unchecked* rather than
 failed, because a truncated reply is not evidence that the DUT is unready — it is
 evidence of nothing, and the row says so while still stating what was required.
 `Fail` is not a `Verb` of its own: it posts as a `Verify` with no value, so both
-logs and every sink already handle it. See `core/verify.hpp`, which also records
+logs and every sink already handle it. See `core/criteria/verify.hpp`, which also records
 why this is a verb rather than an always-false `FAIL` predicate.
 
 **A reply is `core::Bytes`, not a `std::string`.** Length is its own fact, so an
@@ -907,7 +927,7 @@ before.
 after a capture that never completed is a measurement of the previous one. It
 will be a number, it will very likely be in tolerance, and it will mean nothing.
 
-**Both verbs are generic.** They live in `core/acquire.hpp` and are named for the
+**Both verbs are generic.** They live in `core/verbs/acquire.hpp` and are named for the
 operation, not the instrument: a transient recorder, a digitizer or a counter
 with an armed gate is the same shape. `hal::DSO8064A` is simply the first driver
 to answer to `armDriver`/`awaitDriver`, exactly as `hal::Racal1260` was the first
@@ -983,7 +1003,7 @@ channel has its own key, since a four-channel scope holds four records at once:
 Fetch.inject( "Osc1.Channel3", capturedEarlier);
 ```
 
-`Fetch` is generic and lives in `core/trace.hpp` — a transient recorder, a
+`Fetch` is generic and lives in `core/verbs/trace.hpp` — a transient recorder, a
 digitizer or a logger with a memory behind it hands back the same shape.
 `hal::DSO8064A` is simply the first driver to answer to `fetchDriver`.
 
@@ -1037,12 +1057,12 @@ whatever else was in the variable by then.
 Three edits, all genuine vocabulary:
 
 ```cpp
-// framework/core/include/core/quantity.hpp
+// framework/core/include/core/quantities/quantity.hpp
 struct degC_Type { static constexpr std::string_view Symbol = "degC"; };
 using Temperature = Quantity< degC_Type>;
 constexpr Temperature operator""_degC( long double v) { /* ... */ }   // optional
 
-// framework/core/include/core/quantity_kind.hpp -- the enumerator, named to match
+// framework/core/include/core/quantities/quantity_kind.hpp -- the enumerator, named to match
 enum class QuantityKind { /* ... */ Temperature };
 ```
 
@@ -1073,7 +1093,7 @@ Measure.inject( "Output12V", std::move( capturedRail));        // any owned rang
 Measure.inject( "Output12V", rampingRail( 12.0_V, 0.01_V));    // a std::generator
 ```
 
-All three arrive as one `core::ValueSource` (see `core/session.hpp`), so the
+All three arrive as one `core::ValueSource` (see `core/session/session.hpp`), so the
 caller picks the algorithm rather than the framework offering a menu of them.
 A coroutine is the general case:
 
@@ -1220,7 +1240,7 @@ build/debug/bin/run_scripts --replay=readings.tsv      # run again off the file,
 ```
 
 Where the two logs describe a run, this is the readings themselves, in order
-(see `core/recording.hpp` for the format — flat TSV, one row per reading, each
+(see `core/session/recording.hpp` for the format — flat TSV, one row per reading, each
 carrying the test that took it). It is
 what reproduces a bench failure at a desk: the replayed run takes its verdict
 from the file, so it passes or fails exactly as the recorded one did, with no
@@ -1343,7 +1363,7 @@ nothing, and must not leave an RTF with a DUT serial in its header saying it
 did. One honest limit — a script whose control flow depends on what it read has
 more than one path, and a skeleton is the one the placeholders produce.
 
-**`--inject` takes the readings from a stimulus file** ([`core/stimulus.hpp`](framework/core/include/core/stimulus.hpp)),
+**`--inject` takes the readings from a stimulus file** ([`core/session/stimulus.hpp`](framework/core/include/core/session/stimulus.hpp)),
 which is a different format from a recording on purpose:
 
 ```
@@ -1530,7 +1550,7 @@ catalog's `RUN_SETUP`. Every event a hook posted carries `"phase":
 "setup"` too — without it, the readings a group's setup takes are
 indistinguishable here from its first test's, since a hook's events deliberately
 carry no test id (that is what keeps them in a `--replay` of one test; see
-`core/recording.hpp`).
+`core/session/recording.hpp`).
 
 That is the only place the titles from `GROUP`/`TEST` appear at all, and it is
 what lets a group whose every test was deselected still say it was reached.

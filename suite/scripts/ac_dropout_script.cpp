@@ -124,14 +124,14 @@ auto acDropoutScript() -> void
     // is why the Remove below can be the very next line. Told-to-arm and
     // armed are different moments, and a single-shot capture that causes its
     // event in the gap between them silently records nothing. See
-    // core/acquire.hpp, and Keysight's own "oscilloscope is armed and ready,
+    // core/verbs/acquire.hpp, and Keysight's own "oscilloscope is armed and ready,
     // enable DUT here".
     //
     Arm( Osc1.single().timeout( 2_s));
 
     //
     // The event. Remove before Disconnect, so the relay opens on a dead path
-    // rather than under load -- see core/source.hpp, which states the rule and
+    // rather than under load -- see core/verbs/source.hpp, which states the rule and
     // says why it is recorded rather than refused. Swapping these two lines is
     // not a build error and not a failing script; what catches it is
     // AcceptanceMachineLog.NoShippedScriptOrHookMovesARelayUnderLoad, which

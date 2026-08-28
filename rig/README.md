@@ -35,7 +35,7 @@ arguments (e.g. `hal::N6701A`'s slot number). Included from two different
 places, each with `INSTRUMENT` defined for its own purpose:
 
 - `active_instruments.hpp` below declares each id as an actual global
-- `hal/instrument.hpp` keeps only each id, to generate `hal::InstrumentId`'s
+- `hal/driver/instrument.hpp` keeps only each id, to generate `hal::InstrumentId`'s
   enumerators (see that header's own comment)
 
 Both reads see this exact list, so an instrument added here can never
@@ -44,7 +44,7 @@ from.
 
 The `address` column is the control side -- `Gpib(0, 14)`,
 `Lan("bench-dmm1")`, `Serial("/dev/ttyUSB0")` -- as against the signal side
-`wiring.inc` describes below. See `hal/address.hpp` for the types, and note
+`wiring.inc` describes below. See `hal/driver/address.hpp` for the types, and note
 two things about the column: it is mandatory (a row that omits it fails to
 preprocess, in *both* readers), and which bus kinds a given row may use is
 fixed by its driver rather than by this file, so `Gpib(...)` on an L4411A --
@@ -57,16 +57,16 @@ separate constructor argument rather than a field on the address (see
 `active_instruments.hpp`'s own comment for that argument in full).
 
 Only one of those two is a macro-redefinition-and-re-`#include` this
-codebase couldn't replace with reflection -- see `hal/instrument.hpp`'s own
+codebase couldn't replace with reflection -- see `hal/driver/instrument.hpp`'s own
 comment for why generating `hal::InstrumentId` has to work this way
 (reflection needs the enum to already exist; generating it is the whole
-point of that read, so it can't run after the fact). `hal/src/safing.cpp`
+point of that read, so it can't run after the fact). `hal/src/verbs/safing.cpp`
 used to read this file a third time for the same *kind* of reason
 (`INSTRUMENT` redefined again, to call `.safe()` on each global) but
 without the same *necessity* -- `InstrumentId` already existed by the time
 it ran, so nothing stopped it from reflecting over `hal::InstrumentTag`-
 derived globals instead (see that struct's own comment in
-`hal/instrument.hpp`), which is what it does now. Every concrete driver
+`hal/driver/instrument.hpp`), which is what it does now. Every concrete driver
 type inherits `InstrumentTag`, so safing doesn't need this file, or a
 hand-maintained second list, at all.
 
@@ -94,7 +94,7 @@ This rig's five cards, and what each is for:
 | `Spdt1` | Racal Instruments 1260-17 | SPDT | the console changeover -- 80 Form C relays, bench line or parked network |
 | `RfMux1` | Agilent E1472A | RF mux | the HF path to the scope -- six 1x4 banks in 50 ohm |
 
-Read twice, exactly as `instrument.inc` is: once by `hal/switch_device.hpp` to
+Read twice, exactly as `instrument.inc` is: once by `hal/fabric/switch_device.hpp` to
 generate `hal::SwitchDeviceId`'s enumerators, once to carry each device's
 model, address and card number. It could not simply be another block inside
 `wiring.inc` -- `THORIUM_WIRING_TABLE` is `PRIVATE` to `hal_rig`, and an enum
@@ -103,7 +103,7 @@ that `hal::SwitchElementId` is built from has to be visible in a public header.
 These are **not** instruments, and that is deliberate rather than an oversight.
 A switching device measures nothing and sources nothing; no test script ever
 names one, only `wiring.inc` does, and `hal::InstrumentId` is what a *reading*
-is identified by. See `hal/switch_device.hpp` for the argument in full.
+is identified by. See `hal/fabric/switch_device.hpp` for the argument in full.
 
 Three things this file buys beyond the addresses, all of which were real holes:
 
@@ -130,10 +130,10 @@ its logical address to a real secondary, so it carries one and `NoCard`.
 
 ## wiring.inc
 
-This rig's two static wiring facts (see `hal/wiring.hpp`'s own comment):
+This rig's two static wiring facts (see `hal/topology/wiring.hpp`'s own comment):
 which channel each instrument is hard-wired to, and which channel each VPC
-connector pin is hard-wired to. Read by `hal/measure.cpp` and
-`hal/route.cpp`, each needing its own declaration of the resulting (inline)
+connector pin is hard-wired to. Read by `hal/verbs/measure.cpp` and
+`hal/verbs/route.cpp`, each needing its own declaration of the resulting (inline)
 `hal::instrumentWiring`/`hal::connectorWiring` tables since each is its own
 translation unit.
 

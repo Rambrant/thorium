@@ -7,17 +7,17 @@
 #include <utility>
 #include <vector>
 
-#include "core/bytes.hpp"
-#include "core/describe.hpp"
-#include "core/transfer.hpp"
+#include "core/quantities/bytes.hpp"
+#include "core/driver/describe.hpp"
+#include "core/verbs/transfer.hpp"
 
-#include "hal/address.hpp"
-#include "hal/api_version.hpp"
-#include "hal/bundle.hpp"
-#include "hal/describe.hpp"
-#include "hal/instrument.hpp"
-#include "hal/switch_fabric.hpp"
-#include "hal/wiring.hpp"
+#include "hal/driver/address.hpp"
+#include "hal/driver/api_version.hpp"
+#include "hal/topology/bundle.hpp"
+#include "hal/driver/describe.hpp"
+#include "hal/driver/instrument.hpp"
+#include "hal/fabric/switch_fabric.hpp"
+#include "hal/topology/wiring.hpp"
 
 //
 // Which hal API version this driver was written against. A driver and the hal
@@ -27,7 +27,7 @@
 // makes that disagreement one readable diagnostic instead of a failure deep
 // inside a template instantiation. A literal, never THORIUM_HAL_API_VERSION
 // itself, which would only assert that this hal matches this hal. See
-// hal/api_version.hpp for what the number means and when it moves.
+// hal/driver/api_version.hpp for what the number means and when it moves.
 //
 THORIUM_REQUIRE_HAL_API( 1);
 
@@ -271,7 +271,7 @@ namespace hal
                 requires ReachableOver<AddressT, Serial, Gpib>
             Racal1260( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 
-            // Where the PC reaches this port -- see hal/address.hpp.
+            // Where the PC reaches this port -- see hal/driver/address.hpp.
             [[nodiscard]]
             auto address() const -> const Address &
             {
@@ -298,7 +298,7 @@ namespace hal
 
             //
             // Drop the port to a known idle state -- see hal::safeRig() in
-            // hal/safing.hpp for who calls this and why it takes no arguments
+            // hal/verbs/safing.hpp for who calls this and why it takes no arguments
             // and reads no state.
             //
             // A serial port is not passive the way a DMM is, which is why this
@@ -431,7 +431,7 @@ namespace hal
     };
 
     //
-    // ADL target for core::SetupEngine -- see core/source.hpp's own comment on
+    // ADL target for core::SetupEngine -- see core/verbs/source.hpp's own comment on
     // the setupDriver customization point, and on why configuring is a verb of
     // its own rather than a flavour of Apply.
     //
@@ -449,7 +449,7 @@ namespace hal
 
     //
     // ADL targets for core::WriteEngine/core::ReadEngine -- the byte-oriented
-    // verbs, see core/transfer.hpp.
+    // verbs, see core/verbs/transfer.hpp.
     //
     inline auto writeDriver( const Racal1260Config & config, const core::Bytes & payload) -> void
     {
@@ -463,7 +463,7 @@ namespace hal
     }
 
     //
-    // ADL target for the run journal -- see core/describe.hpp's own comment on the
+    // ADL target for the run journal -- see core/driver/describe.hpp's own comment on the
     // describeConfig customization point.
     //
     // Framing is reported field by field rather than as the "9600 8N1" shorthand

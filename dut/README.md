@@ -25,7 +25,7 @@ dut/
 
 ## adapter.inc
 
-`ADAPTER`/`POINT`/`END_ADAPTER` (see `framework/hal/include/hal/adapter.hpp`) --
+`ADAPTER`/`POINT`/`END_ADAPTER` (see `framework/hal/include/hal/topology/adapter.hpp`) --
 mirroring `CRITERIA`/`CRIT`/`END_CRITERIA` below -- expand into the one
 `dut` struct: a fixed set of named points (e.g. `Output5V`),
 each carrying its VPC90 location baked into its own *type*
@@ -38,7 +38,7 @@ against a misspelled criterion id:
 - **A missing `at()`** -- `Measure( Dmm1.voltage(), dut::Output5V)`,
   with the point passed bare, also fails to find a matching overload:
   `MeasureEngine::operator()` takes `core::At<AdapterPointTag<Loc>>`,
-  not an `AdapterPointTag` directly -- see `core/at.hpp`'s own comment for
+  not an `AdapterPointTag` directly -- see `core/verbs/at.hpp`'s own comment for
   why `at(...)` exists as a call-site marker rather than an implicit
   conversion.
 
@@ -58,26 +58,26 @@ Like the criteria files below, this file is deliberately bare: just
 `ADAPTER( ... ) ... END_ADAPTER`, nothing else -- no `#pragma once`, no
 `#include`s, no namespace. `ADAPTER`/`POINT` expand fully qualified
 (`::hal::...`, `::core::...`), unlike `CRITERIA`/`CRIT` which need a
-`using namespace` wrapper -- see `hal/adapter.hpp`'s own comment for why.
+`using namespace` wrapper -- see `hal/topology/adapter.hpp`'s own comment for why.
 
 A script does not `#include` this file itself: `suite/prelude.hpp` does it
-(after `hal/adapter.hpp`, for the macros -- that ordering rule is exactly
+(after `hal/topology/adapter.hpp`, for the macros -- that ordering rule is exactly
 what is worth stating once there rather than at the top of every script),
-alongside `core/active_criteria.hpp` and the rig's instruments. A script
+alongside `core/criteria/active_criteria.hpp` and the rig's instruments. A script
 includes the prelude and nothing else. `dut/tests/` does include this file
 directly, since those tests exercise the data itself.
 
 Reachability -- whether this rig's wiring (see
-`framework/hal/include/hal/wiring.hpp`) actually connects a given instrument to
+`framework/hal/include/hal/topology/wiring.hpp`) actually connects a given instrument to
 a given point -- is still a runtime check, since `Loc`/`Kind` being
 compile-time values doesn't by itself make the *wiring table lookup*
-compile-time; see the `TODO(reflection)` in `hal/wiring.hpp` for what a
+compile-time; see the `TODO(reflection)` in `hal/topology/wiring.hpp` for what a
 further upgrade there would look like.
 
 ## Criteria variants
 
 The tolerance tables (`CRITERIA`/`CRIT` blocks, see
-`framework/core/include/core/criterion.hpp`) for scripts that need more than one
+`framework/core/include/core/criteria/criterion.hpp`) for scripts that need more than one
 set of numbers: production hardware fresh off the line, a stress-chamber
 run, equipment that's been in service for years, etc. They live here, not
 in `suite/`, because a tolerance is a property of the DUT being tested --
@@ -90,7 +90,7 @@ across all three files, just different tolerance values.
 
 Each `.inc` file is deliberately bare: just `CRITERIA( ... ) ... END_CRITERIA`
 blocks, nothing else. No `#pragma once`, no `#include`s, no namespace, and
-no `core::`/`using namespace` of its own -- `core/active_criteria.hpp`
+no `core::`/`using namespace` of its own -- `core/criteria/active_criteria.hpp`
 supplies all of that, including bringing `EQ`/`MASK`/etc, `Voltage`/etc, and
 the `_V`/etc literals into unqualified scope, so a criterion reads
 `EQ( 5.0_V).epsilon( 0.05_V)` rather than
@@ -102,7 +102,7 @@ number (`EQ( 5.0)`), whenever the value being checked is one -- that's what
 lets `core::Verify` catch a unit mismatch at compile time (`EQ( 5.0_A)`
 against a `Voltage` reading fails to compile), rather than silently
 comparing bare doubles. See the comment on the `optional<Quantity<Unit>>`
-overload in `core/verify.hpp` for how that's picked automatically from the
+overload in `core/criteria/verify.hpp` for how that's picked automatically from the
 predicate's own type.
 
 Not everything belongs here: tolerances that never change between variants
@@ -143,12 +143,12 @@ exactly like an ordinary `CRIT` would. Only the predicate and description
 are borrowed from `production`'s matching criterion, so the actual
 tolerance value and its prose live in exactly one place. A typo in the
 reference itself (wrong group or id) is also a hard compile error. See the
-macro's own comment in `core/criterion.hpp` for the full reasoning,
+macro's own comment in `core/criteria/criterion.hpp` for the full reasoning,
 including why it's a companion to `CRIT` rather than a change to `CRITERIA`
 itself.
 
 This is why `criteria_production.inc` is always available as `production::...`
-from inside any other variant (see `core/active_criteria.hpp`) -- every other
+from inside any other variant (see `core/criteria/active_criteria.hpp`) -- every other
 variant can reference it. It is also the *reference table* the merged criteria
 are generated from, for the same reason: it is the one file that cannot use
 `CRIT_FROM_PRODUCTION` itself, so it is the one guaranteed to spell out every
@@ -188,7 +188,7 @@ more, and nothing was given up in compile-time checking to get there; see
 
 ## How all three fit in one binary
 
-`core/active_criteria.hpp` reads the variant files twice.
+`core/criteria/active_criteria.hpp` reads the variant files twice.
 
 **Pass 1** pulls in every variant, each into its own namespace
 (`thorium::criteria::production`, `::stress`, `::aged`) -- generated from
@@ -255,7 +255,7 @@ build cannot do for itself.
    use `CRIT_FROM_PRODUCTION( group, id)` in place of `CRIT` for any
    criterion that's identical to production's.
 2. Reference it from the script the same way `supply_rail_script.cpp` and
-   `fuse_register_script.cpp` do: `#include "core/active_criteria.hpp"`,
+   `fuse_register_script.cpp` do: `#include "core/criteria/active_criteria.hpp"`,
    then use `YourGroupName::YourCritName` directly.
 
 Nothing to add to the tests: the parity check in
@@ -265,9 +265,9 @@ one variant and the build says so.
 
 ## Why `active_criteria.hpp` is a separate header from `criterion.hpp`
 
-`core/criterion.hpp` is the general, dependency-free `CRITERIA`/`CRIT`
+`core/criteria/criterion.hpp` is the general, dependency-free `CRITERIA`/`CRIT`
 mechanism -- it's used on its own (e.g. by `test_criterion.cpp`) with no
-notion of "variants" at all. `core/active_criteria.hpp` is a specific
+notion of "variants" at all. `core/criteria/active_criteria.hpp` is a specific
 *consumer* of that mechanism: it resolves `THORIUM_CRITERIA_VARIANT_TABLES`
 and `THORIUM_PRODUCTION_CRITERIA`, which require the `scripts` target's build
 configuration. Folding the two

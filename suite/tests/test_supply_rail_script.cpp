@@ -10,12 +10,12 @@
 // definitions, which are PRIVATE to the scripts library (see
 // framework/runner/CMakeLists.txt).
 //
-#include "core/quantity.hpp"
-#include "hal/measure.hpp"
+#include "core/quantities/quantity.hpp"
+#include "hal/verbs/measure.hpp"
 
 #include <gtest/gtest.h>
 
-#include "core/criteria_variants.hpp"
+#include "core/criteria/criteria_variants.hpp"
 
 using core::quantities::Voltage;
 
@@ -25,12 +25,12 @@ namespace
     // Injects values into the shared global Measure before calling the
     // script, then restores live routing afterward -- Measure is a single
     // rig-wide object (a catalog script takes no parameters at all, so there
-    // is no per-call device to inject through instead; see hal/measure.hpp),
+    // is no per-call device to inject through instead; see hal/verbs/measure.hpp),
     // so every test must clean up after itself or leak into the next one.
     //
     // The criteria variant is restored for the same reason and with the same
     // consequence if it isn't: it too is process-wide (see
-    // core/criteria_variants.hpp), so a test that widened the tolerances and
+    // core/criteria/criteria_variants.hpp), so a test that widened the tolerances and
     // left them widened would silently make every test after it a weaker check
     // than it reads as.
     //

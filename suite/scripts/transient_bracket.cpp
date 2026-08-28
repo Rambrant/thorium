@@ -64,7 +64,7 @@ namespace
         //
         // Whether the source was actually delivering. A group whose setup found
         // the AC input already down -- a detached bench, where no Apply ever
-        // reaches a driver (see core/bench.hpp) -- must not have its teardown
+        // reaches a driver (see core/session/bench.hpp) -- must not have its teardown
         // energise one.
         //
         bool Energised{ false };
@@ -119,7 +119,7 @@ namespace
 // A setup returning false skips its own group's tests (see framework/runner/src/main.cpp),
 // so a hook here that insisted on finding a live AC input would skip AcDropout
 // in exactly the three modes where no Apply ever reaches a driver -- --replay,
-// --inject and --skeleton all detach the bench (core/bench.hpp). Those runs
+// --inject and --skeleton all detach the bench (core/session/bench.hpp). Those runs
 // take their readings from a file and are meant to reach every test the live
 // run reaches. Whether the rig actually came up is already asked, once, by
 // RUN_SETUP, where a false stops everything rather than one group.
@@ -172,7 +172,7 @@ auto transientTeardown() -> bool
     //
     // Connect before Apply -- the relay closes on a dead path, then the output
     // comes up. Same rule, and the same reason, as the power-up sequence in
-    // suite/scripts/rig_power_on.cpp; see core/source.hpp, and
+    // suite/scripts/rig_power_on.cpp; see core/verbs/source.hpp, and
     // AcceptanceMachineLog.NoShippedScriptOrHookMovesARelayUnderLoad, which
     // reads this run's own machine log to catch the inverse.
     //

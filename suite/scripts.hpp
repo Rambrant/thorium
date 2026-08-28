@@ -9,14 +9,14 @@
 // The catalog's RUN_SETUP/RUN_TEARDOWN hooks are declared here too, alongside the
 // scripts rather than in a file of their own: they have the same signature,
 // live in the same suite/scripts/ directory, and are name-checked out of this
-// same header by core/active_test_catalog.hpp -- there is nothing for a
+// same header by core/catalog/active_test_catalog.hpp -- there is nothing for a
 // separate declarations file to separate. What sets one apart is only what it
 // is registered as in suite/test_catalog.inc, and the comment on the
 // declaration below.
 //
 // Declarations only, and deliberately so -- no instruments, no verbs, no
 // tables, not even an #include. The one reader of this file is
-// core/active_test_catalog.hpp via THORIUM_TEST_SCRIPTS, which name-checks
+// core/catalog/active_test_catalog.hpp via THORIUM_TEST_SCRIPTS, which name-checks
 // each TEST(...) entry against the signatures below and needs nothing else;
 // that header is compiled into main.cpp, so anything added here lands in a
 // translation unit with no use for it. The two fixture stand-ins for this
@@ -32,7 +32,7 @@
 // Deliberately global, not namespace scripts { ... }: each script is the
 // end point of its own call chain -- nothing calls *into* one script from
 // another, or refers to them as a group by namespace -- so there's nothing
-// a namespace would protect here. It also lets core/active_test_catalog.hpp
+// a namespace would protect here. It also lets core/catalog/active_test_catalog.hpp
 // name a script directly (fuseRegisterScript, not scripts::fuseRegisterScript)
 // without a "using namespace scripts;" of its own, which is what keeps that
 // wiring free of any project-specific namespace name. Collisions are easy
@@ -46,7 +46,7 @@
 // for the journal to derive one from -- and what a hook's bool means is "did
 // the bracketing work", not "did the DUT pass". Every *script* below returns
 // void: its verdict is derived from the checks it recorded (see
-// core/test_catalog.hpp and core::Journal::endTest).
+// core/catalog/test_catalog.hpp and core::Journal::endTest).
 //
 // Not a test -- the catalog's RUN_TEARDOWN (see suite/test_catalog.inc). Powers
 // this rig down in a defined order after the last selected script has run:

@@ -127,7 +127,7 @@ fi
 #
 # Telling the two apart by "is it all digits" is sound rather than a guess: a
 # test id is a C++ identifier (it comes from a TEST(...) macro token, see
-# core/test_catalog.hpp), so it can neither start with a digit nor consist only
+# core/catalog/test_catalog.hpp), so it can neither start with a digit nor consist only
 # of them. No id can ever be shadowed by a menu number.
 #
 # Selecting the same test twice is harmless and needs no de-duplication: the
@@ -136,7 +136,7 @@ fi
 #
 # "id|description" per entry, so the menu can show both while the id stays
 # recoverable with a prefix strip -- neither field can contain a '|', since both
-# come from a TEST(...) macro's own tokens (see core/test_catalog.hpp).
+# come from a TEST(...) macro's own tokens (see core/catalog/test_catalog.hpp).
 tests="$(printf '%s\n' "$catalog" | awk -F'|' -v grp="$group" '$1 == grp { print $2 "|" $3 }')"
 
 old_ifs="$IFS"

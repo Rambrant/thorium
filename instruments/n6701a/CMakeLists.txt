@@ -9,7 +9,7 @@
 # a template on its Isolation tag (hal::N6701ADirect/hal::N6701ARelay are the two
 # instantiations this rig uses, and hal::SwitchableIsolation admits tags nobody
 # has written yet), so there is nothing to compile ahead of a call site naming
-# one. See core/port.hpp on why driver definitions have to be visible anyway.
+# one. See core/driver/port.hpp on why driver definitions have to be visible anyway.
 add_library(hal_n6701a INTERFACE)
 
 # include/hal/n6701a.hpp, not include/n6701a.hpp: the driver stays in namespace

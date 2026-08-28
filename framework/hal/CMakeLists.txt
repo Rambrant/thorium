@@ -8,7 +8,7 @@
 # top-level CMakeLists.txt does it below (pointing at ./rig/), the same way
 # a separate rig's own top-level CMakeLists.txt would after pulling this
 # library in via add_subdirectory/FetchContent. Same compile-definition-
-# swap mechanism core/active_criteria.hpp already uses for
+# swap mechanism core/criteria/active_criteria.hpp already uses for
 # THORIUM_CRITERIA_VARIANT_TABLES/THORIUM_TEST_CATALOG -- see rig/README.md for
 # what each of these four files actually contains.
 set(THORIUM_ACTIVE_INSTRUMENTS "" CACHE FILEPATH
@@ -38,7 +38,7 @@ endforeach()
 # instrument globals, and so #includes that rig's concrete driver headers.
 # One target meant one compile-time dependency set, so the generic four
 # inherited the rig coupling of the other three whether they used it or
-# not. (src/source.cpp is the one file on the rig-coupled side that opens
+# not. (src/verbs/source.cpp is the one file on the rig-coupled side that opens
 # neither -- it is there for the boundary reason given below, not a
 # technical one.)
 #
@@ -57,22 +57,42 @@ endforeach()
 # rather than by reviewers noticing.
 #
 add_library(hal STATIC
-    src/address.cpp
-    src/switch_device.cpp
-    src/vpc_location.cpp
-    src/switch_fabric.cpp
-    src/instrument.cpp
-    src/wiring.cpp
-    include/hal/address.hpp        # header-only
-    include/hal/api_version.hpp    # header-only
-    include/hal/vpc_location.hpp   # header-only
-    include/hal/switch_device.hpp  # header-only
-    include/hal/switch_fabric.hpp  # header-only
-    include/hal/instrument.hpp     # header-only
-    include/hal/wiring.hpp         # header-only
-    include/hal/adapter.hpp        # header-only
-    include/hal/bundle.hpp         # header-only
-    include/hal/describe.hpp       # header-only
+    src/driver/address.cpp
+    src/driver/instrument.cpp
+    src/fabric/switch_device.cpp
+    src/fabric/switch_fabric.cpp
+    src/topology/vpc_location.cpp
+    src/topology/wiring.cpp
+    # --- hal/driver: the driver-authoring kit ---
+    # What a driver under instruments/ names directly: its API version gate,
+    # how the PC reaches hardware, the instrument identity enum, and the
+    # describe customization point its config is logged through. NOT the
+    # complete surface a driver may use -- that is everything this target
+    # exports, enforced by the hal/hal_rig split above, and the drivers do
+    # also reach fabric/ and topology/ (connectDriver takes a SwitchFabric &
+    # and both wiring tables). These four are simply the ones that are about
+    # being a driver rather than about this bench.
+    include/hal/driver/api_version.hpp    # header-only
+    include/hal/driver/address.hpp        # header-only apart from src/driver/address.cpp
+    include/hal/driver/instrument.hpp     # header-only apart from src/driver/instrument.cpp
+    include/hal/driver/describe.hpp       # header-only
+    # --- hal/fabric: the switching hardware itself ---
+    # The devices a rig has, the elements they are made of, and the Path
+    # through them that a route closes. Knows nothing about VPC pins or DUTs:
+    # topology/ maps onto this, not the other way round.
+    include/hal/fabric/switch_device.hpp  # header-only apart from src/fabric/switch_device.cpp
+    include/hal/fabric/switch_fabric.hpp  # header-only apart from src/fabric/switch_fabric.cpp
+    # --- hal/topology: how this bench is put together ---
+    # The VPC coordinate every DUT pin is named by, the adapter/bundle tables
+    # that name them, and the wiring that maps instruments and connector pins
+    # onto fabric/'s Paths. wiring.hpp holds all three of the rig's static
+    # wiring facts because rig/wiring.inc declares all three in one file --
+    # including SourceWiring, which is the one that is deliberately NOT a
+    # fabric path (see its own comment).
+    include/hal/topology/vpc_location.hpp  # header-only apart from src/topology/vpc_location.cpp
+    include/hal/topology/adapter.hpp       # header-only
+    include/hal/topology/bundle.hpp        # header-only
+    include/hal/topology/wiring.hpp        # header-only apart from src/topology/wiring.cpp
 )
 
 target_include_directories(hal PUBLIC
@@ -95,7 +115,7 @@ install(TARGETS hal
 )
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-# PUBLIC: hal/instrument.hpp (a public header) expands THORIUM_INSTRUMENT_TABLE
+# PUBLIC: hal/driver/instrument.hpp (a public header) expands THORIUM_INSTRUMENT_TABLE
 # itself, to generate hal::InstrumentId's enumerators -- see that header's own
 # comment -- so it has to reach anyone who includes that header, which is every
 # driver and every consumer of this library. Same reason
@@ -109,7 +129,7 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 # hal::InstrumentId exists before any driver does. THORIUM_ACTIVE_INSTRUMENTS
 # and THORIUM_WIRING_TABLE belong to hal_rig below, for the opposite reason.
 # THORIUM_DEVICE_TABLE is PUBLIC for exactly the same reason as the instrument
-# table beside it: hal/switch_device.hpp is a public header and expands it
+# table beside it: hal/fabric/switch_device.hpp is a public header and expands it
 # itself, to generate hal::SwitchDeviceId's enumerators plus each device's
 # kind and address. That is also why the device list could not simply be
 # another block inside rig/wiring.inc -- THORIUM_WIRING_TABLE is PRIVATE to
@@ -185,27 +205,39 @@ endforeach()
 # the driver headers behind them -- see this file's own comment on the split
 # above. safing and interlock go furthest: both reflect over the global
 # namespace for every hal::InstrumentTag-derived variable, which only works
-# once those globals have actually been declared (see hal/src/safing.cpp and
-# hal/src/interlock.cpp).
+# once those globals have actually been declared (see hal/src/verbs/safing.cpp and
+# hal/src/verbs/interlock.cpp).
 #
 # src/source.cpp expands neither table -- Apply/Remove/Setup/Write hold no
-# state at all (see core/source.hpp) -- and so would compile perfectly well in
+# state at all (see core/verbs/source.hpp) -- and so would compile perfectly well in
 # generic hal. It is here on purpose: hal is exactly what a driver is allowed
 # to assume, and a driver reaching for an Apply is the mistake the check above
 # exists to catch. Letting these four cross into hal would hand that reach to
 # every driver, for no gain beyond one fewer file in this list.
+# --- hal/verbs: the rig-bound instantiations of core's generic engines ---
+# One per core/verbs header of the same name (core/verbs/measure.hpp <->
+# hal/verbs/measure.hpp, and so on), which is why both trees spell the folder
+# the same way. This set is exactly hal_rig: every one of them either opens the
+# linking rig's active_instruments.hpp or is declared alongside something that
+# does, which is the whole reason this target is separate from hal.
+#
+# acquire.hpp is listed here for the first time -- it was in neither target
+# before, so it simply did not appear in an IDE's project tree. It belongs to
+# this one: Arm and Await are defined in src/verbs/measure.cpp, not in a
+# translation unit of their own (see that header's own comment on why).
 add_library(hal_rig STATIC
-    src/measure.cpp
-    src/route.cpp
-    src/source.cpp
-    src/safing.cpp
-    src/interlock.cpp
-    include/hal/measure.hpp        # header-only
-    include/hal/trace.hpp          # header-only
-    include/hal/route.hpp          # header-only
-    include/hal/source.hpp         # header-only
-    include/hal/safing.hpp         # header-only
-    include/hal/interlock.hpp      # header-only
+    src/verbs/measure.cpp
+    src/verbs/route.cpp
+    src/verbs/source.cpp
+    src/verbs/safing.cpp
+    src/verbs/interlock.cpp
+    include/hal/verbs/measure.hpp        # header-only
+    include/hal/verbs/route.hpp          # header-only
+    include/hal/verbs/source.hpp         # header-only
+    include/hal/verbs/acquire.hpp        # header-only; Arm/Await defined in src/verbs/measure.cpp
+    include/hal/verbs/trace.hpp          # header-only; Fetch defined in src/verbs/measure.cpp
+    include/hal/verbs/safing.hpp         # header-only
+    include/hal/verbs/interlock.hpp      # header-only
 )
 
 # PUBLIC on both counts. The driver targets carry the include directories the
@@ -226,7 +258,7 @@ target_compile_definitions(hal_rig PUBLIC
 # exposes it. That is exactly why hal::energisedSourceAt is an ordinary
 # declared-here/defined-there function rather than a template: the interlock's
 # answer needs this table, and the call sites that ask for it (every script
-# that measures) must not gain it. See hal/interlock.hpp.
+# that measures) must not gain it. See hal/verbs/interlock.hpp.
 target_compile_definitions(hal_rig PRIVATE
     THORIUM_WIRING_TABLE="${THORIUM_WIRING_TABLE}"
 )

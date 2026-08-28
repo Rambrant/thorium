@@ -33,8 +33,8 @@ namespace
 
 #include <chrono>
 
-#include "core/at.hpp"
-#include "hal/adapter.hpp"
+#include "core/verbs/at.hpp"
+#include "hal/topology/adapter.hpp"
 
 //
 // hal::Racal1260's own tests, against a local adapter table and local wiring

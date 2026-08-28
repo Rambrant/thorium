@@ -5,10 +5,10 @@
 // reason test_rig_power_off.cpp does -- see that file's header comment.
 //
 #include THORIUM_ACTIVE_INSTRUMENTS
-#include "hal/measure.hpp"
-#include "hal/route.hpp"
-#include "hal/source.hpp"
-#include "hal/switch_fabric.hpp"
+#include "hal/verbs/measure.hpp"
+#include "hal/verbs/route.hpp"
+#include "hal/verbs/source.hpp"
+#include "hal/fabric/switch_fabric.hpp"
 
 #include <gtest/gtest.h>
 

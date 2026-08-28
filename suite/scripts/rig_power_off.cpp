@@ -14,7 +14,7 @@
 // after this hook regardless of what happened here (framework/runner/src/main.cpp holds a
 // TeardownGuard and a hal::RigSafingGuard, in that order). This is the normal
 // path, and what earns it a file of its own is the one thing safeRig()
-// deliberately cannot express: a sequence. hal/src/safing.cpp says as much in
+// deliberately cannot express: a sequence. hal/src/verbs/safing.cpp says as much in
 // its own comment on why it carries no SAFING_ORDER table -- "if some future
 // instrument turns out to need to go strictly first or last relative to its
 // peers -- a real constraint this loop cannot express -- that is when an

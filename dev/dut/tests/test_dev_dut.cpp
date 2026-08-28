@@ -1,12 +1,12 @@
-#include "hal/adapter.hpp"
-#include "hal/wiring.hpp"
+#include "hal/topology/adapter.hpp"
+#include "hal/topology/wiring.hpp"
 
 #include <gtest/gtest.h>
 
 #include <cstddef>
 #include <meta>
 
-#include "core/adapter.hpp"
+#include "core/topology/adapter.hpp"
 
 //
 // The dev deployment's answer to dut/tests/test_wiring_coverage.cpp.
@@ -36,7 +36,7 @@ namespace
     //
     // Matched on core::AdapterPointTag being the template, not on the member's
     // name or on POINT having been used, because that is what an adapter point
-    // actually is (see core/adapter.hpp). SOURCE_POINT declares the same
+    // actually is (see core/topology/adapter.hpp). SOURCE_POINT declares the same
     // template with a different second argument, so both are counted, which is
     // what this needs: neither kind is reachable here.
     //

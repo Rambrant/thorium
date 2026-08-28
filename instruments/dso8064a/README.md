@@ -5,7 +5,7 @@ Agilent/Keysight Infiniium **DSO8064A** — four channels, 600 MHz. Header-only,
 
 Target: `hal_dso8064a` / `Thorium::hal_dso8064a`. Depends on `Thorium::hal` only.
 
-Reachable over `Gpib`, `Lan` or `Usb` (see `hal/address.hpp`).
+Reachable over `Gpib`, `Lan` or `Usb` (see `hal/driver/address.hpp`).
 
 Modelled against the *Infiniium 54830-series Programmer's Reference*
 (54830-97014), which is the same command set the 8000 Series ships.
@@ -79,7 +79,7 @@ own "Single Shot Device Under Test" sequence is what this implements:
 
 So the script's rule is: **Arm, then cause the event.** Nothing enforces it, and
 unlike Connect-before-Apply nothing records it either -- there is no equivalent
-of a supply's `isEnergised` to ask (see `core/interlock.hpp`).
+of a supply's `isEnergised` to ask (see `core/verbs/interlock.hpp`).
 
 `Await` polls the done register against a timeout and returns `bool` — a
 transient that never arrived is a finding about the DUT, not an error in the
@@ -88,7 +88,7 @@ without arming answers `false` rather than throwing: a script that measures a
 transient without arming has measured the stale acquisition buffer, and the
 check this gates is exactly where that should surface.
 
-Both verbs are **generic** and live in `core/acquire.hpp` — a transient
+Both verbs are **generic** and live in `core/verbs/acquire.hpp` — a transient
 recorder, a digitizer or a counter with an armed gate is the same shape. This is
 simply the first driver to answer to `armDriver`/`awaitDriver`.
 
@@ -211,7 +211,7 @@ trace.
 This was deferred until the recording format could carry one, which was the
 right order: an observation that could not be replayed would have been the one
 hole in `--replay`. A trace row now carries its unit and timebase and refers its
-samples to a file beside the recording (see `core/recording.hpp`).
+samples to a file beside the recording (see `core/session/recording.hpp`).
 
 ## What it deliberately does not model
 

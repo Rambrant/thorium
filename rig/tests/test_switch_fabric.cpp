@@ -17,7 +17,7 @@
 // fabric at all, and should not pretend to. See dev/README.md on what that
 // costs the dev deployment's coverage.
 //
-#include "hal/switch_fabric.hpp"
+#include "hal/fabric/switch_fabric.hpp"
 
 #include <gtest/gtest.h>
 

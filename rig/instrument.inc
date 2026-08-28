@@ -4,20 +4,20 @@
 // This rig's fixed, concrete instrument list -- included from two
 // different places, each with INSTRUMENT defined for its own purpose:
 // rig/active_instruments.hpp declares each id below as an actual global,
-// and hal/instrument.hpp keeps only each id to generate
+// and hal/driver/instrument.hpp keeps only each id to generate
 // hal::InstrumentId's enumerators. Both read this exact list, so an
 // instrument added here can never desync from its own identity enumerator
 // -- there is nothing left to desync from, since the enumerator comes from
 // this file too now.
 //
-// hal/instrument.hpp's own comment explains why THAT read can't be
+// hal/driver/instrument.hpp's own comment explains why THAT read can't be
 // replaced by reflection the way the rest of this codebase's macro-
 // redefinition-and-re-#include spots were: reflection needs the enum to
 // already exist, and generating it is this read's entire job. Contrast
-// hal/src/safing.cpp, which used to read this file a third time
+// hal/src/verbs/safing.cpp, which used to read this file a third time
 // (INSTRUMENT redefined again, to call .safe() on each) -- it no longer
 // needs this file at all, reflecting over hal::InstrumentTag-derived
-// globals instead (see that struct's own comment in hal/instrument.hpp),
+// globals instead (see that struct's own comment in hal/driver/instrument.hpp),
 // because InstrumentId already existed by the time IT ran.
 //
 // See rig/active_instruments.hpp's own comment for the INSTRUMENTS/
@@ -45,7 +45,7 @@
 // one port, the same way one hal::L4411A is one meter.
 //
 // The third column is how the *PC* reaches each instrument -- the control
-// side, as against the signal side wiring.inc describes (see hal/address.hpp
+// side, as against the signal side wiring.inc describes (see hal/driver/address.hpp
 // for the distinction, and rig/active_instruments.hpp for why it is a fixed
 // column rather than one more constructor argument). Which bus kinds a given
 // row may use is fixed by its driver, not by this file: an L4411A is an LXI
@@ -63,13 +63,13 @@
 // consistent (one mainframe address for the four DC modules, LXI hostnames for
 // the three LAN instruments) and no more than that. Re-check against a real
 // rack. Deliberately not hal::Simulated{}, which would read as a decision
-// rather than a gap -- see that type's own comment in hal/address.hpp.
+// rather than a gap -- see that type's own comment in hal/driver/address.hpp.
 //
 // Ser1's row is Serial on purpose, and for a reason that is not a claim about
 // the bench: it is this table's one worked example of a PC-attached serial
 // device, kept deliberately so that the three bus kinds a rig is likely to
 // meet -- a GPIB box, an LXI hostname, a device path -- are all exercised by
-// something real here rather than only described in hal/address.hpp.
+// something real here rather than only described in hal/driver/address.hpp.
 //
 // The underlying bench fact is still open, and the driver says so: it accepts
 // Serial *or* Gpib, because a switched RS232 port can be either a port on

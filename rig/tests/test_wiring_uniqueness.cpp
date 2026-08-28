@@ -1,4 +1,4 @@
-#include "hal/wiring.hpp"
+#include "hal/topology/wiring.hpp"
 
 #include <gtest/gtest.h>
 

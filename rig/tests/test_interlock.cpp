@@ -1,20 +1,20 @@
-#include "hal/interlock.hpp"
+#include "hal/verbs/interlock.hpp"
 
 #include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/l4411a.hpp"
-#include "hal/measure.hpp"
+#include "hal/verbs/measure.hpp"
 #include "hal/n6701a.hpp"
-#include "hal/route.hpp"
-#include "hal/source.hpp"
+#include "hal/verbs/route.hpp"
+#include "hal/verbs/source.hpp"
 
 #include <gtest/gtest.h>
 
 #include <string>
 #include <vector>
 
-#include "core/at.hpp"
-#include "core/interlock.hpp"
-#include "core/journal.hpp"
+#include "core/verbs/at.hpp"
+#include "core/verbs/interlock.hpp"
+#include "core/journal/journal.hpp"
 
 using namespace core::literals;
 using namespace core::quantities;
@@ -23,7 +23,7 @@ using core::at;
 
 //
 // The electrical interlock, end to end against this rig -- see
-// core/interlock.hpp for the argument that shapes it, and README.md §1, which
+// core/verbs/interlock.hpp for the argument that shapes it, and README.md §1, which
 // used to list both of these hazards as things nothing prevented.
 //
 // This file belongs here rather than in framework/core/tests or in a driver's own
@@ -32,7 +32,7 @@ using core::at;
 //
 // The refusal half has to be here: hal::energisedSourceAt answers from this
 // rig's *global* instrument objects and this rig's own SOURCE_WIRING table (see
-// hal/src/interlock.cpp), because those are the two things that correspond to
+// hal/src/verbs/interlock.cpp), because those are the two things that correspond to
 // hardware. A local N6701A built in a fixture is not on the bench and the
 // interlock is right not to see it, so a test of the refusal has to energise
 // the real DcP3 -- which makes the global state this file's responsibility to
@@ -306,7 +306,7 @@ TEST_F( InterlockFixture, ConnectingOntoAnEnergisedOutputIsRecordedAndStillHappe
         << connects.front().Detail;
 
     //
-    // Recorded, not refused -- see core/source.hpp, which has always said this
+    // Recorded, not refused -- see core/verbs/source.hpp, which has always said this
     // is a wear argument and the sequence author's call. The relay closed.
     //
     EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
@@ -333,7 +333,7 @@ TEST_F( InterlockFixture, DisconnectingUnderLoadIsRecordedAndStillHappens)
 TEST_F( InterlockFixture, TheNestedSequenceAScriptShouldWriteRecordsNoHotSwitchAtEitherEnd)
 {
     //
-    // Connect, Apply ... Remove, Disconnect -- the sequence core/source.hpp
+    // Connect, Apply ... Remove, Disconnect -- the sequence core/verbs/source.hpp
     // documents and suite/scripts/rig_power_on.cpp writes out. Both contacts
     // move cold, so neither event carries a note.
     //

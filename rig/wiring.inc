@@ -1,16 +1,16 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// This rig's two static wiring facts (see hal/wiring.hpp's own comment):
+// This rig's two static wiring facts (see hal/topology/wiring.hpp's own comment):
 // which channel each instrument is hard-wired to, and which channel each VPC
 // connector pin is hard-wired to. Composed together at measurement time --
-// see core/measure.hpp -- rather than stored per (instrument, pin)
+// see core/verbs/measure.hpp -- rather than stored per (instrument, pin)
 // combination.
 //
 // HOP( device, channel) names a card declared in rig/devices.inc, not a
 // string: every device below has to be one this rig says it has, what kind of
 // card it is comes from that declaration rather than being repeated here (see
-// hal/switch_device.hpp for what the string-and-kind-per-hop form used to
+// hal/fabric/switch_device.hpp for what the string-and-kind-per-hop form used to
 // allow through), and the channel has to be one the card actually has -- a
 // 1260-18 has 152 relays, a 1260-17 has 80, and writing 300 on either is now
 // a compile error naming the card.
@@ -190,7 +190,7 @@ END_CONNECTOR_WIRING
 //
 // Which VPC pin each fixed-wired source instrument's output is cabled onto
 // -- the third static fact, and the one that is not a fabric path at all
-// (see hal::SourceWiring's own comment in hal/wiring.hpp). A pin listed here
+// (see hal::SourceWiring's own comment in hal/topology/wiring.hpp). A pin listed here
 // is reached by a cable, not by the mux: it gets no WIRE_CONNECTOR entry
 // above, and its dut/adapter.inc counterpart is a SOURCE_POINT rather than a
 // POINT. dut/tests/test_wiring_coverage.cpp enforces both directions.

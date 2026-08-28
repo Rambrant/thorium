@@ -1,12 +1,12 @@
-#include "hal/safing.hpp"
+#include "hal/verbs/safing.hpp"
 
 #include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/ac6834b.hpp"
 #include "hal/dso8064a.hpp"
-#include "hal/instrument.hpp"
+#include "hal/driver/instrument.hpp"
 #include "hal/l4411a.hpp"
 #include "hal/n6701a.hpp"
-#include "hal/switch_fabric.hpp"
+#include "hal/fabric/switch_fabric.hpp"
 
 #include <gtest/gtest.h>
 
@@ -21,7 +21,7 @@ namespace
     // The compile-time half of the safing contract: every driver in this
     // rig satisfies hal::SafeableInstrument, sources and passive
     // instruments alike. hal::safeRig() already static_asserts this per
-    // instance it actually finds in hal/src/safing.cpp, so a driver missing
+    // instance it actually finds in hal/src/verbs/safing.cpp, so a driver missing
     // safe() can't reach a test run at all -- these repeat it per *type* so
     // the requirement is visible where the rest of the safing behaviour is
     // documented, rather than only inside safeRig()'s own reflection loop.
@@ -37,7 +37,7 @@ namespace
     // rather than a hand-written list: safeRig() only ever *finds* an
     // instrument to safe by reflecting over global variables whose type
     // derives from hal::InstrumentTag (see that struct's own comment in
-    // hal/instrument.hpp) -- a type satisfying SafeableInstrument without
+    // hal/driver/instrument.hpp) -- a type satisfying SafeableInstrument without
     // also deriving from InstrumentTag would not fail any static_assert at
     // all, because safeRig()'s loop would simply never reach it; there is
     // no case to fall into, the same silent-skip shape hal::L4411A::safe()'s
@@ -171,7 +171,7 @@ TEST_F( SafingFixture, SafeRigOpensRelaysHeldByMoreThanOneUnreleasedCaller)
     // script left two closes on one element and released neither, so a
     // matched open() would only take the count from two to one and leave
     // the relay closed. safeRig() clears the counts outright instead --
-    // see hal/src/safing.cpp on why it calls openAll() rather than
+    // see hal/src/verbs/safing.cpp on why it calls openAll() rather than
     // computing paths to disconnect.
     hal::fabric.close( someElement);
     hal::fabric.close( someElement);
@@ -264,7 +264,7 @@ TEST_F( SafingFixture, RigSafingGuardSafesWhenUnwoundByAnException)
 {
     // The case the guard exists for: a script throwing partway through,
     // same as core::asQuantity does on a kind mismatch (see
-    // core/quantity_kind.hpp). The guard's destructor has to run during
+    // core/quantities/quantity_kind.hpp). The guard's destructor has to run during
     // that unwind, not only on the return path energiseEverything() itself
     // takes.
     energiseEverything();

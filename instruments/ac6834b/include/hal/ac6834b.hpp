@@ -6,17 +6,17 @@
 #include <string_view>
 #include <type_traits>
 
-#include "core/describe.hpp"
+#include "core/driver/describe.hpp"
 #include "core/meta.hpp"
-#include "core/port.hpp"
-#include "core/quantity.hpp"
+#include "core/driver/port.hpp"
+#include "core/quantities/quantity.hpp"
 
-#include "hal/address.hpp"
-#include "hal/api_version.hpp"
-#include "hal/describe.hpp"
-#include "hal/instrument.hpp"
-#include "hal/switch_fabric.hpp"
-#include "hal/wiring.hpp"
+#include "hal/driver/address.hpp"
+#include "hal/driver/api_version.hpp"
+#include "hal/driver/describe.hpp"
+#include "hal/driver/instrument.hpp"
+#include "hal/fabric/switch_fabric.hpp"
+#include "hal/topology/wiring.hpp"
 
 //
 // Which hal API version this driver was written against. A driver and the hal
@@ -26,7 +26,7 @@
 // makes that disagreement one readable diagnostic instead of a failure deep
 // inside a template instantiation. A literal, never THORIUM_HAL_API_VERSION
 // itself, which would only assert that this hal matches this hal. See
-// hal/api_version.hpp for what the number means and when it moves.
+// hal/driver/api_version.hpp for what the number means and when it moves.
 //
 THORIUM_REQUIRE_HAL_API( 1);
 
@@ -72,7 +72,7 @@ namespace hal
     //
     // Kept as a hal:: function rather than calling core::meta::to_string at
     // each site, so an unqualified to_string( phase) resolves by ADL the way
-    // hal::to_string( InstrumentId) already does (see hal/src/instrument.cpp,
+    // hal::to_string( InstrumentId) already does (see hal/src/driver/instrument.cpp,
     // the same one-line delegation).
     //
     [[nodiscard]]
@@ -125,7 +125,7 @@ namespace hal
     // writing .phaseVoltage( phaseB( ...), phaseA( ...), phaseC( ...)) is a
     // compile error rather than a silent transposition.
     //
-    // This is the same reasoning core::at() is built on (see core/at.hpp):
+    // This is the same reasoning core::at() is built on (see core/verbs/at.hpp):
     // the alternative spelling, a bare triple like { 115_V, 113_V, 117_V },
     // is shorter but depends on the reader knowing which position is which
     // conductor -- and reads identically whether or not it is right.
@@ -579,7 +579,7 @@ namespace hal
             //
             // It exists as a separate object rather than as three sets of
             // fields on Ac6834B because core::Port binds to a reference and
-            // calls rawMeasure() on it (see core/port.hpp): for
+            // calls rawMeasure() on it (see core/driver/port.hpp): for
             // Measure( AcP1.measuredVoltage( Phase::B)) to read phase B and
             // not "the" voltage, the thing the port holds has to be phase B.
             // Each lives as a member of the instrument, so that reference is
@@ -678,7 +678,7 @@ namespace hal
             // GPIB or RS-232, which is the whole of this model's remote
             // interface (see this class's own comment) -- no LAN and no USB,
             // so a rig row addressing it over either fails to compile rather
-            // than at open time; see hal::ReachableOver in hal/address.hpp.
+            // than at open time; see hal::ReachableOver in hal/driver/address.hpp.
             // hal::Serial here means the PC's own serial port, the cable this
             // source is commanded down -- not anything the DUT sees, and
             // nothing to do with hal::Racal1260's RS232 framing.
@@ -695,7 +695,7 @@ namespace hal
                 mNeutral.mId = id;
             }
 
-            // Where the PC reaches this source -- see hal/address.hpp.
+            // Where the PC reaches this source -- see hal/driver/address.hpp.
             [[nodiscard]]
             auto address() const -> const Address &
             {
@@ -1019,7 +1019,7 @@ namespace hal
 
     //
     // ADL target for the electrical interlock -- see hal::N6701A's own
-    // isEnergised for the contract, which is identical, and core/interlock.hpp
+    // isEnergised for the contract, which is identical, and core/verbs/interlock.hpp
     // for why every config with an applyDriver must have one.
     //
     // The source's own enabled flag, not a per-phase one. removeOutput() drops
@@ -1037,7 +1037,7 @@ namespace hal
     namespace detail
     {
         //
-        // The per-phase counterpart of hal::describeSetting (hal/describe.hpp)
+        // The per-phase counterpart of hal::describeSetting (hal/driver/describe.hpp)
         // -- "phaseVoltage=[A 115V, B 113V, C 117V]". Local to this header
         // rather than alongside the shared helpers because "has three values,
         // one per phase" is a shape only this instrument has.
@@ -1069,7 +1069,7 @@ namespace hal
 
     //
     // ADL target for the run journal -- see hal/n6701a.hpp's describeConfig for
-    // the same mechanism and hal/describe.hpp for the helpers. "3-phase" is
+    // the same mechanism and hal/driver/describe.hpp for the helpers. "3-phase" is
     // stated rather than implied so a reader of the log knows what was
     // driven without going to look up the model -- not because it could have
     // been anything else on this instrument (it could not; see this class's

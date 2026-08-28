@@ -6,8 +6,8 @@
 // script's actual shape is closer to: source a rail, connect it, measure it
 // with a second instrument, then tear down -- so this file stitches those
 // together, using the real hal engines (MeasureEngine/ApplyEngine/
-// ConnectEngine/DisconnectEngine/RemoveEngine from hal/measure.hpp and
-// hal/source.hpp and hal/route.hpp) end to end, exactly the call syntax a
+// ConnectEngine/DisconnectEngine/RemoveEngine from hal/verbs/measure.hpp and
+// hal/verbs/source.hpp and hal/verbs/route.hpp) end to end, exactly the call syntax a
 // script would write,
 // just against a local fixture rather than the rig's real global fabric/
 // wiring/instruments (see rig/active_instruments.hpp) so tests don't share
@@ -24,13 +24,13 @@
 #include "hal/n6701a.hpp"
 #include "hal/dso8064a.hpp"
 #include "hal/l4411a.hpp"
-#include "hal/measure.hpp"
-#include "hal/route.hpp"
-#include "hal/source.hpp"
+#include "hal/verbs/measure.hpp"
+#include "hal/verbs/route.hpp"
+#include "hal/verbs/source.hpp"
 
 #include <gtest/gtest.h>
 
-#include "core/at.hpp"
+#include "core/verbs/at.hpp"
 
 using namespace core::literals;
 using namespace core::quantities;

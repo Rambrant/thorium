@@ -6,7 +6,7 @@
 //
 // An adapter with no points, for the reason dev/rig/devices.inc is an empty
 // table rather than a missing one: ADAPTER opens the fixed `dut` struct that
-// every script's at( ...) resolves through (see hal/adapter.hpp), and a
+// every script's at( ...) resolves through (see hal/topology/adapter.hpp), and a
 // deployment that omitted it would fail to compile the moment anything
 // included the suite's prelude -- rather than compiling into a suite where
 // at( ...) simply has nothing to offer, which is the truth here.

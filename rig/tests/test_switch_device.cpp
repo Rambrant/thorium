@@ -21,12 +21,12 @@
 // change; every assertion below currently goes through an id, which is why the
 // whole file moved rather than half of it.
 //
-#include "hal/switch_device.hpp"
+#include "hal/fabric/switch_device.hpp"
 
 // hal::hop/crosspoint/bank live one header over, with hal::SwitchElementId --
 // they are the checked way of building one, so this file reaches for them
 // where it checks what a card's channel numbers are.
-#include "hal/switch_fabric.hpp"
+#include "hal/fabric/switch_fabric.hpp"
 
 #include <gtest/gtest.h>
 
@@ -108,7 +108,7 @@ TEST( HalSwitchDevice, ACardKnowsWhatItIsCalledInAPartsList)
 
 TEST( HalSwitchDevice, EveryDeviceHasAnAddressThePcCanReachItAt)
 {
-    // The gap hal/address.hpp named when it was written for instruments only:
+    // The gap hal/driver/address.hpp named when it was written for instruments only:
     // closing a relay on real hardware is a write to a card, and a card needs
     // addressing exactly as an instrument does. Nothing reads these yet -- see
     // hal::addressOf's own comment -- so what is checked is that the rig can

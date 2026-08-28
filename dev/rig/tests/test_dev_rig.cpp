@@ -1,11 +1,11 @@
-#include "hal/safing.hpp"
+#include "hal/verbs/safing.hpp"
 
 #include THORIUM_ACTIVE_INSTRUMENTS
-#include "hal/instrument.hpp"
+#include "hal/driver/instrument.hpp"
 #include "hal/l4411a.hpp"
-#include "hal/switch_device.hpp"
-#include "hal/switch_fabric.hpp"
-#include "hal/wiring.hpp"
+#include "hal/fabric/switch_device.hpp"
+#include "hal/fabric/switch_fabric.hpp"
+#include "hal/topology/wiring.hpp"
 
 #include <gtest/gtest.h>
 
@@ -55,7 +55,7 @@ namespace
     // here is an instrument readback and the routed path is out of reach.
     //
     // This is also the assertion that pins down the fix in
-    // hal/switch_device.hpp that made an empty table compile at all -- see its
+    // hal/fabric/switch_device.hpp that made an empty table compile at all -- see its
     // own comment on why switchDevices is a std::array.
     //
     static_assert( core::meta::values<hal::SwitchDeviceId>.empty());

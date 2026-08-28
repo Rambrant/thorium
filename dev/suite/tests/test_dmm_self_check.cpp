@@ -24,8 +24,8 @@
 // exactly the keys the selection asked for, which is the same file --inject
 // consumes.
 //
-#include "core/quantity.hpp"
-#include "hal/measure.hpp"
+#include "core/quantities/quantity.hpp"
+#include "hal/verbs/measure.hpp"
 
 #include <gtest/gtest.h>
 

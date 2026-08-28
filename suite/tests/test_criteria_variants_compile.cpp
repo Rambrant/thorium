@@ -1,6 +1,6 @@
-#include "core/criterion.hpp"
-#include "core/predicates.hpp"
-#include "core/quantity.hpp"
+#include "core/criteria/criterion.hpp"
+#include "core/criteria/predicates.hpp"
+#include "core/quantities/quantity.hpp"
 
 #include <gtest/gtest.h>
 
@@ -21,7 +21,7 @@
 // hardware/temperature/age scenario for real, and this file existed to close
 // that gap.
 //
-// That is now how the framework itself works. core/active_criteria.hpp reads
+// That is now how the framework itself works. core/criteria/active_criteria.hpp reads
 // every variant into thorium::criteria::<name> and merges them, so a real
 // build already fails if a group or CRIT that production declares is missing
 // from another variant -- with an error naming the id and the variant, which
@@ -79,7 +79,7 @@ namespace thorium_criteria_compile_check
     // table. Reflection replaces that here: production::/stress::/aged::
     // above already ARE real, declared C++ entities after the first (and
     // only) read, so there's no need to re-parse anything -- just reflect
-    // over what's already there. See core/criterion.hpp's own comment on
+    // over what's already there. See core/criteria/criterion.hpp's own comment on
     // core::meta::all()/get() for the same shift, applied to a single
     // group rather than three namespaces side by side.
     //
@@ -92,10 +92,10 @@ namespace thorium_criteria_compile_check
 
         //
         // Every member of a namespace or struct reflection, promoted to
-        // static storage -- see core/criterion.hpp's own comment on
+        // static storage -- see core/criteria/criterion.hpp's own comment on
         // std::meta::info being fine to promote (unlike a type with a
         // std::string_view member) for why this doesn't need the
-        // key-only workaround hal/wiring.hpp's connectorWiringKeys does.
+        // key-only workaround hal/topology/wiring.hpp's connectorWiringKeys does.
         //
         template<std::meta::info Scope>
         constexpr auto members = std::define_static_array( membersOfInfo( Scope));

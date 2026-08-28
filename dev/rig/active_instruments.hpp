@@ -14,10 +14,10 @@
 // code -- so a dev build is also the fastest way to work on one driver without
 // rebuilding the other four.
 //
-#include "hal/address.hpp"
-#include "hal/instrument.hpp"
+#include "hal/driver/address.hpp"
+#include "hal/driver/instrument.hpp"
 #include "hal/l4411a.hpp"
-#include "hal/switch_fabric.hpp"
+#include "hal/fabric/switch_fabric.hpp"
 
 #define INSTRUMENTS
 #define INSTRUMENT( type, id, address, ...) \
@@ -34,8 +34,8 @@ namespace hal
     // the measure/apply assembly names it, and those are compiled once against
     // whichever rig is selected. An empty fabric is a working fabric -- it has
     // no elements, so every close() and open() it is asked for is one nobody
-    // ever asks -- and leaving it out would make hal/src/route.cpp and
-    // hal/src/measure.cpp fail to compile for this deployment alone.
+    // ever asks -- and leaving it out would make hal/src/verbs/route.cpp and
+    // hal/src/verbs/measure.cpp fail to compile for this deployment alone.
     //
     inline SwitchFabric fabric;
 } // namespace hal

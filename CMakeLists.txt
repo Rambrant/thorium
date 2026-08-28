@@ -127,7 +127,7 @@ message(STATUS "Deployment: rig=${THORIUM_RIG_DIR} dut=${THORIUM_DUT_DIR} suite=
 # is a change from how this used to work -- one variant was baked in per build,
 # and three variants meant three build directories and three binaries -- and it
 # costs nothing in compile-time checking, because the merged table a script
-# sees is still a real struct with real members (see core/active_criteria.hpp
+# sees is still a real struct with real members (see core/criteria/active_criteria.hpp
 # for the mechanism, and suite/README.md for the whole story). It in fact
 # checks *more*: every variant's predicates are now type-checked against the
 # reading each script actually takes, where before only the one built-against
@@ -177,7 +177,7 @@ message(STATUS "Criteria variants: ${THORIUM_KNOWN_CRITERIA_VARIANTS} (default: 
 # --- Content revision, for the run logs' traceability header ---
 # Both log streams record which revision of this deployment's *content* -- the
 # test scripts, the DUT profile and criteria, the rig's wiring -- a run was
-# performed against (see core::RunInfo in framework/core/include/core/journal.hpp).
+# performed against (see core::RunInfo in framework/core/include/core/journal/journal.hpp).
 # That is a different question from THORIUM_FRAMEWORK_VERSION, which versions
 # framework/: this versions what is being tested and how, which is the half that
 # usually differs between two runs that disagree with each other.

@@ -29,7 +29,7 @@ auto rigPowerOn() -> bool
     // teardown's Remove-then-Disconnect, read the other way round: a relay
     // closing onto an already-live supply arcs on contact bounce much as one
     // opening under load arcs on break, so the contacts move while the path is
-    // dead in both directions. See core/source.hpp, which states the rule and
+    // dead in both directions. See core/verbs/source.hpp, which states the rule and
     // says why it is recorded rather than refused -- a Connect written the other
     // way round here would still close the relay, and would put "hot switching"
     // in the log of every run using this rig. That log is asserted on, so it

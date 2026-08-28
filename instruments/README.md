@@ -119,7 +119,7 @@ That list is a claim about hardware, so it belongs with the driver rather than
 with the rig — a rig row addressing this model over a connector it does not have
 then fails to compile instead of failing to open. `hal::Simulated` is in every
 driver's set without being listed, and is what a driver's own tests construct
-with. See `hal/address.hpp`.
+with. See `hal/driver/address.hpp`.
 
 Leave the `THORIUM_REQUIRE_HAL_API` line copied from the template alone unless
 the new driver actually needs something newer than the version it names — see
@@ -137,9 +137,9 @@ Each driver says which API version it was written for, one line after its
 includes:
 
 ```cpp
-#include "hal/address.hpp"
-#include "hal/api_version.hpp"
-#include "hal/instrument.hpp"
+#include "hal/driver/address.hpp"
+#include "hal/driver/api_version.hpp"
+#include "hal/driver/instrument.hpp"
 
 THORIUM_REQUIRE_HAL_API( 1);
 ```
@@ -159,7 +159,7 @@ update framework/hal, or install the driver package matching this hal. [...]
     l4411a.hpp:23 | THORIUM_REQUIRE_HAL_API( 2);
 ```
 
-Two numbers live in `hal/api_version.hpp`, and the second is what keeps the gate
+Two numbers live in `hal/driver/api_version.hpp`, and the second is what keeps the gate
 from becoming a nuisance:
 
 | | |

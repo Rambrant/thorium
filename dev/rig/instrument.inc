@@ -5,7 +5,7 @@
 //
 // Read exactly the way rig/instrument.inc is -- twice, once by
 // dev/rig/active_instruments.hpp to declare the global and once by
-// hal/instrument.hpp to generate hal::InstrumentId's enumerators -- so see
+// hal/driver/instrument.hpp to generate hal::InstrumentId's enumerators -- so see
 // that file's own comment for the mechanism. What is worth saying here is
 // what makes this list different from the bench's.
 //
@@ -20,7 +20,7 @@
 // edited rather than confirmed -- it names one developer's bench, not a rack
 // whose wiring a reviewer can check. Lan( ...) rather than Simulated{}
 // deliberately: this deployment exists to talk to a real instrument, and
-// Simulated{} here would say the opposite (see hal/address.hpp on which of
+// Simulated{} here would say the opposite (see hal/driver/address.hpp on which of
 // those two an absent instrument should be). A build with nothing plugged in
 // still runs -- --inject and --skeleton detach the bench, and an attached run
 // with no instrument fails at the reading, which is the honest outcome.

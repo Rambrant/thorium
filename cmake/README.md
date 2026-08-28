@@ -44,7 +44,7 @@ definitions.
 should acquire the other's dependencies:
 
 - `criteria_variant_tables.inc` — every variant's `CRITERIA`/`CRIT` table, each
-  in its own namespace. Read by `core/active_criteria.hpp`, i.e. by every script
+  in its own namespace. Read by `core/criteria/active_criteria.hpp`, i.e. by every script
   translation unit, and so pulls in the whole predicate/quantity vocabulary.
 - `criteria_variant_names.inc` — the names as string literals, nothing else.
   Read only by the runtime `--criteria=` selector, which needs to know what the

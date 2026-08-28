@@ -17,7 +17,7 @@
 // fabric at all, and should not pretend to. See dev/README.md on what that
 // costs the dev deployment's coverage.
 //
-#include "hal/wiring.hpp"
+#include "hal/topology/wiring.hpp"
 
 #include <gtest/gtest.h>
 
@@ -126,7 +126,7 @@ TEST( HalConnectorWiring, AddWireWithAPathModelsAMultiMuxChain)
 
 TEST( HalConnectorWiring, HopsOnDevicesOfDifferentKindsComposeThroughTheDeclarativeWiringMacros)
 {
-    // WIRE_CONNECTOR/HOP (see hal/wiring.hpp) never singled out Matrix/Mux by
+    // WIRE_CONNECTOR/HOP (see hal/topology/wiring.hpp) never singled out Matrix/Mux by
     // name, and now cannot: HOP takes a device, and what kind of card that
     // device is is something rig/devices.inc states once. So a chain crossing
     // kinds reads exactly like one that doesn't, no separate macro needed --
@@ -203,7 +203,7 @@ TEST( HalInstrumentWiring, WireInstrumentSenseMacroTagsTheEntryAsSense)
 
     // WIRE_INSTRUMENT/WIRE_INSTRUMENT_SENSE push into an `entries` vector --
     // the same shape the connector-side macros use, and for the same reason
-    // (see hal/wiring.hpp): those entries feed both the runtime
+    // (see hal/topology/wiring.hpp): those entries feed both the runtime
     // hal::instrumentWiring and the compile-time key table isInstrumentWired()
     // reads, so they can no longer write straight into an InstrumentWiring.
     std::vector<InstrumentWiringEntry> entries;
@@ -250,7 +250,7 @@ TEST( HalConnectorWiring, WireConnectorSenseMacroTagsTheEntryAsSense)
     using namespace hal; // WIRE_CONNECTOR_SENSE expands to unqualified VpcLocation/VpcRack/Path/WireRole/ConnectorWiringEntry, as it does inside CONNECTOR_WIRING's own namespace hal {} block
 
     // WIRE_CONNECTOR_SENSE builds a ConnectorWiringEntry (see CONNECTOR_WIRING's
-    // own comment in hal/wiring.hpp on why -- it also feeds a compile-time
+    // own comment in hal/topology/wiring.hpp on why -- it also feeds a compile-time
     // key table END_CONNECTOR_WIRING derives from these entries, which a
     // ConnectorWiring instance's own runtime storage can't be promoted to),
     // not a ConnectorWiring directly -- addWire() below is the one-line
@@ -269,7 +269,7 @@ TEST( HalConnectorWiring, WireConnectorSenseMacroTagsTheEntryAsSense)
 // ---------------------------------------------------------------------------
 // SourceWiring -- the pins nothing routes to
 // ---------------------------------------------------------------------------
-// See hal::SourceWiring's own comment in hal/wiring.hpp. Note there is no Path
+// See hal::SourceWiring's own comment in hal/topology/wiring.hpp. Note there is no Path
 // anywhere below: the whole content of an entry is that the fabric is not
 // involved, which is why this table has its own type rather than being a
 // ConnectorWiring entry with an empty path.
@@ -314,7 +314,7 @@ TEST( HalSourceWiring, FindAllReturnsEveryPinAMultiPinSourceLandsOn)
 TEST( HalSourceWiring, FindAllIsEmptyRatherThanThrowingForARoutedInstrument)
 {
     // Unlike InstrumentWiring::findAll(), which throws for an instrument with
-    // no fixed path -- see this method's own comment in hal/wiring.hpp. Every
+    // no fixed path -- see this method's own comment in hal/topology/wiring.hpp. Every
     // routed instrument on a rig lands nowhere, so "nowhere" is the ordinary
     // answer here, not an error.
     hal::SourceWiring wiring;

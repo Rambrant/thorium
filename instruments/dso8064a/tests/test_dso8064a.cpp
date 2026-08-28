@@ -624,7 +624,7 @@ TEST( HalInstrument, DSO8064AACaptureAlwaysDescribesTheTimeoutsItWillUse)
 
 //
 // Waveform transfer -- the :WAVeform half, for core::FetchEngine. See
-// core/trace.hpp for the verb and core::Waveform for what comes back.
+// core/verbs/trace.hpp for the verb and core::Waveform for what comes back.
 //
 
 TEST( HalInstrument, DSO8064AHandsBackTheCapturedRecordOffTheNamedChannel)

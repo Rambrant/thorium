@@ -1,15 +1,15 @@
 #include "hal/ac6834b.hpp"
-#include "hal/route.hpp"
-#include "hal/source.hpp"
+#include "hal/verbs/route.hpp"
+#include "hal/verbs/source.hpp"
 #include "hal/n6701a.hpp"
-#include "hal/safing.hpp"
+#include "hal/verbs/safing.hpp"
 
 #include <gtest/gtest.h>
 
 #include <string>
 #include <vector>
 
-#include "core/journal.hpp"
+#include "core/journal/journal.hpp"
 
 using namespace core::literals;
 using namespace core::quantities;
@@ -17,7 +17,7 @@ using namespace core::quantities;
 //
 // The hal side of the run journal: each source instrument's describeConfig
 // (the ADL customization point core::ApplyEngine and friends log through -- see
-// core/describe.hpp), plus the guarantee that the engines actually post what those
+// core/driver/describe.hpp), plus the guarantee that the engines actually post what those
 // overloads produce.
 //
 // That second half is the one worth an integration test rather than only a unit
@@ -63,7 +63,7 @@ namespace
             instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Spst1, 4 });
             instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 0 });
 
-            // The journal is process-wide (see core/journal.hpp on why), so
+            // The journal is process-wide (see core/journal/journal.hpp on why), so
             // each test has to leave it as it found it.
             core::journal().clearSinks();
             core::journal().add( sink);
@@ -154,7 +154,7 @@ TEST_F( DescribeFixture, RoutingAndRemovalPostTheInstrumentWithoutSettings)
 //
 // Safing is part of what a run did to the rig, so it has to reach the machine
 // log -- and it is posted before the work rather than after, since the process
-// may not survive to the next statement (see hal/src/safing.cpp).
+// may not survive to the next statement (see hal/src/verbs/safing.cpp).
 //
 TEST_F( DescribeFixture, SafingPostsToTheJournal)
 {

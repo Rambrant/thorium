@@ -10,8 +10,8 @@
 // behaviour-preserving.
 //
 #include "hal/ac6834b.hpp"
-#include "hal/route.hpp"
-#include "hal/source.hpp"
+#include "hal/verbs/route.hpp"
+#include "hal/verbs/source.hpp"
 
 #include <gtest/gtest.h>
 

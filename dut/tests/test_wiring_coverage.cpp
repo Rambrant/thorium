@@ -1,5 +1,5 @@
-#include "hal/adapter.hpp"
-#include "hal/wiring.hpp"
+#include "hal/topology/adapter.hpp"
+#include "hal/topology/wiring.hpp"
 
 #include <gtest/gtest.h>
 
@@ -10,9 +10,9 @@
 
 //
 // A plain #include each: ADAPTER/POINT and CONNECTOR_WIRING/WIRE_CONNECTOR
-// (see hal/adapter.hpp, hal/wiring.hpp) both expand fully qualified, so
+// (see hal/topology/adapter.hpp, hal/topology/wiring.hpp) both expand fully qualified, so
 // nothing else needs to be brought into scope first. This is deliberately
-// the one file that includes both -- see hal/wiring.hpp's own comment on
+// the one file that includes both -- see hal/topology/wiring.hpp's own comment on
 // isWired() for why the check below can't live inside core::MeasureEngine
 // itself.
 //
@@ -35,13 +35,13 @@ namespace thorium_wiring_coverage_check
     // straight out of the template argument, without needing to splice the
     // point object itself. Homogeneous (every point in one ADAPTER shares
     // Loc's type -- hal::VpcLocation here), unlike core::meta::all<Group>()
-    // in core/criterion.hpp, which needs a tuple because CRIT members hold
+    // in core/criteria/criterion.hpp, which needs a tuple because CRIT members hold
     // different Predicate types; a plain array is all this needs.
     //
     // Filtered by kind, because the two kinds of point are checked against
     // opposite tables: a POINT must be reachable through the fabric, a
     // SOURCE_POINT must not be (see core::PointKind, and hal::SourceWiring
-    // in hal/wiring.hpp). Passing the kind as a parameter rather than
+    // in hal/topology/wiring.hpp). Passing the kind as a parameter rather than
     // writing two near-identical walks keeps one definition of "what counts
     // as a point of this adapter" -- a distinction that only matters when a
     // third kind is added, which is exactly when a duplicated walk would
@@ -122,7 +122,7 @@ namespace thorium_wiring_coverage_check
             }
 
             // template_arguments_of(type) is (Loc, Kind) -- AdapterPointTag's
-            // two template parameters, in order (see core/adapter.hpp). Kind
+            // two template parameters, in order (see core/topology/adapter.hpp). Kind
             // is always present even where POINT left it defaulted, since a
             // default template argument is still part of the instantiated
             // type.
@@ -178,7 +178,7 @@ namespace thorium_wiring_coverage_check
 
             static_assert( hal::isWired( location),
                           "a dut POINT has no matching WIRE_CONNECTOR entry in rig/wiring.inc "
-                          "-- see hal::isWired()'s own comment in hal/wiring.hpp");
+                          "-- see hal::isWired()'s own comment in hal/topology/wiring.hpp");
 
             //
             // The adapter must not describe a driven rail as an ordinary

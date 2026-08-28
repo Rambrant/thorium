@@ -7,17 +7,17 @@
 #include <string_view>
 #include <type_traits>
 
-#include "core/describe.hpp"
+#include "core/driver/describe.hpp"
 #include "core/meta.hpp"
-#include "core/port.hpp"
-#include "core/quantity.hpp"
-#include "core/quantity_kind.hpp"
-#include "core/waveform.hpp"
+#include "core/driver/port.hpp"
+#include "core/quantities/quantity.hpp"
+#include "core/quantities/quantity_kind.hpp"
+#include "core/quantities/waveform.hpp"
 
-#include "hal/address.hpp"
-#include "hal/api_version.hpp"
-#include "hal/describe.hpp"
-#include "hal/instrument.hpp"
+#include "hal/driver/address.hpp"
+#include "hal/driver/api_version.hpp"
+#include "hal/driver/describe.hpp"
+#include "hal/driver/instrument.hpp"
 
 //
 // Which hal API version this driver was written against. A driver and the hal
@@ -27,7 +27,7 @@
 // makes that disagreement one readable diagnostic instead of a failure deep
 // inside a template instantiation. A literal, never THORIUM_HAL_API_VERSION
 // itself, which would only assert that this hal matches this hal. See
-// hal/api_version.hpp for what the number means and when it moves.
+// hal/driver/api_version.hpp for what the number means and when it moves.
 //
 THORIUM_REQUIRE_HAL_API( 1);
 
@@ -279,9 +279,9 @@ namespace hal
     // unmeasurable: waveform is clipped high").
     //
     // Hand-written rather than reflected through core::meta::to_string, and
-    // this is exactly the case hal/describe.hpp's describeChoice carves out:
+    // this is exactly the case hal/driver/describe.hpp's describeChoice carves out:
     // the text wanted here is not the enumerator's spelling, it is what the
-    // instrument says. Same split core::to_string(LogLevel) already makes.
+    // instrument says.
     //
     [[nodiscard]]
     constexpr auto to_string( const MeasurementFault fault) -> std::string_view
@@ -484,7 +484,7 @@ namespace hal
 
     //
     // :SINGle, plus the two status registers that make it usable -- the
-    // config behind Arm and Await (see core/acquire.hpp).
+    // config behind Arm and Await (see core/verbs/acquire.hpp).
     //
     // Both verbs take the same config because they are two halves of one
     // operation, and the timeouts belong to the halves rather than to the
@@ -1032,7 +1032,7 @@ namespace hal
 
             //
             // The whole captured record off this channel, for Fetch -- see
-            // core/trace.hpp.
+            // core/verbs/trace.hpp.
             //
             // Not a Port and not a Measure, which is the distinction worth
             // drawing here rather than in core: everything above answers one
@@ -1058,7 +1058,7 @@ namespace hal
     //
     // Agilent/Keysight Infiniium DSO8064A: this rig's actual scope -- four
     // channels, 600 MHz -- replacing the old generic hal::Oscilloscope
-    // placeholder (see that class's own comment, still in hal/instrument.hpp,
+    // placeholder (see that class's own comment, still in hal/driver/instrument.hpp,
     // for why it existed) now that the real model is known, the same
     // retirement hal::L4411A gave the old generic hal::Dmm.
     //
@@ -1069,12 +1069,12 @@ namespace hal
     //             see the config types above for why they are four and not
     //             one.
     //   Arm /  -- :SINGle, bracketing whatever event the script causes.
-    //   Await     See core/acquire.hpp, which is where the verbs live and why
+    //   Await     See core/verbs/acquire.hpp, which is where the verbs live and why
     //             they are generic rather than scope-specific.
     //   Measure-- the :MEASure amplitude and timing families, channel-scoped
     //             via channel<N>()/DSO8064AChannel above.
     //   Fetch  -- :WAVeform, the whole captured record off one channel rather
-    //             than one number measured from it. See core/trace.hpp for the
+    //             than one number measured from it. See core/verbs/trace.hpp for the
     //             verb and core::Waveform for what comes back.
     //
     // Calling one of the Mode-tagged measurement methods switches the
@@ -1092,7 +1092,7 @@ namespace hal
     // one, which is the right order and worth recording: an observation this
     // framework could not replay would have been the one hole in --replay. It
     // can now -- a trace row carries its unit and timebase and refers its
-    // samples to a file beside the recording (see core/recording.hpp) -- so
+    // samples to a file beside the recording (see core/session/recording.hpp) -- so
     // the verb exists.
     //
     // Still deliberately deferred:
@@ -1134,14 +1134,14 @@ namespace hal
             //
             // GPIB, LAN or USB -- all three are on this model's back panel,
             // and which one a given rig cabled is a rig fact rather than a
-            // driver one (see hal::ReachableOver in hal/address.hpp, and
+            // driver one (see hal::ReachableOver in hal/driver/address.hpp, and
             // rig/instrument.inc for this repo's choice).
             //
             template<typename AddressT>
                 requires ReachableOver<AddressT, Gpib, Lan, Usb>
             DSO8064A( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 
-            // Where the PC reaches this scope -- see hal/address.hpp.
+            // Where the PC reaches this scope -- see hal/driver/address.hpp.
             [[nodiscard]]
             auto address() const -> const Address &
             {
@@ -1840,7 +1840,7 @@ namespace hal
     // ADL customization points
     // ---------------------------------------------------------------------
     //
-    // Four setupDriver overloads, one per config type -- see core/source.hpp
+    // Four setupDriver overloads, one per config type -- see core/verbs/source.hpp
     // on why configuring is a verb of its own rather than a flavour of Apply.
     //
     // Note what this driver deliberately does NOT define: applyDriver and
@@ -1877,7 +1877,7 @@ namespace hal
 
     //
     // ADL targets for core::ArmEngine and core::AwaitEngine -- the
-    // triggered-acquisition pair, see core/acquire.hpp for why they are two
+    // triggered-acquisition pair, see core/verbs/acquire.hpp for why they are two
     // verbs and why Arm's post-condition is "armed and ready" rather than
     // "told to arm".
     //
@@ -1893,7 +1893,7 @@ namespace hal
     }
 
     //
-    // ADL target for core::FetchEngine -- the trace verb, see core/trace.hpp.
+    // ADL target for core::FetchEngine -- the trace verb, see core/verbs/trace.hpp.
     //
     [[nodiscard]]
     inline auto fetchDriver( const DSO8064AWaveformConfig & config) -> core::Waveform
@@ -1920,7 +1920,7 @@ namespace hal
     }
 
     //
-    // ADL targets for the run journal -- see core/describe.hpp's own comment
+    // ADL targets for the run journal -- see core/driver/describe.hpp's own comment
     // on the describeConfig customization point.
     //
     // Field by field, and only the fields that were set, for the reason

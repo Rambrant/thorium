@@ -1,4 +1,4 @@
-#include "hal/adapter.hpp"
+#include "hal/topology/adapter.hpp"
 
 #include <gtest/gtest.h>
 
@@ -7,7 +7,7 @@
 //
 // Exercises the actual dut adapter data (not the generic
 // AdapterPointTag mechanism -- see core/tests/test_adapter.cpp for that).
-// A plain #include: ADAPTER/POINT (see hal/adapter.hpp) expand fully
+// A plain #include: ADAPTER/POINT (see hal/topology/adapter.hpp) expand fully
 // qualified, so nothing else needs to be brought into scope first.
 //
 #include "dut/adapter.inc"

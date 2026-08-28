@@ -1,7 +1,7 @@
 #pragma once
 
 //
-// Declarations for the hook-fixture suite -- what core/active_test_catalog.hpp
+// Declarations for the hook-fixture suite -- what core/catalog/active_test_catalog.hpp
 // includes via THORIUM_TEST_SCRIPTS, and what hooked_catalog.inc's
 // RUN_SETUP/RUN_TEARDOWN/TEST entries are name-checked against.
 //
@@ -20,7 +20,7 @@
 //
 // The hooks keep a verdict of their own; the scripts do not. A script's
 // outcome is derived from the checks it records (see core::Journal::endTest and
-// core/test_catalog.hpp), which is why only the hooks return bool.
+// core/catalog/test_catalog.hpp), which is why only the hooks return bool.
 //
 // Nothing here says which pair brackets the run and which brackets one group --
 // that is the catalog's statement (see hooked_catalog.inc), and a hook's type

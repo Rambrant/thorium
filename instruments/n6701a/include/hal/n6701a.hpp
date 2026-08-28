@@ -4,16 +4,16 @@
 #include <string>
 #include <type_traits>
 
-#include "core/describe.hpp"
-#include "core/port.hpp"
-#include "core/quantity.hpp"
+#include "core/driver/describe.hpp"
+#include "core/driver/port.hpp"
+#include "core/quantities/quantity.hpp"
 
-#include "hal/address.hpp"
-#include "hal/api_version.hpp"
-#include "hal/describe.hpp"
-#include "hal/instrument.hpp"
-#include "hal/switch_fabric.hpp"
-#include "hal/wiring.hpp"
+#include "hal/driver/address.hpp"
+#include "hal/driver/api_version.hpp"
+#include "hal/driver/describe.hpp"
+#include "hal/driver/instrument.hpp"
+#include "hal/fabric/switch_fabric.hpp"
+#include "hal/topology/wiring.hpp"
 
 //
 // Which hal API version this driver was written against. A driver and the hal
@@ -23,7 +23,7 @@
 // makes that disagreement one readable diagnostic instead of a failure deep
 // inside a template instantiation. A literal, never THORIUM_HAL_API_VERSION
 // itself, which would only assert that this hal matches this hal. See
-// hal/api_version.hpp for what the number means and when it moves.
+// hal/driver/api_version.hpp for what the number means and when it moves.
 //
 THORIUM_REQUIRE_HAL_API( 1);
 
@@ -86,7 +86,7 @@ namespace hal
     //
     // The fluent chain a script builds up before handing it to Apply/Remove
     // -- exactly the same "return *this by value, updated" shape as
-    // core::Port's range()/nplc()/frequency() builders in core/port.hpp, for
+    // core::Port's range()/nplc()/frequency() builders in core/driver/port.hpp, for
     // the same reason: a bare `DcP1.dc()` with no further calls is still a
     // valid (if underspecified) config.
     //
@@ -193,7 +193,7 @@ namespace hal
             // four modules DcP1..DcP4 model are four endpoints behind ONE
             // interface, so all four rows in a rig's instrument.inc carry the
             // same address and differ in the slot argument below (see
-            // hal::ReachableOver in hal/address.hpp, and rig/
+            // hal::ReachableOver in hal/driver/address.hpp, and rig/
             // active_instruments.hpp for why the slot is a separate argument
             // rather than a field on the address).
             //
@@ -201,7 +201,7 @@ namespace hal
                 requires ReachableOver<AddressT, Gpib, Lan, Usb>
             N6701A( const InstrumentId id, const AddressT address, const int channel) : mId( id), mAddress( address), mChannel( channel) {}
 
-            // Where the PC reaches this mainframe -- see hal/address.hpp.
+            // Where the PC reaches this mainframe -- see hal/driver/address.hpp.
             [[nodiscard]]
             auto address() const -> const Address &
             {
@@ -289,7 +289,7 @@ namespace hal
 
             //
             // Drop this supply to a known idle state, unconditionally --
-            // see hal::safeRig() in hal/safing.hpp for who calls this and
+            // see hal::safeRig() in hal/verbs/safing.hpp for who calls this and
             // why it takes no arguments and reads no state. Not
             // Remove(DcP1.dc()) under another name: Remove is a test-script
             // step, addressed through a config and a builder chain, and
@@ -382,14 +382,14 @@ namespace hal
     using N6701ARelay  = N6701A<RelayIsolated>;
 
     //
-    // ADL targets for core::ApplyEngine/RemoveEngine -- see core/source.hpp's
+    // ADL targets for core::ApplyEngine/RemoveEngine -- see core/verbs/source.hpp's
     // own comment on the applyDriver/removeDriver customization points.
     // Programs -- or disables -- the instrument's simulated output only;
     // the fabric path is a separate concern, see connectDriver/
     // disconnectDriver below. Defined for both Isolation kinds identically
     // -- programming a supply's output doesn't care whether it has a
     // relay in its path. Found via ADL because N6701AConfig lives in
-    // namespace hal, the same trick core/measure.hpp's
+    // namespace hal, the same trick core/verbs/measure.hpp's
     // to_string(instrumentId) call relies on.
     //
     template<typename Isolation>
@@ -405,7 +405,7 @@ namespace hal
     }
 
     //
-    // ADL target for the electrical interlock -- see core/interlock.hpp on the
+    // ADL target for the electrical interlock -- see core/verbs/interlock.hpp on the
     // isEnergised customization point, and core::ConnectEngine/DisconnectEngine
     // for the two callers. Answers whether this supply's output is on at the
     // moment a relay in its path is about to move, which is the difference
@@ -427,9 +427,9 @@ namespace hal
     }
 
     //
-    // ADL target for the run journal -- see core/describe.hpp's own comment on the
+    // ADL target for the run journal -- see core/driver/describe.hpp's own comment on the
     // describeConfig customization point, and hal::describeSetting in
-    // hal/describe.hpp for the optional-field helper. Found the same way
+    // hal/driver/describe.hpp for the optional-field helper. Found the same way
     // applyDriver above is, and required for the same reason: only this config's
     // own type knows which fields it has, so only code alongside it can say what
     // an Apply of it actually did.
@@ -454,7 +454,7 @@ namespace hal
 
     //
     // ADL targets for core::ConnectEngine/DisconnectEngine -- see
-    // core/route.hpp's own comment on the connectDriver/disconnectDriver
+    // core/verbs/route.hpp's own comment on the connectDriver/disconnectDriver
     // customization points. Closes -- or opens -- every fixed path
     // registered for this instrument, together (see
     // hal::InstrumentWiring::findAll() and hal::WireRole's own comment on
