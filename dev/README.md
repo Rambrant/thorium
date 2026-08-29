@@ -32,7 +32,8 @@ Sixty-odd lines of content in total, none of it a special case: every file is th
 ordinary form of its table, with the rows a desk bench has.
 
 The selection is three directory paths — `THORIUM_RIG_DIR`, `THORIUM_DUT_DIR`,
-`THORIUM_SUITE_DIR` — plus the facts that follow from them
+`THORIUM_SUITE_DIR` — plus an optional fourth this bench does not use
+(`THORIUM_ACCEPTANCE_DIR`, see below), plus the facts that follow from them
 (`THORIUM_KNOWN_CRITERIA_VARIANTS`, `THORIUM_INSTRUMENT_PACKAGES`,
 `THORIUM_DUT_NAME`/`THORIUM_RIG_NAME`, `THORIUM_ACCEPTANCE_TESTS`). All of it
 lives in the `macos-dev`/`windows-dev` presets, and the top-level
@@ -146,11 +147,13 @@ its driver header in `dev/rig/active_instruments.hpp`, its package in
 which will fail until you change it, deliberately: what this bench is should not
 widen quietly.
 
-**Acceptance tests.** `dev/suite/acceptance/`, plus dropping
-`THORIUM_ACCEPTANCE_TESTS: "OFF"` from the `dev-deployment` preset. That option
+**Acceptance tests.** `dev/acceptance/` — a fourth directory beside the three
+above, not a subdirectory of `dev/suite/` — plus `THORIUM_ACCEPTANCE_DIR:
+"${sourceDir}/dev/acceptance"` in the `dev-deployment` preset and dropping
+`THORIUM_ACCEPTANCE_TESTS: "OFF"` from it. That option
 is off here because acceptance tests assert on a deployment's own facts — group
 names, the DUT in the report header, the rig's instruments — and the bench's
-(`suite/acceptance/test_acceptance.cpp`) assert on the bench's. The runner they
+(`acceptance/test_acceptance.cpp`) assert on the bench's. The runner they
 drive is shared; what is asserted about it is not. Turning the option on with an
 empty directory is a configure error rather than a quiet skip.
 

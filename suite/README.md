@@ -97,24 +97,18 @@ lives in `endTest`, not in the runner), and a test that only wants the outcome
 needs no recording sink at all -- only one asserting on the individual *rows*
 does.
 
-`acceptance/` holds the black-box tests over the *binary*: they run the built
-`run_scripts` as a subprocess, with real flags and real log files, and assert on
-its stdout, its artifacts and its exit status. Nothing links a Thorium library --
-the command line and what comes back out are the entire interface under test.
+What is *not* here is the black-box tests over the *binary* -- the ones that run
+the built `run_scripts` as a subprocess and assert on its stdout, its artifacts
+and its exit status. Those are deployment content too, but not *suite* content:
+what they assert spans all three legs at once (this suite's group and test names,
+this DUT's name in the report header, this rig's instruments in the log), so they
+sit in a directory of their own beside this one -- `acceptance/`, see
+`acceptance/README.md`.
 
-They live here, in this deployment's suite, rather than beside the runner they
-drive, because that is what they actually assert about: this suite's group and
-test names, this DUT's name in the report header, this rig's instruments in the
-log. None of that is true of a second deployment, which brings its own
-`acceptance/` or sets `THORIUM_ACCEPTANCE_TESTS=OFF` and brings none -- see
-`dev/README.md`. `framework/runner/CMakeLists.txt` discovers the directory by glob,
-the same way it discovers `scripts/` and `tests/`.
-
-What is *not* here is the hook-ordering fixture the acceptance tests use as their
-second runner (`run_scripts_hooked`, over a catalog that announces its own
-`RUN_SETUP`/`SETUP` and can be made to fail on demand). That fixture names no
-instrument and no DUT point, and what it tests is the runner's ordering, so it is
-framework: `framework/runner/tests/fixtures/`.
+They could not have lived under `tests/` in any case: `add_layer_tests()` globs
+that directory with `GLOB_RECURSE` (see `cmake/FetchGTest.cmake`), so at any
+depth they would also be compiled into `scripts_tests`, which does not define the
+paths they need.
 
 ## Layout
 
@@ -139,8 +133,6 @@ suite/
         test_rig_power_on.cpp
         test_rig_power_off.cpp
         test_criteria_variants_compile.cpp
-    acceptance/
-        test_acceptance.cpp          # the built run_scripts, driven as a subprocess
 ```
 
 Related: `framework/runner` (not this directory) is the runner -- `main.cpp` plus the
@@ -148,4 +140,5 @@ two build targets (`scripts`, `run_scripts`) it needs -- and it is framework,
 packaged with `core` and `hal`, holding no DUT-specific content at all. It
 reaches this directory the same way `framework/hal` reaches `rig/`: as a path
 (`THORIUM_SUITE_DIR`), which is why this directory stays free of build files.
-`dut/` holds the DUT-specific data itself -- see `dut/README.md`.
+`dut/` holds the DUT-specific data itself -- see `dut/README.md`. `acceptance/`
+holds the black-box tests over the built binary -- see `acceptance/README.md`.

@@ -3,7 +3,7 @@
 //
 // The catalog for run_scripts_hooked -- the acceptance fixture that actually
 // declares hooks, which the shipped suite/test_catalog.inc does only at the run
-// level. See suite/acceptance/test_acceptance.cpp for what is asserted about it.
+// level. See acceptance/test_acceptance.cpp for what is asserted about it.
 //
 // Also the fixture framework/core/tests/test_run_hooks.cpp resolves, which is a
 // second reason the descriptions below are worth writing carefully: that test

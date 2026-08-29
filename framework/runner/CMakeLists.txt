@@ -193,14 +193,22 @@ if(BUILD_TESTING_LAYERS)
     # instruments in the log. None of that is true of a second deployment.
     #
     # So the sources come from the deployment, globbed out of
-    # THORIUM_SUITE_DIR/acceptance/ the same way its scripts/ and tests/ are, and
-    # this framework directory holds none of them. That is what the option is
-    # for: ON by default, so a deployment that brings acceptance tests gets them
-    # with no configuration at all, and a deployment that brings none says so
-    # once in its preset (see dev/README.md and CMakePresets.json's
-    # dev-deployment).
+    # THORIUM_ACCEPTANCE_DIR the same way its scripts/ and tests/ are, and this
+    # framework directory holds none of them. That is what the option is for: ON
+    # by default, so a deployment that brings acceptance tests gets them with no
+    # configuration at all, and a deployment that brings none says so once in
+    # its preset (see dev/README.md and CMakePresets.json's dev-deployment).
+    #
+    # A directory of its own, beside rig/ dut/ suite/ rather than inside one of
+    # them, because the facts it asserts are spread across all three and belong
+    # to no single leg. Note in particular that it cannot live under
+    # THORIUM_SUITE_DIR/tests: add_layer_tests() globs that path with
+    # GLOB_RECURSE, so at any depth these sources would also be swept into
+    # scripts_tests, where the compile definitions below are not defined. See
+    # cmake/FetchGTest.cmake's note on why sources under a tests/ tree that
+    # belong to another target must sit outside every path handed to it.
     option(THORIUM_ACCEPTANCE_TESTS
-        "Build THORIUM_SUITE_DIR/acceptance/*.cpp -- black-box tests over this deployment's own run_scripts" ON)
+        "Build THORIUM_ACCEPTANCE_DIR/*.cpp -- black-box tests over this deployment's own run_scripts" ON)
 endif()
 
 if(BUILD_TESTING_LAYERS AND THORIUM_ACCEPTANCE_TESTS)
@@ -216,7 +224,7 @@ if(BUILD_TESTING_LAYERS AND THORIUM_ACCEPTANCE_TESTS)
     # (it is strictly black-box -- the binary's stdout and its log files are the
     # entire interface under test), and it needs two paths baked in that only
     # this scope knows.
-    file(GLOB THORIUM_ACCEPTANCE_SOURCES CONFIGURE_DEPENDS "${THORIUM_SUITE_DIR}/acceptance/*.cpp")
+    file(GLOB THORIUM_ACCEPTANCE_SOURCES CONFIGURE_DEPENDS "${THORIUM_ACCEPTANCE_DIR}/*.cpp")
 
     # An empty glob would otherwise reach add_executable as "no sources", whose
     # diagnostic names the target rather than the reason. Fatal rather than
@@ -227,10 +235,11 @@ if(BUILD_TESTING_LAYERS AND THORIUM_ACCEPTANCE_TESTS)
     if(NOT THORIUM_ACCEPTANCE_SOURCES)
         message(FATAL_ERROR
             "THORIUM_ACCEPTANCE_TESTS is ON but there is no *.cpp in "
-            "'${THORIUM_SUITE_DIR}/acceptance' -- either this deployment brings "
-            "black-box tests over its own run_scripts and they belong there, or "
-            "it brings none and should set THORIUM_ACCEPTANCE_TESTS=OFF (see "
-            "CMakePresets.json's dev-deployment).")
+            "THORIUM_ACCEPTANCE_DIR='${THORIUM_ACCEPTANCE_DIR}' -- either this "
+            "deployment brings black-box tests over its own run_scripts and they "
+            "belong there, or it brings none and should set "
+            "THORIUM_ACCEPTANCE_TESTS=OFF (see CMakePresets.json's "
+            "dev-deployment).")
     endif()
 
     add_executable(acceptance_tests ${THORIUM_ACCEPTANCE_SOURCES})

@@ -25,7 +25,7 @@
 # So there is exactly one binary reachable from here -- run_scripts, this
 # suite's catalog runner (see framework/runner/src/main.cpp) -- and the only choices are
 # which of its catalog tests to run. Unit tests, and the run_scripts CLI
-# acceptance tests (suite/acceptance/test_acceptance.cpp), belong to `ctest`:
+# acceptance tests (acceptance/test_acceptance.cpp), belong to `ctest`:
 #
 #     ctest --test-dir <build-dir> --output-on-failure
 #

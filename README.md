@@ -200,8 +200,10 @@ instruments/     THE DRIVERS   -- portable too, but shipped a driver at a time
 rig/             THIS BENCH'S DATA      -- which instruments, wired how,
                  plus the integration tests that need more than one of them
 dut/             THIS DEVICE'S DATA     -- named test points, tolerance tables
-suite/           THIS SUITE'S CONTENT   -- test scripts, the catalog, and the
-                 black-box acceptance tests over this deployment's runner
+suite/           THIS SUITE'S CONTENT   -- test scripts and the catalog
+acceptance/      THIS DEPLOYMENT'S      -- black-box tests over the built
+                 BINARY, TESTED            run_scripts, asserting on facts
+                                           from all three of the above
 
 tools/           run-tests.sh (the tester's picker)
 cmake/           build helpers -- generated criteria tables, the test-target

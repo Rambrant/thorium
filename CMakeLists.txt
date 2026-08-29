@@ -75,7 +75,9 @@ include(CMakePackageConfigHelpers)
 # These three are that knob. A deployment is a directory triple -- which bench,
 # which device, which suite of scripts -- and everything else derives from it:
 # hal's four rig files below, the criteria variant tables, the test catalog,
-# and which tests/ directories the layer test targets glob.
+# and which tests/ directories the layer test targets glob. A fourth directory,
+# acceptance/, is optional and holds no content the binary is built from; see
+# below.
 #
 # The default triple is this repo's own bench, so an ordinary configure is
 # unchanged. dev/ is the second one: a PC and one instrument, no switching
@@ -84,7 +86,11 @@ include(CMakePackageConfigHelpers)
 # (cmake --list-presets) or by hand:
 #
 #     cmake -B build/dev -DTHORIUM_RIG_DIR=dev/rig \
-#         -DTHORIUM_DUT_DIR=dev/dut -DTHORIUM_SUITE_DIR=dev/suite
+#         -DTHORIUM_DUT_DIR=dev/dut -DTHORIUM_SUITE_DIR=dev/suite \
+#         -DTHORIUM_ACCEPTANCE_TESTS=OFF
+#
+# That last one because dev/ brings no acceptance/ of its own -- the fourth,
+# optional leg described below.
 #
 # PATH rather than STRING so a relative value is resolved against the build
 # directory the way CMake resolves every other path variable, and so the GUIs
@@ -103,7 +109,23 @@ set(THORIUM_RIG_DIR "${CMAKE_SOURCE_DIR}/rig" CACHE PATH
 set(THORIUM_DUT_DIR "${CMAKE_SOURCE_DIR}/dut" CACHE PATH
     "This deployment's DUT data: adapter.inc and the criteria_<variant>.inc tables")
 set(THORIUM_SUITE_DIR "${CMAKE_SOURCE_DIR}/suite" CACHE PATH
-    "This deployment's suite: scripts/, test_catalog.inc, scripts.hpp, prelude.hpp")
+    "This deployment's suite: scripts/, tests/, test_catalog.inc, scripts.hpp, prelude.hpp")
+
+# The fourth leg, and the one that is optional. Its tests drive the built
+# run_scripts as a subprocess and assert on this deployment's own facts -- the
+# suite's group and test names, the DUT's name in the report header, the rig's
+# instruments in the log -- so they belong to none of the three directories
+# above and sit beside them instead. A deployment that brings none leaves this
+# pointing at nothing and sets THORIUM_ACCEPTANCE_TESTS=OFF; see
+# framework/runner/CMakeLists.txt and acceptance/README.md.
+#
+# Kept out of the existence check below for exactly that reason: unlike the
+# three above, whose absence is always a mistake, a missing acceptance/ is a
+# legitimate deployment. THORIUM_ACCEPTANCE_TESTS is what settles it, and it
+# reports the empty directory itself with a diagnostic that can say which of
+# the two cases applies.
+set(THORIUM_ACCEPTANCE_DIR "${CMAKE_SOURCE_DIR}/acceptance" CACHE PATH
+    "This deployment's black-box tests over its own run_scripts binary (optional)")
 
 foreach(_thorium_deployment_var THORIUM_RIG_DIR THORIUM_DUT_DIR THORIUM_SUITE_DIR)
     if(NOT IS_DIRECTORY "${${_thorium_deployment_var}}")
@@ -116,6 +138,12 @@ foreach(_thorium_deployment_var THORIUM_RIG_DIR THORIUM_DUT_DIR THORIUM_SUITE_DI
 endforeach()
 
 message(STATUS "Deployment: rig=${THORIUM_RIG_DIR} dut=${THORIUM_DUT_DIR} suite=${THORIUM_SUITE_DIR}")
+
+# Reported separately from the three above because it is the one that can
+# legitimately be absent, and "off" is a fact about this deployment worth seeing
+# in the configure output rather than inferring from a test target's absence.
+# The option itself is declared in framework/runner/CMakeLists.txt, so this runs
+# after add_subdirectory -- see the report at the end of this file.
 
 # --- Criteria/tolerance variants ---
 # Which tolerance tables the scripts layer's CRIT/CRITERIA checks are built
@@ -466,3 +494,13 @@ add_subdirectory(${THORIUM_DUT_DIR} ${CMAKE_BINARY_DIR}/dut)
 # content and the target have to exist first. Where a framework/ directory is
 # configured has never been about where it sits on disk.
 add_subdirectory(framework/runner)
+
+# Reported here rather than beside the other three deployment paths, because
+# THORIUM_ACCEPTANCE_TESTS is declared by the directory just added and does not
+# exist before it. See the acceptance/ paragraph above the deployment-path
+# check for what the fourth leg is and why it is optional.
+if(THORIUM_ACCEPTANCE_TESTS)
+    message(STATUS "Acceptance tests: ${THORIUM_ACCEPTANCE_DIR}")
+else()
+    message(STATUS "Acceptance tests: none (THORIUM_ACCEPTANCE_TESTS=OFF)")
+endif()

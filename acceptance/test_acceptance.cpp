@@ -55,7 +55,7 @@
 // core_tests already owns -- and deliberately strict about wiring.
 //
 // ---------------------------------------------------------------------------
-// Why this lives in the suite rather than beside the runner
+// Why this lives in the deployment rather than beside the runner
 // ---------------------------------------------------------------------------
 // The binary under test is framework -- framework/runner builds it, and every line
 // of it is portable across deployments. What is asserted about it here is not:
@@ -63,10 +63,19 @@
 // rig's instruments in the log, this deployment's three criteria variants. A
 // bench with one meter and one script satisfies none of it.
 //
-// So the tests belong to the deployment whose facts they encode, which is why
-// they sit in suite/acceptance/ and are discovered from there by glob (see
-// framework/runner/CMakeLists.txt). A second deployment writes its own, or sets
-// THORIUM_ACCEPTANCE_TESTS=OFF and writes none -- see dev/README.md.
+// So the tests belong to the deployment whose facts they encode -- and to the
+// deployment as a whole rather than to any one of its legs, which is the second
+// half of the placement. The list above spans all three: suite names, a DUT
+// name, rig instruments. That is why this is a directory beside rig/ dut/
+// suite/ and not inside one of them, discovered by glob from
+// THORIUM_ACCEPTANCE_DIR (see framework/runner/CMakeLists.txt). A second
+// deployment writes its own, or sets THORIUM_ACCEPTANCE_TESTS=OFF and writes
+// none -- see dev/README.md.
+//
+// Note also what suite/tests/ could not have held: add_layer_tests() globs that
+// directory with GLOB_RECURSE, so these sources would be compiled into
+// scripts_tests as well, where the three THORIUM_* definitions below are not
+// defined. See cmake/FetchGTest.cmake.
 //
 // The hook-ordering fixture these tests drive as a second runner is the other
 // half of that split and went the other way: it names no instrument and no DUT
