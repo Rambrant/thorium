@@ -227,3 +227,63 @@ TEST( RigWiringUniqueness, TheOnlySharedElementIsTheMuxCommonsCrosspoint)
     EXPECT_EQ( sharing, 10u);
     EXPECT_EQ( others,  0u);
 }
+
+//
+// ---------------------------------------------------------------------------
+// An instrument is routed or tapped, never both
+// ---------------------------------------------------------------------------
+// The third table's twin of the rule above, and the one thing about
+// TAP_WIRING that has to be checked rather than trusted.
+//
+// core::MeasureEngine asks "does this instrument tap anything" *first*, and
+// never composes a path if the answer is yes -- see its routed overload, which
+// states why it is asked in that order. So a rig that names one instrument in
+// both INSTRUMENT_WIRING and TAP_WIRING has written a matrix path that can
+// never be closed: the wiring row looks complete, the coverage check passes,
+// and every reading through that instrument quietly takes the direct branch
+// while a relay sits in the table doing nothing.
+//
+// Which is not a case for the engine to resolve. It is a contradiction in the
+// rig's own data -- the instrument is either on the fabric or on the DUT, and
+// a bench where it is somehow both is one whose wiring nobody has finished
+// describing. Better as a build error naming the instrument.
+//
+// Both predicates are consteval and both take an InstrumentId, which is an
+// enumerator here rather than a runtime value -- so unlike the pairing check
+// inside core::MeasureEngine, this half genuinely can be settled at compile
+// time, and is.
+//
+// Note this deliberately says nothing about *pins*. Two taps on one node is
+// legal (see hal::TapWiring), and a pin that is both routed and tapped is
+// legal too -- a rack rig may have a mux channel on a pin and a scope probe
+// clipped to it. The contradiction is per instrument, not per pin.
+//
+namespace thorium_instrument_reachability_check
+{
+    consteval auto checkOneWayIn() -> bool
+    {
+        template for( constexpr auto instrument : core::meta::values<hal::InstrumentId>)
+        {
+            static_assert( ! ( hal::isInstrumentWired( instrument) && hal::isTapWiredInstrument( instrument)),
+                           std::string( "an instrument is named by both INSTRUMENT_WIRING and TAP_WIRING in "
+                                        "rig/wiring.inc -- ") + std::string( core::meta::to_string( instrument)) +
+                           " is recorded as routed through the fabric and as cabled straight onto a DUT pin. "
+                           "core::MeasureEngine takes the direct branch for any instrument that taps anything, "
+                           "so the fabric path here can never be closed. See hal::TapWiring.");
+        }
+
+        return true;
+    }
+
+    constexpr bool rigInstrumentsHaveOneWayIn = checkOneWayIn();
+} // namespace thorium_instrument_reachability_check
+
+TEST( RigWiringUniqueness, NoInstrumentIsBothRoutedAndTapped)
+{
+    //
+    // Nothing to run, for the reason the checks above give.
+    //
+    static_assert( thorium_instrument_reachability_check::rigInstrumentsHaveOneWayIn);
+
+    SUCCEED();
+}

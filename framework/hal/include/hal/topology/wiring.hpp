@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <meta>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "hal/driver/instrument.hpp"
@@ -307,6 +308,167 @@ namespace hal
     };
 
     //
+    // The fourth static wiring fact, and the mirror image of SourceWiring
+    // above: which VPC pin a *measuring* instrument's input is permanently
+    // cabled onto.
+    //
+    // This is the table that makes a rig with no switching hardware a
+    // first-class deployment rather than a degraded one. Before it, the four
+    // cells of the wiring grid were three:
+    //
+    //                  | -> Path              | -> VpcLocation
+    //   ---------------+----------------------+----------------
+    //   by instrument  | InstrumentWiring     | SourceWiring / TapWiring
+    //   by location    | ConnectorWiring      | --
+    //
+    // and the missing one had a cost that showed up as soon as anyone tried
+    // to describe a PSU/DMM/scope bench with the instruments bolted straight
+    // to the DUT. A dut POINT must be covered by a WIRE_CONNECTOR row (see
+    // dut/tests/test_wiring_coverage.cpp), a WIRE_CONNECTOR row needs a
+    // HOP( ...), a HOP names a card, and a bench with no cards has none -- so
+    // such a rig could declare no points at all, and every reading on it had
+    // to be spelled point-free. What that loses is not routing, which such a
+    // bench never wanted: it is the DUT vocabulary. The reading keys as
+    // "Dmm1.Voltage" rather than "Output5V", the criteria hang off instrument
+    // names, and a script is not movable between that bench and a rack --
+    // which is the whole thing dev/rig/instrument.inc's choice of `Dmm1` over
+    // `DevDmm` exists to protect.
+    //
+    // Entries are (instrument, location) with no Path, for exactly the reason
+    // SourceWiringEntry has none: the whole content of the fact is that the
+    // fabric is not involved. That also makes TapWiringEntry structural
+    // outright (an enum plus a VpcLocation of enum/integers), so like the
+    // source side and unlike the connector side it needs no reduced key
+    // struct to reach compile time -- see detail::ConnectorWiringKey.
+    //
+    // -- What a tap row means, and what it does not -----------------------
+    //
+    // It opens a *name*, not a route. Nothing composes, nothing closes,
+    // core::MeasureEngine's fabric is never touched for a tapped reading.
+    // That is the same distinction SourceWiring already defends and it holds
+    // here for the same reason -- which is worth stating because "at( ...)
+    // now works on a rig with no fabric" reads at first like a route being
+    // opened to a pin that has none.
+    //
+    // The risk it does carry is different, and quieter: a mislabelled
+    // journal. `at( dut::Output5V)` on a direct-wired bench means "the lead
+    // somebody bolted to Output5V", so if the lead moves and this table does
+    // not, every reading is confidently wrong about which pin it came from. A
+    // mux channel has the same failure mode, but a bad HOP is caught by
+    // hal::hasChannel against the card's real channel space, and a bad
+    // VpcLocation is just another plausible pin. Two things buy most of that
+    // back -- the pairing check in core::MeasureEngine (see isTappedBy below,
+    // and that class's routed overload), and the rule in
+    // rig/tests/test_wiring_uniqueness.cpp that an instrument may not be both
+    // routed and tapped.
+    //
+    // -- Why two taps on one pin is legal, where two sources are not -------
+    //
+    // hal::sourcesAt() is checked <= 1 because two supplies cabled onto one
+    // pin are shorted together. The same count here is deliberately NOT
+    // capped, and the asymmetry is real rather than an oversight: a scope
+    // probe and a meter lead on one node are two high-impedance taps in
+    // parallel, which is the ordinary way that bench is built and very often
+    // the point of building it. Nor is it ambiguous, because a tapped reading
+    // names both halves at the call site -- the port says which instrument,
+    // at( ...) says which pin -- so Measure( Dmm1.voltage(), at( p)) and
+    // Measure( Osc1.channel<1>().vpp(), at( p)) are two different, correct
+    // readings of one node.
+    //
+    // -- Keyed by InstrumentId alone, and what that cannot check -----------
+    //
+    // A multichannel meter cabled to eight pins is eight rows under one
+    // InstrumentId, the same shape AcP1's four landing pins already have. So
+    // the pairing check below answers "is this instrument cabled to this pin
+    // at all" and not "on which channel" -- because a core::Port does not
+    // carry its channel. A scope channel is instrument state set by
+    // DSO8064AChannel::method() and the port's qualifier holds the
+    // measurement mode ("Vpp"), not the channel; making the channel visible
+    // here would mean threading it through core::Port and every driver.
+    //
+    // That is the same limit rig/wiring.inc already states for Osc1 on the
+    // routed side ("wiring is keyed by InstrumentId, and an instrument is one
+    // key"), and it is recorded here rather than worked around because the
+    // check that remains is still the one that catches the mistake people
+    // actually make -- pointing at a pin this instrument is not on at all.
+    //
+    struct TapWiringEntry
+    {
+        InstrumentId  instrument;
+        VpcLocation   location;
+
+        friend constexpr auto operator==( TapWiringEntry, TapWiringEntry) -> bool = default;
+    };
+
+    class TapWiring
+    {
+        public:
+            //
+            // See WIRE_TAP below for the declarative form. Named addTap
+            // rather than addWire for the reason SourceWiring::addLanding is:
+            // what it records is not a wire through the fabric, and keeping
+            // the verb distinct from InstrumentWiring/ConnectorWiring's
+            // addWire() is the point.
+            //
+            auto addTap( InstrumentId instrument, VpcLocation location) -> void;
+
+            //
+            // Is this instrument cabled straight onto anything at all?
+            //
+            // core::MeasureEngine asks this first, and the answer decides
+            // which kind of rig this instrument lives on: false means routed
+            // (compose a path, close it, read, open it) and true means direct
+            // (no fabric, and the pin had better be the one below). An
+            // instrument cannot be both -- see
+            // rig/tests/test_wiring_uniqueness.cpp, which makes that a build
+            // error rather than leaving it to this ordering to resolve
+            // silently.
+            //
+            [[nodiscard]]
+            auto taps( InstrumentId instrument) const -> bool;
+
+            //
+            // Is this instrument cabled onto *this* pin?
+            //
+            // The pairing check, and the reason this table is not simply a
+            // lookup: at a tapped call site both halves are already known --
+            // the port names the instrument, at( ...) names the pin -- so
+            // there is nothing to resolve, only something to confirm. Getting
+            // it wrong is the quiet failure this table introduces (a reading
+            // taken from whichever pin the lead is actually on, filed under
+            // the pin the script asked for), so core::MeasureEngine refuses
+            // rather than reads.
+            //
+            [[nodiscard]]
+            auto isTappedBy( InstrumentId instrument, VpcLocation location) const -> bool;
+
+            //
+            // Every pin this instrument taps. Empty for every routed
+            // instrument on the rig, which is the ordinary answer and not an
+            // error -- the same contract SourceWiring::findAll() has.
+            //
+            [[nodiscard]]
+            auto findAll( InstrumentId instrument) const -> std::vector<VpcLocation>;
+
+            //
+            // Where this instrument actually is cabled, as text, for the
+            // refusal core::MeasureEngine raises when a script points a
+            // tapped instrument at the wrong pin.
+            //
+            // Here rather than in core because core::MeasureEngine is generic
+            // over the location type and has no idea how to spell one --
+            // exactly the reasoning that keeps to_string( instrumentId) an
+            // unqualified ADL call in that header. This hands it a finished
+            // string instead.
+            //
+            [[nodiscard]]
+            auto describeTaps( InstrumentId instrument) const -> std::string;
+
+        private:
+            std::vector<TapWiringEntry> mEntries;
+    };
+
+    //
     // True if this rig's CONNECTOR_WIRING table (see rig/wiring.inc) has a
     // fixed path for this location/role -- see this file's own comment
     // above for why this is a standalone predicate rather than a
@@ -360,6 +522,51 @@ namespace hal
     //
     [[nodiscard]]
     consteval auto isSourceWired( VpcLocation location) -> bool;
+
+    //
+    // How many measuring instruments are cabled straight onto this pin, per
+    // this rig's TAP_WIRING table. The tap-side counterpart of sourcesAt()
+    // above, DEFINED by the TAP_WIRING/END_TAP_WIRING macro pair below for
+    // the same reason -- see isWired()'s own comment.
+    //
+    // A count, like sourcesAt(), but for a different caller: nothing checks
+    // it <= 1, because two taps on one node is the ordinary way a direct-wired
+    // bench is built (see hal::TapWiring's own comment on why that asymmetry
+    // with the source side is real). It is a count rather than a bool so a
+    // rig-side check that wants to say something about how a pin is reached
+    // can, without this file having to guess in advance which question that
+    // is.
+    //
+    [[nodiscard]]
+    consteval auto tapsAt( VpcLocation location) -> std::size_t;
+
+    //
+    // Whether any measuring instrument is cabled onto this pin at all.
+    //
+    // This is the predicate that makes a fabric-free rig declarable: a dut
+    // POINT is covered when the rig either routes to it or cables to it, and
+    // dut/tests/test_wiring_coverage.cpp asks exactly that (isWired ||
+    // isTapWired). Before this existed, "covered" meant "routed", so a bench
+    // with no cards could declare no points -- see hal::TapWiring's own
+    // comment for what that cost.
+    //
+    [[nodiscard]]
+    consteval auto isTapWired( VpcLocation location) -> bool;
+
+    //
+    // Whether this instrument is cabled straight onto anything, per this
+    // rig's TAP_WIRING table -- the build-time twin of TapWiring::taps().
+    //
+    // Exists for one check and is worth having only because of it: an
+    // instrument must not appear in both INSTRUMENT_WIRING and TAP_WIRING.
+    // core::MeasureEngine asks "does this instrument tap anything" first and
+    // never composes a path if the answer is yes, so a rig that says an
+    // instrument is both routed and cabled has written a matrix path that can
+    // never be closed. Pairing this with isInstrumentWired() above catches
+    // that at build time; see rig/tests/test_wiring_uniqueness.cpp.
+    //
+    [[nodiscard]]
+    consteval auto isTapWiredInstrument( InstrumentId instrument) -> bool;
 
     //
     // ---------------------------------------------------------------------
@@ -812,5 +1019,95 @@ namespace hal
     inline consteval auto isSourceWired( VpcLocation location) -> bool           \
     {                                                                            \
         return sourcesAt( location) > 0;                                        \
+    }                                                                            \
+    }
+
+//
+// TAP_WIRING / WIRE_TAP / END_TAP_WIRING: the fourth table, naming which VPC
+// pin each direct-wired *measuring* instrument's input is cabled onto -- see
+// hal::TapWiring above for what the fact is, and why it is neither an
+// InstrumentWiring entry (there is no path) nor a SourceWiring one (nothing
+// is being driven).
+//
+//   TAP_WIRING
+//       WIRE_TAP( Dmm1, A, 1, 5)
+//       WIRE_TAP( Osc1, A, 1, 5)   // scope and meter on one node
+//   END_TAP_WIRING
+//
+// One row per pin, so a multichannel meter cabled to eight pins is eight rows
+// under one InstrumentId -- the same shape WIRE_SOURCE already uses for
+// AcP1's four landing pins, and with the same limit: this is keyed by
+// instrument, not by (instrument, channel). See hal::TapWiring's own comment
+// for why the channel is out of reach and what the check that remains still
+// catches.
+//
+// No HOP( ...) and no Path, exactly as WIRE_SOURCE has none. That is the
+// entire content of the fact.
+//
+// Same three-readers-from-one-list expansion as the three tables above -- the
+// runtime hal::tapWiring, a compile-time entry array, and tapsAt()/
+// isTapWired()/isTapWiredInstrument() themselves -- so no rig can record a
+// tap for the runtime table and not for the build-time checks.
+//
+// A rig with no direct-wired instruments still writes the empty table rather
+// than omitting it, for the reason every other block here gives: the three
+// predicates are declared unconditionally above and defined only here, so
+// leaving it out makes a translation unit that asks the question fail to link
+// rather than answer "no". That is the ordinary case today -- a rack rig
+// routes everything and writes an empty block (see rig/wiring.inc).
+//
+// buildTapWiringEntries() is constexpr rather than consteval for the same
+// reason its three counterparts are -- see CONNECTOR_WIRING's comment above.
+//
+#define TAP_WIRING                                                              \
+    namespace hal { namespace detail {                                          \
+    constexpr auto buildTapWiringEntries() -> std::vector<TapWiringEntry>       \
+    {                                                                            \
+        std::vector<TapWiringEntry> entries;
+
+#define WIRE_TAP( instrument, rack, connector, pin) \
+        entries.push_back( TapWiringEntry{ InstrumentId::instrument, VpcLocation{ VpcRack::rack, connector, pin } });
+
+#define END_TAP_WIRING                                                          \
+        return entries;                                                        \
+    }                                                                           \
+    inline constexpr auto tapWiringEntries =                                    \
+        std::define_static_array( buildTapWiringEntries());                     \
+    } /* namespace detail */                                                    \
+    inline const TapWiring tapWiring = []                                       \
+    {                                                                            \
+        TapWiring w;                                                            \
+        for( const auto & entry : detail::buildTapWiringEntries())              \
+        {                                                                        \
+            w.addTap( entry.instrument, entry.location);                        \
+        }                                                                        \
+        return w;                                                                \
+    }();                                                                         \
+    inline consteval auto tapsAt( VpcLocation location) -> std::size_t           \
+    {                                                                            \
+        std::size_t count = 0;                                                  \
+        for( const auto & entry : detail::tapWiringEntries)                     \
+        {                                                                        \
+            if( entry.location == location)                                     \
+            {                                                                    \
+                ++count;                                                         \
+            }                                                                    \
+        }                                                                        \
+        return count;                                                            \
+    }                                                                            \
+    inline consteval auto isTapWired( VpcLocation location) -> bool              \
+    {                                                                            \
+        return tapsAt( location) > 0;                                           \
+    }                                                                            \
+    inline consteval auto isTapWiredInstrument( InstrumentId instrument) -> bool \
+    {                                                                            \
+        for( const auto & entry : detail::tapWiringEntries)                     \
+        {                                                                        \
+            if( entry.instrument == instrument)                                 \
+            {                                                                    \
+                return true;                                                     \
+            }                                                                    \
+        }                                                                        \
+        return false;                                                            \
     }                                                                            \
     }

@@ -130,12 +130,21 @@ its logical address to a real secondary, so it carries one and `NoCard`.
 
 ## wiring.inc
 
-This rig's two static wiring facts (see `hal/topology/wiring.hpp`'s own comment):
-which channel each instrument is hard-wired to, and which channel each VPC
-connector pin is hard-wired to. Read by `hal/verbs/measure.cpp` and
-`hal/verbs/route.cpp`, each needing its own declaration of the resulting (inline)
-`hal::instrumentWiring`/`hal::connectorWiring` tables since each is its own
-translation unit.
+Four blocks, of which two hold this rig's static *path* facts (see
+`hal/topology/wiring.hpp`'s own comment): which channel each instrument is
+hard-wired to, and which channel each VPC connector pin is hard-wired to. Read
+by `hal/verbs/measure.cpp` and `hal/verbs/route.cpp`, each needing its own
+declaration of the resulting (inline) tables since each is its own translation
+unit.
+
+The other two hold pins rather than paths, and record connections that bypass
+the fabric entirely: `SOURCE_WIRING`, where each fixed-wired supply's output
+lands, and `TAP_WIRING`, where a measuring instrument's leads are cabled
+straight onto a pin. This rig's `TAP_WIRING` is empty and structurally so — it
+has a fabric precisely so its three meters do not need bolting to anything, and
+`rig/tests/test_wiring_uniqueness.cpp` makes an instrument named in both that
+block and `INSTRUMENT_WIRING` a build error. The table exists for the
+deployment with no cards at all; see `hal::TapWiring`.
 
 A route is the composition of those two halves, closed together, which only
 works where they meet -- so the topology this file describes is built around

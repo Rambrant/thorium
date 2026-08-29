@@ -441,8 +441,12 @@ Measure( Osc1.channel<1>().frequency(), at( dut::Output12V));   // ripple
 ```
 
 The identifier cannot start with a digit, so a spec label like "12VOutput"
-becomes `Output12V`. **Forget the matching `WIRE_CONNECTOR` and `dut_tests` will
-not build** — that is the coverage check, not a runtime surprise.
+becomes `Output12V`. **Forget to wire the pin and `dut_tests` will not build**
+— that is the coverage check, not a runtime surprise. Wiring it means one of
+two rows: a `WIRE_CONNECTOR` row on a rig with a switching fabric, or a
+`WIRE_TAP` row on one whose instruments are cabled straight to the DUT (see
+`hal::TapWiring`). The coverage check accepts either, which is what lets a
+bench with no cards declare points at all.
 
 ### Add a criterion
 

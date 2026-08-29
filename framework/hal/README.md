@@ -178,12 +178,26 @@ A rig's own `wiring.inc` (`rig/wiring.inc` in this repo, reached from
 `hal/verbs/measure.cpp`/`hal/verbs/route.cpp` via `THORIUM_WIRING_TABLE` rather than a
 hardcoded path -- see this directory's own `CMakeLists.txt`) holds the
 actual data, built via
-`INSTRUMENT_WIRING`/`WIRE_INSTRUMENT`/`END_INSTRUMENT_WIRING` and
-`CONNECTOR_WIRING`/`WIRE_CONNECTOR`/`END_CONNECTOR_WIRING` (see
-`wiring.hpp`'s own comment). Each rig has exactly one instance of each
-table, unlike `CRITERIA` (several groups per file), so these macros build
-one fixed, namespaced global (`hal::instrumentWiring`/`hal::connectorWiring`)
-rather than taking a name. `ADAPTER` is the same one-per-build case and takes
+`INSTRUMENT_WIRING`/`WIRE_INSTRUMENT`/`END_INSTRUMENT_WIRING`,
+`CONNECTOR_WIRING`/`WIRE_CONNECTOR`/`END_CONNECTOR_WIRING`,
+`SOURCE_WIRING`/`WIRE_SOURCE`/`END_SOURCE_WIRING` and
+`TAP_WIRING`/`WIRE_TAP`/`END_TAP_WIRING` (see `wiring.hpp`'s own comment).
+
+The first two hold paths; the last two hold pins, and record connections the
+fabric is not part of at all — where a supply's output is cabled, and where a
+measuring instrument's leads are bolted. `TAP_WIRING` is what makes a rig with
+no switching hardware describable rather than merely runnable: the coverage
+check accepts a `POINT` covered by a tap row, so a bench of instruments cabled
+straight to the DUT keeps the `at(...)` vocabulary instead of falling back to
+point-free readings keyed by instrument. `core::MeasureEngine` asks that table
+first on every reading and takes the direct branch for a tapped instrument —
+which is also why an instrument may not appear in both it and
+`INSTRUMENT_WIRING` (`rig/tests/test_wiring_uniqueness.cpp`).
+
+Each rig has exactly one instance of each table, unlike `CRITERIA` (several
+groups per file), so these macros build one fixed, namespaced global
+(`hal::instrumentWiring`/`hal::connectorWiring`/`hal::sourceWiring`/
+`hal::tapWiring`) rather than taking a name. `ADAPTER` is the same one-per-build case and takes
 no name either.
 Both `hal/verbs/measure.cpp` and `hal/verbs/route.cpp` `#include` it, since each is its
 own translation unit needing its own declaration of the (inline) tables --

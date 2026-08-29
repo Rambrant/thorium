@@ -176,9 +176,31 @@ namespace thorium_wiring_coverage_check
         {
             constexpr auto location = [: locationRef :];
 
-            static_assert( hal::isWired( location),
-                          "a dut POINT has no matching WIRE_CONNECTOR entry in rig/wiring.inc "
-                          "-- see hal::isWired()'s own comment in hal/topology/wiring.hpp");
+            //
+            // Routed *or* tapped. A point is covered when this rig can reach
+            // it, and there are two ways to reach a pin: through the fabric
+            // (a WIRE_CONNECTOR row) or by an instrument's leads being bolted
+            // to it (a WIRE_TAP row -- see hal::TapWiring).
+            //
+            // This used to be isWired() alone, which quietly made "covered"
+            // mean "routed" and so made a POINT undeclarable on a bench with
+            // no switching hardware: a WIRE_CONNECTOR row needs a HOP, a HOP
+            // needs a card, and such a bench has none. What that cost was not
+            // routing -- which that bench never wanted -- but the DUT
+            // vocabulary: every reading on it had to be spelled point-free
+            // and keyed by the instrument.
+            //
+            // Deliberately an `or` and not a stricter rule about which. A pin
+            // can legitimately be both: a rack rig can have a mux channel on
+            // a pin *and* a scope probe clipped to it, and neither row makes
+            // the other wrong. What is being asserted is reachability, which
+            // is exactly what a script pointing at this pin depends on.
+            //
+            static_assert( hal::isWired( location) || hal::isTapWired( location),
+                          "a dut POINT has no matching WIRE_CONNECTOR or WIRE_TAP entry in "
+                          "rig/wiring.inc -- this rig neither routes to this pin nor cables an "
+                          "instrument onto it, so nothing can measure there. See hal::isWired() "
+                          "and hal::isTapWired() in hal/topology/wiring.hpp");
 
             //
             // The adapter must not describe a driven rail as an ordinary

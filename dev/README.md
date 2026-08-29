@@ -49,7 +49,10 @@ const auto reference = Measure( Dmm1.voltage());
 
 No `at(...)`, no path composed, no relay closed. It was written for a supply
 reading back its own output at full load, and it is exactly what a bench with no
-fabric needs for every reading it takes. Everything after it is identical to a
+fabric and no declared points needs for every reading it takes. (A bench that
+declares points reaches them with `at(...)` and no fabric either — see
+"Points, but only until someone writes one" below, which is the same story from
+the other end.) Everything after it is identical to a
 bench script: the same `Verify`, the same criteria lookup, the same journal
 events, the same RTF and SARIF rows, the same verdict rule.
 
@@ -59,13 +62,31 @@ verify, both sinks — and the only thing absent is the routing.
 ## What it does not exercise, and what to do about it
 
 **The fabric.** With no cards declared there is no `hal::SwitchDeviceId` to name,
-so `HOP(...)` cannot be written, `Measure( port, at( point))` cannot be written,
-and path composition, `hal::SwitchFabric` and the electrical interlock never run.
-That is not a gap in this deployment — it is what a desk with no relays *is*. If
-you want the routed path in the dev loop, put one real mux card on the desk: one
-row in `dev/rig/devices.inc`, one `WIRE_INSTRUMENT`, one `WIRE_CONNECTOR`, one
-`POINT`, and the entire routed half comes back. The framework needs no change for
-it.
+so `HOP(...)` cannot be written, and path composition, `hal::SwitchFabric` and
+the electrical interlock's fabric side never run. That is not a gap in this
+deployment — it is what a desk with no relays *is*. If you want the routed path
+in the dev loop, put one real mux card on the desk: one row in
+`dev/rig/devices.inc`, one `WIRE_INSTRUMENT`, one `WIRE_CONNECTOR`, one `POINT`,
+and the entire routed half comes back. The framework needs no change for it.
+
+**Points, but only until someone writes one.** `Measure( port, at( point))` is
+no longer out of reach here, and that is the one item on this list the framework
+*did* change to fix. A `WIRE_TAP` row names an instrument and a VPC pin with no
+path at all (see `hal::TapWiring`), and
+`dut/tests/test_wiring_coverage.cpp` accepts a point covered by one — so a
+`POINT` in `dev/dut/adapter.inc` plus a `WIRE_TAP` row in `dev/rig/wiring.inc`
+is a complete, checked declaration with no card anywhere in it. What that buys
+is the `at(...)` half: the coverage check, point-keyed session and journal keys,
+and the interlock if the meter ever shares a pin with a supply. Both tables are
+empty today because there is no fixture on this desk, not because the shape does
+not fit.
+
+Note the rule that comes with it. Once an instrument is tapped, the point-free
+spelling is refused for it — `Measure( Dmm1.voltage())` throws and says to write
+`at(...)` instead. The two would otherwise key one node two ways, as
+`Dmm1.Voltage` and as the pin name, and a suite that mixed them would record
+under both. Nothing on this desk is tapped today, so `Measure( Dmm1.voltage())`
+above stays exactly as correct as it has always been.
 
 **Transport.** Still absent, and still the point. A run with the bench attached
 reads `0 V` and fails, correctly — nothing is at the other end of

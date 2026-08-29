@@ -62,9 +62,9 @@ namespace
     static_assert( hal::detail::switchDevices.empty());
 
     //
-    // -- Which is why all three wiring tables are empty ----------------------
+    // -- Which is why the first three wiring tables are empty ----------------
     //
-    // Not an independent fact: a row in any of these blocks would have to name
+    // Not an independent fact: a row in any of those blocks would have to name
     // a card, and there are none. Asserted anyway, because "empty because it
     // has to be" and "empty because nobody has written it yet" look identical
     // in the file and are the same two things dev/rig/wiring.inc's own comment
@@ -72,6 +72,24 @@ namespace
     //
     static_assert( ! hal::isWired( hal::VpcLocation{ hal::VpcRack::A, 1, 3 }, hal::WireRole::Force));
     static_assert( ! hal::isSourceWired( hal::VpcLocation{ hal::VpcRack::A, 1, 3 }));
+
+    //
+    // -- And why the fourth is empty for a different reason -------------------
+    //
+    // TAP_WIRING names no card (see hal::TapWiring -- a tap row is
+    // (instrument, pin) with no path at all), so nothing about a bench with no
+    // switching hardware forces this one to be empty. What does is that this
+    // deployment declares no POINT to name: dev/dut/adapter.inc has none.
+    //
+    // Asserted as both halves, because they are two different claims and the
+    // second is the one that would go stale first: no pin is tapped, and Dmm1
+    // taps nothing -- so every reading here takes core::MeasureEngine's
+    // point-free overload, and takes it legally rather than by omission. The
+    // day a WIRE_TAP row is added, that overload starts refusing Dmm1 and this
+    // assertion is what says so.
+    //
+    static_assert( ! hal::isTapWired( hal::VpcLocation{ hal::VpcRack::A, 1, 3 }));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Dmm1));
 
     //
     // -- The one driver still owes the framework what every driver owes -------

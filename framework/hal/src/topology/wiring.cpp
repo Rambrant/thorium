@@ -162,4 +162,87 @@ namespace hal
         //
         return locations;
     }
+
+    auto TapWiring::addTap( const InstrumentId instrument, const VpcLocation location) -> void
+    {
+        mEntries.push_back( TapWiringEntry{ instrument, location });
+    }
+
+    auto TapWiring::taps( const InstrumentId instrument) const -> bool
+    {
+        for( const auto & entry : mEntries)
+        {
+            if( entry.instrument == instrument)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    auto TapWiring::isTappedBy( const InstrumentId instrument, const VpcLocation location) const -> bool
+    {
+        for( const auto & entry : mEntries)
+        {
+            if( entry.instrument == instrument && entry.location == location)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    auto TapWiring::findAll( const InstrumentId instrument) const -> std::vector<VpcLocation>
+    {
+        std::vector<VpcLocation> locations;
+
+        for( const auto & entry : mEntries)
+        {
+            if( entry.instrument == instrument)
+            {
+                locations.push_back( entry.location);
+            }
+        }
+
+        //
+        // No throw on empty, exactly as SourceWiring::findAll() has none, and
+        // for the same reason: "this instrument taps nothing" is the correct
+        // answer for every routed instrument on a rack rig.
+        //
+        return locations;
+    }
+
+    auto TapWiring::describeTaps( const InstrumentId instrument) const -> std::string
+    {
+        //
+        // "none" rather than an empty string, because the one caller is a
+        // refusal message (see core::MeasureEngine) and an empty tail there
+        // would read as a truncated sentence rather than as an answer. That
+        // caller only asks about instruments taps() said yes to, so "none" is
+        // not reachable through it -- it is what this returns for anyone else
+        // who asks, rather than a case the message has to guard.
+        //
+        const auto locations = findAll( instrument);
+
+        if( locations.empty())
+        {
+            return "none";
+        }
+
+        std::string described;
+
+        for( const auto & location : locations)
+        {
+            if( ! described.empty())
+            {
+                described += ", ";
+            }
+
+            described += to_string( location);
+        }
+
+        return described;
+    }
 } // namespace hal

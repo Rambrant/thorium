@@ -5,6 +5,7 @@
 #include <fstream>
 #include <generator>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -127,6 +128,65 @@ namespace mock
             std::vector<std::pair<Location, Channel>> mEntries;
     };
 
+    //
+    // The fourth table's stand-in -- see core::MeasureEngine's own comment on
+    // TapWiringT for the three members it needs and what they decide.
+    //
+    // Note it holds no Channel at all, unlike the two above. That is the
+    // whole content of the fact it records: a tapped instrument's leads are
+    // bolted to a DUT pin and there is no fabric between them, so there is
+    // nothing to compose and nothing to close (see hal::TapWiring).
+    //
+    class TapWiring
+    {
+        public:
+            auto addTap( InstrumentId instrument, Location location) -> void { mEntries.push_back( { instrument, location }); }
+
+            [[nodiscard]] auto taps( InstrumentId instrument) const -> bool
+            {
+                for( const auto & [ id, location] : mEntries)
+                {
+                    if( id == instrument) return true;
+                }
+                return false;
+            }
+
+            [[nodiscard]] auto isTappedBy( InstrumentId instrument, Location location) const -> bool
+            {
+                for( const auto & [ id, loc] : mEntries)
+                {
+                    if( id == instrument && loc == location) return true;
+                }
+                return false;
+            }
+
+            //
+            // The real hal::TapWiring spells its locations with
+            // hal::to_string( VpcLocation); this mock's Location is an int in
+            // a struct, so this is the same job at this mock's scale. Its one
+            // caller is a refusal message, and the tests below assert on that
+            // message's shape rather than on this exact spelling.
+            //
+            [[nodiscard]] auto describeTaps( InstrumentId instrument) const -> std::string
+            {
+                std::string described;
+
+                for( const auto & [ id, location] : mEntries)
+                {
+                    if( id != instrument) continue;
+
+                    if( ! described.empty()) described += ", ";
+
+                    described += std::to_string( location.value);
+                }
+
+                return described.empty() ? "none" : described;
+            }
+
+        private:
+            std::vector<std::pair<InstrumentId, Location>> mEntries;
+    };
+
     class Instrument
     {
         public:
@@ -182,9 +242,18 @@ namespace
         mock::Fabric            fabric;
         mock::InstrumentWiring  instrumentWiring;
         mock::ConnectorWiring   connectorWiring;
+
+        //
+        // Left empty by this fixture, so every test using it describes a
+        // routed rig -- which is what these tests were written against and
+        // what the fork in core::MeasureEngine has to keep behaving exactly
+        // as it did. The direct-wired half has its own fixture below.
+        //
+        mock::TapWiring         tapWiring;
         mock::Instrument        dmm1{ mock::InstrumentId::Dmm1 };
 
-        core::MeasureEngine<mock::Fabric, mock::InstrumentWiring, mock::ConnectorWiring> Measure{ fabric, instrumentWiring, connectorWiring };
+        core::MeasureEngine<mock::Fabric, mock::InstrumentWiring, mock::ConnectorWiring, mock::TapWiring>
+            Measure{ fabric, instrumentWiring, connectorWiring, tapWiring };
 
         MeasureEngineFixture()
         {
@@ -338,7 +407,8 @@ TEST_F( MeasureEngineFixture, RecordingCapturesEachFetchThenLoadReplaysItInOrder
         Measure.dump( out);
     }
 
-    core::MeasureEngine<mock::Fabric, mock::InstrumentWiring, mock::ConnectorWiring> playback{ fabric, instrumentWiring, connectorWiring };
+    core::MeasureEngine<mock::Fabric, mock::InstrumentWiring, mock::ConnectorWiring, mock::TapWiring>
+        playback{ fabric, instrumentWiring, connectorWiring, tapWiring };
     playback.load( path.string());
 
     const auto first  = playback( dmm1.voltage(), at( Output5V));
@@ -527,4 +597,208 @@ TEST_F( UnmeasurableLogFixture, AnOrdinaryReadingSaysNothingAboutBeingUnmeasurab
 
     ASSERT_EQ( sink.Events.size(), 1u);
     EXPECT_EQ( sink.Events.front().Detail, "5Vdc supply port");
+}
+
+//
+// ---------------------------------------------------------------------------
+// The direct-wired rig
+// ---------------------------------------------------------------------------
+// A bench with no switching hardware at all: a meter whose leads are bolted to
+// a DUT pin. Everything below is about the fork core::MeasureEngine takes on
+// TapWiringT -- see that class's own comment, and hal::TapWiring for the fact
+// the table records.
+//
+// The fixture wires nothing into the fabric on purpose. instrumentWiring and
+// connectorWiring are left empty, so any test here that accidentally took the
+// routed branch would throw "not wired" from the mock rather than quietly
+// passing -- which makes "the fabric was not consulted" an assertion this
+// fixture makes structurally rather than one each test has to remember.
+//
+namespace
+{
+    struct DirectWiredFixture : ::testing::Test
+    {
+        mock::Fabric            fabric;
+        mock::InstrumentWiring  instrumentWiring;
+        mock::ConnectorWiring   connectorWiring;
+        mock::TapWiring         tapWiring;
+        mock::Instrument        dmm1{ mock::InstrumentId::Dmm1 };
+        mock::Instrument        dmm2{ mock::InstrumentId::Dmm2 };
+
+        core::MeasureEngine<mock::Fabric, mock::InstrumentWiring, mock::ConnectorWiring, mock::TapWiring>
+            Measure{ fabric, instrumentWiring, connectorWiring, tapWiring };
+
+        DirectWiredFixture()
+        {
+            tapWiring.addTap( mock::InstrumentId::Dmm1, kLoc);
+        }
+    };
+} // namespace
+
+//
+// The reading this whole table exists to make possible: a point named at the
+// call site, on a rig that can route to nothing.
+//
+TEST_F( DirectWiredFixture, ATappedInstrumentReadsAtItsPointWithNoFabricAtAll)
+{
+    dmm1.setSimulatedVoltage( 5.02_V);
+
+    const auto value = Measure( dmm1.voltage(), at( Output5V));
+
+    EXPECT_DOUBLE_EQ( value.value(), 5.02);
+
+    //
+    // Not "connected an empty path" -- never asked the fabric anything. The
+    // difference is the point of the branch rather than an implementation
+    // detail: a tapped reading is a different kind of connection, not a
+    // degenerate route.
+    //
+    EXPECT_TRUE( fabric.lastConnected().empty());
+    EXPECT_TRUE( fabric.lastDisconnected().empty());
+}
+
+//
+// And it keys by the pin, which is the entire reason for preferring at( ...)
+// over the point-free spelling on a bench where both would read the same
+// voltage -- see the refusal test below.
+//
+TEST_F( DirectWiredFixture, ATappedReadingIsKeyedByThePinNotTheInstrument)
+{
+    dmm1.setSimulatedVoltage( 5.02_V);
+
+    Measure.startRecording();
+    (void)Measure( dmm1.voltage(), at( Output5V));
+    Measure.stopRecording();
+
+    std::ostringstream recorded;
+    Measure.dump( recorded);
+
+    EXPECT_NE( recorded.str().find( "Output5V"), std::string::npos);
+}
+
+//
+// The pairing check. This is the quiet failure the table introduces -- a
+// reading taken from whichever pin the lead is really on, filed under the pin
+// the script asked for -- and there is no card channel space to catch it the
+// way a mistyped HOP would be caught.
+//
+TEST_F( DirectWiredFixture, PointingATappedInstrumentAtAPinItIsNotOnIsRefused)
+{
+    dmm1.setSimulatedVoltage( 5.02_V);
+
+    EXPECT_THROW( (void)Measure( dmm1.voltage(), at( Output3V3)), std::runtime_error);
+}
+
+//
+// The refusal names where the instrument actually is, because "no path to
+// Output3V3" on a bench with no paths at all would send the reader looking
+// for a wiring table that does not exist.
+//
+TEST_F( DirectWiredFixture, TheRefusalSaysWhereTheInstrumentIsCabled)
+{
+    try
+    {
+        (void)Measure( dmm1.voltage(), at( Output3V3));
+        FAIL() << "expected a refusal";
+    }
+    catch( const std::runtime_error & refused)
+    {
+        const auto message = std::string( refused.what());
+
+        EXPECT_NE( message.find( "Dmm1"),      std::string::npos);
+        EXPECT_NE( message.find( "Output3V3"), std::string::npos);
+    }
+}
+
+//
+// The rule this change exists to enforce: where a point exists, the point is
+// how the reading is named. Both spellings would read the same voltage off the
+// same bolted-on lead; they differ in what gets recorded, and a suite that
+// mixed them would key one node two ways.
+//
+TEST_F( DirectWiredFixture, ATappedInstrumentCannotBeMeasuredPointFree)
+{
+    dmm1.setSimulatedVoltage( 5.02_V);
+
+    EXPECT_THROW( (void)Measure( dmm1.voltage()), std::runtime_error);
+}
+
+//
+// And the refusal says what to write instead, since the fix is a call-site
+// edit and not a wiring one.
+//
+TEST_F( DirectWiredFixture, ThePointFreeRefusalNamesThePointToUseInstead)
+{
+    try
+    {
+        (void)Measure( dmm1.voltage());
+        FAIL() << "expected a refusal";
+    }
+    catch( const std::runtime_error & refused)
+    {
+        const auto message = std::string( refused.what());
+
+        EXPECT_NE( message.find( "at("), std::string::npos);
+    }
+}
+
+//
+// The other direction, and the one that keeps the rule from being a blanket
+// ban: an instrument nobody tapped is still measured point-free, which is what
+// a supply reading back its own output does on every rig (see
+// rig/tests/test_source_readback.cpp). Dmm2 stands in for it here -- the mock
+// has no supply, and what is under test is the engine's rule rather than any
+// driver's readback.
+//
+TEST_F( DirectWiredFixture, AnUntappedInstrumentIsStillMeasuredPointFree)
+{
+    dmm2.setSimulatedVoltage( 24.0_V);
+
+    EXPECT_DOUBLE_EQ( Measure( dmm2.voltage()).value(), 24.0);
+}
+
+//
+// Two taps on one node -- a scope and a meter on the same pin -- is the
+// ordinary way such a bench is built, and deliberately not an error the way
+// two sources on one pin would be (see hal::TapWiring on why that asymmetry is
+// real). It is unambiguous because each call names both halves: the port says
+// which instrument, at( ...) says which pin.
+//
+TEST_F( DirectWiredFixture, TwoInstrumentsMayTapOneNode)
+{
+    tapWiring.addTap( mock::InstrumentId::Dmm2, kLoc);
+
+    dmm1.setSimulatedVoltage( 5.02_V);
+    dmm2.setSimulatedVoltage( 5.01_V);
+
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.02);
+    EXPECT_DOUBLE_EQ( Measure( dmm2.voltage(), at( Output5V)).value(), 5.01);
+}
+
+//
+// A tapped reading goes through the session seam exactly as a routed one
+// does, so --inject and replay work on a fabric-free bench without knowing it
+// is one. Worth pinning down rather than assuming: the branch returns early,
+// and an early return that skipped the seam would take injection with it.
+//
+TEST_F( DirectWiredFixture, ATappedReadingIsStillInjectable)
+{
+    Measure.inject( "Output5V", 4.97_V);
+
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 4.97);
+}
+
+//
+// And the point-free refusal fires in an injected run too. That is the one
+// placement decision in this change worth a test of its own: the electrical
+// interlock deliberately does not fire on a detached run, and this
+// deliberately does -- a replayed run keys exactly the way a live one does, so
+// refusing only when a bench is attached would let the mistake through in the
+// mode most likely to be recording it.
+//
+TEST_F( DirectWiredFixture, ThePointFreeRefusalFiresOnAnInjectedRunToo)
+{
+    Measure.inject( "Dmm1.Voltage", 4.97_V);
+
+    EXPECT_THROW( (void)Measure( dmm1.voltage()), std::runtime_error);
 }

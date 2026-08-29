@@ -1,11 +1,17 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// This rig's two static wiring facts (see hal/topology/wiring.hpp's own comment):
+// This rig's two static *path* facts (see hal/topology/wiring.hpp's own comment):
 // which channel each instrument is hard-wired to, and which channel each VPC
 // connector pin is hard-wired to. Composed together at measurement time --
 // see core/verbs/measure.hpp -- rather than stored per (instrument, pin)
 // combination.
+//
+// Two of the four blocks below, that is. The other two record connections the
+// fabric is not part of at all -- SOURCE_WIRING, where each supply's output is
+// cabled, and TAP_WIRING, where a measuring instrument's leads are bolted
+// straight onto a pin. Each has its own comment further down; this rig's
+// TAP_WIRING is empty, and that block says why.
 //
 // HOP( device, channel) names a card declared in rig/devices.inc, not a
 // string: every device below has to be one this rig says it has, what kind of
@@ -234,3 +240,31 @@ SOURCE_WIRING
     WIRE_SOURCE( AcP1, A, 3, 5)   // dut::AcInput::C, phase C
     WIRE_SOURCE( AcP1, A, 3, 7)   // dut::AcInput::N, neutral/ground return
 END_SOURCE_WIRING
+
+//
+// This rig's fourth table, and it is empty: nothing on this bench is cabled
+// straight onto a DUT pin for the purpose of *measuring* it.
+//
+// Which is not the same as saying nothing is cabled. Five instruments on this
+// rig are hard-wired to pins and every one of them is a source -- DcP1..DcP4
+// and AcP1, recorded in SOURCE_WIRING above, cabled because a rail's load
+// current has no business on signal relays. A tap row would say the opposite
+// thing about a measuring instrument: that its input reaches a pin without
+// passing through Matrix1 or Mux1 at all. This rig has a fabric precisely so
+// that its three meters do not need that -- Dmm1, Dmm2 and Osc1 each have one
+// crosspoint onto the measurement bus, and every pin they can reach is a
+// WIRE_CONNECTOR row.
+//
+// So this block is empty for a structural reason and not for lack of
+// attention, and the check in rig/tests/test_wiring_uniqueness.cpp is what
+// keeps it that way: an instrument named here as well as in
+// INSTRUMENT_WIRING is a build error, because core::MeasureEngine treats a
+// tapped instrument as never routed and the matrix path would be dead data.
+//
+// What a row here would be for is the deployment that has no fabric at all --
+// a supply, a meter and a scope on a desk with their leads on the DUT. See
+// hal::TapWiring, which exists for that rig; nothing about it is a fallback
+// for this one.
+//
+TAP_WIRING
+END_TAP_WIRING

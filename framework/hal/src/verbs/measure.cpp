@@ -12,7 +12,7 @@
 // reached via THORIUM_WIRING_TABLE rather than a hardcoded path since this
 // file is generic hal code, shared by every rig -- see hal/driver/instrument.hpp's
 // own comment on THORIUM_INSTRUMENT_TABLE for the same reasoning. This is the
-// only place instrumentWiring/connectorWiring need to be populated;
+// only place instrumentWiring/connectorWiring/tapWiring need to be populated;
 // MeasureEngine itself no longer needs any DUT-specific data at all (unlike
 // before AdapterPointTag baked a point's location/quantity into its type --
 // see core/topology/adapter.hpp), so unlike the earlier design, this file has no
@@ -20,7 +20,7 @@
 //
 #include THORIUM_WIRING_TABLE
 
-MeasureEngine Measure{ hal::fabric, hal::instrumentWiring, hal::connectorWiring };
+MeasureEngine Measure{ hal::fabric, hal::instrumentWiring, hal::connectorWiring, hal::tapWiring };
 
 //
 // Constructed from Measure's own session bank, and in this same translation

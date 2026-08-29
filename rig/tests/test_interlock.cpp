@@ -91,6 +91,14 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
+        //
+        // Empty: this fixture's rig is the routed one, and the interlock is a
+        // property of it. A tapped instrument would take the direct branch in
+        // core::MeasureEngine and never reach the path composition these tests
+        // are about -- see hal::TapWiring.
+        //
+        hal::TapWiring         tapWiring;
+
         // Local, for the hot-switch half -- see this file's own comment.
         hal::N6701ARelay  localDcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
 
@@ -98,7 +106,7 @@ namespace
         RemoveEngine     remove{};
         ConnectEngine    connect{    fabric, instrumentWiring, connectorWiring };
         DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };
-        MeasureEngine    measure{    fabric, instrumentWiring, connectorWiring };
+        MeasureEngine    measure{    fabric, instrumentWiring, connectorWiring, tapWiring };
 
         CapturingSink sink;
 

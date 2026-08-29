@@ -26,7 +26,7 @@ namespace core
     //
     //   Measure( Dmm1.voltage(), at( dut::Output5V));
     //
-    // Generic over three externally-supplied types, each a "build stage"
+    // Generic over four externally-supplied types, each a "build stage"
     // concern this header knows nothing about:
     //   - FabricT:           something with .connect(path)/.disconnect(path)
     //                        -- see hal::SwitchFabric
@@ -36,6 +36,36 @@ namespace core
     //   - ConnectorWiringT:  something with .find(location) -> a hal::Path
     //                        FabricT::connect()/disconnect() accepts -- see
     //                        hal::ConnectorWiring
+    //   - TapWiringT:        something with .taps(instrumentId) -> bool,
+    //                        .isTappedBy(instrumentId, location) -> bool and
+    //                        .describeTaps(instrumentId) -> std::string --
+    //                        see hal::TapWiring
+    //
+    // -- Routed and direct, and how one call decides which it is -----------
+    //
+    // TapWiringT is the newest of the four and the one that changes what a
+    // Measure at a point can mean. Three of these tables describe a rig built
+    // around a switching fabric; the fourth describes a rig with none, where
+    // the instrument's leads are bolted straight to the DUT pin. Both are
+    // real deployments -- a rack, and a PSU/DMM/scope on a bench -- and both
+    // spell a reading the same way:
+    //
+    //   Measure( Dmm1.voltage(), at( dut::Output5V));
+    //
+    // The routed overload below asks TapWiringT first, and that single
+    // question decides everything after it. If the instrument taps something,
+    // the reading is direct: there is no path to compose, nothing to close,
+    // and the fabric is not touched at all -- but the pin had better be one
+    // this instrument is actually cabled to, so a mismatch is refused rather
+    // than read. If it taps nothing, the reading is routed exactly as it
+    // always was.
+    //
+    // Asked in that order rather than "route if you can, else tap", because
+    // an instrument that is both routed and tapped is a contradiction in the
+    // rig's own data rather than a case to resolve here -- see
+    // hal::isTapWiredInstrument, and rig/tests/test_wiring_uniqueness.cpp,
+    // which makes it a build error so this ordering never has to decide it
+    // silently.
     //
     // There is no AdapterT any more: since an AdapterPointTag now carries its
     // location as a compile-time value (see core/topology/adapter.hpp), there is
@@ -62,14 +92,28 @@ namespace core
     // once instantiated with hal's types, without this header ever
     // #include-ing anything from hal.
     //
-    template<typename FabricT, typename InstrumentWiringT, typename ConnectorWiringT>
+    template<typename FabricT, typename InstrumentWiringT, typename ConnectorWiringT, typename TapWiringT>
     class MeasureEngine
     {
         public:
-            MeasureEngine( FabricT & fabric, const InstrumentWiringT & instrumentWiring, const ConnectorWiringT & connectorWiring) :
+            //
+            // TapWiringT is deliberately not defaulted to some "no taps"
+            // stand-in, which would have kept every existing instantiation
+            // compiling untouched. A deployment has to say which kind of rig
+            // it is, and an empty TAP_WIRING block is how it says "routed" --
+            // exactly the argument hal/topology/wiring.hpp makes for writing
+            // an empty table rather than omitting one. A default here would
+            // reintroduce the omission at the one seam where the tables are
+            // actually bound to the engine.
+            //
+            MeasureEngine( FabricT &                 fabric,
+                           const InstrumentWiringT & instrumentWiring,
+                           const ConnectorWiringT &  connectorWiring,
+                           const TapWiringT &        tapWiring) :
                 mFabric( fabric),
                 mInstrumentWiring( instrumentWiring),
-                mConnectorWiring( connectorWiring)
+                mConnectorWiring( connectorWiring),
+                mTapWiring( tapWiring)
             {}
 
             //
@@ -215,6 +259,54 @@ namespace core
                             throw InterlockViolation(
                                 liveTapMessage( point.Name, instrumentName, quantityKindOf<QuantityT>(), liveSource));
                         }
+                    }
+
+                    //
+                    // Direct-wired or routed. This is the fork described at
+                    // the top of this file, and it is one question: does this
+                    // instrument tap anything at all?
+                    //
+                    // Yes means its leads are bolted to DUT pins and there is
+                    // no fabric in the story -- so the whole of the routed
+                    // machinery below is skipped, not made to compose an
+                    // empty path and close nothing. That distinction matters
+                    // for what a reader of this function believes: a tapped
+                    // reading is not a degenerate route, it is a different
+                    // kind of connection that happens to be spelled the same
+                    // way at the call site.
+                    //
+                    // The pairing check is the whole safety of it. At a
+                    // tapped call site both halves are already known -- the
+                    // port names the instrument, at( ...) names the pin -- so
+                    // there is nothing to look up, only something to confirm,
+                    // and confirming it is what stops a reading taken from
+                    // whichever pin the lead is really on from being filed
+                    // under the pin the script asked for. That is the quiet
+                    // failure this table introduces (see hal::TapWiring), and
+                    // unlike a mistyped mux channel there is no card channel
+                    // space to catch it -- a wrong VpcLocation is just
+                    // another plausible pin.
+                    //
+                    // Runtime rather than a static_assert, for the reason
+                    // hal/topology/wiring.hpp gives about InstrumentWiring::
+                    // find(): Loc is a compile-time value but the instrument
+                    // is not -- two Dmms are one C++ type and differ only in
+                    // a runtime id -- so there is nothing for a compile-time
+                    // check to compare. It throws on the first such Measure,
+                    // deterministically, the same way a missing wiring entry
+                    // already does.
+                    //
+                    if( mTapWiring.taps( instrumentId))
+                    {
+                        if( ! mTapWiring.isTappedBy( instrumentId, Loc))
+                        {
+                            throw std::runtime_error(
+                                instrumentName + " is cabled straight onto " + mTapWiring.describeTaps( instrumentId) +
+                                " and has no path to " + std::string( point.Name) +
+                                " -- on a direct-wired rig at( ...) names the pin the instrument's own leads are on");
+                        }
+
+                        return QuantityVariant{ readOrSubstitute() };
                     }
 
                     //
@@ -406,11 +498,49 @@ namespace core
             // exactly as they do for a routed reading -- see the key's own
             // comment below for what to inject against.
             //
+            // -- Not the spelling for a direct-wired instrument --------------
+            //
+            // A tapped instrument is refused here, and told to use at( ...).
+            // The two spellings would otherwise be two ways to write one
+            // physical act -- a meter bolted to Output5V reads that pin
+            // whether or not the call names it -- differing only in what gets
+            // recorded, and that difference is not cosmetic. Point-free keys
+            // as "Dmm1.Voltage" and at( ...) keys as "Output5V", so a suite
+            // that mixed them would produce recordings with two naming
+            // conventions for the same node, injections that arm one of them
+            // and silently miss the other, and a journal in which the reading
+            // is filed under the instrument that took it rather than the pin
+            // it came from. On a rig with no fabric that is the whole DUT
+            // vocabulary going missing one call at a time.
+            //
+            // So the rule is: where a point exists, the point is how the
+            // reading is named. This overload keeps exactly the case it was
+            // written for -- an instrument reading its own output, which
+            // genuinely has no pin (see the paragraph above).
+            //
+            // Note this is checked *outside* liveRead, unlike the electrical
+            // interlock in the routed overload, and the contrast is worth
+            // stating because the placements look inconsistent. The interlock
+            // guards a physical hazard, so a replayed run that touches no rig
+            // must not be refused for the state of a bench it is not talking
+            // to. This guards a session key, and a replayed run keys exactly
+            // the way a live one does -- so refusing it only when the bench
+            // happens to be attached would let the mistake through in the
+            // very mode most likely to be recording it.
+            //
             template<quantities::QuantityType QuantityT, typename InstrumentT, SensePath Sense>
             [[nodiscard]]
             auto operator()( Port<QuantityT, InstrumentT, Sense> port) -> QuantityT
             {
                 const auto instrumentName = std::string( to_string( port.instrumentId()));
+
+                if( mTapWiring.taps( port.instrumentId()))
+                {
+                    throw std::runtime_error(
+                        instrumentName + " is cabled straight onto " + mTapWiring.describeTaps( port.instrumentId()) +
+                        " -- measure it as Measure( port, at( <that point>)) so the reading is keyed by the pin "
+                        "rather than by the instrument");
+                }
 
                 constexpr auto kind = quantityKindOf<QuantityT>();
 
@@ -589,6 +719,7 @@ namespace core
             FabricT &                  mFabric;
             const InstrumentWiringT &  mInstrumentWiring;
             const ConnectorWiringT &   mConnectorWiring;
+            const TapWiringT &         mTapWiring;
 
             SessionBank                mSessions;
     };

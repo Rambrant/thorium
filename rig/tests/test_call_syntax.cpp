@@ -56,6 +56,14 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
+        //
+        // Empty, so every call below describes the routed rig this file's
+        // syntax rules were written against. What at( ...) *means* on a
+        // direct-wired rig is core::MeasureEngine's business and is tested
+        // there; what is under test here is which spellings compile at all.
+        //
+        hal::TapWiring         tapWiring;
+
         hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
         hal::DSO8064A osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
         hal::L4411A  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
@@ -64,7 +72,7 @@ namespace
         RemoveEngine     remove{};
         ConnectEngine    connect{    fabric, instrumentWiring, connectorWiring };
         DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };
-        MeasureEngine    Measure{    fabric, instrumentWiring, connectorWiring };
+        MeasureEngine    Measure{    fabric, instrumentWiring, connectorWiring, tapWiring };
 
         CallSyntaxFixture()
         {

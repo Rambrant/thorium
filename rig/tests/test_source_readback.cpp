@@ -41,14 +41,25 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
+        //
+        // Empty, and that is what makes these tests about the point-free
+        // overload rather than about the refusal it now carries: a supply
+        // reading back its own output is not a tapped instrument, so nothing
+        // here is cabled onto a DUT pin for measuring. DcP3 *is* cabled to
+        // one -- SOURCE_WIRING, a different table -- which is exactly the
+        // distinction that keeps this reading legal without at( ...). See
+        // core::MeasureEngine's point-free overload.
+        //
+        hal::TapWiring         tapWiring;
+
         hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
         hal::Ac6834B      acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ApplyEngine    apply{};
         ConnectEngine  connect{ fabric, instrumentWiring, connectorWiring };
 
-        core::MeasureEngine<hal::SwitchFabric, hal::InstrumentWiring, hal::ConnectorWiring>
-            measure{ fabric, instrumentWiring, connectorWiring };
+        core::MeasureEngine<hal::SwitchFabric, hal::InstrumentWiring, hal::ConnectorWiring, hal::TapWiring>
+            measure{ fabric, instrumentWiring, connectorWiring, tapWiring };
 
         CapturingSink sink;
 
