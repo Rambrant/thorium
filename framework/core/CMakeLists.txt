@@ -9,6 +9,7 @@ add_library(core STATIC
         src/session/bench.cpp
         src/journal/journal.cpp
         src/journal/report.cpp
+        src/journal/human_sink.cpp
         src/journal/console_sink.cpp
         src/journal/rtf_sink.cpp
         src/journal/sarif_sink.cpp
@@ -78,12 +79,14 @@ add_library(core STATIC
         include/core/verbs/interlock.hpp # header-only apart from src/verbs/interlock.cpp
         # --- core/journal: the machine-readable event stream, and the sinks
         # that render it. journal.hpp is the one every other layer posts to and
-        # is the group's only inward-facing header; report.hpp is the content
-        # model the two human-readable sinks (console, rtf) decide once and
-        # render twice, while sarif_sink writes the machine-readable stream.
-        # The group depends on nothing else in core.
+        # is the group's only inward-facing header; report.hpp and
+        # human_sink.hpp are the two halves the human-readable sinks (console,
+        # rtf) share -- what the stream says, and which hook says it -- leaving
+        # each sink only its own medium, while sarif_sink writes the
+        # machine-readable stream. The group depends on nothing else in core.
         include/core/journal/journal.hpp
         include/core/journal/report.hpp
+        include/core/journal/human_sink.hpp
         include/core/journal/console_sink.hpp
         include/core/journal/rtf_sink.hpp
         include/core/journal/sarif_sink.hpp

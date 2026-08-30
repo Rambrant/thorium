@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-#include "core/journal/journal.hpp"
+#include "core/journal/human_sink.hpp"
 #include "core/journal/report.hpp"
 
 namespace core
@@ -24,7 +24,7 @@ namespace core
     // event rather than a separate, differently-worded report that happened
     // to be the only one anybody read.
     //
-    class ConsoleSink : public IJournalSink
+    class ConsoleSink : public HumanReportSink
     {
         public:
             //
@@ -37,17 +37,14 @@ namespace core
             //
             explicit ConsoleSink( std::ostream & out, bool colour);
 
-            auto onRunStart( const RunInfo & info) -> void override;
-            auto onGroupStart( std::string_view group, std::string_view description) -> void override;
-            auto onTestStart( std::string_view test, std::string_view description) -> void override;
-            auto onPhaseStart( std::string_view group, std::string_view phase, std::string_view title) -> void override;
-            auto onPhaseEnd( std::string_view phase) -> void override;
-            auto onEvent( const JournalEvent & event) -> void override;
-            auto onTestEnd( std::string_view group, std::string_view test, bool passed) -> void override;
-            auto onRunEnd( bool allPassed) -> void override;
-
         private:
-            auto writeAll( const std::vector<ReportLine> & lines) -> void;
+            //
+            // The only thing this sink decides. Which events produce which
+            // lines is core::HumanReportSink's, so that this and core::RtfSink
+            // cannot come to disagree about it; a terminal has nothing to close
+            // at the end of a run either, so finishDocument() stays defaulted.
+            //
+            auto writeAll( const std::vector<ReportLine> & lines) -> void override;
 
             std::ostream *  mOut;
             bool            mColour;

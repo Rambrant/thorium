@@ -20,6 +20,13 @@ namespace core
     // words, in what order, is settled here; each sink only decides how to
     // paint an Emphasis (an RTF colour-table index, or an ANSI escape).
     //
+    // Which journal hook asks for which of these is the other half of the same
+    // idea, and is settled once as well -- see core::HumanReportSink in
+    // core/journal/human_sink.hpp. Between the two of them a human sink has
+    // nothing left to decide except its own medium, which is what makes "the
+    // console and the file cannot drift apart" a property of the types rather
+    // than of two files being kept in step by hand.
+    //
     // This is also why the filtering rule lives here rather than in each sink:
     // the human stream carries Measure and Verify and nothing else -- the
     // sourcing and routing verbs (Apply/Remove/Connect/Disconnect) and the

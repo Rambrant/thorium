@@ -79,44 +79,4 @@ namespace core
         //
         mOut->flush();
     }
-
-    auto ConsoleSink::onRunStart( const RunInfo & info) -> void
-    {
-        writeAll( humanHeaderLines( info));
-    }
-
-    auto ConsoleSink::onGroupStart( const std::string_view group, const std::string_view description) -> void
-    {
-        writeAll( humanGroupHeadingLines( group, description));
-    }
-
-    auto ConsoleSink::onTestStart( const std::string_view test, const std::string_view description) -> void
-    {
-        writeAll( humanTestHeadingLines( test, description));
-    }
-
-    auto ConsoleSink::onPhaseStart( const std::string_view group, const std::string_view phase, const std::string_view title) -> void
-    {
-        writeAll( humanPhaseHeadingLines( group, phase, title));
-    }
-
-    auto ConsoleSink::onPhaseEnd( std::string_view) -> void
-    {
-        writeAll( humanPhaseClosingLines());
-    }
-
-    auto ConsoleSink::onEvent( const JournalEvent & event) -> void
-    {
-        writeAll( humanEventLines( event));
-    }
-
-    auto ConsoleSink::onTestEnd( std::string_view, const std::string_view test, const bool passed) -> void
-    {
-        writeAll( humanTestResultLines( test, passed));
-    }
-
-    auto ConsoleSink::onRunEnd( const bool allPassed) -> void
-    {
-        writeAll( humanSummaryLines( allPassed));
-    }
 } // namespace core

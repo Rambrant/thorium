@@ -273,10 +273,10 @@ namespace core
     RtfSink::~RtfSink()
     {
         //
-        // No throwing out of a destructor -- finalise() only writes and seeks,
-        // and a failure to write the last byte of an already-valid document is
-        // not worth terminating a process over.
-        finalise();
+        // No throwing out of a destructor -- finishDocument() only writes and
+        // seeks, and a failure to write the last byte of an already-valid
+        // document is not worth terminating a process over.
+        finishDocument();
     }
 
     auto RtfSink::flushDocument() -> void
@@ -297,7 +297,7 @@ namespace core
         mOut.seekp( -1, std::ios_base::cur);
     }
 
-    auto RtfSink::finalise() -> void
+    auto RtfSink::finishDocument() -> void
     {
         if( mFinalised)
         {
@@ -351,50 +351,5 @@ namespace core
         // one-byte rewrite is per flush.
         //
         flushDocument();
-    }
-
-    auto RtfSink::onRunStart( const RunInfo & info) -> void
-    {
-        writeAll( humanHeaderLines( info));
-    }
-
-    auto RtfSink::onGroupStart( const std::string_view group, const std::string_view description) -> void
-    {
-        writeAll( humanGroupHeadingLines( group, description));
-    }
-
-    auto RtfSink::onTestStart( const std::string_view test, const std::string_view description) -> void
-    {
-        writeAll( humanTestHeadingLines( test, description));
-    }
-
-    auto RtfSink::onPhaseStart( const std::string_view group, const std::string_view phase, const std::string_view title) -> void
-    {
-        writeAll( humanPhaseHeadingLines( group, phase, title));
-    }
-
-    auto RtfSink::onPhaseEnd( std::string_view) -> void
-    {
-        writeAll( humanPhaseClosingLines());
-    }
-
-    auto RtfSink::onEvent( const JournalEvent & event) -> void
-    {
-        writeAll( humanEventLines( event));
-    }
-
-    auto RtfSink::onTestEnd( std::string_view, const std::string_view test, const bool passed) -> void
-    {
-        writeAll( humanTestResultLines( test, passed));
-    }
-
-    auto RtfSink::onRunEnd( const bool allPassed) -> void
-    {
-        for( const auto & line : humanSummaryLines( allPassed))
-        {
-            write( line);
-        }
-
-        finalise();
     }
 } // namespace core

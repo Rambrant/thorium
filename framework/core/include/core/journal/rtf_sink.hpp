@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-#include "core/journal/journal.hpp"
+#include "core/journal/human_sink.hpp"
 #include "core/journal/report.hpp"
 
 namespace core
@@ -41,7 +41,14 @@ namespace core
     // taking a std::ostream & the way core::writeRecording does: it needs a
     // seekable stream, which an arbitrary ostream is not.
     //
-    class RtfSink : public IJournalSink
+    // It is also the whole of what this class adds. Which events produce which
+    // lines is core::HumanReportSink's (see core/journal/human_sink.hpp), so
+    // that this and core::ConsoleSink cannot come to disagree about it; what
+    // is left here is how a span is painted and the trailer scheme above,
+    // which is why finishDocument() is overridden where the console leaves it
+    // defaulted.
+    //
+    class RtfSink : public HumanReportSink
     {
         public:
             //
@@ -66,15 +73,6 @@ namespace core
             RtfSink( const RtfSink &)                     = delete;
             auto operator=( const RtfSink &) -> RtfSink & = delete;
 
-            auto onRunStart( const RunInfo & info) -> void override;
-            auto onGroupStart( std::string_view group, std::string_view description) -> void override;
-            auto onTestStart( std::string_view test, std::string_view description) -> void override;
-            auto onPhaseStart( std::string_view group, std::string_view phase, std::string_view title) -> void override;
-            auto onPhaseEnd( std::string_view phase) -> void override;
-            auto onEvent( const JournalEvent & event) -> void override;
-            auto onTestEnd( std::string_view group, std::string_view test, bool passed) -> void override;
-            auto onRunEnd( bool allPassed) -> void override;
-
             //
             // RTF escaping, exposed for its own test: '\', '{' and '}' are
             // RTF's own syntax and a criterion description containing one
@@ -89,14 +87,20 @@ namespace core
 
         private:
             auto write( const ReportLine & line) -> void;
-            auto writeAll( const std::vector<ReportLine> & lines) -> void;
+            auto writeAll( const std::vector<ReportLine> & lines) -> void override;
 
             // Writes the closing brace, flushes, and seeks back over it -- see
             // this class's own comment.
             auto flushDocument() -> void;
 
+            //
             // Writes the closing brace for good and stops rewriting it.
-            auto finalise() -> void;
+            //
+            // Reached two ways, and it is idempotent so that both are safe:
+            // core::HumanReportSink calls it at the end of a run, and the
+            // destructor calls it for the run that never reached one.
+            //
+            auto finishDocument() -> void override;
 
             std::ofstream  mOut;
             bool           mFinalised{ false };
