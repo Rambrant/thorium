@@ -43,7 +43,7 @@ namespace core::quantities
     namespace detail
     {
         //
-        // " +/-0.05 V", or nothing at all when the tolerance is the
+        // " +/-50 mV", or nothing at all when the tolerance is the
         // machine-epsilon default (see defaultEpsilon in core/criteria/predicates.hpp).
         // That default exists to absorb representation error, not to express a
         // physical margin, so reporting it would put "+/-2.22045e-16 V" in a

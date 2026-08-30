@@ -734,10 +734,21 @@ namespace core
                 //
                 // The bare number alongside the formatted value, where there is
                 // one -- so a consumer comparing a reading against a limit, or
-                // trending it across runs, never has to parse "5.021 V" back
-                // apart. formatNumber() rather than the stream's default
-                // double formatting, so the two spellings of the same value in
-                // this file agree digit for digit.
+                // trending it across runs, never has to parse "200 mV" back
+                // apart.
+                //
+                // Unprefixed, and in the unit named by the Unit property beside
+                // it, where the text form carries an SI prefix (see
+                // core::prefixNumber in core/quantities/format.hpp): a reader
+                // wants "200 mV" and a consumer wants 0.2, and a consumer that
+                // had to know which prefix this run happened to pick would be
+                // back to parsing the text. The two therefore deliberately do
+                // NOT read the same, which is a change from when both went
+                // through formatNumber.
+                //
+                // Still formatNumber() rather than the stream's default double
+                // formatting: six significant digits is a deliberate choice
+                // about how much of a reading is real, and the default is not.
                 //
                 if( event.Numeric.has_value())
                 {

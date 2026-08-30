@@ -278,7 +278,7 @@ namespace core
 
         //
         // For a Verify: the criterion's own tolerance, spelled out ("= 5 V
-        // +/-0.05 V") -- see core/criteria/predicate_text.hpp. Distinct from Detail,
+        // +/-50 mV") -- see core/criteria/predicate_text.hpp. Distinct from Detail,
         // which is the prose a CRIT entry's author wrote: nothing checks that
         // prose against the predicate beside it, so a log carrying only the
         // description cannot actually state the limit the run enforced.

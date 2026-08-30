@@ -50,16 +50,55 @@ namespace core
         // dimensionless (see the algebra below), and "0.95" with nothing after
         // it is the correct rendering.
         //
-        struct V_Type    { static constexpr std::string_view Symbol = "V";   };
-        struct A_Type    { static constexpr std::string_view Symbol = "A";   };
-        struct VA_Type   { static constexpr std::string_view Symbol = "VA";  };
-        struct W_Type    { static constexpr std::string_view Symbol = "W";   };
-        struct Ohm_Type  { static constexpr std::string_view Symbol = "Ohm"; };
+        // The rest of what a unit says about how it is written down: the span
+        // of SI prefixes its values are rendered with, as the decimal exponents
+        // at each end.
+        //
+        // What it buys is that one unit covers its whole range legibly -- a
+        // rail reads "50.21 mV", "5.021 V" or "400.1 V" depending on the
+        // number, the way the front panel of the instrument that measured it
+        // does. The alternative that was considered and rejected was a fixed
+        // number of decimal places per unit, which is noise at one end of a
+        // unit's range and nothing at all at the other: two decimals is 10 mV
+        // of granularity on a 400 V input and rounds every rise time in
+        // seconds to 0.00.
+        //
+        // Both ends are stated per unit because they are facts about the unit
+        // rather than about SI. A timebase runs down to picoseconds and never
+        // above seconds; a shunt is milliohms where a bleeder is megohms; a
+        // mains input is kilovolts where an offset is microvolts. One shared
+        // span would have to be wide enough for all of them, and would then
+        // offer "ks" for a settling time.
+        //
+        // Declared on the tag for the reason Symbol is: the tag IS the unit,
+        // and a table over here would be a second per-unit list to keep in
+        // step with the first. Absent means the unit is never prefixed, which
+        // is the right answer for the dimensionless and the affine ones -- a
+        // "millidegC" is not a temperature anybody quotes -- and the safe
+        // default for whichever unit is added next, since a unit that says
+        // nothing renders exactly as it did before this existed.
+        //
+        // Exponents rather than prefix letters, and multiples of three: which
+        // letter goes with which exponent is core::prefixNumber's business
+        // (core/quantities/format.hpp), and this says only how far the scale
+        // is allowed to run.
+        //
+        struct SiPrefixRange
+        {
+            int Smallest;
+            int Largest;
+        };
+
+        struct V_Type    { static constexpr std::string_view Symbol = "V";   static constexpr SiPrefixRange Prefixes{  -6, 3 }; };
+        struct A_Type    { static constexpr std::string_view Symbol = "A";   static constexpr SiPrefixRange Prefixes{  -6, 3 }; };
+        struct VA_Type   { static constexpr std::string_view Symbol = "VA";  static constexpr SiPrefixRange Prefixes{  -3, 3 }; };
+        struct W_Type    { static constexpr std::string_view Symbol = "W";   static constexpr SiPrefixRange Prefixes{  -6, 3 }; };
+        struct Ohm_Type  { static constexpr std::string_view Symbol = "Ohm"; static constexpr SiPrefixRange Prefixes{  -3, 6 }; };
         struct dB_Type   { static constexpr std::string_view Symbol = "dB";  };
-        struct Hz_Type   { static constexpr std::string_view Symbol = "Hz";  };
-        struct time_Type { static constexpr std::string_view Symbol = "s";   };
+        struct Hz_Type   { static constexpr std::string_view Symbol = "Hz";  static constexpr SiPrefixRange Prefixes{   0, 9 }; };
+        struct time_Type { static constexpr std::string_view Symbol = "s";   static constexpr SiPrefixRange Prefixes{ -12, 0 }; };
         struct PF_Type   { static constexpr std::string_view Symbol = "";    };
-        struct var_Type  { static constexpr std::string_view Symbol = "var"; };
+        struct var_Type  { static constexpr std::string_view Symbol = "var"; static constexpr SiPrefixRange Prefixes{  -3, 3 }; };
 
         //
         // Temperature, in two units that are not two scales of one thing.

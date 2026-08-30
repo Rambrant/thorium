@@ -23,8 +23,8 @@ TEST( CorePredicateText, EqualityStatesItsExpectedValue)
 
 TEST( CorePredicateText, EqualityStatesItsToleranceWhenOneWasChosen)
 {
-    EXPECT_EQ( core::describeCriterion( EQ( 5.0_V).epsilon( 0.05_V)), "= 5 V +/-0.05 V");
-    EXPECT_EQ( core::describeCriterion( EQ( 3.3_V).epsilon( 0.05_V)), "= 3.3 V +/-0.05 V");
+    EXPECT_EQ( core::describeCriterion( EQ( 5.0_V).epsilon( 0.05_V)), "= 5 V +/-50 mV");
+    EXPECT_EQ( core::describeCriterion( EQ( 3.3_V).epsilon( 0.05_V)), "= 3.3 V +/-50 mV");
 }
 
 //
@@ -43,7 +43,7 @@ TEST( CorePredicateText, DefaultEpsilonIsNotReportedAsATolerance)
 TEST( CorePredicateText, RangeStatesBothBounds)
 {
     EXPECT_EQ( core::describeCriterion( IN( 3.0_V, 3.6_V)),                   "in [3 V .. 3.6 V]");
-    EXPECT_EQ( core::describeCriterion( IN( 3.0_V, 3.6_V).epsilon( 0.05_V)), "in [3 V .. 3.6 V] +/-0.05 V");
+    EXPECT_EQ( core::describeCriterion( IN( 3.0_V, 3.6_V).epsilon( 0.05_V)), "in [3 V .. 3.6 V] +/-50 mV");
 }
 
 TEST( CorePredicateText, RelationalPredicatesUseTheirOwnSymbol)
@@ -53,7 +53,7 @@ TEST( CorePredicateText, RelationalPredicatesUseTheirOwnSymbol)
     EXPECT_EQ( core::describeCriterion( GT( 5.0_V)), "> 5 V");
     EXPECT_EQ( core::describeCriterion( GE( 5.0_V)), ">= 5 V");
 
-    EXPECT_EQ( core::describeCriterion( GE( 4.75_V).epsilon( 0.05_V)), ">= 4.75 V +/-0.05 V");
+    EXPECT_EQ( core::describeCriterion( GE( 4.75_V).epsilon( 0.05_V)), ">= 4.75 V +/-50 mV");
 }
 
 //
@@ -79,7 +79,7 @@ TEST( CorePredicateText, AnyListsItsOptions)
 //
 TEST( CorePredicateText, AnyStatesItsToleranceWhenOneWasChosen)
 {
-    EXPECT_EQ( core::describeCriterion( ANY( 3.3_V, 5.0_V).epsilon( 0.05_V)), "one of [3.3 V, 5 V] +/-0.05 V");
+    EXPECT_EQ( core::describeCriterion( ANY( 3.3_V, 5.0_V).epsilon( 0.05_V)), "one of [3.3 V, 5 V] +/-50 mV");
     EXPECT_EQ( core::describeCriterion( ANY( 3.3_V, 5.0_V)),                  "one of [3.3 V, 5 V]");
 }
 
@@ -91,7 +91,7 @@ TEST( CorePredicateText, AnyStatesItsToleranceWhenOneWasChosen)
 TEST( CorePredicateText, NotEqualReadsAsAnInequalityRatherThanANegation)
 {
     EXPECT_EQ( core::describeCriterion( NE( 5.0_V)),                   "!= 5 V");
-    EXPECT_EQ( core::describeCriterion( NE( 5.0_V).epsilon( 0.05_V)), "!= 5 V +/-0.05 V");
+    EXPECT_EQ( core::describeCriterion( NE( 5.0_V).epsilon( 0.05_V)), "!= 5 V +/-50 mV");
 }
 
 //
@@ -101,7 +101,7 @@ TEST( CorePredicateText, NotEqualReadsAsAnInequalityRatherThanANegation)
 TEST( CorePredicateText, NoneReadsAsAnExcludedListRatherThanANegatedOne)
 {
     EXPECT_EQ( core::describeCriterion( NONE( 3.3_V, 5.0_V)),                   "none of [3.3 V, 5 V]");
-    EXPECT_EQ( core::describeCriterion( NONE( 3.3_V, 5.0_V).epsilon( 0.05_V)), "none of [3.3 V, 5 V] +/-0.05 V");
+    EXPECT_EQ( core::describeCriterion( NONE( 3.3_V, 5.0_V).epsilon( 0.05_V)), "none of [3.3 V, 5 V] +/-50 mV");
 }
 
 //
@@ -138,7 +138,7 @@ TEST( CorePredicateText, AnyOfListsItsMemberPredicates)
 TEST( CorePredicateText, AnyOfCarriesItsMembersOwnTolerances)
 {
     EXPECT_EQ( core::describeCriterion( ANY_OF( EQ( 5.0_V).epsilon( 0.05_V), IN( 3.0_V, 3.6_V))),
-               "any of [= 5 V +/-0.05 V, in [3 V .. 3.6 V]]");
+               "any of [= 5 V +/-50 mV, in [3 V .. 3.6 V]]");
 }
 
 //
@@ -213,7 +213,7 @@ END_CRITERIA
 
 TEST( CorePredicateText, CritDeclaredCriteriaDescribeTheirOwnPredicate)
 {
-    EXPECT_EQ( core::describeCriterion( PredicateTextGroup::WithinTolerance.predicate), "= 5 V +/-0.05 V");
+    EXPECT_EQ( core::describeCriterion( PredicateTextGroup::WithinTolerance.predicate), "= 5 V +/-50 mV");
     EXPECT_EQ( core::describeCriterion( PredicateTextGroup::RegisterPattern.predicate), "(value & 0xF) == 0x5");
 }
 
@@ -227,7 +227,7 @@ TEST( CorePredicateText, CritDeclaredCriteriaDescribeTheirOwnPredicate)
 TEST( CorePredicateText, NoneAndAnyOfAreUsableFromACriteriaTable)
 {
     EXPECT_EQ( core::describeCriterion( PredicateTextGroup::NotARailValue.predicate),
-               "none of [3.3 V, 5 V] +/-0.05 V");
+               "none of [3.3 V, 5 V] +/-50 mV");
     EXPECT_EQ( core::describeCriterion( PredicateTextGroup::EitherRail.predicate),
                "any of [in [3 V .. 3.6 V], = 5 V]");
 

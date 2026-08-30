@@ -41,6 +41,39 @@ namespace core
     auto formatNumber( double value) -> std::string;
 
     //
+    // The same number written the way a bench instrument writes it: scaled
+    // into an SI prefix, so a rail is "5.021 V", a shunt drop is "50.21 mV"
+    // and a rise time is "1.2 us" rather than "1.2e-06".
+    //
+    // Split rather than returned as one string because the prefix is not part
+    // of the number and not part of the unit -- it goes between them, and the
+    // only caller that can put it there is the one that knows the symbol (see
+    // describeValue below). Handing back "50.21 m" would make every caller
+    // re-derive where the space goes.
+    //
+    // Four significant digits, not six: the extra two are below the resolution
+    // of every instrument on this rig, and reading them off a report is what
+    // prompted this in the first place. It is deliberately a count of
+    // significant digits rather than of decimal places, because the prefix has
+    // already put the mantissa in [1, 1000) -- the two together are what makes
+    // one rule cover a 400 V input and a 50 mV drop.
+    //
+    // Prefix is empty, and Mantissa is plain formatNumber output, whenever
+    // prefixing would not be an improvement: a zero or a NaN, which have no
+    // magnitude to take a prefix from, and a value outside the span the unit
+    // declared, where the alternative is a mantissa like "0.0001" wearing a
+    // prefix letter.
+    //
+    struct PrefixedNumber
+    {
+        std::string      Mantissa;
+        std::string_view Prefix;
+    };
+
+    [[nodiscard]]
+    auto prefixNumber( double value, quantities::SiPrefixRange range) -> PrefixedNumber;
+
+    //
     // Hex rendering for integral values, minimum width, uppercase digits
     // ("0xF5"). Takes the widest unsigned type so describeValue() below can
     // funnel any integral through one non-template function.
@@ -142,8 +175,27 @@ namespace core
         {
             const auto unit = T::symbol();
 
-            return unit.empty() ? formatNumber( value.value())
-                                : formatNumber( value.value()) + ' ' + std::string( unit);
+            //
+            // Prefixed if the unit says how far its scale runs, plain if it
+            // does not -- see SiPrefixRange in core/quantities/quantity.hpp on
+            // why saying nothing is a real answer rather than an omission.
+            //
+            // The prefix binds to the symbol, never to the number: "50.21 mV"
+            // is one unit with a scale, not a scaled number followed by volts.
+            // A prefixed unit always has a symbol, so the empty-symbol case
+            // below (PowerFactor) cannot reach this branch.
+            //
+            if constexpr( requires { T::unitType::Prefixes; })
+            {
+                const auto [ mantissa, prefix] = prefixNumber( value.value(), T::unitType::Prefixes);
+
+                return mantissa + ' ' + std::string( prefix) + std::string( unit);
+            }
+            else
+            {
+                return unit.empty() ? formatNumber( value.value())
+                                    : formatNumber( value.value()) + ' ' + std::string( unit);
+            }
         }
         else if constexpr( std::same_as<T, bool>)
         {

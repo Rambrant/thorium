@@ -603,7 +603,7 @@ TEST( HalInstrument, DSO8064AChannelSettingsAreDescribedAgainstTheirOwnChannel)
     const auto described = hal::describeConfig(
         osc1.channel<3>().input( hal::ChannelInput::Dc1M).voltsPerDivision( 100_mV).config());
 
-    EXPECT_EQ( described.Settings, "ch3.input=Dc1M, ch3.perDiv=0.1 V");
+    EXPECT_EQ( described.Settings, "ch3.input=Dc1M, ch3.perDiv=100 mV");
 }
 
 TEST( HalInstrument, DSO8064AACaptureAlwaysDescribesTheTimeoutsItWillUse)

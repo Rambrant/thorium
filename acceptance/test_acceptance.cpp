@@ -847,7 +847,7 @@ TEST_F( AcceptanceSelection, EveryUnmatchedIdIsNamedAtOnce)
 // the tolerances, the console and both log files as one consistent story.
 //
 // Asserted through the *rendered tolerance* rather than the criterion's prose:
-// "+/-0.15 V" is core::describeCriterion reading the predicate that was
+// "+/-150 mV" is core::describeCriterion reading the predicate that was
 // actually evaluated, whereas the description beside it is hand-written text
 // that could say anything. If those two ever disagree, this catches the one
 // that matters.
@@ -857,7 +857,7 @@ TEST_F( AcceptanceCriteria, WithoutTheFlagTheBuildsDefaultVariantApplies)
     run( { "--no-logs", "--no-color" });
 
     EXPECT_TRUE( containsText( outPath(), mOut, "Criteria          production"));
-    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.05 V"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-50 mV"));
 }
 
 TEST_F( AcceptanceCriteria, TheFlagChangesTheToleranceThatIsActuallyApplied)
@@ -865,15 +865,15 @@ TEST_F( AcceptanceCriteria, TheFlagChangesTheToleranceThatIsActuallyApplied)
     run( { "--no-logs", "--no-color", "--criteria=aged" });
 
     EXPECT_TRUE( containsText( outPath(), mOut, "Criteria          aged"));
-    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.15 V"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-150 mV"));
 
     //
-    // The 5V rail specifically, not "+/-0.05 V" anywhere: fuse_register_script
+    // The 5V rail specifically, not "+/-50 mV" anywhere: fuse_register_script
     // also makes an ad-hoc EQ( 12.0_V).epsilon( 0.05_V) check that no variant
     // has any say over, so the broader assertion would fail on a criterion that
     // is behaving exactly as intended.
     //
-    EXPECT_TRUE( omitsText( outPath(), mOut, "= 5 V +/-0.05 V"))
+    EXPECT_TRUE( omitsText( outPath(), mOut, "= 5 V +/-50 mV"))
         << "production's 5V tolerance must not be applied in an aged run";
 }
 
@@ -885,13 +885,13 @@ TEST_F( AcceptanceCriteria, TheFlagChangesTheToleranceThatIsActuallyApplied)
 TEST_F( AcceptanceCriteria, TheSameBinaryServesEveryVariant)
 {
     run( { "--no-logs", "--no-color", "--criteria=production" });
-    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.05 V"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-50 mV"));
 
     run( { "--no-logs", "--no-color", "--criteria=stress" });
-    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.1 V"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-100 mV"));
 
     run( { "--no-logs", "--no-color", "--criteria=aged" });
-    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.15 V"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-150 mV"));
 }
 
 //
@@ -981,7 +981,7 @@ TEST_F( AcceptanceHumanLog, ConsoleCarriesTheHeaderTestNamesAndVerdicts)
     // just the prose from its CRIT entry.
     //
     EXPECT_TRUE( containsText( outPath(), mOut, "FS_Supply_1::FS_Supply_5V0"));
-    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-0.05 V"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-50 mV"));
     EXPECT_TRUE( containsText( outPath(), mOut, "(value & 0xF) == 0x5"));
 
     // Measurements and both check outcomes.
@@ -2231,7 +2231,7 @@ TEST_F( AcceptanceInject, AListAnswersOnePassEach)
     // The middle pass dips 0.3 V below a 5 V baseline, past the 0.2 V limit.
     EXPECT_EQ( run( { "--inject=dips.stim", "--repeat=3", "--no-logs" }), 1);
 
-    EXPECT_TRUE( containsText( outPath(), mOut, "0.3 V"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "300 mV"));
 }
 
 //
