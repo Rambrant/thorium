@@ -175,9 +175,9 @@ rather than `POINT`, so the adapter never describes a driven rail as an
 ordinary pin.
 
 A rig's own `wiring.inc` (`rig/wiring.inc` in this repo, reached from
-`hal/verbs/measure.cpp`/`hal/verbs/route.cpp` via `THORIUM_WIRING_TABLE` rather than a
-hardcoded path -- see this directory's own `CMakeLists.txt`) holds the
-actual data, built via
+`hal/src/verbs/measure.cpp`/`hal/src/verbs/route.cpp` via
+`THORIUM_WIRING_TABLE` rather than a hardcoded path -- see this directory's
+own `CMakeLists.txt`) holds the actual data, built via
 `INSTRUMENT_WIRING`/`WIRE_INSTRUMENT`/`END_INSTRUMENT_WIRING`,
 `CONNECTOR_WIRING`/`WIRE_CONNECTOR`/`END_CONNECTOR_WIRING`,
 `SOURCE_WIRING`/`WIRE_SOURCE`/`END_SOURCE_WIRING` and
@@ -199,9 +199,9 @@ groups per file), so these macros build one fixed, namespaced global
 (`hal::instrumentWiring`/`hal::connectorWiring`/`hal::sourceWiring`/
 `hal::tapWiring`) rather than taking a name. `ADAPTER` is the same one-per-build case and takes
 no name either.
-Both `hal/verbs/measure.cpp` and `hal/verbs/route.cpp` `#include` it, since each is its
-own translation unit needing its own declaration of the (inline) tables --
-see `wiring.inc`'s own comment.
+Both `hal/src/verbs/measure.cpp` and `hal/src/verbs/route.cpp` `#include` it,
+since each is its own translation unit needing its own declaration of the
+(inline) tables -- see `wiring.inc`'s own comment.
 
 ## Adapter points are compile-time-typed, and `at()` marks a point argument
 

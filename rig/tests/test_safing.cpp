@@ -58,7 +58,7 @@ namespace
     // the guarantee is real: a driver without safe() does not satisfy the
     // concept, so hal::safeRig()'s static_assert would reject it rather
     // than quietly skipping it. Checked the concept-wrapped way -- see
-    // core/tests/test_static_constraints.cpp's own comment for why a bare
+    // core/tests/criteria/test_static_constraints.cpp's own comment for why a bare
     // static_assert(!requires{...}) hard-fails on GCC 13/Clang 18 instead
     // of soft-failing, and why this form is the only reliable one.
     //
@@ -75,7 +75,7 @@ namespace
 
     //
     // safeRig() acts on the rig's actual global instruments and global
-    // fabric (hal/active_instruments.hpp), not on locals a fixture owns --
+    // fabric (rig/active_instruments.hpp), not on locals a fixture owns --
     // it takes no arguments precisely because it cannot be handed a
     // substitute. So these tests drive those globals directly, and each
     // one establishes the state it needs rather than assuming the rig is

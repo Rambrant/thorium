@@ -12,7 +12,7 @@
 
 //
 // The payload seam -- core::ISession::fetchData and the three sessions behind
-// it. These are the same claims framework/core/tests/test_session.cpp already makes
+// it. These are the same claims framework/core/tests/session/test_session.cpp already makes
 // about the quantity seam, asked of the byte one, because the whole argument
 // for a second method rather than a widened variant is that a serial read has
 // to be scriptable, recordable and replayable on exactly the same terms as a

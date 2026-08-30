@@ -26,7 +26,7 @@ namespace core
     // third stream later (JUnit XML, a live socket, whatever) needs no change
     // to Measure/Apply/Verify at all -- which matters because those call sites
     // are spread across core/verbs/measure.hpp, core/verbs/source.hpp, core/verbs/route.hpp,
-    // core/verify.cpp and
+    // core/src/criteria/verify.cpp and
     // hal/src/verbs/safing.cpp, and a per-sink `if` in each of them is exactly the
     // list that falls behind the next sink added.
     //

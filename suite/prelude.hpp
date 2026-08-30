@@ -16,7 +16,7 @@
 // is compiled into main.cpp, which has no business seeing a criteria table or a
 // rig's instrument globals. The two stand-ins for scripts.hpp
 // (framework/runner/tests/fixtures/hooked_scripts.hpp,
-// framework/core/tests/fixtures/hooked_scripts.hpp) are pure declaration files for
+// framework/runner/tests/fixtures/hooked_scripts.hpp) are pure declaration files for
 // exactly that reason, and scripts.hpp now matches them; everything a script
 // *body* needs collects here instead.
 //

@@ -76,7 +76,7 @@ namespace core
     // the surrounding rationale.
     //
     // Structurally symmetric with the sourcing side's builder configs (see
-    // hal/dc_source.hpp/hal/ac_source.hpp) -- both are plain aggregates of
+    // hal/n6701a.hpp / hal/ac6834b.hpp) -- both are plain aggregates of
     // typed, optional parameters carried by a fluent builder chain, so
     // "how do I set X here" reads the same way whether X is being sourced
     // or sensed.

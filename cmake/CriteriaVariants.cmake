@@ -19,7 +19,7 @@
 #       vocabulary.
 #
 #   criteria_variant_names.inc   -- just the names, as string literals. Read by
-#       core/src/criteria_variants.cpp (the runtime --criteria= selector) and by
+#       core/src/criteria/criteria_variants.cpp (the runtime --criteria= selector) and by
 #       nothing else. Deliberately free of any criteria content: the selector
 #       needs to know what the legal names are, not what any of them mean.
 #

@@ -160,7 +160,7 @@ namespace core
     // "Apply can energise this config", which is the same question as "is this
     // config a source at all". Spelled as a concept rather than inline in the
     // probe below so the requirement can be asserted in *both* directions --
-    // see framework/core/tests/test_interlock.cpp, and hal::SafeableInstrument in
+    // see framework/core/tests/verbs/test_interlock.cpp, and hal::SafeableInstrument in
     // hal/driver/instrument.hpp, whose own tests make the same argument: a guard that
     // can only be demonstrated by breaking the build is a guard nobody checks.
     //

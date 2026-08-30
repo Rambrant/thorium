@@ -50,16 +50,16 @@ namespace hal
     // #include this rig's wiring.inc, on purpose (see this file's own
     // comment on CONNECTOR_WIRING below, and core/verbs/measure.hpp's own comment
     // on why ConnectorWiringT's concrete type is only ever named in
-    // hal/verbs/measure.cpp). A consteval check needs the wiring *data* itself
+    // hal/src/verbs/measure.cpp). A consteval check needs the wiring *data* itself
     // visible as a compile-time constant in the very translation unit
     // performing the check -- unlike an ordinary runtime call, constant
     // evaluation can't reach across translation units the way linking can --
     // so find<Loc>() could only ever fire where wiring.inc is already
-    // visible (hal/verbs/measure.cpp, hal/verbs/route.cpp), never at the actual script
-    // call sites where a typo would matter. Threading it through anyway
-    // would mean exposing this rig's wiring table through a header
-    // everywhere Measure()/Connect() are called, undoing that isolation on
-    // purpose.
+    // visible (hal/src/verbs/measure.cpp, hal/src/verbs/route.cpp), never at
+    // the actual script call sites where a typo would matter. Threading it
+    // through anyway would mean exposing this rig's wiring table through a
+    // header everywhere Measure()/Connect() are called, undoing that isolation
+    // on purpose.
     //
     // isWired() below is the alternative that actually fits: a compile-time
     // predicate usable from anywhere this rig's own CONNECTOR_WIRING has

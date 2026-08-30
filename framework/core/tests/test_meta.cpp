@@ -7,8 +7,8 @@ namespace
     //
     // A throwaway enum purely for exercising the generic mechanism itself,
     // independent of any real project enum -- QuantityKind/InstrumentId/
-    // SwitchDeviceKind's own tests (core/tests/test_quantity_kind.cpp,
-    // hal/tests/test_instrument.cpp, hal/tests/test_switch_fabric.cpp)
+    // SwitchDeviceKind's own tests (core/tests/quantities/test_quantity_kind.cpp,
+    // hal/tests/driver/test_instrument.cpp, rig/tests/test_switch_fabric.cpp)
     // cover this same code applied to the real ones.
     //
     enum class Color

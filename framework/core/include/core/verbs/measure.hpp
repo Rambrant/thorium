@@ -80,7 +80,7 @@ namespace core
     // core/session/session.hpp) be lifted into a standalone library with zero
     // dependency on any specific rig's hal/dut types: the concrete
     // FabricT/InstrumentWiringT/ConnectorWiringT are only ever named where
-    // the concrete instance is put together -- see hal/verbs/measure.cpp -- the
+    // the concrete instance is put together -- see hal/src/verbs/measure.cpp -- the
     // same "inject the project-specific bit at the build stage" role
     // THORIUM_CRITERIA_VARIANT_TABLES/THORIUM_TEST_CATALOG already play for the
     // criteria variants and the test catalog (see core/criteria/active_criteria.hpp,

@@ -208,7 +208,7 @@ endforeach()
 # once those globals have actually been declared (see hal/src/verbs/safing.cpp and
 # hal/src/verbs/interlock.cpp).
 #
-# src/source.cpp expands neither table -- Apply/Remove/Setup/Write hold no
+# src/verbs/source.cpp expands neither table -- Apply/Remove/Setup/Write hold no
 # state at all (see core/verbs/source.hpp) -- and so would compile perfectly well in
 # generic hal. It is here on purpose: hal is exactly what a driver is allowed
 # to assume, and a driver reaching for an Apply is the mistake the check above
@@ -252,8 +252,8 @@ target_compile_definitions(hal_rig PUBLIC
     THORIUM_ACTIVE_INSTRUMENTS="${THORIUM_ACTIVE_INSTRUMENTS}"
 )
 
-# PRIVATE, unlike the two above: rig/wiring.inc is expanded by src/route.cpp,
-# src/measure.cpp and src/interlock.cpp and nowhere else at all -- it builds
+# PRIVATE, unlike the two above: rig/wiring.inc is expanded by src/verbs/route.cpp,
+# src/verbs/measure.cpp and src/verbs/interlock.cpp and nowhere else at all -- it builds
 # file-local wiring tables inside those three translation units, and no header
 # exposes it. That is exactly why hal::energisedSourceAt is an ordinary
 # declared-here/defined-there function rather than a template: the interlock's

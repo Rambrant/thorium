@@ -35,7 +35,7 @@ namespace core
         //
         // One font, monospaced, and it is the document default (\deff0 in the
         // preamble below) as well as the one every span selects -- the human log
-        // is a column layout (see core/journal/report.cpp's width constants), and a
+        // is a column layout (see core/src/journal/report.cpp's width constants), and a
         // proportional font throws every column out of alignment, which defeats
         // the reason the padding is there.
         //
@@ -172,7 +172,7 @@ namespace core
         // One font (\f0, monospaced -- see kFontTable) and one body size
         // (\fs20) throughout, with hierarchy carried by weight and colour
         // instead. That is not a style preference: the log is a column grid
-        // (see core/journal/report.cpp's width constants), several lines now mix two
+        // (see core/src/journal/report.cpp's width constants), several lines now mix two
         // emphases *within* a line (a measurement plus its grey description),
         // and a size or font change mid-line would break the alignment the
         // padding exists to create. Headings get a modest bump because they sit

@@ -1,14 +1,19 @@
 # docs/api/ — the generated reference
 
-An **experiment**, not a commitment. Two files, no source changes anywhere:
+An **experiment**, not a commitment. Four files, no source changes anywhere:
 deleting this directory and its `.gitignore` entry removes it completely.
 
 ```bash
-doxygen docs/api/Doxyfile        # from the repository root -> docs/api/html/index.html
+docs/api/build.sh                # -> docs/api/html/index.html
 ```
 
-The output is generated, so it isn't committed — only the `Doxyfile` and the
-filter are.
+That checks every cross-reference in the tree and then runs Doxygen, refusing
+to publish a reference whose links were already broken on disk — see
+[the reference check](#the-reference-check) below. `doxygen docs/api/Doxyfile`
+on its own still works and skips the check, as does `build.sh --skip-check`.
+
+The output is generated, so it isn't committed — only the `Doxyfile`, the
+filter, the check and the wrapper are.
 
 ## What it does, and the one trick in it
 
@@ -20,6 +25,36 @@ complete index of entities with no prose attached to any of them.
 `//` comments to `///` in the stream Doxygen parses. Nothing on disk changes,
 and the source browser deliberately shows the unfiltered file
 (`FILTER_SOURCE_FILES = NO`).
+
+## The reference check
+
+`check_references.py` is the one part of this directory that would be worth
+keeping even if the rest is dropped, which is why it has no Doxygen dependency
+and would move to `tools/` unchanged.
+
+It asserts that every path named in a comment — `see core/verbs/measure.hpp`,
+`see hal/src/verbs/route.cpp` — names a file that exists. That matters here
+more than in most trees, because [README.md](../../README.md) §7 makes the
+cross-reference the mechanism by which a decision's *why* is reachable from
+the code it explains, and because Doxygen renders those comments verbatim: a
+path that no longer resolves is a dead end in the source and in the generated
+output both.
+
+It exists because one directory reshuffle broke 83 of them across 50 files at
+a stroke, silently — the build was green throughout.
+
+A path resolves if it is repository-relative, relative to the file naming it,
+or the tail of a real path. That last spelling is what lets `framework/` refer
+to itself as `hal/src/verbs/measure.cpp`, so the references still work inside
+the zip it ships as.
+
+Paths that are deliberately absent — a driver's `include/hal/<driver>.hpp`
+contrasted against the `include/<driver>.hpp` it is deliberately *not*; a
+recipe naming the file you are about to write — are allowlisted one by one
+with the reason. An allowlist entry that starts
+resolving is an error too, so the list cannot rot into a checker that no longer
+checks. Three entries currently record real gaps rather than deliberate
+spellings; the file says which.
 
 ## What to judge it on
 

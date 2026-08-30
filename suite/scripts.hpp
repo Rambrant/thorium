@@ -21,7 +21,7 @@
 // that header is compiled into main.cpp, so anything added here lands in a
 // translation unit with no use for it. The two fixture stand-ins for this
 // file (framework/runner/tests/fixtures/hooked_scripts.hpp,
-// framework/core/tests/fixtures/hooked_scripts.hpp) are bare declaration files
+// framework/runner/tests/fixtures/hooked_scripts.hpp) are bare declaration files
 // for that reason, and this one matches them.
 //
 // What a script *body* is written against -- the rig's instrument globals,

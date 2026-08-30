@@ -37,7 +37,7 @@ using DisconnectEngine = core::DisconnectEngine<hal::SwitchFabric, hal::Instrume
 // the right call, and core/verbs/interlock.hpp for why this one is recorded rather
 // than refused.
 //
-// Defined once in hal/verbs/route.cpp, wired to the linking rig's fabric and its two
+// Defined once in hal/src/verbs/route.cpp, wired to the linking rig's fabric and its two
 // static wiring tables (see that rig's wiring.inc -- rig/wiring.inc in this
 // repo) -- see hal/verbs/measure.hpp's own comment, which this mirrors exactly.
 //

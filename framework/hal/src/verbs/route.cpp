@@ -4,10 +4,10 @@
 #include "hal/topology/wiring.hpp"
 
 //
-// Same wiring data hal/verbs/measure.cpp already includes -- both TUs including
+// Same wiring data hal/src/verbs/measure.cpp already includes -- both TUs including
 // this inline-defined table is fine (and required, since each is a separate
 // translation unit that needs its own declaration of it); see wiring.inc's
-// own comment and hal/verbs/measure.cpp for why this isn't duplicated data.
+// own comment and hal/src/verbs/measure.cpp for why this isn't duplicated data.
 // THORIUM_WIRING_TABLE is the linking rig's wiring.inc (rig/wiring.inc in
 // this repo) -- see hal/driver/instrument.hpp's own comment on
 // THORIUM_INSTRUMENT_TABLE for why this indirection exists at all: this file
@@ -15,7 +15,7 @@
 // rig's wiring.inc directly.
 //
 // The sourcing verbs need none of this and are defined next door in
-// hal/verbs/source.cpp -- see core/verbs/source.hpp on why the fabric half is the only
+// hal/src/verbs/source.cpp -- see core/verbs/source.hpp on why the fabric half is the only
 // half with rig facts to be handed.
 //
 #include THORIUM_WIRING_TABLE

@@ -2311,8 +2311,9 @@ namespace
 // file and then went on energising rails and closing relays for real, which was
 // survivable only because every driver here is still simulated. Now the machine
 // log says, per instruction, that it went nowhere -- and a run that says that is
-// a run in which no driver was called (see framework/core/tests/test_bench.cpp, which
-// asserts the driver side of the same claim against a counting mock).
+// a run in which no driver was called (see
+// framework/core/tests/session/test_bench.cpp, which asserts the driver side
+// of the same claim against a counting mock).
 //
 TEST_F( AcceptanceBench, AReplayedRunInstructsNothing)
 {

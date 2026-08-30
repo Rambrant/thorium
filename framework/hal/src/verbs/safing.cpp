@@ -112,7 +112,7 @@ namespace hal
         // regardless of that order or what is added later.
         //
         // This is why there is no SAFING_ORDER table alongside
-        // hal/wiring.inc: the one ordering constraint that matters is
+        // rig/wiring.inc: the one ordering constraint that matters is
         // structural here, so a table would exist only to be kept in sync
         // with something that cannot drift. If some future instrument turns
         // out to need to go strictly first or last relative to its peers --

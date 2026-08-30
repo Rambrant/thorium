@@ -912,7 +912,7 @@ namespace core
     // parameter to carry one through; a session bank is reached by exactly the
     // verbs that read, all of which are constructed in one place, and keeping
     // it an ordinary object is what lets a unit test build an engine with a
-    // bank of its own (see framework/core/tests/test_measure.cpp) instead of
+    // bank of its own (see framework/core/tests/verbs/test_measure.cpp) instead of
     // contending for shared state.
     //
     class SessionBank

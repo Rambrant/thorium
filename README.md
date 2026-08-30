@@ -210,7 +210,9 @@ acceptance/      THIS DEPLOYMENT'S      -- black-box tests over the built
 tools/           run-tests.sh (the tester's picker)
 cmake/           build helpers -- generated criteria tables, the test-target
                  helper, the install-time manifest, the installed package
-docs/            the slide deck
+docs/            the slide deck, and the generated reference -- which also
+                 carries the check that every path named in a comment names
+                 a file that is there
 ```
 
 `core/` and `hal/` share three of those folder names -- `verbs/`, `topology/`
@@ -266,6 +268,7 @@ that cannot be recovered from the code.
 | | |
 |---|---|
 | [`docs`](docs/README.md) | The slide deck, as `.pptx` and a self-contained `.html` |
+| [`docs/api`](docs/api/README.md) | The generated reference, and `check_references.py` — which gates it on every cross-reference in the tree still resolving |
 
 `framework/core`, `framework/runner`, `tools/` and `dsl/` have no README of their own — their
 rationale lives in the header and `CMakeLists.txt` comments, and for `framework/core`

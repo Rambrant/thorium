@@ -5,7 +5,7 @@
 // declares hooks, which the shipped suite/test_catalog.inc does only at the run
 // level. See acceptance/test_acceptance.cpp for what is asserted about it.
 //
-// Also the fixture framework/core/tests/test_run_hooks.cpp resolves, which is a
+// Also the fixture framework/core/tests/catalog/test_run_hooks.cpp resolves, which is a
 // second reason the descriptions below are worth writing carefully: that test
 // asserts them literally, so this table is the single statement of what a hook's
 // prose is, for both the unit test of the resolution and the acceptance test of

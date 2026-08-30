@@ -179,7 +179,7 @@ TEST_F( RtfSinkTest, HeaderCarriesAFontAndColourTable)
 }
 
 //
-// The log is a column grid (see core/journal/report.cpp's width constants), so the font
+// The log is a column grid (see core/src/journal/report.cpp's width constants), so the font
 // is load-bearing rather than cosmetic: a proportional face makes every column
 // in the file ragged and the padding pointless.
 //

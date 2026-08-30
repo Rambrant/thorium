@@ -8,7 +8,7 @@
 // it is a separate change from the move, and doing both at once would have
 // destroyed the before/after comparison that makes the move safe.
 //
-// What is left behind in framework/hal/tests/test_instrument.cpp is the part that
+// What is left behind in framework/hal/tests/driver/test_instrument.cpp is the part that
 // is genuinely about hal's generic mechanism rather than about any driver --
 // hal::InstrumentId and to_string() over it.
 //
@@ -24,7 +24,7 @@
 // This model's back panel, as the constructor constraint actually sees it --
 // checked in both directions, since a check that only ever passes proves
 // nothing about what it rejects (the same shape rig/tests/test_safing.cpp
-// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// uses for hal::SafeableInstrument, and hal/tests/driver/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //
 // An L4411A is an LXI box: LAN and USB, no GPIB connector at all, so a
@@ -193,7 +193,7 @@ TEST( HalInstrument, L4411AFourWireResistanceRequiresTheSensePathButTwoWireDoesN
 // needs a real driver to exercise it through and this is the one it was
 // written against -- so it travels with the driver rather than staying behind
 // in a framework/hal test that would then have had to keep including a driver
-// header for this one case alone. core/tests/test_port.cpp covers the builder
+// header for this one case alone. core/tests/driver/test_port.cpp covers the builder
 // chain itself without any instrument at all.
 //
 TEST( HalInstrument, PortRangeNplcAndFrequencyChainWithoutAffectingTheReading)

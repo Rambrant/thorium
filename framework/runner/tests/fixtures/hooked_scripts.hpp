@@ -8,7 +8,7 @@
 // Declarations only, and that is what lets two very different consumers share
 // one fixture. run_scripts_hooked links the definitions beside this file
 // (hooked_scripts.cpp), whose bodies announce themselves on stdout so the
-// acceptance tests can assert an ordering; framework/core/tests/test_run_hooks.cpp
+// acceptance tests can assert an ordering; framework/core/tests/catalog/test_run_hooks.cpp
 // defines its own bodies in its own translation unit, whose hooks set a flag it
 // can check. What both need to agree on is the table and these names -- see
 // framework/runner/CMakeLists.txt and framework/core/CMakeLists.txt for the two ways in.

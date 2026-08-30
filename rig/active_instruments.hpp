@@ -83,8 +83,8 @@ namespace hal
     // it lives here rather than alongside whichever DUT/adapter happens to
     // be under test (see dut/adapter.inc). Unlike Dmm1 etc above,
     // nothing outside of assembling the Measure object (see
-    // hal/verbs/measure.cpp) needs to name this directly, so it stays properly
-    // namespaced rather than joining the unqualified globals.
+    // hal/src/verbs/measure.cpp) needs to name this directly, so it stays
+    // properly namespaced rather than joining the unqualified globals.
     //
     // The fixed wiring data itself (which channel each instrument/connector
     // pin is on) lives in rig/wiring.inc, not here -- see hal/topology/wiring.hpp.

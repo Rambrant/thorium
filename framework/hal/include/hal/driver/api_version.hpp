@@ -78,7 +78,7 @@ namespace hal
     //
     // The same two numbers as values. Defined from the macros, so the macros
     // stay the single source and the two spellings cannot drift -- and the
-    // test in tests/test_api_version.cpp checks even that.
+    // test in tests/driver/test_api_version.cpp checks even that.
     //
     inline constexpr int kApiVersion                = THORIUM_HAL_API_VERSION;
     inline constexpr int kOldestSupportedApiVersion = THORIUM_HAL_API_OLDEST_SUPPORTED;

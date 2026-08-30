@@ -114,7 +114,7 @@ TEST( CoreReport, ReadLineNamesTheInterfaceItsPayloadAndItsInstrument)
 // (see core/criteria/verify.hpp).
 //
 // The event is built by hand here, as every other rendering test in this file
-// does; what Fail actually posts is pinned in core/tests/test_verify.cpp.
+// does; what Fail actually posts is pinned in core/tests/criteria/test_verify.cpp.
 //
 TEST( CoreReport, AnUncheckedCriterionRendersAsAFailedCheckWithNoValue)
 {

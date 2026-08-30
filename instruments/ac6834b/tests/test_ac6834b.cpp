@@ -21,7 +21,7 @@
 // This model's back panel, as the constructor constraint actually sees it --
 // checked in both directions, since a check that only ever passes proves
 // nothing about what it rejects (the same shape rig/tests/test_safing.cpp
-// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// uses for hal::SafeableInstrument, and hal/tests/driver/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //
 // GPIB or RS-232 and nothing else on this source -- and note that
@@ -222,7 +222,7 @@ TEST_F( SourceInstrumentFixture, AcPerPhaseCurrentLimitsReachTheirOwnPhases)
 // which nothing else in this file would notice going missing.
 //
 // Concept-with-bound-parameters rather than a bare requires-expression -- see
-// the IMPORTANT note at the top of core/tests/test_static_constraints.cpp.
+// the IMPORTANT note at the top of core/tests/criteria/test_static_constraints.cpp.
 //
 namespace
 {

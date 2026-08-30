@@ -23,7 +23,7 @@ using core::at;
 // satisfying exactly what core::MeasureEngine needs and nothing more -- see
 // core/verbs/measure.hpp's own comment for the exact shape each is expected to
 // have. hal::SwitchFabric/hal::InstrumentWiring/hal::ConnectorWiring (see
-// hal/verbs/measure.cpp) are just one concrete set of types happening to satisfy
+// hal/src/verbs/measure.cpp) are just one concrete set of types happening to satisfy
 // this same shape; core::MeasureEngine never sees them.
 //
 //

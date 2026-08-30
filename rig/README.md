@@ -133,7 +133,7 @@ its logical address to a real secondary, so it carries one and `NoCard`.
 Four blocks, of which two hold this rig's static *path* facts (see
 `hal/topology/wiring.hpp`'s own comment): which channel each instrument is
 hard-wired to, and which channel each VPC connector pin is hard-wired to. Read
-by `hal/verbs/measure.cpp` and `hal/verbs/route.cpp`, each needing its own
+by `hal/src/verbs/measure.cpp` and `hal/src/verbs/route.cpp`, each needing its own
 declaration of the resulting (inline) tables since each is its own translation
 unit.
 

@@ -221,7 +221,7 @@ message(STATUS "Criteria variants: ${THORIUM_KNOWN_CRITERIA_VARIANTS} (default: 
 # --always so a repository with no tags still yields the short sha rather than
 # failing; "unknown" if there is no git, or no repository, at all -- an
 # obviously-absent value rather than a plausible wrong one, the same choice
-# framework/core/src/journal.cpp makes for the rest of the header.
+# framework/core/src/journal/journal.cpp makes for the rest of the header.
 find_package(Git QUIET)
 
 set(THORIUM_CONTENT_REVISION "unknown")

@@ -35,11 +35,12 @@ namespace mock
     // what makes isEnergised mandatory -- see core::detail::energisedNow), a
     // connectDriver/disconnectDriver pair, and a describeConfig for the log.
     //
-    // Deliberately not shared with framework/core/tests/test_bench.cpp's mock of the
-    // same shape. That one is about whether a driver is reached at all and
-    // counts calls; this one is about the state a relay moved into, so its
-    // interesting member is a settable flag rather than a tally, and folding
-    // the two would leave each test file reading past the other's fields.
+    // Deliberately not shared with
+    // framework/core/tests/session/test_bench.cpp's mock of the same shape.
+    // That one is about whether a driver is reached at all and counts calls;
+    // this one is about the state a relay moved into, so its interesting
+    // member is a settable flag rather than a tally, and folding the two would
+    // leave each test file reading past the other's fields.
     //
     struct Supply
     {

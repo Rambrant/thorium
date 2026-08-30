@@ -119,9 +119,9 @@ target_include_directories(core PUBLIC
 # build still supplies is the two definitions below it: which names are legal,
 # and which one applies when the flag is absent.
 #
-# PRIVATE, not PUBLIC: only src/journal.cpp reads them, and a consumer of
+# PRIVATE, not PUBLIC: only src/journal/journal.cpp reads them, and a consumer of
 # Thorium::core has no reason to be recompiled when a rig renames itself.
-# core/journal/journal.cpp defaults each one to "unknown" if unset, so core still
+# src/journal/journal.cpp defaults each one to "unknown" if unset, so core still
 # builds standalone -- see its own comment on why an obviously-absent value
 # beats a plausible wrong one.
 #

@@ -24,7 +24,7 @@ using ArmEngine   = core::ArmEngine;
 using AwaitEngine = core::AwaitEngine;
 
 //
-// Both are defined in hal/verbs/measure.cpp, not in a translation unit of their own,
+// Both are defined in hal/src/verbs/measure.cpp, not in a translation unit of their own,
 // and that is a requirement rather than a filing choice -- for Await, at least.
 // It is constructed from core::MeasureEngine's session bank (the same
 // construction core::ReadEngine has, and for the same reason: one run, one
@@ -33,7 +33,7 @@ using AwaitEngine = core::AwaitEngine;
 // about Read at more length.
 //
 // Arm needs no bank and could have lived beside Apply and Setup in
-// hal/verbs/source.cpp. It is here instead because the pair is one operation split in
+// hal/src/verbs/source.cpp. It is here instead because the pair is one operation split in
 // half by the event it captures, and a reader looking for the other half should
 // not have to know which of the two happens to carry state. That reasoning is
 // this header's whole justification for existing at all.

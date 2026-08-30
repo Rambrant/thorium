@@ -8,7 +8,7 @@
 // This model's back panel, as the constructor constraint actually sees it --
 // checked in both directions, since a check that only ever passes proves
 // nothing about what it rejects (the same shape rig/tests/test_safing.cpp
-// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// uses for hal::SafeableInstrument, and hal/tests/driver/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //
 // Two kinds of hardware provide a switched RS232 port -- a PC port cabled
@@ -49,7 +49,7 @@ namespace
     // A console interface to route to. No ADAPTER around it: ADAPTER opens the
     // fixed `dut` struct, and defining a second one in a translation unit that
     // may be linked alongside the real adapter is a clash waiting to happen --
-    // the same reason framework/hal/tests/test_adapter_macros.cpp declares its
+    // the same reason framework/hal/tests/topology/test_adapter_macros.cpp declares its
     // bundle bare.
     //
     BUNDLE( Console, "RS232 debug console")

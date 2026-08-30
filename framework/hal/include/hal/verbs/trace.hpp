@@ -23,7 +23,7 @@
 using FetchEngine = core::FetchEngine;
 
 //
-// Defined in hal/verbs/measure.cpp rather than in a translation unit of its own, and
+// Defined in hal/src/verbs/measure.cpp rather than in a translation unit of its own, and
 // that is a requirement rather than a filing choice: it is constructed from
 // core::MeasureEngine's session bank -- one run, one ordered recording covering
 // every seam -- and across translation units there is no initialisation order

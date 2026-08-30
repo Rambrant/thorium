@@ -14,7 +14,7 @@
 // (hal::N6701A/hal::DcP1..DcP4, hal::Ac6834B/hal::AcP1) permanently lands --
 // Output5V and BackupSupply look like DC rails, AcInput_A/B/C/N look like a
 // three-phase-plus-neutral AC input, for instance. hal:: itself has no idea
-// any of that -- DcP1's fixed channel (hal/wiring.inc) is a bare
+// any of that -- DcP1's fixed channel (rig/wiring.inc) is a bare
 // SwitchElementId with no notion of "Output5V" attached (see hal::N6701A's
 // own comment on why) -- so if that association matters to a reader here,
 // it belongs as a comment on the specific POINT() below, once it's known

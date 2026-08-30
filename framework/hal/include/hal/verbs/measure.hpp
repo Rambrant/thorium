@@ -40,7 +40,7 @@ using MeasureEngine = core::MeasureEngine<hal::SwitchFabric, hal::InstrumentWiri
 // Measure.inject(...), Measure.useLive(),
 // Measure.startRecording()/stopRecording()/dump(...), Measure.load(...) --
 // rather than a separate device/session parameter threaded through every
-// call. Defined once in hal/verbs/measure.cpp, wired to the linking rig's fabric
+// call. Defined once in hal/src/verbs/measure.cpp, wired to the linking rig's fabric
 // and its four static wiring tables (see that rig's wiring.inc --
 // rig/wiring.inc in this repo).
 //
@@ -59,7 +59,7 @@ extern MeasureEngine Measure;
 //
 // Being constructed from another global is exactly the situation where
 // initialisation order matters, and across translation units there is no order
-// to rely on. Defining both in hal/verbs/measure.cpp is what makes the dependency
+// to rely on. Defining both in hal/src/verbs/measure.cpp is what makes the dependency
 // well-defined rather than a link-order accident.
 //
 // Injection reaches the same bank, so a script unit test arms both seams

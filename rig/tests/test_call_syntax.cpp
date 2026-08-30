@@ -129,7 +129,7 @@ TEST_F( CallSyntaxFixture, MeasureConnectsThenDisconnectsAroundEachReading)
 
     // ...and Measure() has already disconnected it again by the time it
     // returns -- the live-by-default connect/measure/disconnect shape
-    // core/tests/test_measure.cpp documents at the core::MeasureEngine
+    // core/tests/verbs/test_measure.cpp documents at the core::MeasureEngine
     // level, exercised here through the real hal engine instead of a mock.
     EXPECT_DOUBLE_EQ( reading.value(), 3.3);
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix1, 200 }));
@@ -242,7 +242,7 @@ TEST_F( CallSyntaxFixture, FourWireResistanceRoutesForceAndSenseTogetherThenRele
 //
 // Expressed as a concept with its own bound parameters rather than a bare
 // `requires` against a concrete call -- see the IMPORTANT note at the top of
-// core/tests/test_static_constraints.cpp for why only this form is reliably
+// core/tests/criteria/test_static_constraints.cpp for why only this form is reliably
 // soft-failed.
 //
 namespace

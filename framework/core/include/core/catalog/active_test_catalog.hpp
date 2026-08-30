@@ -20,13 +20,13 @@
 // mirrors why core/criteria/active_criteria.hpp is separate from core/criteria/criterion.hpp.
 //
 // THORIUM_TEST_SCRIPTS points at a suite's scripts.hpp (see
-// suite/scripts/scripts.hpp) -- the declarations every TEST(...) below is
+// suite/scripts.hpp) -- the declarations every TEST(...) below is
 // checked against. It's included here, at file scope, deliberately -- NOT
 // inside namespace detail below.
 //
 // Notice what's absent compared to active_criteria.hpp: no
 // "using namespace" of any suite-specific namespace. Scripts are declared
-// at global scope (see suite/scripts/scripts.hpp's own reasoning for why),
+// at global scope (see suite/scripts.hpp's own reasoning for why),
 // so TEST(...) below can already name one directly, via ordinary
 // unqualified lookup reaching all the way out to global scope -- the same
 // way this file can write std::array without "using namespace std;". That's

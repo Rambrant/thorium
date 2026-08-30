@@ -103,7 +103,7 @@ namespace core
     // description is the last thing on the row and has the rest of the line to
     // itself. So an ad-hoc row prints its columns empty where a criterion would
     // have been, and reads across as "this value, against this limit, verdict --
-    // and here is what it was". See core/journal/report.cpp's verify row.
+    // and here is what it was". See core/src/journal/report.cpp's verify row.
     //
     template< typename Predicate, typename T>
         requires core::PredicateFor< Predicate, T>

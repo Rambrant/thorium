@@ -47,7 +47,7 @@ using WriteEngine = core::WriteEngine;
 // see hal/verbs/route.hpp for the framing, and core/verbs/source.hpp for why the relay
 // should move while the path is dead.
 //
-// Defined once in hal/verbs/source.cpp, which needs nothing from the linking rig --
+// Defined once in hal/src/verbs/source.cpp, which needs nothing from the linking rig --
 // see that file, and hal/verbs/route.hpp for the two verbs that do.
 //
 extern ApplyEngine  Apply;

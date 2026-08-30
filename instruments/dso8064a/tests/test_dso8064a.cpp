@@ -19,7 +19,7 @@
 // This model's back panel, as the constructor constraint actually sees it --
 // checked in both directions, since a check that only ever passes proves
 // nothing about what it rejects (the same shape rig/tests/test_safing.cpp
-// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// uses for hal::SafeableInstrument, and hal/tests/driver/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //
 // All three remote interfaces are on this scope's back panel; a PC serial
@@ -45,7 +45,7 @@ namespace
 
     //
     // ValidDso8064aChannel's compile-time bound, checked the concept-wrapped
-    // way -- see core/tests/test_static_constraints.cpp's own comment for
+    // way -- see core/tests/criteria/test_static_constraints.cpp's own comment for
     // why a bare static_assert(!requires{...}) is unreliable and this
     // routing-through-a-concept form isn't.
     //
@@ -341,7 +341,7 @@ namespace
     //
     // The trigger source is bounded the same way channel<N>() is -- checked
     // through a concept rather than as a bare static_assert(!requires{...}),
-    // see core/tests/test_static_constraints.cpp for why that distinction
+    // see core/tests/criteria/test_static_constraints.cpp for why that distinction
     // matters.
     //
     template<unsigned N>
@@ -388,7 +388,7 @@ namespace
     // Routed through a concept rather than written as a bare
     // static_assert(!requires{...}), because a requires-expression naming a
     // member of a known, non-dependent type is a hard error rather than a
-    // false answer -- see core/tests/test_static_constraints.cpp.
+    // false answer -- see core/tests/criteria/test_static_constraints.cpp.
     //
     template<typename T>
     concept HasConfig = requires( T & subject) { subject.config(); };

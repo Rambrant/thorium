@@ -36,7 +36,7 @@
 // hal::SwitchDeviceId and the facts each declared device carries. Like
 // hal::InstrumentId's own tests, these name this rig's enumerators (Matrix1,
 // Mux1, Spst1, Spdt1, RfMux1) because generic hal is handed the rig's table --
-// see rig/devices.inc, and hal/tests/test_instrument.cpp for the same
+// see rig/devices.inc, and hal/tests/driver/test_instrument.cpp for the same
 // arrangement one enum over.
 //
 namespace

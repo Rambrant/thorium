@@ -35,7 +35,7 @@ core::ReadEngine Read{ Measure.sessions() };
 // ordered recording across all three seams rather than three of them.
 //
 // Arm is here purely to keep the pair together; it holds no state at all and
-// would have been just as correct beside Apply in hal/verbs/source.cpp.
+// would have been just as correct beside Apply in hal/src/verbs/source.cpp.
 //
 ArmEngine   Arm{};
 AwaitEngine Await{ Measure.sessions() };

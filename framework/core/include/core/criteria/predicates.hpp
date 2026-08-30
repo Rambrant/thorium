@@ -513,7 +513,7 @@ namespace core
             // value" undetectable to anything that wants to *check* the rule
             // rather than trip over it. As a constraint it is both -- the
             // out-of-range call is still refused at compile time, and
-            // framework/core/tests/test_bit_predicates.cpp can demonstrate that it
+            // framework/core/tests/criteria/test_bit_predicates.cpp can demonstrate that it
             // is, which is the only way to show the guarantee is real without
             // breaking the build. Same reasoning as
             // hal::SafeableInstrument in hal/driver/instrument.hpp, which exists to be
@@ -602,7 +602,7 @@ namespace core
         // A concept on the factory rather than a check inside it, for the
         // reason BitPredicate's own comment gives: as a constraint, the
         // illegal case is refused *and* detectable, so
-        // framework/core/tests/test_static_constraints.cpp can prove
+        // framework/core/tests/criteria/test_static_constraints.cpp can prove
         // `ANY( 3.3_V, 5.0_A)` is rejected without the proof itself breaking
         // the build. A violation in a function body would be a hard error that
         // no requires-expression can soft-fail.
@@ -676,7 +676,7 @@ namespace core
         // then callable with neither a Voltage nor a Current, so no Verify and
         // no CRIT entry can ever use it. Weaker than ANY's diagnostic, and
         // asserted in both directions in
-        // framework/core/tests/test_static_constraints.cpp so the limit is on the
+        // framework/core/tests/criteria/test_static_constraints.cpp so the limit is on the
         // record rather than discovered later. The alternative -- a
         // value-type trait specialized per predicate in this file -- would buy
         // the earlier error at the cost of a parallel list that silently stops

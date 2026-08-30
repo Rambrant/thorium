@@ -27,7 +27,7 @@
 // This model's back panel, as the constructor constraint actually sees it --
 // checked in both directions, since a check that only ever passes proves
 // nothing about what it rejects (the same shape rig/tests/test_safing.cpp
-// uses for hal::SafeableInstrument, and hal/tests/test_address.cpp for the
+// uses for hal::SafeableInstrument, and hal/tests/driver/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //
 // The mainframe's interfaces, plus the argument the address deliberately
@@ -55,7 +55,7 @@ namespace
     // hal::N6701A<DirectWiring>'s Isolation doesn't satisfy
     // hal::SwitchableIsolation -- see that concept's own comment for why.
     // Checked the concept-wrapped way (see
-    // core/tests/test_static_constraints.cpp's own comment for why a bare
+    // core/tests/criteria/test_static_constraints.cpp's own comment for why a bare
     // static_assert(!requires{...}) is unreliable and this form isn't):
     // this is the compile-time half of the guarantee, since a runtime
     // test can't exercise "this doesn't compile" without breaking the
