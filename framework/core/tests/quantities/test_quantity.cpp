@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <type_traits>
+
 using namespace core::literals;
 using namespace core::quantities;
 
@@ -98,6 +100,69 @@ TEST( CoreQuantity, ReactivePowerLiteralsProduceExpectedValue)
 {
     EXPECT_DOUBLE_EQ( (60.0_var).value(),  60.0);
     EXPECT_DOUBLE_EQ( (1.5_kvar).value(),  1500.0);
+}
+
+//
+// One scale, and negatives written as an operator applied to the literal --
+// which is the only way C++ has, and works because Quantity has a unary minus.
+//
+TEST( CoreQuantity, TemperatureLiteralsProduceExpectedValue)
+{
+    EXPECT_DOUBLE_EQ( (85.0_degC).value(),  85.0);
+    EXPECT_DOUBLE_EQ( (85_degC).value(),    85.0);
+    EXPECT_DOUBLE_EQ( (-40.0_degC).value(), -40.0);
+    EXPECT_DOUBLE_EQ( (20.0_K).value(),     20.0);
+    EXPECT_DOUBLE_EQ( (20_K).value(),       20.0);
+}
+
+//
+// The affine half of the temperature arithmetic: the gap between two points on
+// a scale with no real zero is not itself a point, so it comes back in the
+// difference unit. Every other unit's difference is still its own unit -- that
+// is the same rule, read for a unit that declares no DifferenceType.
+//
+TEST( CoreQuantity, TemperatureDifferenceIsADelta)
+{
+    const auto ambient = 21.5_degC;
+    const auto hotspot = 61.5_degC;
+
+    const TemperatureDelta rise = hotspot - ambient;
+
+    EXPECT_DOUBLE_EQ( rise.value(), 40.0);
+
+    static_assert( std::is_same_v<decltype( hotspot - ambient), TemperatureDelta>);
+    static_assert( std::is_same_v<decltype( 5.0_V - 3.3_V),     Voltage>);
+}
+
+TEST( CoreQuantity, ATemperatureOffsetByADeltaIsATemperature)
+{
+    const auto ambient = 21.5_degC;
+
+    const Temperature ceiling = ambient + 40.0_K;
+    const Temperature floorT  = ambient - 40.0_K;
+    const Temperature either  = 40.0_K + ambient;
+
+    EXPECT_DOUBLE_EQ( ceiling.value(),  61.5);
+    EXPECT_DOUBLE_EQ( floorT.value(),  -18.5);
+    EXPECT_DOUBLE_EQ( either.value(),   61.5);
+}
+
+//
+// A difference is an ordinary magnitude with a real zero, so it keeps all the
+// arithmetic an affine point gives up -- which is what makes the split worth
+// having rather than merely correct.
+//
+TEST( CoreQuantity, TemperatureDeltasAreOrdinaryMagnitudes)
+{
+    const TemperatureDelta total  = 12.0_K + 8.0_K;
+    const TemperatureDelta halved = 20.0_K / 2.0;
+    const TemperatureDelta scaled = 10.0_K * 2.0;
+    const TemperatureDelta gap    = abs( 8.0_K - 12.0_K);
+
+    EXPECT_DOUBLE_EQ( total.value(),  20.0);
+    EXPECT_DOUBLE_EQ( halved.value(), 10.0);
+    EXPECT_DOUBLE_EQ( scaled.value(), 20.0);
+    EXPECT_DOUBLE_EQ( gap.value(),     4.0);
 }
 
 TEST( CoreQuantity, SameUnitAdditionAndSubtractionStayInUnit)

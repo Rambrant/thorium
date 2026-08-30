@@ -29,7 +29,8 @@ TEST( CoreQuantityKind, ToStringRoundTripsThroughFromString)
     for( auto kind : { core::QuantityKind::Voltage, core::QuantityKind::Current, core::QuantityKind::Power,
                        core::QuantityKind::ApparentPower, core::QuantityKind::Resistance, core::QuantityKind::Time,
                        core::QuantityKind::Decibel, core::QuantityKind::Frequency, core::QuantityKind::PowerFactor,
-                       core::QuantityKind::ReactivePower})
+                       core::QuantityKind::ReactivePower, core::QuantityKind::Temperature,
+                       core::QuantityKind::TemperatureDelta})
     {
         EXPECT_EQ( core::quantityKindFromString( core::to_string( kind)), kind);
     }

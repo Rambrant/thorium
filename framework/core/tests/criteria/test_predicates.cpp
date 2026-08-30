@@ -40,6 +40,54 @@ TEST( EqPredicate, EpsilonToleranceOnQuantity)
 // comparison is never really exact, so this default only guards against
 // representation error, not a substitute for a real epsilon( 0.05_V).
 //
+//
+// The same machinery on an affine unit -- the case that would not have
+// compiled before predicates compared raw magnitudes, since a Temperature
+// difference is a TemperatureDelta and not a Temperature (see
+// detail::asDouble in core/criteria/predicates.hpp, and DifferenceUnit in
+// core/quantities/quantity.hpp).
+//
+// The tolerance is written in degrees, the unit of the value it qualifies,
+// exactly as a datasheet quotes it.
+//
+TEST( EqPredicate, EpsilonToleranceOnAnAffineQuantity)
+{
+    auto pred = EQ( 85.0_degC).epsilon( 0.5_degC);
+
+    EXPECT_TRUE(  pred( 85.4_degC));
+    EXPECT_FALSE( pred( 86.0_degC));
+}
+
+TEST( RelationalPredicates, WorkOnAnAffineQuantity)
+{
+    EXPECT_TRUE(  LT( 85.0_degC)( 61.2_degC));
+    EXPECT_FALSE( LT( 85.0_degC)( 90.0_degC));
+
+    EXPECT_TRUE(  GE( 85.0_degC).epsilon( 0.5_degC)( 84.7_degC));
+    EXPECT_FALSE( GE( 85.0_degC).epsilon( 0.5_degC)( 84.0_degC));
+}
+
+TEST( RangePredicate, WorksOnAnAffineQuantity)
+{
+    auto pred = IN( 20.0_degC, 60.0_degC).epsilon( 0.5_degC);
+
+    EXPECT_TRUE(  pred( 19.8_degC));
+    EXPECT_TRUE(  pred( 60.4_degC));
+    EXPECT_FALSE( pred( 61.0_degC));
+}
+
+//
+// And on the difference unit, which is an ordinary magnitude -- a thermal rise
+// is checked exactly the way a voltage is.
+//
+TEST( RelationalPredicates, WorkOnATemperatureRise)
+{
+    const auto rise = 61.5_degC - 21.5_degC;
+
+    EXPECT_TRUE(  LE( 45.0_K)( rise));
+    EXPECT_FALSE( LE( 35.0_K)( rise));
+}
+
 TEST( EqPredicate, DefaultToleranceIsMachineEpsilonNotZero)
 {
     auto pred = EQ( 5.0); // no .epsilon() at all

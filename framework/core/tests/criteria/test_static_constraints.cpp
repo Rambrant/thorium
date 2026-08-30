@@ -3,6 +3,8 @@
 
 #include <gtest/gtest.h>
 
+#include <type_traits>
+
 //
 // This file has no runtime assertions -- the checks below are all
 // static_assert. If any of them fired, the file (and the whole test
@@ -36,6 +38,12 @@ namespace
 
     template<typename A, typename B = A>
     concept Subtractable = requires( A a, B b) { a - b; };
+
+    template<typename A, typename B = A>
+    concept Addable = requires( A a, B b) { a + b; };
+
+    template<typename A, typename B = A>
+    concept Scalable = requires( A a, B b) { a * b; };
 
     template<typename A, typename B = A>
     concept Multipliable = requires( A a, B b) { a * b; };
@@ -271,6 +279,69 @@ namespace
     // for a different leg.
     //
     static_assert(  CanComputeReactivePower<ApparentPower, Power> );
+
+    //
+    // Celsius is the one affine unit here: its values are points on a scale
+    // with no real zero, so what it may take part in is narrower than for
+    // every other unit, and narrower in a way no comment could enforce.
+    //
+    // What is legal -- the useful half. A point minus a point is a span, a
+    // point offset by a span is a point again, and a span is an ordinary
+    // magnitude with all the arithmetic that implies.
+    //
+    static_assert(  Subtractable<Temperature, Temperature> );
+    static_assert( std::is_same_v<decltype( Temperature{ 61.5} - Temperature{ 21.5}), TemperatureDelta> );
+
+    static_assert(  Addable<Temperature, TemperatureDelta> );
+    static_assert(  Addable<TemperatureDelta, Temperature> );
+    static_assert(  Subtractable<Temperature, TemperatureDelta> );
+
+    static_assert(  Addable<TemperatureDelta, TemperatureDelta> );
+    static_assert(  Scalable<TemperatureDelta, double> );
+    static_assert( std::is_same_v<decltype( TemperatureDelta{ 8.0} - TemperatureDelta{ 12.0}), TemperatureDelta> );
+
+    //
+    // What is not. Two temperatures have no sum, and a temperature has no
+    // double -- both would be arithmetic on the position of the freezing
+    // point of water, which is a fact about the scale rather than about the
+    // device. Nor is a span something a temperature can be subtracted from.
+    //
+    static_assert( !Addable<Temperature, Temperature> );
+    static_assert( !Scalable<Temperature, double> );
+    static_assert( !Scalable<double, Temperature> );
+    static_assert( !Divisible<Temperature, double> );
+    static_assert( !Subtractable<TemperatureDelta, Temperature> );
+
+    //
+    // And the cross-unit rule is untouched by any of it: degrees and kelvin
+    // are as distinct from each other, and from every other unit, as Voltage
+    // and Current are.
+    //
+    static_assert( !EqComparable<Temperature, TemperatureDelta> );
+    static_assert( !EqComparable<Temperature, Voltage> );
+    static_assert( !Addable<Temperature, Voltage> );
+
+    //
+    // The tolerance a Celsius criterion carries is written in degrees, not in
+    // kelvin -- see detail::asDouble's comment in predicates.hpp on why the
+    // margin is quoted in the unit of the value it qualifies. Since the
+    // comparison is done on raw magnitudes, that spelling claims nothing about
+    // affine arithmetic; what it does buy is that a stray tolerance in some
+    // other unit is still refused.
+    //
+    static_assert(  HasEpsilon<decltype( EQ( Temperature{ 85.0})), Temperature> );
+    static_assert( !HasEpsilon<decltype( EQ( Temperature{ 85.0})), TemperatureDelta> );
+    static_assert( !HasEpsilon<decltype( EQ( Temperature{ 85.0})), Voltage> );
+
+    //
+    // The predicate family works on an affine unit at all, which is the
+    // property the raw-magnitude comparison exists to preserve: before it,
+    // every toleranced predicate required `actual - expected` to come back as
+    // the same type it started as, and for Temperature it does not.
+    //
+    static_assert(  CallableWithValue<decltype( LT( Temperature{ 85.0})),  Temperature> );
+    static_assert(  CallableWithValue<decltype( IN( Temperature{ 20.0}, Temperature{ 60.0})), Temperature> );
+    static_assert( !CallableWithValue<decltype( LT( Temperature{ 85.0})),  TemperatureDelta> );
 } // namespace
 
 TEST( CoreStaticConstraints, IllegalPredicateAndUnitCombinationsAreCompileErrors)

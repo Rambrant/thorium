@@ -61,6 +61,89 @@ namespace core
         struct PF_Type   { static constexpr std::string_view Symbol = "";    };
         struct var_Type  { static constexpr std::string_view Symbol = "var"; };
 
+        //
+        // Temperature, in two units that are not two scales of one thing.
+        //
+        // Celsius is where a temperature *is*; kelvin, here, is how far apart
+        // two of them are. "85 degC" and "a 20 K rise" are different kinds of
+        // statement, and the difference is not stylistic: 85 degC + 20 degC is
+        // meaningless, while 85 degC + 20 K is 105 degC, and only one of those
+        // should compile. That distinction is what DifferenceType below
+        // declares, and it is the only reason K_Type exists -- this framework
+        // has no use for an absolute temperature in kelvin, and adding one
+        // would just be a second spelling of the first.
+        //
+        // Celsius is the absolute unit, rather than kelvin, because it is the
+        // unit the criteria are written in: a thermal limit is quoted "85 degC"
+        // on the datasheets this rig tests against, and a CRIT table that had
+        // to be read as 358.15 K would be one conversion away from the spec on
+        // every row -- the same argument _mOhm makes for shunts, one scale up.
+        //
+        // Both symbols are ASCII for exactly the reason Ohm_Type is "Ohm"
+        // rather than the omega: a symbol here ends up in an RTF report, a
+        // SARIF record and a recording file, and a unit that renders
+        // differently depending on what encoding read the file back is worse
+        // than one that is merely plain. "degC" is also the SCPI spelling, so
+        // an instrument that reports temperature directly agrees with the
+        // table without a translation step.
+        //
+        struct K_Type    { static constexpr std::string_view Symbol = "K";    };
+        struct degC_Type { static constexpr std::string_view Symbol = "degC"; using DifferenceType = K_Type; };
+
+        //
+        // The unit a difference in this unit is expressed in -- the unit
+        // itself, for all but one of the units above.
+        //
+        // A Voltage minus a Voltage is a Voltage: the scale has a real zero, so
+        // a value and a gap between two values are the same kind of thing and
+        // there is nothing to distinguish. Celsius has no such zero -- its zero
+        // is a convention about water -- so a Celsius value is a *point* and
+        // the gap between two of them is not a point at all. That is the whole
+        // content of this trait, and it is declared on the unit tag (a nested
+        // DifferenceType) rather than in a table here for the reason Symbol is:
+        // the tag IS the unit, and a second list would be a second thing to
+        // keep in step.
+        //
+        // Absent means "itself", so every existing unit keeps exactly the
+        // arithmetic it always had, and a new ordinary unit needs to say
+        // nothing at all.
+        //
+        namespace detail
+        {
+            template<typename Unit>
+            consteval auto differenceUnit()
+            {
+                if constexpr( requires { typename Unit::DifferenceType; })
+                {
+                    return std::type_identity<typename Unit::DifferenceType>{};
+                }
+                else
+                {
+                    return std::type_identity<Unit>{};
+                }
+            }
+        } // namespace detail
+
+        template<typename Unit>
+        using DifferenceUnit = typename decltype( detail::differenceUnit<Unit>())::type;
+
+        //
+        // A unit whose values are points on a scale with no meaningful zero, so
+        // that differences live in a unit of their own -- which is exactly what
+        // "its DifferenceUnit is not itself" says, so the concept is that
+        // sentence rather than a second list naming the units concerned.
+        //
+        // What it is used for, below: subtraction of two points yields a
+        // difference (that much is true of every unit -- see operator-), while
+        // *adding* two points, or scaling one, is refused. Twice 20 degC is not
+        // 40 degC in any sense a bench cares about, and the same reasoning
+        // rules out both. What remains legal is the useful half -- point minus
+        // point, point plus or minus a difference -- and the arithmetic on the
+        // differences themselves, which are ordinary values with a real zero.
+        //
+        template<typename Unit>
+        concept AffineUnit = ! std::same_as<DifferenceUnit<Unit>, Unit>;
+
         template< typename Unit>
         class Quantity
         {
@@ -108,14 +191,22 @@ namespace core
                 }
 
                 //
-                // Same-unit difference, kept in-unit (a Voltage minus a Voltage is
-                // still a Voltage). This is what lets predicates.hpp express an
-                // epsilon tolerance -- |actual - expected| <= epsilon -- for
-                // Quantity<Unit> the same way it does for plain floating_point.
+                // Same-unit difference, in that unit's difference unit -- which
+                // is the unit itself for all but Celsius, so a Voltage minus a
+                // Voltage is still a Voltage and always was. A Temperature minus
+                // a Temperature is a TemperatureDelta; see DifferenceUnit above
+                // for why that is not an inconsistency but the same rule read
+                // twice.
                 //
-                friend constexpr auto operator-( Quantity lhs, Quantity rhs) -> Quantity
+                // predicates.hpp no longer relies on this closing over the type
+                // -- it compares on raw values (see detail::asDouble there), so
+                // an epsilon tolerance works whatever a difference turns out to
+                // be. That is what makes a difference free to be a new type
+                // here rather than being forced back into this one.
+                //
+                friend constexpr auto operator-( Quantity lhs, Quantity rhs) -> Quantity<DifferenceUnit<Unit>>
                 {
-                    return Quantity{ lhs.mValue - rhs.mValue };
+                    return Quantity<DifferenceUnit<Unit>>{ lhs.mValue - rhs.mValue };
                 }
 
                 //
@@ -129,11 +220,17 @@ namespace core
                 }
 
                 //
-                // Same-unit sum. Needed alongside operator- so RangePredicate's
-                // `high + epsilon` compiles for Quantity<Unit> the same way it
-                // does for plain floating_point.
+                // Same-unit sum -- for every unit whose values are magnitudes,
+                // which is all of them but Celsius. Two points on an affine
+                // scale have no sum (see AffineUnit above), so the constraint
+                // removes this overload rather than letting 20 degC + 20 degC
+                // produce a number nothing means.
+                //
+                // A point plus a *difference* is an ordinary and useful thing to
+                // want, and lives with the rest of the algebra below.
                 //
                 friend constexpr auto operator+( Quantity lhs, Quantity rhs) -> Quantity
+                    requires ( ! AffineUnit<Unit>)
                 {
                     return Quantity{ lhs.mValue + rhs.mValue };
                 }
@@ -167,6 +264,37 @@ namespace core
         using Frequency     = Quantity< Hz_Type>;
         using PowerFactor   = Quantity< PF_Type>;
         using ReactivePower = Quantity< var_Type>;
+
+        //
+        // Temperature is here as an ordinary unit, and deliberately appears
+        // nowhere in the algebra below.
+        //
+        // A thermistor or an LM35 on the DUT is read by a meter in volts, and
+        // the degrees are derived from that reading -- so the temptation is an
+        // operator turning a Voltage into a Temperature. Every relation below
+        // is physics: Ohm's law and the power triangle hold for every resistor
+        // and every load on every bench, which is what earns them a place in
+        // the type system. 10 mV/degC is not physics, it is one part number's
+        // calibration, and an operator would dress it up as the other kind of
+        // fact -- so the wrong sensor's curve would be a silent success rather
+        // than a compile error, and there would be nowhere to write down which
+        // curve was used.
+        //
+        // The conversion is a value instead: core::quantities::Transducer
+        // (core/quantities/transducer.hpp), named and declared next to the DUT
+        // point it belongs to. Its signature is what carries the safety -- a
+        // Transducer<Voltage, Temperature> cannot be applied to a Current
+        // reading, and cannot be confused with the one written for a different
+        // sensor on the same adapter.
+        //
+        // The pair of them, because a temperature and a temperature difference
+        // are different statements -- see degC_Type/K_Type above, and the
+        // arithmetic further down. A criterion says "below 85 degC" or "a rise
+        // of at most 20 K over ambient", and those are not the same check even
+        // when the number is the same.
+        //
+        using Temperature      = Quantity< degC_Type>;
+        using TemperatureDelta = Quantity< K_Type>;
 
         //
         // Algebra: combining distinct units to produce a new unit.
@@ -290,6 +418,40 @@ namespace core
         }
 
         //
+        // Temperature and its difference: the other half of what AffineUnit
+        // above set up, and the half a script actually writes.
+        //
+        // Subtraction is not here, because it needs nothing special -- the
+        // generic same-unit operator- already yields a TemperatureDelta, since
+        // that is what degC_Type declares its difference unit to be. What has
+        // to be written out is the way back: a point offset by a difference is
+        // a point again, which no generic rule can know.
+        //
+        //     const auto rise = hotspot - ambient;        // a TemperatureDelta
+        //     const auto ceiling = ambient + 40.0_K;      // a Temperature
+        //
+        // Both orders of the sum, for the same reason Voltage * Current has
+        // both: the operation is commutative and a call site should not have to
+        // remember that it is written down only one way round. Delta minus
+        // point deliberately has no overload -- "20 K less a temperature" is
+        // not a statement about anything.
+        //
+        constexpr auto operator+( const Temperature t, const TemperatureDelta d) -> Temperature
+        {
+            return Temperature{ t.value() + d.value() };
+        }
+
+        constexpr auto operator+( const TemperatureDelta d, const Temperature t) -> Temperature
+        {
+            return Temperature{ d.value() + t.value() };
+        }
+
+        constexpr auto operator-( const Temperature t, const TemperatureDelta d) -> Temperature
+        {
+            return Temperature{ t.value() - d.value() };
+        }
+
+        //
         // Scalar algebra: a Quantity<Unit> scaled by a bare floating-point factor
         // stays in the same unit -- W * 2.0 is a doubling of the Power, still a
         // Power. Quantity<Unit> * Quantity<Unit> has no such generic meaning and
@@ -299,14 +461,21 @@ namespace core
         // collide with that cross-unit one, and W * W (or any Q * Q) remains a
         // compile error by omission rather than by explicit deletion.
         //
-        template< typename Unit, std::floating_point T>
+        // Not defined for an affine unit (see AffineUnit above), for the same
+        // reason its addition is not: scaling a point on a scale with no real
+        // zero answers a question nobody asked -- twice 20 degC is 40 degC only
+        // by an accident of where water freezes. A TemperatureDelta scales
+        // perfectly well, and that is the value a script has when it wants to
+        // halve or double a margin.
+        //
+        template< typename Unit, std::floating_point T> requires ( ! AffineUnit<Unit>)
         [[nodiscard]]
         constexpr auto operator*( Quantity<Unit> q, T scalar) -> Quantity<Unit>
         {
             return Quantity<Unit>{ q.value() * static_cast<double>( scalar) };
         }
 
-        template< typename Unit, std::floating_point T>
+        template< typename Unit, std::floating_point T> requires ( ! AffineUnit<Unit>)
         [[nodiscard]]
         constexpr auto operator*( T scalar, Quantity<Unit> q) -> Quantity<Unit>
         {
@@ -321,7 +490,7 @@ namespace core
         // (W / W) is likewise not provided yet -- it would need a dimensionless
         // ratio result, which is a separate design question from this pass.
         //
-        template< typename Unit, std::floating_point T>
+        template< typename Unit, std::floating_point T> requires ( ! AffineUnit<Unit>)
         [[nodiscard]]
         constexpr auto operator/( Quantity<Unit> q, T scalar) -> Quantity<Unit>
         {
@@ -442,5 +611,24 @@ namespace core
         constexpr quantities::Frequency operator""_Hz( unsigned long long v ) { return operator""_Hz( static_cast<long double>( v)); }
         constexpr quantities::Frequency operator""_kHz( long double v ) { return quantities::Frequency{ static_cast<double>(v) * 1000.0 }; }
         constexpr quantities::Frequency operator""_kHz( unsigned long long v ) { return operator""_kHz( static_cast<long double>( v)); }
+
+        //
+        // Only the one scale, and no prefixed siblings: a millidegree is not a
+        // unit anybody writes a thermal limit in, and a kilodegree is not a
+        // temperature this bench will ever see. Negative values are written the
+        // ordinary way, -40.0_degC, since a literal is never negative in C++ --
+        // the minus is an operator applied to it, which Quantity's unary
+        // operator- already provides.
+        //
+        constexpr quantities::Temperature operator""_degC( long double v ) { return quantities::Temperature{ static_cast<double>(v) }; }
+        constexpr quantities::Temperature operator""_degC( unsigned long long v ) { return operator""_degC( static_cast<long double>( v)); }
+
+        //
+        // And the difference, in kelvin -- what a rise, a margin or a
+        // tolerance-over-ambient is written in. `85_degC` is where the device
+        // is; `20_K` is how much hotter it got.
+        //
+        constexpr quantities::TemperatureDelta operator""_K( long double v ) { return quantities::TemperatureDelta{ static_cast<double>(v) }; }
+        constexpr quantities::TemperatureDelta operator""_K( unsigned long long v ) { return operator""_K( static_cast<long double>( v)); }
     } // namespace literals
 }     // namespace core

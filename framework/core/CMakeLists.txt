@@ -48,6 +48,7 @@ add_library(core STATIC
         # The leaf layer: nothing here includes anything else in core, and
         # core::quantities is the namespace a criteria file opens by name.
         include/core/quantities/quantity.hpp       # header-only
+        include/core/quantities/transducer.hpp     # header-only
         include/core/quantities/quantity_kind.hpp  # header-only apart from src/quantities/quantity_kind.cpp
         include/core/quantities/format.hpp         # header-only apart from src/quantities/format.cpp
         include/core/quantities/bytes.hpp          # header-only apart from src/quantities/bytes.cpp

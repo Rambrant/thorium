@@ -37,7 +37,7 @@ wrong.
 
 ### What is a compile error today
 
-Twenty-two classes of mistake, none of which can reach the bench:
+Twenty-four classes of mistake, none of which can reach the bench:
 
 | Mistake | What happens |
 |---|---|
@@ -63,6 +63,8 @@ Twenty-two classes of mistake, none of which can reach the bench:
 | `Arm( Osc1.trigger())` — arming something that is not a capture | no matching `armDriver` |
 | `Setup( Osc1.channel<3>())` naming a channel and no setting | no matching function |
 | `BIT_SET<9>()` against a `std::byte` | constraint not satisfied |
+| Adding two temperatures — `ambient + hotspot` | no matching operator: a Celsius value is a point, not a magnitude |
+| A sensor applied to the wrong reading — `dut::CoolantSensor( current)` | no matching function |
 
 Two of those deserve a second look, because they are the interesting ones.
 
@@ -771,6 +773,118 @@ Signal relays are not rated for load current, and an ammeter closed onto a pin a
 supply is driving is a short across that supply — see §1 on what the fabric does
 and does not protect you from.
 
+### Read a sensor that answers in the wrong unit
+
+A thermistor or an LM35 on the DUT turns a temperature into a voltage precisely
+so a voltmeter can read it. The bench measures volts; the spec is written in
+degrees; the mapping between them belongs to that one part number and to nothing
+else on the bench.
+
+So it is neither a port nor an operator. There is no `Dmm1.temperature()` for a
+meter that is in volts — `.range( 2_V)` would stop making sense, and the
+recording would claim the bench read degrees when it read millivolts. And there
+is no `Voltage → Temperature` conversion in the algebra: Ohm's law is there
+because it holds for every resistor, while 10 mV/degC holds for one sensor, and
+an operator would make the *wrong* curve a silent success instead of a compile
+error.
+
+It is a **transducer**: a named value, declared beside the point it belongs to.
+
+1. **Declare the point** in `dut/adapter.inc`, as an ordinary `POINT` — a sensor
+   fitted to a pin is not a claim that the pin has no other uses, so nothing
+   here says "temperature":
+   ```cpp
+   POINT( CoolantSense, A, 2, 4, "LM35 coolant sensor output")
+   ```
+
+2. **Declare the sensor** next to it, in a DUT header:
+   ```cpp
+   namespace dut
+   {
+       constexpr auto CoolantSensor = core::quantities::Transducer<Voltage, Temperature>{
+           "CoolantSensor", "LM35 on TP4 -- 10 mV/degC, 0 V at 0 degC",
+           +[]( const Voltage sensed) -> Temperature { return Temperature{ sensed.value() * 100.0 }; } };
+   }
+   ```
+   A plain function pointer, so the sensor is a `constexpr` value rather than
+   something built at startup, and so a non-linear curve — Steinhart–Hart, a
+   thermocouple polynomial — is simply a longer body.
+
+3. **Read it, then derive**, in the script:
+   ```cpp
+   const auto sense   = Measure( Dmm1.voltage().range( 2_V).nplc( 10), at( dut::CoolantSense));
+   const auto coolant = dut::CoolantSensor( sense);        // a Temperature, not a double
+
+   Verify( FS_Thermal_1::FS_Coolant_Max, coolant);
+   ```
+
+Two statements rather than one, deliberately: both units stay visible, so the
+script says the bench read 0.612 V and the device is at 61.2 degC — which is
+what actually happened. The criterion is written in the unit the datasheet uses:
+
+```cpp
+CRITERIA( FS_Thermal_1, "Thermal limits at full load")
+    CRIT( FS_Coolant_Max, LT( 85_degC), "Coolant below 85 degC at full load")
+    CRIT( FS_Coolant_Rise, LE( 40_K), "Rise over ambient within 40 K")
+END_CRITERIA
+```
+
+**The conversion happens after the session, never before it.** `Measure` records
+what the *instrument* returned, so `CoolantSense` stays keyed as a `Voltage` in
+the recording and a `--replay` run derives the temperature from those same
+volts. Recording the derived value instead would bake one calibration
+permanently into the archive; recalibrate the sensor and yesterday's runs would
+be uncorrectable. Injection keys the same way:
+
+```cpp
+Measure.inject( "CoolantSense", core::quantities::Voltage{ 0.612 });
+```
+
+The safety is in the signature and nowhere else. A `Transducer<Voltage,
+Temperature>` takes a `Voltage` — hand it a `Current`, or the `Temperature` it
+just produced, and it does not compile. Two sensors on one adapter are two named
+values a reader can tell apart, which two lambdas at two call sites are not.
+
+### Temperatures, and differences between them
+
+A temperature is not a magnitude. There is no meaningful zero on the Celsius
+scale — its zero is a convention about water — so a Celsius value is a *point*,
+and the gap between two of them is a different kind of thing. Thorium says so in
+the types:
+
+```cpp
+const auto ambient = dut::IntakeSensor(  Measure( Dmm1.voltage(), at( dut::IntakeSense)));
+const auto hotspot = dut::CoolantSensor( Measure( Dmm1.voltage(), at( dut::CoolantSense)));
+
+const TemperatureDelta rise    = hotspot - ambient;    // a span in K, not a degC
+const Temperature      ceiling = ambient + 40.0_K;     // and back to a point
+
+Verify( FS_Thermal_1::FS_Coolant_Rise, rise);
+```
+
+| Written | Result |
+|---|---|
+| `hotspot - ambient` | `TemperatureDelta` — a span in K |
+| `ambient + 40.0_K`, `40.0_K + ambient`, `ambient - 40.0_K` | `Temperature` — a point again |
+| `12.0_K + 8.0_K`, `20.0_K / 2.0` | `TemperatureDelta` — an ordinary magnitude |
+| `ambient + hotspot` | **compile error** — two points have no sum |
+| `ambient * 2.0` | **compile error** — twice 20 degC is 40 degC only by accident |
+
+Nothing else in the framework changed shape for this. A unit declares its
+difference unit on its own tag (`using DifferenceType = K_Type;`) and every unit
+that declares none — every other unit here — keeps exactly the arithmetic it
+always had: a `Voltage` minus a `Voltage` is still a `Voltage`.
+
+What *did* change is that the predicates no longer assume arithmetic closes over
+the type. `EQ`/`IN`/`LT`/… compare raw magnitudes internally (see
+`detail::asDouble` in `core/criteria/predicates.hpp`), so a tolerance works
+whatever a difference turns out to be. That is what leaves the algebra free to
+produce new types — the same freedom `drop / 10.0_mOhm` uses to hand back a
+`Current`. The unit safety is untouched, because it never lived in the
+arithmetic: a predicate's `operator()` takes exactly its own type, so a `Voltage`
+still cannot be checked against a criterion in degrees, nor be given a tolerance
+in amps.
+
 ### Talk to the DUT over serial
 
 A console dialogue is four verbs, and a route that stays open across all of them.
@@ -1060,21 +1174,28 @@ whatever else was in the variable by then.
 
 ### Add a unit of measurement
 
-Three edits, all genuine vocabulary:
+Three edits, all genuine vocabulary — here is `Decibel`, had it not existed:
 
 ```cpp
 // framework/core/include/core/quantities/quantity.hpp
-struct degC_Type { static constexpr std::string_view Symbol = "degC"; };
-using Temperature = Quantity< degC_Type>;
-constexpr Temperature operator""_degC( long double v) { /* ... */ }   // optional
+struct dB_Type { static constexpr std::string_view Symbol = "dB"; };
+using Decibel = Quantity< dB_Type>;
+constexpr Decibel operator""_dB( long double v) { /* ... */ }   // optional
 
 // framework/core/include/core/quantities/quantity_kind.hpp -- the enumerator, named to match
-enum class QuantityKind { /* ... */ Temperature };
+enum class QuantityKind { /* ... */ Decibel };
 ```
 
 The variant, both kind↔type mappings, the symbol lookup, `to_string` and the
 recording round-trip are all generated from those. Add the enumerator without the
 alias and a `static_assert` tells you exactly what is missing.
+
+A unit whose *differences* are in a different unit says so on its tag, and needs
+nothing else — see `degC_Type`, and the two sections above on what that buys:
+
+```cpp
+struct degC_Type { static constexpr std::string_view Symbol = "degC"; using DifferenceType = K_Type; };
+```
 
 ### Add a script unit test (no hardware)
 

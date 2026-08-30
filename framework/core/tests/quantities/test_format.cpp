@@ -29,15 +29,17 @@ TEST( CoreFormat, NumberIsTrimmedToSixSignificantDigits)
 //
 TEST( CoreFormat, EveryUnitCarriesItsOwnSymbol)
 {
-    static_assert( Voltage::symbol()       == "V");
-    static_assert( Current::symbol()       == "A");
-    static_assert( Power::symbol()         == "W");
-    static_assert( ApparentPower::symbol() == "VA");
-    static_assert( Resistance::symbol()    == "Ohm");
-    static_assert( Time::symbol()          == "s");
-    static_assert( Decibel::symbol()       == "dB");
-    static_assert( Frequency::symbol()     == "Hz");
-    static_assert( ReactivePower::symbol() == "var");
+    static_assert( Voltage::symbol()          == "V");
+    static_assert( Current::symbol()          == "A");
+    static_assert( Power::symbol()            == "W");
+    static_assert( ApparentPower::symbol()    == "VA");
+    static_assert( Resistance::symbol()       == "Ohm");
+    static_assert( Time::symbol()             == "s");
+    static_assert( Decibel::symbol()          == "dB");
+    static_assert( Frequency::symbol()        == "Hz");
+    static_assert( ReactivePower::symbol()    == "var");
+    static_assert( Temperature::symbol()      == "degC");
+    static_assert( TemperatureDelta::symbol() == "K");
 }
 
 //

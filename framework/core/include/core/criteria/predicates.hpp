@@ -58,6 +58,52 @@ namespace core
             }
 
             //
+            // The bare number inside a toleranced value -- a Quantity<Unit>'s
+            // magnitude, or a plain floating_point as it stands.
+            //
+            // Every tolerance comparison below is done on these rather than on
+            // the values themselves, and that is a deliberate narrowing of what
+            // a predicate demands of a unit. It used to write
+            // `abs( actual - expected) <= tolerance`, which quietly required
+            // three things of every unit: that subtraction close over the type,
+            // that the result be comparable against the tolerance, and that abs
+            // exist for it. Any unit whose algebra produced a *different* type
+            // -- a Celsius difference being a kelvin span, most obviously (see
+            // DifferenceUnit in quantity.hpp) -- broke all three at once, and
+            // the predicate family would have had to be taught about each such
+            // pair by hand.
+            //
+            // Comparing magnitudes asks for none of it. The unit safety is not
+            // weakened by this, because it was never in the arithmetic: it is
+            // in the signatures around it. operator() takes exactly T, and
+            // epsilon() takes exactly T, so a Voltage still cannot be checked
+            // against a criterion in degrees, nor given a tolerance in amps.
+            // What changes is only that units are now free to have an algebra
+            // that yields new types -- which is the point.
+            //
+            // The tolerance stays a T rather than becoming a bare double for
+            // the same reason: it is what the report prints ("within +/- 0.05
+            // V", see predicate_text.hpp), and a number with no unit is not
+            // that. It is also why a Celsius criterion's tolerance is written
+            // 0.5_degC and not 0.5_K -- a margin is quoted in the unit of the
+            // value it qualifies, the way a datasheet quotes it, and since no
+            // affine subtraction happens here any more, nothing is claimed by
+            // spelling it that way.
+            //
+            template<typename T>
+            constexpr auto asDouble( const T & value) -> double
+            {
+                if constexpr( QuantityType<T>)
+                {
+                    return value.value();
+                }
+                else
+                {
+                    return static_cast<double>( value);
+                }
+            }
+
+            //
             // Detects whether Pred has its own .epsilon( Eps) -- used by
             // NotPredicate below to forward epsilon() only when the wrapped
             // predicate actually supports it, so e.g. NE( 42).epsilon( 1) fails
@@ -120,9 +166,8 @@ namespace core
             {
                 if constexpr( Toleranced<T>)
                 {
-                    using std::abs;
-
-                    return abs( actual - expected) <= tolerance;
+                    return std::abs( detail::asDouble( actual) - detail::asDouble( expected)) <=
+                           detail::asDouble( tolerance);
                 }
                 else
                 {
@@ -223,8 +268,8 @@ namespace core
             {
                 if constexpr( Toleranced<T>)
                 {
-                    return actual >= low  - tolerance &&
-                           actual <= high + tolerance;
+                    return detail::asDouble( actual) >= detail::asDouble( low)  - detail::asDouble( tolerance) &&
+                           detail::asDouble( actual) <= detail::asDouble( high) + detail::asDouble( tolerance);
                 }
                 else
                 {
@@ -280,12 +325,13 @@ namespace core
             {
                 if constexpr( Toleranced<T>)
                 {
-                    const auto diff = actual - expected;
+                    const auto diff  = detail::asDouble( actual) - detail::asDouble( expected);
+                    const auto slack = detail::asDouble( tolerance);
 
-                    if constexpr( R == Relation::Lt) { return diff <  -tolerance; }
-                    else if constexpr( R == Relation::Le) { return diff <=  tolerance; }
-                    else if constexpr( R == Relation::Gt) { return diff >   tolerance; }
-                    else                                   { return diff >= -tolerance; }
+                    if constexpr( R == Relation::Lt) { return diff <  -slack; }
+                    else if constexpr( R == Relation::Le) { return diff <=  slack; }
+                    else if constexpr( R == Relation::Gt) { return diff >   slack; }
+                    else                                   { return diff >= -slack; }
                 }
                 else
                 {

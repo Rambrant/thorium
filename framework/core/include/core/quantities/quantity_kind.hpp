@@ -66,7 +66,17 @@ namespace core
         Decibel,
         Frequency,
         PowerFactor,
-        ReactivePower
+        ReactivePower,
+        //
+        // Appended rather than filed next to a related unit, because a kind's
+        // position is the alternative index of QuantityVariant: inserting one
+        // mid-list renumbers every kind after it, and a recording written by
+        // the previous build would still parse (the file stores the *name*,
+        // see to_string) while anything that had cached an index would not.
+        // Appending costs nothing and cannot do that.
+        //
+        Temperature,
+        TemperatureDelta
     };
 
     namespace detail
