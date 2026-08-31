@@ -1067,6 +1067,329 @@ namespace
             }
         }
     }
+
+    // -----------------------------------------------------------------------
+    // The artifacts a run opens before it starts
+    // -----------------------------------------------------------------------
+    //
+    // Four things get set up between "the caller asked for a run" and "the run
+    // begins": the two report logs, the replayable reading stream, and
+    // whichever session the readings come from. They are separated out of
+    // main() below because they are each a phase with the same shape -- open
+    // it, and refuse the whole run if it cannot be opened -- and because that
+    // shape is the argument, not an accident of how they happen to be written.
+    //
+    // Every one of them is fatal on failure, and always for the same reason: a
+    // caller who asked for a logged run and silently got no log, or asked to
+    // replay a recording and silently got live hardware, has been told the run
+    // did something it did not. Nothing has touched the rig at this point, so
+    // refusing costs nothing -- which is why all four happen here, before
+    // journal().begin() and before the first script.
+    //
+    // Each reports its own failure and answers false; main turns that into a
+    // non-zero exit. None of them throws: the diagnosis belongs next to the
+    // thing that failed to open, and a caller reading stderr should not have
+    // to distinguish "the RTF path was unwritable" from "a script threw".
+    //
+
+    //
+    // The two report logs, plus the live console view.
+    //
+    // Held by the caller rather than returned, and that is a lifetime
+    // requirement rather than a style: each file sink's destructor is its
+    // last-resort close (see core::SarifSink's and core::RtfSink's own
+    // comments), so their scope has to enclose the entire run *and* the
+    // journal().end() that follows it. core::RtfSink is also neither copyable
+    // nor movable -- it owns a seekable std::ofstream -- so there is nothing to
+    // return even if the lifetime allowed it.
+    //
+    struct RunLogs
+    {
+        std::optional<core::ConsoleSink>  Console;
+        std::optional<core::SarifSink>    Sarif;
+        std::optional<core::RtfSink>      Rtf;
+    };
+
+    [[nodiscard]]
+    auto openLogs( const Options & options, const core::RunInfo & runInfo, RunLogs & logs) -> bool
+    {
+        //
+        // No sinks at all for a skeleton run, and the reason is the one the whole
+        // mode turns on: it did not test anything. Every reading in it is a
+        // placeholder, so its verdicts are noise -- and an RTF sitting in the log
+        // directory with a DUT serial in its header is evidence that a run
+        // happened. This one did not. Same stance --safe takes on the Safe event it
+        // posts: a mode that reports nothing gets no log to report it in.
+        //
+        const auto writingSkeleton = options.SkeletonPath.has_value();
+
+        if ( !options.Quiet && !writingSkeleton)
+        {
+            logs.Console.emplace( std::cout, options.Colour);
+            core::journal().add( *logs.Console);
+        }
+
+        if ( options.WriteLogs && !writingSkeleton)
+        {
+            try
+            {
+                const auto stamp = fileStamp( runInfo.StartedUtc);
+                const auto dir   = std::filesystem::path( options.LogDir);
+
+                const auto sarifPath = std::filesystem::path( options.SarifPath.value_or( ( dir / ( "thorium-" + stamp + ".sarif")).string()));
+                const auto rtfPath   = std::filesystem::path( options.RtfPath.value_or(   ( dir / ( "thorium-" + stamp + ".rtf")).string()));
+
+                ensureParentDirectory( sarifPath);
+                ensureParentDirectory( rtfPath);
+
+                logs.Sarif.emplace( sarifPath.string());
+                logs.Rtf.emplace(   rtfPath.string());
+
+                core::journal().add( *logs.Sarif);
+                core::journal().add( *logs.Rtf);
+            }
+            catch ( const std::exception & e)
+            {
+                //
+                // Fatal, not a warning: the caller asked for a logged run, and a
+                // run that quietly produced no record is worse than one that
+                // refused to start -- the rig hasn't been touched yet at this
+                // point, so refusing costs nothing.
+                //
+                std::cerr << "Could not open run logs: " << e.what() << '\n';
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    //
+    // The replayable value stream: the readings themselves, in order, so the
+    // same run can be played back with no rig attached.
+    //
+    // Held by the caller for the reason RunLogs is -- the writer streams into
+    // the stream beside it, so the two have to outlive the run and each other
+    // -- and opened here rather than at the end: discovering an unwritable path
+    // after a fifty-pass soak run would mean discovering it exactly when the
+    // data is most expensive to have lost.
+    //
+    struct ReadingStream
+    {
+        std::ofstream                         File;
+        std::optional<core::RecordingWriter>  Writer;
+    };
+
+    //
+    // --record and --skeleton write the same kind of file through the same
+    // machinery, and differ only in where the values come from -- the rig, or
+    // core::PlaceholderSession. One path parameter rather than two blocks, so
+    // that a skeleton is provably a recording rather than something shaped like
+    // one: the day the format grows a column, it grows in both.
+    //
+    [[nodiscard]]
+    auto openReadingStream( const Options & options, const std::string & path, ReadingStream & stream) -> bool
+    {
+        try
+        {
+            const auto target = std::filesystem::path( path);
+
+            ensureParentDirectory( target);
+
+            stream.File.open( target, std::ios::out | std::ios::trunc);
+
+            if ( !stream.File)
+            {
+                throw std::runtime_error( "could not open '" + target.string() + "' for writing");
+            }
+
+            //
+            // Streamed as the run takes each reading rather than accumulated
+            // and dumped at the end -- see core::RecordingSession::streamTo.
+            // Two things follow that are worth knowing at this call site.
+            //
+            // A run that is killed part-way leaves the readings it had already
+            // taken, where before it left an empty file. That is the direction
+            // to fail in for a fifty-pass soak.
+            //
+            // And a heavy payload spills into the sidecar directory beside the
+            // file (core::sidecarDirectoryFor), which means a write can now
+            // fail *during* the run rather than only at the end of it. It
+            // throws where it fails, out through runTests, into main's own
+            // handler -- reported, and the run marked failed, which is the same
+            // stance closeReadingStream below takes on a recording that could
+            // not be written.
+            //
+            //
+            // Provenance first, on every file this program writes: which tests
+            // the run was asked for. A recording is as long as the run is, so
+            // "is this a whole run or a narrow capture?" is the first thing
+            // somebody holding one needs, and it is not answerable from the
+            // rows without reading all of them. See core::writeSelectionHeader,
+            // which owns the spelling, and core::kCommentMarker on why nothing
+            // reads this back.
+            //
+            core::writeSelectionHeader( stream.File, options.Selection);
+
+            //
+            // Then prose, on a skeleton only, and that asymmetry is the point: a
+            // recording is a capture and speaks for itself, while a skeleton is
+            // a file somebody is about to edit and needs to know it is not
+            // evidence of anything.
+            //
+            if ( options.SkeletonPath)
+            {
+                stream.File
+                    << "# Skeleton written by run_scripts --skeleton. This is a valid --replay file.\n"
+                    << "# Every value below is a PLACEHOLDER -- no instrument was touched. Readings are\n"
+                    << "# zero, captures completed, payloads and traces are empty. Edit the value column.\n"
+                    << "#\n"
+                    << "# The keys and their order are what the scripts actually asked for, which is the\n"
+                    << "# part that cannot be written down by hand. A script whose control flow depends\n"
+                    << "# on what it read has more than one path through it, and this is the one these\n"
+                    << "# placeholders produce -- complete for the straight-line case, a first draft\n"
+                    << "# otherwise.\n"
+                    << "#\n"
+                    << "# sequence  wallClockMillis  test  point  instrument  kind  value\n";
+            }
+
+            stream.Writer.emplace( stream.File, core::sidecarDirectoryFor( target));
+        }
+        catch ( const std::exception & e)
+        {
+            std::cerr << "Could not open the recording: " << e.what() << '\n';
+            return false;
+        }
+
+        //
+        // Placeholders before recording, so that the recorder decorates a
+        // session that answers rather than one that reaches for the rig. Not
+        // conditional on anything else: --skeleton is exclusive with both other
+        // modes (see parseOptions), so there is nothing this can be discarding.
+        //
+        if ( options.SkeletonPath)
+        {
+            Measure.usePlaceholders();
+        }
+
+        Measure.startRecording( *stream.Writer);
+
+        return true;
+    }
+
+    //
+    // Where this run's readings come from, when they do not come from the rig.
+    //
+    // Replay first, then inject, and the order is the whole meaning of using
+    // both: --replay lays down a captured run and --inject changes named
+    // readings within it. The other way round, the load would discard the
+    // injections and say nothing.
+    //
+    [[nodiscard]]
+    auto armReadings( const Options & options) -> bool
+    {
+        if ( options.ReplayPath)
+        {
+            try
+            {
+                //
+                // Every reading now comes from the file, and nothing reaches an
+                // instrument or the fabric. The rig is still safed on the way out
+                // regardless -- a replay run has nothing to safe, and safing
+                // something already idle is what hal::safeRig() is built for.
+                //
+                Measure.load( *options.ReplayPath, options.Selection);
+            }
+            catch ( const std::exception & e)
+            {
+                std::cerr << "Could not load the recording to replay: " << e.what() << '\n';
+                return false;
+            }
+        }
+
+        if ( options.InjectPath)
+        {
+            //
+            // Fatal if it cannot be read or does not parse, before anything is
+            // measured -- the stance --replay takes, for its reason. A caller who
+            // asked for described readings and silently got live hardware, or got
+            // the half of the file that parsed, has been told the run did something
+            // it did not.
+            //
+            try
+            {
+                core::injectStimulusFromFile( Measure.sessions(), *options.InjectPath);
+            }
+            catch ( const std::exception & e)
+            {
+                std::cerr << "Could not read the stimulus file: " << e.what() << '\n';
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    //
+    // Closes the reading stream out, and says whether it was actually written.
+    //
+    // Called after the run block rather than inside it, so the file holds every
+    // reading the run took -- including any a RUN_TEARDOWN made on its way out
+    // -- and deliberately outside main's try/catch: a run that ended by
+    // throwing is the one whose readings are most worth having, so this happens
+    // for a failed run exactly as for a passing one.
+    //
+    // The rows themselves went out as they were observed (see
+    // openReadingStream above); what is left here is the flush and the check.
+    //
+    // A recording that could not be written fails the run. The scripts may well
+    // all have passed, but the caller asked for an artifact and hasn't got one
+    // -- the same stance --sarif=/--rtf= take on a log that could not be
+    // opened.
+    //
+    [[nodiscard]]
+    auto closeReadingStream( ReadingStream & stream, const std::string & path) -> bool
+    {
+        Measure.stopRecording();
+
+        stream.File.flush();
+
+        if ( stream.File)
+        {
+            return true;
+        }
+
+        std::cerr << "Could not write the recording to " << path << '\n';
+
+        core::journal().post( core::JournalRecord{
+            .Method  = core::Verb::Note,
+            .Subject = "run",
+            .Detail  = "could not write the recording to " + path
+        });
+
+        return false;
+    }
+
+    //
+    // A skeleton run reports on the file it wrote, not on the scripts. Its
+    // verdicts are the verdicts of a run that read zeroes, so returning them
+    // would tell a caller -- and a CI job -- something false about a DUT that
+    // was never connected. It succeeds if the file was written and fails if it
+    // was not, which is the only thing this mode actually claims.
+    //
+    [[nodiscard]]
+    auto reportSkeleton( const ReadingStream & stream, const std::string & path) -> int
+    {
+        if ( !stream.File)
+        {
+            return 1;
+        }
+
+        std::cout << "Wrote " << Measure.recordedCount() << " reads to " << path << ".\n"
+                  << "Every value is a placeholder; edit the last column and replay it.\n";
+
+        return 0;
+    }
 } // namespace
 
 int main( int argc, char ** argv)
@@ -1151,7 +1474,7 @@ int main( int argc, char ** argv)
     }
 
     //
-    // --- Traceability header, and the sinks that carry it ---
+    // --- Traceability header ---
     // Assembled before anything is measured, so the logs describe the run that
     // is about to happen rather than being reconstructed afterwards.
     //
@@ -1164,220 +1487,28 @@ int main( int argc, char ** argv)
         runInfo.Operator = options.OperatorName;   // explicit beats the environment's guess
 
     //
-    // Sinks are locals whose scope encloses the entire run *and* the
-    // journal().end() call below: each file sink's destructor is its last-resort
-    // close (see core::SarifSink's and core::RtfSink's own comments), so their
-    // lifetime has to outlive the last event either could receive.
+    // --- Everything the run writes or reads, opened before it starts ---
     //
-    std::optional<core::ConsoleSink>  console;
-    std::optional<core::SarifSink>    sarif;
-    std::optional<core::RtfSink>      rtf;
-
+    // All three are locals here rather than inside the phases that fill them,
+    // because their scope has to enclose the run and the journal().end() after
+    // it -- see RunLogs and ReadingStream above. Each phase reports its own
+    // failure, so a false is turned straight into a non-zero exit with nothing
+    // to add.
     //
-    // No sinks at all for a skeleton run, and the reason is the one the whole
-    // mode turns on: it did not test anything. Every reading in it is a
-    // placeholder, so its verdicts are noise -- and an RTF sitting in the log
-    // directory with a DUT serial in its header is evidence that a run
-    // happened. This one did not. Same stance --safe takes on the Safe event it
-    // posts: a mode that reports nothing gets no log to report it in.
-    //
-    const auto writingSkeleton = options.SkeletonPath.has_value();
+    RunLogs logs;
 
-    if ( !options.Quiet && !writingSkeleton)
-    {
-        console.emplace( std::cout, options.Colour);
-        core::journal().add( *console);
-    }
+    if ( !openLogs( options, runInfo, logs))
+        return 1;
 
-    if ( options.WriteLogs && !writingSkeleton)
-    {
-        try
-        {
-            const auto stamp = fileStamp( runInfo.StartedUtc);
-            const auto dir   = std::filesystem::path( options.LogDir);
-
-            const auto sarifPath = std::filesystem::path( options.SarifPath.value_or( ( dir / ( "thorium-" + stamp + ".sarif")).string()));
-            const auto rtfPath   = std::filesystem::path( options.RtfPath.value_or(   ( dir / ( "thorium-" + stamp + ".rtf")).string()));
-
-            ensureParentDirectory( sarifPath);
-            ensureParentDirectory( rtfPath);
-
-            sarif.emplace( sarifPath.string());
-            rtf.emplace(   rtfPath.string());
-
-            core::journal().add( *sarif);
-            core::journal().add( *rtf);
-        }
-        catch ( const std::exception & e)
-        {
-            //
-            // Fatal, not a warning: the caller asked for a logged run, and a
-            // run that quietly produced no record is worse than one that
-            // refused to start -- the rig hasn't been touched yet at this
-            // point, so refusing costs nothing.
-            //
-            std::cerr << "Could not open run logs: " << e.what() << '\n';
-            return 1;
-        }
-    }
-
-    //
-    // --- The replayable value stream ---
-    // Both set up here, before the journal opens and before anything is
-    // measured, and both fatal if they cannot be: a caller that asked to record
-    // a run and silently got no recording, or asked to replay one and silently
-    // got live hardware instead, has been told the run did something it didn't.
-    // Nothing has touched the rig at this point, so refusing costs nothing --
-    // the same reasoning the log files above are opened on.
-    //
-    // The record file is opened now and written at the end, rather than opened
-    // at the end: discovering an unwritable path after a fifty-pass soak run
-    // would mean discovering it exactly when the data is most expensive to have
-    // lost.
-    //
-    //
-    // --record and --skeleton write the same kind of file through the same
-    // machinery, and differ only in where the values come from -- the rig, or
-    // core::PlaceholderSession. One path variable rather than two blocks, so
-    // that a skeleton is provably a recording rather than something shaped like
-    // one: the day the format grows a column, it grows in both.
-    //
     const auto & streamPath = options.RecordPath ? options.RecordPath : options.SkeletonPath;
 
-    std::ofstream                        recording;
-    std::optional<core::RecordingWriter>  recordingWriter;
+    ReadingStream stream;
 
-    if ( streamPath)
-    {
-        try
-        {
-            const auto path = std::filesystem::path( *streamPath);
+    if ( streamPath && !openReadingStream( options, *streamPath, stream))
+        return 1;
 
-            ensureParentDirectory( path);
-
-            recording.open( path, std::ios::out | std::ios::trunc);
-
-            if ( !recording)
-            {
-                throw std::runtime_error( "could not open '" + path.string() + "' for writing");
-            }
-
-            //
-            // Streamed as the run takes each reading rather than accumulated
-            // and dumped at the end -- see core::RecordingSession::streamTo.
-            // Two things follow that are worth knowing at this call site.
-            //
-            // A run that is killed part-way leaves the readings it had already
-            // taken, where before it left an empty file. That is the direction
-            // to fail in for a fifty-pass soak.
-            //
-            // And a heavy payload spills into the sidecar directory beside the
-            // file (core::sidecarDirectoryFor), which means a write can now
-            // fail *during* the run rather than only at the end of it. It
-            // throws where it fails, out through runTests, into the catch
-            // below -- reported, and the run marked failed, which is the same
-            // stance the block at the end of this function takes on a recording
-            // that could not be written.
-            //
-            //
-            // Provenance first, on every file this program writes: which tests
-            // the run was asked for. A recording is as long as the run is, so
-            // "is this a whole run or a narrow capture?" is the first thing
-            // somebody holding one needs, and it is not answerable from the
-            // rows without reading all of them. See core::writeSelectionHeader,
-            // which owns the spelling, and core::kCommentMarker on why nothing
-            // reads this back.
-            //
-            core::writeSelectionHeader( recording, options.Selection);
-
-            //
-            // Then prose, on a skeleton only, and that asymmetry is the point: a
-            // recording is a capture and speaks for itself, while a skeleton is
-            // a file somebody is about to edit and needs to know it is not
-            // evidence of anything.
-            //
-            if ( options.SkeletonPath)
-            {
-                recording
-                    << "# Skeleton written by run_scripts --skeleton. This is a valid --replay file.\n"
-                    << "# Every value below is a PLACEHOLDER -- no instrument was touched. Readings are\n"
-                    << "# zero, captures completed, payloads and traces are empty. Edit the value column.\n"
-                    << "#\n"
-                    << "# The keys and their order are what the scripts actually asked for, which is the\n"
-                    << "# part that cannot be written down by hand. A script whose control flow depends\n"
-                    << "# on what it read has more than one path through it, and this is the one these\n"
-                    << "# placeholders produce -- complete for the straight-line case, a first draft\n"
-                    << "# otherwise.\n"
-                    << "#\n"
-                    << "# sequence  wallClockMillis  test  point  instrument  kind  value\n";
-            }
-
-            recordingWriter.emplace( recording, core::sidecarDirectoryFor( path));
-        }
-        catch ( const std::exception & e)
-        {
-            std::cerr << "Could not open the recording: " << e.what() << '\n';
-            return 1;
-        }
-
-        //
-        // Placeholders before recording, so that the recorder decorates a
-        // session that answers rather than one that reaches for the rig. Not
-        // conditional on anything else: --skeleton is exclusive with both other
-        // modes (see parseOptions), so there is nothing this can be discarding.
-        //
-        if ( options.SkeletonPath)
-        {
-            Measure.usePlaceholders();
-        }
-
-        Measure.startRecording( *recordingWriter);
-    }
-
-    //
-    // Replay first, then inject, and the order is the whole meaning of using
-    // both: --replay lays down a captured run and --inject changes named
-    // readings within it. The other way round, the load would discard the
-    // injections and say nothing.
-    //
-    if ( options.ReplayPath)
-    {
-        try
-        {
-            //
-            // Every reading now comes from the file, and nothing reaches an
-            // instrument or the fabric. The rig is still safed on the way out
-            // regardless -- a replay run has nothing to safe, and safing
-            // something already idle is what hal::safeRig() is built for.
-            //
-            Measure.load( *options.ReplayPath, options.Selection);
-        }
-        catch ( const std::exception & e)
-        {
-            std::cerr << "Could not load the recording to replay: " << e.what() << '\n';
-            return 1;
-        }
-    }
-
-    if ( options.InjectPath)
-    {
-        //
-        // Fatal if it cannot be read or does not parse, before anything is
-        // measured -- the stance --replay takes, for its reason. A caller who
-        // asked for described readings and silently got live hardware, or got
-        // the half of the file that parsed, has been told the run did something
-        // it did not.
-        //
-        try
-        {
-            core::injectStimulusFromFile( Measure.sessions(), *options.InjectPath);
-        }
-        catch ( const std::exception & e)
-        {
-            std::cerr << "Could not read the stimulus file: " << e.what() << '\n';
-            return 1;
-        }
-    }
+    if ( !armReadings( options))
+        return 1;
 
     core::journal().begin( runInfo);
 
@@ -1424,61 +1555,16 @@ int main( int argc, char ** argv)
         }
     }
 
-    //
-    // Closed out after the run block above, so the file holds every reading the
-    // run took -- including any a RUN_TEARDOWN made on its way out.
-    //
-    // The rows themselves went out as they were observed (see where the writer
-    // is built, further up); what is left here is the flush and the check.
-    //
-    // Deliberately outside the try/catch: a run that ended by throwing is the
-    // one whose readings are most worth having, so the recording is closed out
-    // for a failed run exactly as for a passing one.
-    //
-    // A recording that could not be written fails the run. The scripts may
-    // well all have passed, but the caller asked for an artifact and hasn't
-    // got one -- the same stance --sarif=/--rtf= take on a log that could not
-    // be opened.
-    //
-    if ( streamPath)
+    if ( streamPath && !closeReadingStream( stream, *streamPath))
     {
-        Measure.stopRecording();
-
-        recording.flush();
-
-        if ( !recording)
-        {
-            std::cerr << "Could not write the recording to " << *streamPath << '\n';
-
-            core::journal().post( core::JournalRecord{
-                .Method  = core::Verb::Note,
-                .Subject = "run",
-                .Detail  = "could not write the recording to " + *streamPath
-            });
-
-            allPassed = false;
-        }
+        allPassed = false;
     }
 
     core::journal().end( allPassed);
 
-    //
-    // A skeleton run reports on the file it wrote, not on the scripts. Its
-    // verdicts are the verdicts of a run that read zeroes, so returning them
-    // would tell a caller -- and a CI job -- something false about a DUT that
-    // was never connected. It succeeds if the file was written and fails if it
-    // was not, which is the only thing this mode actually claims.
-    //
     if ( options.SkeletonPath)
     {
-        if ( recording)
-        {
-            std::cout << "Wrote " << Measure.recordedCount() << " reads to "
-                      << *options.SkeletonPath << ".\n"
-                      << "Every value is a placeholder; edit the last column and replay it.\n";
-        }
-
-        return recording ? 0 : 1;
+        return reportSkeleton( stream, *options.SkeletonPath);
     }
 
     return allPassed ? 0 : 1;
