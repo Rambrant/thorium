@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "core/journal/journal.hpp"
+#include "core/testing/capturing_sink.hpp"
 
 using namespace core::literals;
 using namespace core::quantities;
@@ -27,17 +28,6 @@ using namespace core::quantities;
 //
 namespace
 {
-    class CapturingSink : public core::IJournalSink
-    {
-        public:
-            auto onEvent( const core::JournalEvent & event) -> void override
-            {
-                Events.push_back( event);
-            }
-
-            std::vector<core::JournalEvent> Events;
-    };
-
     struct DescribeFixture : ::testing::Test
     {
         hal::SwitchFabric      fabric;
@@ -56,7 +46,7 @@ namespace
         ConnectEngine    connect{    fabric, instrumentWiring, connectorWiring };
         DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };
 
-        CapturingSink sink;
+        core::CapturingSink sink;
 
         DescribeFixture()
         {

@@ -24,6 +24,7 @@
 
 #include "core/criteria/criteria_variants.hpp"
 #include "core/journal/journal.hpp"
+#include "core/testing/capturing_sink.hpp"
 
 using core::quantities::Voltage;
 
@@ -43,23 +44,6 @@ namespace
     constexpr auto kBaseline = "Output5V.Vbase";
     constexpr auto kMinimum  = "Output5V.Vmin";
     constexpr auto kCapture  = "Osc1.Acquisition";
-
-    //
-    // Registered so a test can assert what the script *recorded* and not only
-    // what it returned -- which for the missing-capture path is the whole
-    // question: the return value is false either way, and what matters is which
-    // criterion the log does and does not attach that to.
-    //
-    class CapturingSink : public core::IJournalSink
-    {
-        public:
-            auto onEvent( const core::JournalEvent & event) -> void override
-            {
-                Events.push_back( event);
-            }
-
-            std::vector<core::JournalEvent> Events;
-    };
 
     struct AcDropoutFixture : ::testing::Test
     {
@@ -112,7 +96,13 @@ namespace
                 return subjects;
             }
 
-            CapturingSink Journal;
+            //
+            // What the script *recorded*, not only what it returned -- which
+            // for the missing-capture path is the whole question: the return
+            // value is false either way, and what matters is which criterion
+            // the log does and does not attach that to.
+            //
+            core::CapturingSink Journal;
 
             //
             // A healthy run: rail at nominal, capture lands, rail dips 120 mV.

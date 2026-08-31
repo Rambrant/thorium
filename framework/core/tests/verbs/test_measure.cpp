@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include "core/verbs/at.hpp"
+#include "core/testing/capturing_sink.hpp"
 
 using namespace core::literals;
 using namespace core::quantities;
@@ -517,34 +518,20 @@ TEST_F( MeasureEngineFixture, AnInjectedValueIsNeverUnmeasurable)
 
 namespace
 {
-    //
-    // Keeps every journal event, so what a run's log actually says about an
-    // unmeasurable reading can be asserted rather than assumed. Sinks are
-    // referenced and not owned (see core::Journal::add), and the journal is
-    // process-wide, so the fixture below has to unregister this again.
-    //
-    class EventSink : public core::IJournalSink
-    {
-        public:
-            auto onRunStart( const core::RunInfo &) -> void override {}
-            auto onGroupStart( std::string_view, std::string_view) -> void override {}
-            auto onGroupEnd( std::string_view) -> void override {}
-            auto onTestStart( std::string_view, std::string_view) -> void override {}
-            auto onEvent( const core::JournalEvent & event) -> void override { Events.push_back( event); }
-            auto onTestEnd( std::string_view, std::string_view, bool) -> void override {}
-            auto onRunEnd( bool) -> void override {}
-
-            std::vector<core::JournalEvent> Events;
-    };
-
     struct UnmeasurableLogFixture : MeasureEngineFixture
     {
         protected:
 
+            //
+            // Sinks are referenced and not owned (see core::Journal::add), and
+            // the journal is process-wide, so the TearDown is not tidiness --
+            // without it this sink outlives the fixture as a dangling
+            // registration and every later test in this binary posts into it.
+            //
             void SetUp() override { core::journal().add( sink); }
             void TearDown() override { core::journal().clearSinks(); }
 
-            EventSink sink;
+            core::CapturingSink sink;
     };
 } // namespace
 

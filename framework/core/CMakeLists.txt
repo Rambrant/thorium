@@ -101,6 +101,13 @@ add_library(core STATIC
         include/core/criteria/predicate_text.hpp   # header-only
         include/core/criteria/verify.hpp           # header-only apart from src/criteria/verify.cpp
         include/core/criteria/criteria_variants.hpp
+        # --- core/testing: what a deployment's own tests are written with ---
+        # Shipped and installed like any other header, because a deployment's
+        # rig/ and suite/ tests are not this framework's tests and cannot reach
+        # into framework/core/tests/ -- see core::CapturingSink's own comment.
+        # Nothing in core links against it; it is here so that the three test
+        # targets that need it (core's, the rig's, the suite's) all have it.
+        include/core/testing/capturing_sink.hpp    # header-only
 )
 
 target_include_directories(core PUBLIC

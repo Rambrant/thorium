@@ -8,6 +8,7 @@
 #include "core/session/bench.hpp"
 #include "core/journal/journal.hpp"
 #include "core/verbs/route.hpp"
+#include "core/testing/capturing_sink.hpp"
 
 //
 // The framework half of the electrical interlock: the two message builders, the
@@ -112,14 +113,6 @@ namespace mock
 
 namespace
 {
-    class CapturingSink : public core::IJournalSink
-    {
-        public:
-            auto onEvent( const core::JournalEvent & event) -> void override { Events.push_back( event); }
-
-            std::vector<core::JournalEvent> Events;
-    };
-
     class InterlockTest : public ::testing::Test
     {
         protected:
@@ -150,7 +143,7 @@ namespace
             mock::Supply  mSupply;
             mock::Fabric  mFabric;
             mock::Wiring  mWiring;
-            CapturingSink mSink;
+            core::CapturingSink mSink;
 
             core::ConnectEngine<mock::Fabric, mock::Wiring, mock::Wiring>    mConnect{ mFabric, mWiring, mWiring };
             core::DisconnectEngine<mock::Fabric, mock::Wiring, mock::Wiring> mDisconnect{ mFabric, mWiring, mWiring };

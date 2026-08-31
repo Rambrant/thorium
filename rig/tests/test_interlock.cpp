@@ -15,6 +15,7 @@
 #include "core/verbs/at.hpp"
 #include "core/verbs/interlock.hpp"
 #include "core/journal/journal.hpp"
+#include "core/testing/capturing_sink.hpp"
 
 using namespace core::literals;
 using namespace core::quantities;
@@ -74,17 +75,6 @@ namespace
 
     constexpr core::AdapterPointTag<kOutput5V> Output5V{ "Output5V", "5Vdc supply port" };
 
-    class CapturingSink : public core::IJournalSink
-    {
-        public:
-            auto onEvent( const core::JournalEvent & event) -> void override
-            {
-                Events.push_back( event);
-            }
-
-            std::vector<core::JournalEvent> Events;
-    };
-
     struct InterlockFixture : ::testing::Test
     {
         hal::SwitchFabric      fabric;
@@ -108,7 +98,7 @@ namespace
         DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };
         MeasureEngine    measure{    fabric, instrumentWiring, connectorWiring, tapWiring };
 
-        CapturingSink sink;
+        core::CapturingSink sink;
 
         InterlockFixture()
         {

@@ -13,7 +13,15 @@ namespace
     // (ordering, stamping, test attribution, fan-out) can be asserted without
     // going through a file format.
     //
-    class CapturingSink : public core::IJournalSink
+    // Not core::EveryHookSink, which every other test file in this framework
+    // uses and which takes onEvent alone. The difference is the subject: those
+    // files assert on what a *verb* recorded and reach for the events, while
+    // this one is about the journal's dispatch itself -- that begin() stamps a
+    // RunInfo, that a group opens before its tests and closes after them, that
+    // a phase nests where the catalog says. Those are the hooks, not the
+    // events, so this sink overrides all nine and keeps each separately.
+    //
+    class EveryHookSink : public core::IJournalSink
     {
         public:
             struct Boundary
@@ -105,7 +113,7 @@ namespace
                 core::journal().clearSinks();
             }
 
-            CapturingSink mSink;
+            EveryHookSink mSink;
     };
 } // namespace
 
@@ -208,7 +216,7 @@ TEST_F( JournalTest, EventAttributionFollowsWhicheverBoundariesAreStillOpen)
 
 TEST_F( JournalTest, EveryRegisteredSinkSeesEveryEvent)
 {
-    CapturingSink second;
+    EveryHookSink second;
     core::journal().add( second);
 
     core::journal().begin( core::RunInfo{});

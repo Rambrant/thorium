@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "core/journal/journal.hpp"
+#include "core/testing/capturing_sink.hpp"
 
 //
 // A source measuring its own output, over its own interface -- the reading that
@@ -27,14 +28,6 @@ using namespace core::quantities;
 
 namespace
 {
-    class CapturingSink : public core::IJournalSink
-    {
-        public:
-            auto onEvent( const core::JournalEvent & event) -> void override { Events.push_back( event); }
-
-            std::vector<core::JournalEvent> Events;
-    };
-
     struct SourceReadbackFixture : ::testing::Test
     {
         hal::SwitchFabric      fabric;
@@ -61,7 +54,7 @@ namespace
         core::MeasureEngine<hal::SwitchFabric, hal::InstrumentWiring, hal::ConnectorWiring, hal::TapWiring>
             measure{ fabric, instrumentWiring, connectorWiring, tapWiring };
 
-        CapturingSink sink;
+        core::CapturingSink sink;
 
         SourceReadbackFixture()
         {

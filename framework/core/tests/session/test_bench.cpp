@@ -11,6 +11,7 @@
 #include "core/session/session.hpp"
 #include "core/verbs/source.hpp"
 #include "core/verbs/transfer.hpp"
+#include "core/testing/capturing_sink.hpp"
 
 //
 // The stimulus half of "where did this run's behaviour actually come from" --
@@ -131,14 +132,6 @@ namespace mock
 
 namespace
 {
-    class CapturingSink : public core::IJournalSink
-    {
-        public:
-            auto onEvent( const core::JournalEvent & event) -> void override { Events.push_back( event); }
-
-            std::vector<core::JournalEvent> Events;
-    };
-
     //
     // The bench is process-wide (see core/session/bench.hpp on why), so every test here
     // has to leave it attached -- otherwise one test's detachment silences the
@@ -190,7 +183,7 @@ namespace
             mock::Instrument  mInstrument;
             mock::Fabric      mFabric;
             mock::Wiring      mWiring;
-            CapturingSink     mSink;
+            core::CapturingSink     mSink;
     };
 } // namespace
 

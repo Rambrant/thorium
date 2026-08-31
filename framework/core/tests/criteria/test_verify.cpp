@@ -10,6 +10,7 @@
 #include "core/journal/journal.hpp"
 #include "core/criteria/predicate_text.hpp"
 #include "core/criteria/predicates.hpp"
+#include "core/testing/capturing_sink.hpp"
 
 using namespace core::quantities;
 
@@ -76,17 +77,6 @@ TEST( CoreVerify, AdHocOverloadKeepsQuantityChecking)
 //
 namespace
 {
-    class FailCapturingSink : public core::IJournalSink
-    {
-        public:
-            auto onEvent( const core::JournalEvent & event) -> void override
-            {
-                Events.push_back( event);
-            }
-
-            std::vector<core::JournalEvent> Events;
-    };
-
     //
     // The journal and the criteria selection are both process-wide (see
     // core/journal/journal.hpp and core/criteria/criteria_variants.hpp on why), so this hands
@@ -111,7 +101,7 @@ namespace
                 core::resetCriteriaVariantForTesting();
             }
 
-            FailCapturingSink Sink;
+            core::CapturingSink Sink;
     };
 
     //

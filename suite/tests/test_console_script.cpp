@@ -10,6 +10,7 @@
 //
 #include "core/quantities/bytes.hpp"
 #include "core/journal/journal.hpp"
+#include "core/testing/capturing_sink.hpp"
 #include "hal/verbs/measure.hpp"
 
 #include <gtest/gtest.h>
@@ -37,30 +38,6 @@ namespace
             std::byte{ 'A' }, std::byte{ 'C' }, std::byte{ 'K' }, std::byte{ '\r' }, std::byte{ status } });
     }
 
-    //
-    // Read and Measure share one session bank (see core::SessionBank), so
-    // useLive() through Measure is what discards this test's injections -- for
-    // both seams at once. That is the behaviour worth relying on here: a
-    // fixture that cleaned up only half of them would leak canned replies into
-    // whichever test ran next.
-    //
-    //
-    // Registered on the one process-wide journal so a test can assert what the
-    // script *recorded*, not only what it returned. Which matters for exactly
-    // one thing here: a check that could not be made has to reach the report
-    // naming the criterion it was about, and the return value cannot show that.
-    //
-    class CapturingSink : public core::IJournalSink
-    {
-        public:
-            auto onEvent( const core::JournalEvent & event) -> void override
-            {
-                Events.push_back( event);
-            }
-
-            std::vector<core::JournalEvent> Events;
-    };
-
     struct ConsoleFixture : ::testing::Test
     {
         protected:
@@ -70,6 +47,13 @@ namespace
                 core::journal().add( Journal);
             }
 
+            //
+            // Read and Measure share one session bank (see core::SessionBank),
+            // so useLive() through Measure is what discards this test's
+            // injections -- for both seams at once. That is the behaviour
+            // worth relying on here: a fixture that cleaned up only half of
+            // them would leak canned replies into whichever test ran next.
+            //
             void TearDown() override
             {
                 core::journal().clearSinks();
@@ -99,7 +83,7 @@ namespace
                 return ids;
             }
 
-            CapturingSink Journal;
+            core::CapturingSink Journal;
     };
 } // namespace
 

@@ -10,6 +10,7 @@
 #include "core/session/recording.hpp"
 #include "core/session/session.hpp"
 #include "core/quantities/waveform.hpp"
+#include "core/testing/capturing_sink.hpp"
 
 using namespace core::quantities;
 
@@ -233,15 +234,7 @@ TEST_F( TraceFixture, ATraceGoesIntoTheSameOrderedRecordingAsEverythingElse)
 //
 TEST_F( TraceFixture, TheLogLineSummarisesTheTrace)
 {
-    class Capturing : public core::IJournalSink
-    {
-        public:
-            auto onEvent( const core::JournalEvent & event) -> void override { Events.push_back( event); }
-
-            std::vector<core::JournalEvent> Events;
-    };
-
-    Capturing sink;
+    core::CapturingSink sink;
 
     core::journal().clearSinks();
     core::journal().add( sink);
