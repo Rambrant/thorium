@@ -51,6 +51,9 @@ namespace core
         constexpr std::string_view kI4 = "        ";
         constexpr std::string_view kI5 = "          ";
         constexpr std::string_view kI6 = "            ";
+        constexpr std::string_view kI7 = "              ";
+        constexpr std::string_view kI8 = "                ";
+        constexpr std::string_view kI9 = "                  ";
 
         //
         // A quoted, escaped JSON string. Free function taking the sink's own
@@ -469,6 +472,322 @@ namespace core
         writeLog( allPassed);
     }
 
+    //
+    // --- tool.driver: which framework produced this, exactly ---
+    //
+    // The rules array is part of this block rather than one of its own: SARIF
+    // requires every result's ruleId to resolve to a rule declared here, so the
+    // list and the thing that declares it are one fact. See noteRule, which
+    // collects them as events arrive.
+    //
+    auto SarifSink::writeToolDriver( std::ostream & out) const -> void
+    {
+        out << kI3 << quoted( "tool") << ": {\n"
+            << kI4 << quoted( "driver") << ": {\n"
+            << kI5 << quoted( "name") << ": " << quoted( mRunInfo.FrameworkName) << ",\n"
+            << kI5 << quoted( "version") << ": " << quoted( mRunInfo.FrameworkVersion) << ",\n"
+            << kI5 << quoted( "semanticVersion") << ": " << quoted( mRunInfo.FrameworkVersion) << ",\n"
+            << kI5 << quoted( "informationUri") << ": " << quoted( kToolUri) << ",\n"
+            << kI5 << quoted( "rules") << ": [\n";
+
+        for( std::size_t i = 0; i < mRules.size(); ++i)
+        {
+            const auto & [ id, description ] = mRules[ i];
+
+            out << kI6 << "{\n"
+                << kI7 << quoted( "id") << ": " << quoted( id);
+
+            if( !description.empty())
+            {
+                out << ",\n" << kI7 << quoted( "shortDescription") << ": { "
+                    << quoted( "text") << ": " << quoted( description) << " }";
+            }
+
+            out << "\n" << kI6 << "}" << ( ( i + 1 < mRules.size()) ? ",\n" : "\n");
+        }
+
+        out << kI5 << "]\n"
+            << kI4 << "}\n"
+            << kI3 << "},\n";
+    }
+
+    //
+    // --- invocations: the run itself ---
+    // executionSuccessful is "did the tool manage to run", which is not the
+    // same question as "did the DUT pass" -- a run that completed with
+    // failing checks executed perfectly successfully. The DUT's verdict is
+    // in the results, and restated in run.properties.allPassed below.
+    //
+    auto SarifSink::writeInvocations( std::ostream & out, const std::string_view endedUtc) const -> void
+    {
+        out << kI3 << quoted( "invocations") << ": [\n"
+            << kI4 << "{\n"
+            << kI5 << quoted( "executionSuccessful") << ": true,\n"
+            << kI5 << quoted( "startTimeUtc") << ": " << quoted( mRunInfo.StartedUtc) << ",\n"
+            << kI5 << quoted( "endTimeUtc") << ": " << quoted( endedUtc);
+
+        bool first = false;   // the properties above are already written
+
+        optionalProperty( out, kI5, "commandLine", mRunInfo.CommandLine, first);
+        optionalProperty( out, kI5, "machine",     mRunInfo.HostName,    first);
+        optionalProperty( out, kI5, "account",     mRunInfo.Operator,    first);
+
+        out << "\n"
+            << kI4 << "}\n"
+            << kI3 << "],\n";
+    }
+
+    //
+    // --- automationDetails: what makes two runs comparable ---
+    // The id is deliberately built from DUT + criteria variant + start
+    // time: a consumer grouping runs sees "this DUT, against this tolerance
+    // table" as one series, which is exactly the comparison a bench cares
+    // about, and the timestamp keeps individual runs distinct within it.
+    //
+    auto SarifSink::writeAutomationDetails( std::ostream & out) const -> void
+    {
+        out << kI3 << quoted( "automationDetails") << ": {\n"
+            << kI4 << quoted( "id") << ": "
+            << quoted( "thorium/" + mRunInfo.DutName + "/" + mRunInfo.CriteriaVariant + "/" + mRunInfo.StartedUtc) << ",\n"
+            << kI4 << quoted( "description") << ": { " << quoted( "text") << ": "
+            << quoted( mRunInfo.FrameworkName + " " + mRunInfo.FrameworkVersion + " run against " + mRunInfo.DutName
+                       + " (criteria variant: " + mRunInfo.CriteriaVariant + ")") << " }\n"
+            << kI3 << "},\n";
+    }
+
+    //
+    // --- run.properties: the full traceability bag ---
+    // Every RunInfo field again, individually addressable. The invocation
+    // and automationDetails blocks above are where a *generic* SARIF
+    // consumer looks; this is where a Thorium-aware one reads the facts
+    // SARIF has no standard slot for (which DUT, which serial, which rig,
+    // which tolerance table).
+    //
+    auto SarifSink::writeRunProperties( std::ostream & out, const std::string_view endedUtc, const bool allPassed) const -> void
+    {
+        out << kI3 << quoted( "properties") << ": {\n";
+
+        bool first = true;
+
+        property(         out, kI4, "frameworkName",    mRunInfo.FrameworkName,    first);
+        property(         out, kI4, "frameworkVersion", mRunInfo.FrameworkVersion, first);
+        property(         out, kI4, "criteriaVariant",  mRunInfo.CriteriaVariant,  first);
+        property(         out, kI4, "dutName",          mRunInfo.DutName,          first);
+        optionalProperty( out, kI4, "dutSerial",        mRunInfo.DutSerial,        first);
+        property(         out, kI4, "rigName",          mRunInfo.RigName,          first);
+        optionalProperty( out, kI4, "operator",         mRunInfo.Operator,         first);
+        optionalProperty( out, kI4, "hostName",         mRunInfo.HostName,         first);
+        optionalProperty( out, kI4, "commandLine",      mRunInfo.CommandLine,      first);
+
+        //
+        // Not optional, unlike its neighbours: those are empty when nobody
+        // supplied them, and "no answer" is a meaningful state for an
+        // operator name. This is a yes/no the framework always knows, and a
+        // consumer filtering out the runs that never touched hardware needs
+        // it present on every run rather than only on the ones where it
+        // happens to be interesting.
+        //
+        booleanProperty(  out, kI4, "benchAttached",    mRunInfo.BenchAttached,    first);
+
+        //
+        // Which revision of the tested content produced this -- see
+        // RunInfo::SuiteVersion. Three separate properties even where they
+        // currently agree: a consumer correlating runs needs to be able to
+        // ask "same rig wiring, different criteria?" without splitting a
+        // combined string back apart.
+        //
+        optionalProperty( out, kI4, "suiteVersion",     mRunInfo.SuiteVersion,     first);
+        optionalProperty( out, kI4, "dutVersion",       mRunInfo.DutVersion,       first);
+        optionalProperty( out, kI4, "rigVersion",       mRunInfo.RigVersion,       first);
+
+        property(         out, kI4, "startedUtc",       mRunInfo.StartedUtc,       first);
+        optionalProperty( out, kI4, "startedLocal",     mRunInfo.StartedLocal,     first);
+        property(         out, kI4, "endedUtc",         endedUtc,                  first);
+
+        out << ",\n" << kI4 << quoted( "allPassed") << ": " << ( allPassed ? "true" : "false") << "\n"
+            << kI3 << "},\n";
+    }
+
+    //
+    // A boundary's properties are the boundary itself, addressably: what
+    // kind it is, the id under that kind's own key -- so "every result
+    // whose group property is OutputVoltage" picks up the group's own
+    // boundary along with everything inside it -- and the title.
+    //
+    // No sequence, deliberately: a boundary was never posted to the
+    // journal, so it has no place in the numbering, and a number
+    // invented for it would be one no event ever carried. Its position
+    // in the results array and its timeUtc are what order it.
+    //
+    auto SarifSink::writeBoundaryProperties( std::ostream & out, const Result & result) -> void
+    {
+        const auto & [ what, event ] = result;
+
+        const auto boundary = boundaryTextFor( what);
+
+        bool first = true;
+
+        property(         out, kI6, "boundary", boundary.Label, first);
+        optionalProperty( out, kI6, "group",    ( what == Entry::Group) ? event.Subject : event.Group, first);
+        optionalProperty( out, kI6, "test",     ( what == Entry::Test)  ? event.Subject : std::string{}, first);
+        optionalProperty( out, kI6, "phase",    ( what == Entry::Phase) ? event.Subject : std::string{}, first);
+        optionalProperty( out, kI6, "title",    event.Detail,  first);
+        optionalProperty( out, kI6, "timeUtc",  event.TimeUtc, first);
+
+        out << "\n";
+    }
+
+    //
+    // An ordinary event's properties: what a verb did, and where in the
+    // catalog it did it.
+    //
+    auto SarifSink::writeEventProperties( std::ostream & out, const JournalEvent & event) -> void
+    {
+        bool first = true;
+
+        property(         out, kI6, "verb",          to_string( event.Method), first);
+        optionalProperty( out, kI6, "group",         event.Group,              first);
+        optionalProperty( out, kI6, "test",          event.Test,               first);
+
+        //
+        // Which SETUP/TEARDOWN bracket this happened inside, where it
+        // happened inside one -- the readings a group's setup takes are
+        // otherwise indistinguishable in this file from the ones its
+        // first test takes, since neither carries a test id (see
+        // core::JournalEvent::Phase on why a hook's events must not
+        // borrow one).
+        //
+        optionalProperty( out, kI6, "phase",         event.Phase,              first);
+        optionalProperty( out, kI6, "criteriaGroup", event.SubjectGroup,       first);
+        optionalProperty( out, kI6, "instrument",    event.Instrument,         first);
+        optionalProperty( out, kI6, "value",         event.Value,              first);
+        optionalProperty( out, kI6, "unit",          event.Unit,               first);
+
+        //
+        // The tolerance the run actually enforced, as text -- so a
+        // consumer reading a failure can report what was required
+        // without resolving the ruleId back to a criteria file it may
+        // not have. Deliberately alongside the rule's shortDescription
+        // rather than instead of it: that is the criterion's prose, this
+        // is its predicate, and they are different claims.
+        //
+        optionalProperty( out, kI6, "criterion",     event.CriterionText,      first);
+        optionalProperty( out, kI6, "timeUtc",       event.TimeUtc,            first);
+
+        //
+        // The bare number alongside the formatted value, where there is
+        // one -- so a consumer comparing a reading against a limit, or
+        // trending it across runs, never has to parse "200 mV" back
+        // apart.
+        //
+        // Unprefixed, and in the unit named by the Unit property beside
+        // it, where the text form carries an SI prefix (see
+        // core::prefixNumber in core/quantities/format.hpp): a reader
+        // wants "200 mV" and a consumer wants 0.2, and a consumer that
+        // had to know which prefix this run happened to pick would be
+        // back to parsing the text. The two therefore deliberately do
+        // NOT read the same, which is a change from when both went
+        // through formatNumber.
+        //
+        // Still formatNumber() rather than the stream's default double
+        // formatting: six significant digits is a deliberate choice
+        // about how much of a reading is real, and the default is not.
+        //
+        if( event.Numeric.has_value())
+        {
+            out << ",\n" << kI6 << quoted( "numericValue") << ": " << formatNumber( event.Numeric.value());
+        }
+
+        out << ",\n" << kI6 << quoted( "sequence") << ": " << event.Sequence << "\n";
+    }
+
+    //
+    // One entry of the results array -- an ordinary event, or one of the three
+    // catalog boundaries.
+    //
+    // A boundary is not a finding: it is informational at level none,
+    // exactly like a Measure or the "pass 2 of 3" note, and for the same
+    // reason -- it is part of what the run did, not something the run
+    // found. Its message opens with what kind of boundary it is and
+    // carries the title behind it, because that title is nowhere else
+    // in the document.
+    //
+    auto SarifSink::writeResult( std::ostream & out, const Result & result, const bool last) const -> void
+    {
+        const auto & [ what, event ] = result;
+
+        // Empty for an ordinary event, which is what every ternary below --
+        // and locationKind further down -- falls back on.
+        const auto boundary = boundaryTextFor( what);
+
+        const auto ruleId  = ( what == Entry::Event) ? ruleIdFor( event)              : std::string( boundary.Rule);
+        const auto level   = ( what == Entry::Event) ? levelFor( event)               : std::string_view( "none");
+        const auto kind    = ( what == Entry::Event) ? kindFor( event)                : std::string_view( "informational");
+        const auto message = ( what == Entry::Event) ? messageFor( event)
+                                                     : std::string( boundary.Label) + " " + event.Subject
+                                                       + ( event.Detail.empty() ? "" : " -- " + event.Detail);
+
+        out << kI4 << "{\n"
+            << kI5 << quoted( "ruleId") << ": " << quoted( ruleId) << ",\n"
+            << kI5 << quoted( "level") << ": " << quoted( level) << ",\n"
+            << kI5 << quoted( "kind") << ": " << quoted( kind) << ",\n"
+            << kI5 << quoted( "message") << ": { " << quoted( "text") << ": " << quoted( message) << " },\n";
+
+        //
+        // logicalLocations rather than physicalLocation: SARIF's usual
+        // "where" is a file and a line, and a measurement has neither. A
+        // logical location is the format's own answer for a result that
+        // belongs to a named thing instead of a place in a file -- here,
+        // the DUT point or criterion, qualified by the test that reached
+        // it.
+        //
+        const auto locationKind = ( what == Entry::Event) ? std::string_view( "member") : boundary.LocationKind;
+
+        out << kI5 << quoted( "locations") << ": [\n"
+            << kI6 << "{\n"
+            << kI7 << quoted( "logicalLocations") << ": [\n"
+            << kI8 << "{\n"
+            << kI9 << quoted( "name") << ": " << quoted( subjectName( event)) << ",\n"
+            << kI9 << quoted( "fullyQualifiedName") << ": " << quoted( fullyQualifiedName( event)) << ",\n"
+            << kI9 << quoted( "kind") << ": " << quoted( locationKind) << "\n"
+            << kI8 << "}\n"
+            << kI7 << "]\n"
+            << kI6 << "}\n"
+            << kI5 << "],\n";
+
+        out << kI5 << quoted( "properties") << ": {\n";
+
+        if( what == Entry::Event)
+        {
+            writeEventProperties( out, event);
+        }
+        else
+        {
+            writeBoundaryProperties( out, result);
+        }
+
+        out << kI5 << "}\n"
+            << kI4 << "}" << ( last ? "\n" : ",\n");
+    }
+
+    // --- results: every verb, and every catalog boundary, in order ---
+    auto SarifSink::writeResults( std::ostream & out) const -> void
+    {
+        out << kI3 << quoted( "results") << ": [\n";
+
+        for( std::size_t i = 0; i < mResults.size(); ++i)
+        {
+            writeResult( out, mResults[ i], i + 1 == mResults.size());
+        }
+
+        out << kI3 << "]\n";
+    }
+
+    //
+    // The document. Five blocks in the order a SARIF run object declares them,
+    // each in its own function above -- see this sink's own header on why the
+    // split is along those five and not somewhere else.
+    //
     auto SarifSink::writeLog( const bool allPassed) -> void
     {
         //
@@ -492,278 +811,13 @@ namespace core
             << kI1 << quoted( "runs") << ": [\n"
             << kI2 << "{\n";
 
-        // --- tool.driver: which framework produced this, exactly ---
-        out << kI3 << quoted( "tool") << ": {\n"
-            << kI4 << quoted( "driver") << ": {\n"
-            << kI5 << quoted( "name") << ": " << quoted( mRunInfo.FrameworkName) << ",\n"
-            << kI5 << quoted( "version") << ": " << quoted( mRunInfo.FrameworkVersion) << ",\n"
-            << kI5 << quoted( "semanticVersion") << ": " << quoted( mRunInfo.FrameworkVersion) << ",\n"
-            << kI5 << quoted( "informationUri") << ": " << quoted( kToolUri) << ",\n"
-            << kI5 << quoted( "rules") << ": [\n";
+        writeToolDriver(         out);
+        writeInvocations(        out, endedUtc);
+        writeAutomationDetails(  out);
+        writeRunProperties(      out, endedUtc, allPassed);
+        writeResults(            out);
 
-        for( std::size_t i = 0; i < mRules.size(); ++i)
-        {
-            const auto & [ id, description ] = mRules[ i];
-
-            out << kI6 << "{\n"
-                << kI6 << kI1 << quoted( "id") << ": " << quoted( id);
-
-            if( !description.empty())
-            {
-                out << ",\n" << kI6 << kI1 << quoted( "shortDescription") << ": { "
-                    << quoted( "text") << ": " << quoted( description) << " }";
-            }
-
-            out << "\n" << kI6 << "}" << ( ( i + 1 < mRules.size()) ? ",\n" : "\n");
-        }
-
-        out << kI5 << "]\n"
-            << kI4 << "}\n"
-            << kI3 << "},\n";
-
-        //
-        // --- invocations: the run itself ---
-        // executionSuccessful is "did the tool manage to run", which is not the
-        // same question as "did the DUT pass" -- a run that completed with
-        // failing checks executed perfectly successfully. The DUT's verdict is
-        // in the results, and restated in run.properties.allPassed below.
-        //
-        out << kI3 << quoted( "invocations") << ": [\n"
-            << kI4 << "{\n"
-            << kI5 << quoted( "executionSuccessful") << ": true,\n"
-            << kI5 << quoted( "startTimeUtc") << ": " << quoted( mRunInfo.StartedUtc) << ",\n"
-            << kI5 << quoted( "endTimeUtc") << ": " << quoted( endedUtc);
-
-        {
-            bool first = false;   // the properties above are already written
-
-            optionalProperty( out, kI5, "commandLine", mRunInfo.CommandLine, first);
-            optionalProperty( out, kI5, "machine",     mRunInfo.HostName,    first);
-            optionalProperty( out, kI5, "account",     mRunInfo.Operator,    first);
-        }
-
-        out << "\n"
-            << kI4 << "}\n"
-            << kI3 << "],\n";
-
-        //
-        // --- automationDetails: what makes two runs comparable ---
-        // The id is deliberately built from DUT + criteria variant + start
-        // time: a consumer grouping runs sees "this DUT, against this tolerance
-        // table" as one series, which is exactly the comparison a bench cares
-        // about, and the timestamp keeps individual runs distinct within it.
-        //
-        out << kI3 << quoted( "automationDetails") << ": {\n"
-            << kI4 << quoted( "id") << ": "
-            << quoted( "thorium/" + mRunInfo.DutName + "/" + mRunInfo.CriteriaVariant + "/" + mRunInfo.StartedUtc) << ",\n"
-            << kI4 << quoted( "description") << ": { " << quoted( "text") << ": "
-            << quoted( mRunInfo.FrameworkName + " " + mRunInfo.FrameworkVersion + " run against " + mRunInfo.DutName
-                       + " (criteria variant: " + mRunInfo.CriteriaVariant + ")") << " }\n"
-            << kI3 << "},\n";
-
-        //
-        // --- run.properties: the full traceability bag ---
-        // Every RunInfo field again, individually addressable. The invocation
-        // and automationDetails blocks above are where a *generic* SARIF
-        // consumer looks; this is where a Thorium-aware one reads the facts
-        // SARIF has no standard slot for (which DUT, which serial, which rig,
-        // which tolerance table).
-        //
-        out << kI3 << quoted( "properties") << ": {\n";
-
-        {
-            bool first = true;
-
-            property(         out, kI4, "frameworkName",    mRunInfo.FrameworkName,    first);
-            property(         out, kI4, "frameworkVersion", mRunInfo.FrameworkVersion, first);
-            property(         out, kI4, "criteriaVariant",  mRunInfo.CriteriaVariant,  first);
-            property(         out, kI4, "dutName",          mRunInfo.DutName,          first);
-            optionalProperty( out, kI4, "dutSerial",        mRunInfo.DutSerial,        first);
-            property(         out, kI4, "rigName",          mRunInfo.RigName,          first);
-            optionalProperty( out, kI4, "operator",         mRunInfo.Operator,         first);
-            optionalProperty( out, kI4, "hostName",         mRunInfo.HostName,         first);
-            optionalProperty( out, kI4, "commandLine",      mRunInfo.CommandLine,      first);
-
-            //
-            // Not optional, unlike its neighbours: those are empty when nobody
-            // supplied them, and "no answer" is a meaningful state for an
-            // operator name. This is a yes/no the framework always knows, and a
-            // consumer filtering out the runs that never touched hardware needs
-            // it present on every run rather than only on the ones where it
-            // happens to be interesting.
-            //
-            booleanProperty(  out, kI4, "benchAttached",    mRunInfo.BenchAttached,    first);
-
-            //
-            // Which revision of the tested content produced this -- see
-            // RunInfo::SuiteVersion. Three separate properties even where they
-            // currently agree: a consumer correlating runs needs to be able to
-            // ask "same rig wiring, different criteria?" without splitting a
-            // combined string back apart.
-            //
-            optionalProperty( out, kI4, "suiteVersion",     mRunInfo.SuiteVersion,     first);
-            optionalProperty( out, kI4, "dutVersion",       mRunInfo.DutVersion,       first);
-            optionalProperty( out, kI4, "rigVersion",       mRunInfo.RigVersion,       first);
-
-            property(         out, kI4, "startedUtc",       mRunInfo.StartedUtc,       first);
-            optionalProperty( out, kI4, "startedLocal",     mRunInfo.StartedLocal,     first);
-            property(         out, kI4, "endedUtc",         endedUtc,                  first);
-
-            out << ",\n" << kI4 << quoted( "allPassed") << ": " << ( allPassed ? "true" : "false") << "\n";
-        }
-
-        out << kI3 << "},\n";
-
-        // --- results: every verb, and every catalog boundary, in order ---
-        out << kI3 << quoted( "results") << ": [\n";
-
-        for( std::size_t i = 0; i < mResults.size(); ++i)
-        {
-            const auto & [ what, event ] = mResults[ i];
-
-            // Empty for an ordinary event, which is what the three ternaries
-            // below fall back on.
-            const auto boundary = boundaryTextFor( what);
-
-            //
-            // A boundary is not a finding: it is informational at level none,
-            // exactly like a Measure or the "pass 2 of 3" note, and for the same
-            // reason -- it is part of what the run did, not something the run
-            // found. Its message opens with what kind of boundary it is and
-            // carries the title behind it, because that title is nowhere else
-            // in the document.
-            //
-            const auto ruleId  = ( what == Entry::Event) ? ruleIdFor( event)              : std::string( boundary.Rule);
-            const auto level   = ( what == Entry::Event) ? levelFor( event)               : std::string_view( "none");
-            const auto kind    = ( what == Entry::Event) ? kindFor( event)                : std::string_view( "informational");
-            const auto message = ( what == Entry::Event) ? messageFor( event)
-                                                         : std::string( boundary.Label) + " " + event.Subject
-                                                           + ( event.Detail.empty() ? "" : " -- " + event.Detail);
-
-            out << kI4 << "{\n"
-                << kI5 << quoted( "ruleId") << ": " << quoted( ruleId) << ",\n"
-                << kI5 << quoted( "level") << ": " << quoted( level) << ",\n"
-                << kI5 << quoted( "kind") << ": " << quoted( kind) << ",\n"
-                << kI5 << quoted( "message") << ": { " << quoted( "text") << ": " << quoted( message) << " },\n";
-
-            //
-            // logicalLocations rather than physicalLocation: SARIF's usual
-            // "where" is a file and a line, and a measurement has neither. A
-            // logical location is the format's own answer for a result that
-            // belongs to a named thing instead of a place in a file -- here,
-            // the DUT point or criterion, qualified by the test that reached
-            // it.
-            //
-            const auto locationKind = ( what == Entry::Event) ? std::string_view( "member") : boundary.LocationKind;
-
-            out << kI5 << quoted( "locations") << ": [\n"
-                << kI6 << "{\n"
-                << kI6 << kI1 << quoted( "logicalLocations") << ": [\n"
-                << kI6 << kI2 << "{\n"
-                << kI6 << kI2 << kI1 << quoted( "name") << ": " << quoted( subjectName( event)) << ",\n"
-                << kI6 << kI2 << kI1 << quoted( "fullyQualifiedName") << ": " << quoted( fullyQualifiedName( event)) << ",\n"
-                << kI6 << kI2 << kI1 << quoted( "kind") << ": " << quoted( locationKind) << "\n"
-                << kI6 << kI2 << "}\n"
-                << kI6 << kI1 << "]\n"
-                << kI6 << "}\n"
-                << kI5 << "],\n";
-
-            out << kI5 << quoted( "properties") << ": {\n";
-
-            //
-            // A boundary's properties are the boundary itself, addressably: what
-            // kind it is, the id under that kind's own key -- so "every result
-            // whose group property is OutputVoltage" picks up the group's own
-            // boundary along with everything inside it -- and the title.
-            //
-            // No sequence, deliberately: a boundary was never posted to the
-            // journal, so it has no place in the numbering, and a number
-            // invented for it would be one no event ever carried. Its position
-            // in this array and its timeUtc are what order it.
-            //
-            if( what != Entry::Event)
-            {
-                bool first = true;
-
-                property(         out, kI6, "boundary", boundary.Label, first);
-                optionalProperty( out, kI6, "group",    ( what == Entry::Group) ? event.Subject : event.Group, first);
-                optionalProperty( out, kI6, "test",     ( what == Entry::Test)  ? event.Subject : std::string{}, first);
-                optionalProperty( out, kI6, "phase",    ( what == Entry::Phase) ? event.Subject : std::string{}, first);
-                optionalProperty( out, kI6, "title",    event.Detail,  first);
-                optionalProperty( out, kI6, "timeUtc",  event.TimeUtc, first);
-
-                out << "\n"
-                    << kI5 << "}\n"
-                    << kI4 << "}" << ( ( i + 1 < mResults.size()) ? ",\n" : "\n");
-
-                continue;
-            }
-
-            {
-                bool first = true;
-
-                property(         out, kI6, "verb",          to_string( event.Method), first);
-                optionalProperty( out, kI6, "group",         event.Group,              first);
-                optionalProperty( out, kI6, "test",          event.Test,               first);
-
-                //
-                // Which SETUP/TEARDOWN bracket this happened inside, where it
-                // happened inside one -- the readings a group's setup takes are
-                // otherwise indistinguishable in this file from the ones its
-                // first test takes, since neither carries a test id (see
-                // core::JournalEvent::Phase on why a hook's events must not
-                // borrow one).
-                //
-                optionalProperty( out, kI6, "phase",         event.Phase,              first);
-                optionalProperty( out, kI6, "criteriaGroup", event.SubjectGroup,       first);
-                optionalProperty( out, kI6, "instrument",    event.Instrument,         first);
-                optionalProperty( out, kI6, "value",         event.Value,              first);
-                optionalProperty( out, kI6, "unit",          event.Unit,               first);
-
-                //
-                // The tolerance the run actually enforced, as text -- so a
-                // consumer reading a failure can report what was required
-                // without resolving the ruleId back to a criteria file it may
-                // not have. Deliberately alongside the rule's shortDescription
-                // rather than instead of it: that is the criterion's prose, this
-                // is its predicate, and they are different claims.
-                //
-                optionalProperty( out, kI6, "criterion",     event.CriterionText,      first);
-                optionalProperty( out, kI6, "timeUtc",       event.TimeUtc,            first);
-
-                //
-                // The bare number alongside the formatted value, where there is
-                // one -- so a consumer comparing a reading against a limit, or
-                // trending it across runs, never has to parse "200 mV" back
-                // apart.
-                //
-                // Unprefixed, and in the unit named by the Unit property beside
-                // it, where the text form carries an SI prefix (see
-                // core::prefixNumber in core/quantities/format.hpp): a reader
-                // wants "200 mV" and a consumer wants 0.2, and a consumer that
-                // had to know which prefix this run happened to pick would be
-                // back to parsing the text. The two therefore deliberately do
-                // NOT read the same, which is a change from when both went
-                // through formatNumber.
-                //
-                // Still formatNumber() rather than the stream's default double
-                // formatting: six significant digits is a deliberate choice
-                // about how much of a reading is real, and the default is not.
-                //
-                if( event.Numeric.has_value())
-                {
-                    out << ",\n" << kI6 << quoted( "numericValue") << ": " << formatNumber( event.Numeric.value());
-                }
-
-                out << ",\n" << kI6 << quoted( "sequence") << ": " << event.Sequence << "\n";
-            }
-
-            out << kI5 << "}\n"
-                << kI4 << "}" << ( ( i + 1 < mResults.size()) ? ",\n" : "\n");
-        }
-
-        out << kI3 << "]\n"
-            << kI2 << "}\n"
+        out << kI2 << "}\n"
             << kI1 << "]\n"
             << "}\n";
 

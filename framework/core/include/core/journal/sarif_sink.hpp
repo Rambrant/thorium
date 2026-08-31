@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iosfwd>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -209,7 +210,47 @@ namespace core
             //
             auto noteBoundary( Entry what, std::string_view id, std::string_view title, std::string_view enclosing) -> void;
 
+            //
+            // The document, and the five blocks it is made of.
+            //
+            // Split this way because a SARIF run object *is* those five blocks
+            // -- tool, invocations, automationDetails, properties, results --
+            // and they were previously one 300-line function whose own section
+            // comments named exactly these. Nothing is shared between them but
+            // the stream and the run info they read, so what the split buys is
+            // that each block's braces open and close in one place a reader can
+            // see at once, which for hand-emitted JSON is most of what can go
+            // wrong.
+            //
+            // Every one takes the stream rather than reaching for a member of
+            // its own, so writeLog stays the only thing that knows where the
+            // document goes -- and the only thing that has to be told when the
+            // answer stops being a file.
+            //
             auto writeLog( bool allPassed) -> void;
+
+            auto writeToolDriver( std::ostream & out) const -> void;
+            auto writeInvocations( std::ostream & out, std::string_view endedUtc) const -> void;
+            auto writeAutomationDetails( std::ostream & out) const -> void;
+            auto writeRunProperties( std::ostream & out, std::string_view endedUtc, bool allPassed) const -> void;
+            auto writeResults( std::ostream & out) const -> void;
+
+            //
+            // One entry of the results array. `last` decides the trailing
+            // comma, which is the whole of what an element needs to know about
+            // the array around it.
+            //
+            auto writeResult( std::ostream & out, const Result & result, bool last) const -> void;
+
+            //
+            // The properties bag, which is where the two kinds of result stop
+            // agreeing: a boundary describes itself (what kind, its id under
+            // that kind's key, its title), an event describes what a verb did.
+            // Two functions rather than one with a branch through it, because
+            // beyond the opening brace they share nothing at all.
+            //
+            static auto writeBoundaryProperties( std::ostream & out, const Result & result) -> void;
+            static auto writeEventProperties( std::ostream & out, const JournalEvent & event) -> void;
 
             std::string                                       mPath;
             RunInfo                                           mRunInfo;
