@@ -19,7 +19,7 @@
 // other two including it for a reason their include list does not admit to.
 //
 // The overloads themselves are hal-side, one per concrete config type -- see
-// hal/n6701a.hpp, hal/ac6834b.hpp and hal/racal1260.hpp for the bodies, and
+// hal/keysight_n6701a.hpp, hal/keysight_ac6834b.hpp and hal/racal1260.hpp for the bodies, and
 // hal/driver/describe.hpp for the formatting helpers they share. This header names the
 // contract and nothing else, which is what keeps core free of any hal::
 // dependency.
@@ -40,7 +40,7 @@ namespace core
     //
     // Empty Settings is normal and correct: Remove/Connect/Disconnect have
     // nothing to report beyond which instrument they acted on (removeDriver
-    // only ever reads Instrument -- see hal/n6701a.hpp), so only Apply and Setup
+    // only ever reads Instrument -- see hal/keysight_n6701a.hpp), so only Apply and Setup
     // ask for this half at all.
     //
     struct SourceDescription

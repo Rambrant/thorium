@@ -119,7 +119,7 @@
 // it worth naming: an RS232 console is not usable one wire at a time, so the
 // unit a script connects has to be the interface, not the pin. See
 // hal::bundleLocations in hal/topology/bundle.hpp for the walk that recovers the lines,
-// and hal::Racal1260's connectDriver for the one that uses it.
+// and hal::racal1260::Racal1260's connectDriver for the one that uses it.
 //
 // A nested struct-as-namespace, reached with :: exactly the way `dut` itself
 // is (see this file's own comment above on why `dut` is a struct rather than

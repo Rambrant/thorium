@@ -2,7 +2,7 @@
 
 #include THORIUM_ACTIVE_INSTRUMENTS
 #include "hal/driver/instrument.hpp"
-#include "hal/l4411a.hpp"
+#include "hal/keysight_l4411a.hpp"
 #include "hal/fabric/switch_device.hpp"
 #include "hal/fabric/switch_fabric.hpp"
 #include "hal/topology/wiring.hpp"
@@ -99,7 +99,7 @@ namespace
     // rig/tests/test_safing.cpp does for the bench's five, so that the
     // requirement is visible in the deployment that has only one.
     //
-    static_assert( hal::SafeableInstrument< hal::L4411A> );
+    static_assert( hal::SafeableInstrument< hal::keysight_l4411a::L4411A> );
 } // namespace
 
 //

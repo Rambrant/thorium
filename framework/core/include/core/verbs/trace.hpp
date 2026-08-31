@@ -25,7 +25,7 @@ namespace core
     // Named for the operation and not for an oscilloscope, like every other
     // verb here. A transient recorder, a digitizer and a logger with a memory
     // behind it all hand back the same shape -- readings in a unit, at a known
-    // rate -- and hal::DSO8064A is simply the first driver to answer to
+    // rate -- and hal::keysight_dso8064a::DSO8064A is simply the first driver to answer to
     // fetchDriver.
     //
     // Where it sits in a script is fixed by the pair it follows:
@@ -125,7 +125,7 @@ namespace core
             //
             // "Trace" unless the driver says otherwise, and a driver says
             // otherwise by defining traceQualifier() beside its config type.
-            // hal::DSO8064A does, and has to: a four-channel scope holds four
+            // hal::keysight_dso8064a::DSO8064A does, and has to: a four-channel scope holds four
             // records at once, and one slot for all of them would let a test
             // inject a channel-1 trace and have a channel-3 Fetch take it --
             // which is exactly the collision core::Port::qualifiedBy exists to

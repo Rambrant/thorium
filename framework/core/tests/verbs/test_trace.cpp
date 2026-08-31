@@ -17,7 +17,7 @@ using namespace core::quantities;
 //
 // A minimal instrument holding a captured record, satisfying exactly what
 // core::FetchEngine needs: a builder with a config(), an ADL fetchDriver over
-// it, and a describeConfig for the log. hal::DSO8064A happens to satisfy the
+// it, and a describeConfig for the log. hal::keysight_dso8064a::DSO8064A happens to satisfy the
 // same shape; core knows nothing about it.
 //
 // Two channels, so the qualifier claim below is about something real.

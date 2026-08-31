@@ -27,7 +27,7 @@ namespace core
     // table ("required edge not found", "waveform is clipped high", "top and
     // base are equal", ...). A DMM reporting overrange is the same shape. So
     // this lives in core rather than in one driver: the situation is generic
-    // even though only hal::DSO8064A answers for it today.
+    // even though only hal::keysight_dso8064a::DSO8064A answers for it today.
     //
     // Carrying the *reason* rather than a bare "invalid" flag is the whole
     // point. "Rise time unmeasurable" sends an engineer to the scope; "rise
@@ -76,7 +76,7 @@ namespace core
     // the surrounding rationale.
     //
     // Structurally symmetric with the sourcing side's builder configs (see
-    // hal/n6701a.hpp / hal/ac6834b.hpp) -- both are plain aggregates of
+    // hal/keysight_n6701a.hpp / hal/keysight_ac6834b.hpp) -- both are plain aggregates of
     // typed, optional parameters carried by a fluent builder chain, so
     // "how do I set X here" reads the same way whether X is being sourced
     // or sensed.
@@ -142,8 +142,8 @@ namespace core
     // Generic over InstrumentT: this header has no idea what a real
     // instrument looks like, only that it has a templated rawMeasure<Q>()
     // (with or without a MeasureSetup argument, dispatched at compile time)
-    // and an id() -- hal::L4411A/hal::DSO8064A/etc (see hal/driver/instrument.hpp,
-    // hal/l4411a.hpp, hal/dso8064a.hpp) are simply concrete instrument types
+    // and an id() -- hal::keysight_l4411a::L4411A/hal::keysight_dso8064a::DSO8064A/etc (see hal/driver/instrument.hpp,
+    // hal/keysight_l4411a.hpp, hal/keysight_dso8064a.hpp) are simply concrete instrument types
     // that happen to satisfy this shape, not something this type depends on.
     //
     // Whether a reading needs its sense leads routed alongside the force path.
@@ -319,7 +319,7 @@ namespace core
             // (there is no argument: a reading either wants its sense path or
             // it doesn't, and not calling this at all is how "doesn't" is
             // spelled), so an instrument's 4-wire builder method -- e.g.
-            // hal::L4411A::fourWireResistance() -- chains it on
+            // hal::keysight_l4411a::L4411A::fourWireResistance() -- chains it on
             // unconditionally, the same way riseTime()/fallTime() chain
             // lowThreshold()/highThreshold().
             //
@@ -345,9 +345,9 @@ namespace core
             //
             // Names which of an instrument's several possible answers this
             // reading is -- one phase of a three-phase source (see
-            // hal::Ac6834B::measuredVoltage), or which of an oscilloscope's
+            // hal::keysight_ac6834b::Ac6834B::measuredVoltage), or which of an oscilloscope's
             // fifteen automatic measurements is being taken about one pin (see
-            // hal::DSO8064AChannel). Empty for the ordinary case of an
+            // hal::keysight_dso8064a::Channel). Empty for the ordinary case of an
             // instrument that gives one answer about one thing.
             //
             // Both readings and both engines use it for the same purpose: a

@@ -78,7 +78,7 @@
         "THORIUM_DUT_DIR": "${sourceDir}/dev/dut",
         "THORIUM_SUITE_DIR": "${sourceDir}/dev/suite",
         "THORIUM_KNOWN_CRITERIA_VARIANTS": "production",
-        "THORIUM_INSTRUMENT_PACKAGES": "l4411a",
+        "THORIUM_INSTRUMENT_PACKAGES": "keysight_l4411a",
         "THORIUM_DUT_NAME": "DevBench",
         "THORIUM_RIG_NAME": "dev-desk",
         "THORIUM_ACCEPTANCE_TESTS": "OFF"

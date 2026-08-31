@@ -8,15 +8,69 @@ installation procedure.
 
 ```
 instruments/
-    l4411a/                     # hal::L4411A  -- 6.5-digit system DMM
+    keysight_l4411a/            # 6.5-digit system DMM
         CMakeLists.txt
         README.md
-        include/hal/l4411a.hpp
-        tests/test_l4411a.cpp
-    dso8064a/                    # hal::DSO8064A -- four-channel oscilloscope
-    n6701a/                     # hal::N6701A  -- one DC supply channel
-    ac6834b/                    # hal::Ac6834B -- three-phase AC source
-    racal1260/                  # hal::Racal1260 -- matrix-routed RS232 port
+        include/hal/keysight_l4411a.hpp
+        tests/test_keysight_l4411a.cpp
+    keysight_dso8064a/          # four-channel oscilloscope
+    keysight_n6701a/            # one DC supply channel
+    keysight_ac6834b/           # three-phase AC source
+    racal1260/                  # matrix-routed RS232 port
+```
+
+## One name, in four places
+
+A driver's name is the same string in its directory, its header, its CMake
+target and its C++ namespace:
+
+| | |
+|---|---|
+| directory | `instruments/keysight_dso8064a/` |
+| header | `include/hal/keysight_dso8064a.hpp`, included as `"hal/keysight_dso8064a.hpp"` |
+| target | `hal_keysight_dso8064a`, aliased `Thorium::hal_keysight_dso8064a` |
+| namespace | `hal::keysight_dso8064a` |
+
+Two rules produced that shape, and both come from a collision that actually
+happened rather than from a preference.
+
+**The manufacturer is part of the name.** A model number is not unique across
+vendors — two of them may each ship a "1260" or a "4411" — so a bare model name
+is a collision waiting for the second vendor. The token names the company as it
+is today rather than the badge on the unit: the DSO8064A, L4411A and N6701A all
+shipped as Agilent products and are now Keysight, and one vendor appearing under
+two spellings would be worse than a name that is one acquisition out of date.
+`racal1260` already reads as Racal's, which is why it is not `racal_1260`.
+
+**Everything a driver declares goes in its own namespace, nested inside `hal`.**
+This is the rule to follow when adding one, and the reason is what happens
+without it. Every driver used to declare straight into `hal`, and the satellite
+types had to invent long unique names to stay out of each other's way —
+`DSO8064ATriggerBuilder`, `Racal1260Config`. Worse were the ones that did *not*,
+because nothing had claimed the word yet: `Parity`, `StopBits`, `TriggerSlope`,
+`Bandwidth`, `ChannelInput`, `ProbeAdapter` and four more were sitting directly
+in `hal`, owned by whichever driver happened to declare them first. The second
+serial instrument or the second scope collides on all of them.
+
+Inside its own namespace a driver's types say only what they are —
+`hal::keysight_dso8064a::TriggerBuilder`, `hal::racal1260::Parity` — and cannot
+collide with another driver at all.
+
+Nested inside `hal` rather than beside it, which is what keeps a driver's bodies
+short: unqualified lookup still reaches `hal::describeSetting`,
+`hal::InstrumentId`, `hal::Simulated` and the rest of the driver kit from inside
+the nested namespace. And the ADL customization points — `applyDriver`,
+`setupDriver`, `describeConfig` and the rest — belong *in* the driver's
+namespace, where ADL finds them on that driver's own config type. Call them
+unqualified; a hand-written `hal::describeConfig( ... )` both defeats the
+mechanism and, since every driver declares that same name, can name the wrong
+driver's overload.
+
+The rig names the type in full, once, where it declares the instrument:
+
+```cpp
+// rig/instrument.inc
+INSTRUMENT( keysight_dso8064a::DSO8064A, Osc1, Lan( "bench-osc1"))
 ```
 
 ## How a directory here gets built

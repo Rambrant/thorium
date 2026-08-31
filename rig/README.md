@@ -31,7 +31,7 @@ address, ...)` per instrument, naming its C++ driver type, the global it's
 addressed by (id doubles as both the global's name and its
 `hal::InstrumentId` -- there is no rig where those differ, so there's no
 separate parameter for it), how the PC reaches it, and any constructor
-arguments (e.g. `hal::N6701A`'s slot number). Included from two different
+arguments (e.g. `hal::keysight_n6701a::N6701A`'s slot number). Included from two different
 places, each with `INSTRUMENT` defined for its own purpose:
 
 - `active_instruments.hpp` below declares each id as an actual global

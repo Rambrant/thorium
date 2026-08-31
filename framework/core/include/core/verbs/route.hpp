@@ -19,9 +19,9 @@ namespace core
     // connecting or disconnecting one instrument's path never disturbs
     // whatever else is currently routed. That path can be a genuine
     // matrix-plus-mux route chosen at the call site (a measuring
-    // instrument like hal::DSO8064A, which takes an at(...) point), or
+    // instrument like hal::keysight_dso8064a::DSO8064A, which takes an at(...) point), or
     // just an instrument's own fixed channel(s) with nothing left to
-    // choose (hal::N6701A/hal::Ac6834B -- see their own comments on why a
+    // choose (hal::keysight_n6701a::N6701A/hal::keysight_ac6834b::Ac6834B -- see their own comments on why a
     // real power rail is hard-wired rather than routed) -- Connect/
     // Disconnect don't need to know which; that's entirely up to what
     // connectDriver/disconnectDriver does for the concrete config type.
@@ -131,7 +131,7 @@ namespace core
             // The bundle's type is forwarded to connectDriver rather than being
             // expanded here, because how an interface's lines pair up with an
             // instrument's own channels is the driver's business -- this engine
-            // has no idea which of them is transmit. See hal::Racal1260's
+            // has no idea which of them is transmit. See hal::racal1260::Racal1260's
             // connectDriver, and hal::bundleLocations for the walk it uses.
             //
             template<typename BuilderT, typename BundleT>
@@ -140,14 +140,14 @@ namespace core
                 //
                 // Asked here too, and today the answer is always false: the one
                 // instrument this overload is reached for is a serial interface
-                // (hal::Racal1260), which has a setupDriver and no applyDriver,
+                // (hal::racal1260::Racal1260), which has a setupDriver and no applyDriver,
                 // so core::detail::energisedNow reports cold by construction.
                 //
                 // Kept rather than skipped as dead code, because what makes it
                 // dead is a fact about this rig's instrument set and not about
                 // this overload. A bundled interface that does energise its
                 // lines -- a multi-phase source addressed as one bundle is the
-                // obvious one, and hal::Ac6834B is already three phases and a
+                // obvious one, and hal::keysight_ac6834b::Ac6834B is already three phases and a
                 // return -- would otherwise be the one routing call in the
                 // framework that moved a contact live and said nothing.
                 //

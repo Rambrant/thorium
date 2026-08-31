@@ -54,10 +54,10 @@ auto rigPowerOff() -> bool
     // than spread across whichever scripts happened to use each supply.
     //
     // Three of the five appear here, and that is enforced rather than
-    // remembered: DcP1/DcP2 are hal::N6701ADirect -- wired straight through
+    // remembered: DcP1/DcP2 are hal::keysight_n6701a::Direct -- wired straight through
     // with no isolation relay -- so Disconnect( DcP1.dc()) is a compile error
-    // rather than a call that quietly does nothing (see hal::SwitchableIsolation
-    // in hal/n6701a.hpp).
+    // rather than a call that quietly does nothing (see hal::keysight_n6701a::SwitchableIsolation
+    // in hal/keysight_n6701a.hpp).
     //
     Disconnect( DcP3.dc());
     Disconnect( AcP1.ac());

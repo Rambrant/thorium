@@ -65,10 +65,10 @@ INSTRUMENT_WIRING
     WIRE_INSTRUMENT( Dmm2, CROSSPOINT( Matrix1, 0, 1, 0))
     WIRE_INSTRUMENT( Osc1, CROSSPOINT( Matrix1, 0, 2, 0))
 
-    // DcP1/DcP2 have no entry here at all -- they're hal::N6701ADirect,
+    // DcP1/DcP2 have no entry here at all -- they're hal::keysight_n6701a::Direct,
     // wired straight through with no isolation relay, nothing for
-    // Connect/Disconnect to close or open (see hal::N6701A's own comment
-    // on DirectWiring). Only DcP3/DcP4 (hal::N6701ARelay) have a real
+    // Connect/Disconnect to close or open (see hal::keysight_n6701a::N6701A's own comment
+    // on DirectWiring). Only DcP3/DcP4 (hal::keysight_n6701a::Relay) have a real
     // fixed channel.
     //
     // On Spst1 rather than the matrix, and that is the point of having a
@@ -80,7 +80,7 @@ INSTRUMENT_WIRING
 
     // AcP1 is fixed-wired on four channels, not one -- phases A/B/C plus
     // the neutral/ground return, all closed and opened together (see
-    // hal::Ac6834B's own comment on why the return is included, and
+    // hal::keysight_ac6834b::Ac6834B's own comment on why the return is included, and
     // hal::InstrumentWiring::findAll() for how a script-facing Connect/
     // Disconnect gets all four back from one InstrumentId). Each is its
     // own single-hop entry here -- four independent Paths under one
@@ -99,7 +99,7 @@ INSTRUMENT_WIRING
     // AcP1's four are, and for the same reason (see hal::InstrumentWiring::
     // findAll). Unlike AcP1, though, these are only half of Ser1's route: it
     // is a *routed* instrument, so a Connect composes these with whichever DUT
-    // interface the script named (see hal::Racal1260's routeTo, and the
+    // interface the script named (see hal::racal1260::Racal1260's routeTo, and the
     // CONNECTOR_WIRING rows for dut::Console below).
     //
     // Three independent relays, one per conductor, and independence is the

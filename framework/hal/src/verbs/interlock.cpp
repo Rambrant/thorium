@@ -47,7 +47,7 @@ namespace hal
         // Matched on removeOutput rather than applyOutput because that one
         // takes no arguments in every driver that has it, so the requirement
         // states itself without a plausible-looking argument list standing in
-        // for a real signature (hal::Ac6834B overloads applyOutput twice --
+        // for a real signature (hal::keysight_ac6834b::Ac6834B overloads applyOutput twice --
         // per-phase and symmetric -- and a requires-expression naming one of
         // them would be asserting something narrower than it appears to).
         //

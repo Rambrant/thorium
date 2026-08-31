@@ -47,14 +47,14 @@ TEST_F( RigPowerOnFixture, BringsEverySourceUpToItsSetpoint)
     EXPECT_EQ( DcP1.outputVoltage(), 28_V);
     EXPECT_EQ( DcP2.outputVoltage(), 28_V);
     EXPECT_EQ( DcP3.outputVoltage(), 24_V);
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::A), 115_V);
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::B), 115_V);
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::C), 115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::A), 115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::B), 115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::C), 115_V);
 }
 
 //
 // The relays close, and -- the half worth asserting -- they close for the two
-// instruments that have one. DcP1/DcP2 are hal::N6701ADirect and cannot be
+// instruments that have one. DcP1/DcP2 are hal::keysight_n6701a::Direct and cannot be
 // connected at all; that is a compile-time fact, so the only thing a runtime
 // test can add is that nothing else was left routed on their behalf.
 //

@@ -85,7 +85,7 @@ namespace mock
 
     //
     // A config with nothing to energise -- a serial interface's shape (see
-    // hal::Racal1260Config, which has a setupDriver and no applyDriver). It
+    // hal::racal1260::Rs232Config, which has a setupDriver and no applyDriver). It
     // deliberately has no isEnergised either, and the point of it being here
     // is that this compiles: core::detail::energisedNow only demands the member
     // of a config Apply could energise.

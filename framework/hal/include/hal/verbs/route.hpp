@@ -17,9 +17,9 @@ using DisconnectEngine = core::DisconnectEngine<hal::SwitchFabric, hal::Instrume
 //
 // The two routing calls every script frames its sourcing with -- DcP1/AcP1
 // take no at(...) point: they're fixed-wired straight to one VPC pin (or four,
-// for AcP1's three phases plus ground -- see hal::Ac6834B's own comment), so
+// for AcP1's three phases plus ground -- see hal::keysight_ac6834b::Ac6834B's own comment), so
 // there's nothing left to choose. A routed, measuring instrument like
-// hal::DSO8064A still takes at(...) -- see hal/verbs/measure.hpp -- since it
+// hal::keysight_dso8064a::DSO8064A still takes at(...) -- see hal/verbs/measure.hpp -- since it
 // genuinely can reach more than one point through the mux, and a console
 // interface takes the bundle form (see core::ConnectEngine's own comment).
 //

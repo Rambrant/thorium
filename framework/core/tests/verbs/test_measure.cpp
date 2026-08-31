@@ -202,7 +202,7 @@ namespace mock
             //
             // Makes this instrument answer the way a real one does when it
             // cannot make the reading at all -- see core::UnmeasurableReading.
-            // A driver-side concern in general (hal::DSO8064A is the one that
+            // A driver-side concern in general (hal::keysight_dso8064a::DSO8064A is the one that
             // has a real fault table), modelled here because what is under
             // test is what core::MeasureEngine does with it.
             //

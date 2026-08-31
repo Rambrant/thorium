@@ -77,7 +77,7 @@ namespace hal
     //
     //   - A 4-wire (Kelvin) DMM measurement needs its sense leads routed
     //     *in addition to* force, but only for that one measurement -- a
-    //     plain 2-wire resistance() call on the same hal::L4411A must not
+    //     plain 2-wire resistance() call on the same hal::keysight_l4411a::L4411A must not
     //     touch sense at all. That's a per-measurement, per-call choice
     //     (see core::Port::requiresSensePath in core/driver/port.hpp and
     //     core::MeasureEngine's own comment in core/verbs/measure.hpp), so
@@ -89,10 +89,10 @@ namespace hal
     //     them wired at all) are a fixed fact of the bench, not a
     //     per-Apply choice -- if they exist, Connect/Disconnect should
     //     always close/open them together with the force path, the same
-    //     way hal::Ac6834B's phases and ground already do. findAll()
+    //     way hal::keysight_ac6834b::Ac6834B's phases and ground already do. findAll()
     //     below deliberately does NOT filter by role for this reason: it
     //     means "every entry registered for this instrument, force and
-    //     sense alike, closed together" -- see hal::N6701A's own
+    //     sense alike, closed together" -- see hal::keysight_n6701a::N6701A's own
     //     connectDriver/disconnectDriver.
     //
     enum class WireRole
@@ -146,10 +146,10 @@ namespace hal
             // why), flattened into one combined Path -- for an instrument
             // fixed-wired with more than one independent physical
             // connection that should always be closed/opened together
-            // (hal::Ac6834B's three phases plus ground/neutral return, or
+            // (hal::keysight_ac6834b::Ac6834B's three phases plus ground/neutral return, or
             // a power supply's remote-sense leads if this rig has them).
             // Single-connection instruments with no sense wiring
-            // (hal::DSO8064A, hal::L4411A) keep using find() above.
+            // (hal::keysight_dso8064a::DSO8064A, hal::keysight_l4411a::L4411A) keep using find() above.
             // Throws std::runtime_error if this instrument has no fixed
             // path at all.
             //
@@ -419,7 +419,7 @@ namespace hal
     // This used to exist only as prose, in three files that each deferred it
     // to another one -- rig/wiring.inc noted that DcP1/DcP2 have no entry;
     // dut/adapter.inc noted that some of its points are where a supply lands
-    // but that which one was "not yet recorded"; hal::N6701A noted that the
+    // but that which one was "not yet recorded"; hal::keysight_n6701a::N6701A noted that the
     // DUT adapter documents it. Nobody recorded it, and the gap had a cost:
     // dut/tests/test_wiring_coverage.cpp requires every declared point to be
     // wired, there was no way to say "this pin is not routed", and so mux
@@ -427,8 +427,8 @@ namespace hal
     // A fabricated route to a rail is worse than a missing one -- closing it
     // puts a supply onto signal relays that were never meant to carry it.
     //
-    // Deliberately NOT keyed by, or derived from, hal::DirectWiring/
-    // hal::RelayIsolated (see hal/n6701a.hpp). Those say whether there is an
+    // Deliberately NOT keyed by, or derived from, hal::keysight_n6701a::DirectWiring/
+    // hal::keysight_n6701a::RelayIsolated (see hal/keysight_n6701a.hpp). Those say whether there is an
     // isolation relay in an instrument's path -- whether Connect/Disconnect
     // have anything to do. This says where the output lands. They are
     // independent: DcP3/DcP4 have a relay AND a hard-cabled landing pin, and
@@ -493,7 +493,7 @@ namespace hal
 
             //
             // Every pin this instrument lands on. A list, not one location:
-            // hal::Ac6834B/AcP1 lands on four (three phases plus the
+            // hal::keysight_ac6834b::Ac6834B/AcP1 lands on four (three phases plus the
             // neutral/ground return), the same way it already has four
             // independent InstrumentWiring entries. Empty if this
             // instrument is not a fixed-wired source at all -- unlike
@@ -846,7 +846,7 @@ namespace hal
     // One hop of one entry, flattened out of the tables above so the whole
     // rig can be walked element by element. `entry` is the row's index within
     // its own table, which with `owner.side` identifies the row -- and a row,
-    // not an owner, is the unit here: hal::Ac6834B's AcP1 has four rows of its
+    // not an owner, is the unit here: hal::keysight_ac6834b::Ac6834B's AcP1 has four rows of its
     // own and they must not collide with each other either, which comparing
     // owners would have allowed.
     //

@@ -17,7 +17,7 @@ namespace core
     // Measure is the only verb that takes one, and that is the point rather
     // than an omission: at() names which of many pins to route to, so it
     // belongs exactly where there is a choice. A source instrument has none --
-    // DcP1/AcP1 are cabled straight to their pins (see hal::N6701A), so Apply/
+    // DcP1/AcP1 are cabled straight to their pins (see hal::keysight_n6701a::N6701A), so Apply/
     // Remove/Connect/Disconnect take a builder and nothing else -- and an
     // instrument readback like DcP1.measuredVoltage() never leaves the
     // instrument, so that Measure overload takes no point either.

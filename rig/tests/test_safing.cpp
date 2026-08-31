@@ -1,11 +1,11 @@
 #include "hal/verbs/safing.hpp"
 
 #include THORIUM_ACTIVE_INSTRUMENTS
-#include "hal/ac6834b.hpp"
-#include "hal/dso8064a.hpp"
+#include "hal/keysight_ac6834b.hpp"
+#include "hal/keysight_dso8064a.hpp"
 #include "hal/driver/instrument.hpp"
-#include "hal/l4411a.hpp"
-#include "hal/n6701a.hpp"
+#include "hal/keysight_l4411a.hpp"
+#include "hal/keysight_n6701a.hpp"
 #include "hal/fabric/switch_fabric.hpp"
 
 #include <gtest/gtest.h>
@@ -26,11 +26,11 @@ namespace
     // the requirement is visible where the rest of the safing behaviour is
     // documented, rather than only inside safeRig()'s own reflection loop.
     //
-    static_assert( hal::SafeableInstrument< hal::N6701ADirect> );
-    static_assert( hal::SafeableInstrument< hal::N6701ARelay> );
-    static_assert( hal::SafeableInstrument< hal::Ac6834B> );
-    static_assert( hal::SafeableInstrument< hal::L4411A> );
-    static_assert( hal::SafeableInstrument< hal::DSO8064A> );
+    static_assert( hal::SafeableInstrument< hal::keysight_n6701a::Direct> );
+    static_assert( hal::SafeableInstrument< hal::keysight_n6701a::Relay> );
+    static_assert( hal::SafeableInstrument< hal::keysight_ac6834b::Ac6834B> );
+    static_assert( hal::SafeableInstrument< hal::keysight_l4411a::L4411A> );
+    static_assert( hal::SafeableInstrument< hal::keysight_dso8064a::DSO8064A> );
 
     //
     // The other compile-time half, specific to reflecting over InstrumentTag
@@ -40,18 +40,18 @@ namespace
     // hal/driver/instrument.hpp) -- a type satisfying SafeableInstrument without
     // also deriving from InstrumentTag would not fail any static_assert at
     // all, because safeRig()'s loop would simply never reach it; there is
-    // no case to fall into, the same silent-skip shape hal::L4411A::safe()'s
+    // no case to fall into, the same silent-skip shape hal::keysight_l4411a::L4411A::safe()'s
     // own comment warns an opt-in mechanism would have. These static_asserts
     // are what actually closes that gap: every real driver type is checked
     // against both requirements independently here, so a future driver
     // missing either one is caught at this line, not discovered only when
     // it silently never gets safed on the bench.
     //
-    static_assert( std::derived_from< hal::N6701ADirect, hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::N6701ARelay,  hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::Ac6834B,      hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::L4411A,       hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::DSO8064A,      hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_n6701a::Direct, hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_n6701a::Relay,  hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_ac6834b::Ac6834B,      hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_l4411a::L4411A,       hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_dso8064a::DSO8064A,      hal::InstrumentTag> );
 
     //
     // The other direction, which is the half that actually demonstrates
@@ -68,7 +68,7 @@ namespace
         // whose author never wrote safe(). If hal::safeRig() had been
         // built as an opt-in customization point defaulting to a no-op,
         // this type would be silently accepted and never safed; see
-        // hal::L4411A::safe() for why it isn't.
+        // hal::keysight_l4411a::L4411A::safe() for why it isn't.
     };
 
     static_assert( !hal::SafeableInstrument< DriverThatForgotToSafe> );
@@ -113,7 +113,7 @@ TEST_F( SafingFixture, SafeRigDisablesEveryDcSourceAndZeroesItsSetpoint)
     hal::safeRig();
 
     // Both halves matter: the output is off, and the setpoint it would
-    // come back at is zero -- see hal::N6701A::safe() on why safing
+    // come back at is zero -- see hal::keysight_n6701a::N6701A::safe() on why safing
     // clears the setpoint rather than only disabling the output.
     EXPECT_FALSE( DcP1.isEnabled());
     EXPECT_FALSE( DcP2.isEnabled());
@@ -134,9 +134,9 @@ TEST_F( SafingFixture, SafeRigDisablesTheAcSourceAndZeroesItsSetpoint)
     hal::safeRig();
 
     EXPECT_FALSE( AcP1.isEnabled());
-    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage( hal::Phase::A).value(), 0.0);
-    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage( hal::Phase::B).value(), 0.0);
-    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage( hal::Phase::C).value(), 0.0);
+    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::A).value(), 0.0);
+    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::B).value(), 0.0);
+    EXPECT_DOUBLE_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::C).value(), 0.0);
 }
 
 TEST_F( SafingFixture, SafeRigLeavesCurrentLimitsInPlace)
@@ -148,7 +148,7 @@ TEST_F( SafingFixture, SafeRigLeavesCurrentLimitsInPlace)
     // Not an oversight -- with the output off and the setpoint at zero a
     // stale limit has nothing to limit, and an accidental re-enable is
     // better off finding one still set than finding none. See
-    // hal::N6701A::safe().
+    // hal::keysight_n6701a::N6701A::safe().
     ASSERT_TRUE( DcP1.currentLimit().has_value());
     EXPECT_DOUBLE_EQ( DcP1.currentLimit()->value(), 7.0);
 }
@@ -213,10 +213,10 @@ TEST_F( SafingFixture, SafeRigDoesNotDisturbPassiveInstrumentState)
     // instruments were told to look at. Nothing about them can energise
     // the DUT, and safing runs after a script has already died, so there
     // is no reason to discard the one piece of state still worth reading
-    // afterwards -- see hal::DSO8064A::safe().
+    // afterwards -- see hal::keysight_dso8064a::DSO8064A::safe().
     static_cast<void>( Dmm1.acVoltage());
     static_cast<void>( Osc1.channel<3>());
-    Osc1.setMode( hal::DSO8064A::Mode::Vrms);
+    Osc1.setMode( hal::keysight_dso8064a::DSO8064A::Mode::Vrms);
 
     const auto dmmMode     = Dmm1.mode();
     const auto scopeMode   = Osc1.mode();
@@ -236,7 +236,7 @@ TEST( Safing, SourceSafeIsIndependentOfRemoveAndNeedsNoFabricOrWiring)
     // script was driving. safe() is called when that is exactly what
     // nobody knows, so it is reachable on a bare instrument with no
     // engine, no fabric, and no wiring table in sight.
-    hal::N6701ARelay dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+    hal::keysight_n6701a::Relay dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
 
     dcP3.applyOutput( 24.0_V, 7.0_A);
     ASSERT_TRUE( dcP3.isEnabled());
@@ -286,10 +286,10 @@ TEST_F( SafingFixture, RigSafingGuardSafesWhenUnwoundByAnException)
 TEST( Safing, DirectWiredSupplySafesTheSameWayARelayIsolatedOneDoes)
 {
     // Isolation is about whether there is a relay to Connect/Disconnect
-    // (see hal::SwitchableIsolation) -- it says nothing about whether the
+    // (see hal::keysight_n6701a::SwitchableIsolation) -- it says nothing about whether the
     // output can be dropped. Both kinds safe identically, which is why
     // safe() is unconstrained where connectDriver is not.
-    hal::N6701ADirect dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
+    hal::keysight_n6701a::Direct dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
 
     dcP1.applyOutput( 24.0_V, std::nullopt);
     dcP1.safe();

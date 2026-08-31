@@ -46,15 +46,15 @@ auto acDropoutScript() -> void
     // distinction the Verify below is for.
     //
     // Falling edge, and only falling: this instrument's edge trigger has no
-    // either-edge setting (see hal::TriggerSlope), and a rail dropping out is
+    // either-edge setting (see hal::keysight_dso8064a::TriggerSlope), and a rail dropping out is
     // a falling event anyway.
     //
     Setup( Osc1.trigger()
                .edgeSource<3>()
-               .slope( hal::TriggerSlope::Falling)
+               .slope( hal::keysight_dso8064a::TriggerSlope::Falling)
                .level( 4.8_V)
-               .sweep( hal::TriggerSweep::Auto)
-               .coupling( hal::TriggerCoupling::Dc));
+               .sweep( hal::keysight_dso8064a::TriggerSweep::Auto)
+               .coupling( hal::keysight_dso8064a::TriggerCoupling::Dc));
 
     //
     // 10 ms/div with the trigger at the left edge, so the whole 100 ms
@@ -63,7 +63,7 @@ auto acDropoutScript() -> void
     //
     Setup( Osc1.timebase()
                .timePerDivision( 10_ms)
-               .reference( hal::TimebaseReference::Left));
+               .reference( hal::keysight_dso8064a::TimebaseReference::Left));
 
     //
     // High-resolution acquisition and, below, a bandwidth-limited input.
@@ -77,7 +77,7 @@ auto acDropoutScript() -> void
     // comment on the two mechanisms).
     //
     Setup( Osc1.acquisition()
-               .mode( hal::AcquisitionMode::HighResolution)
+               .mode( hal::keysight_dso8064a::AcquisitionMode::HighResolution)
                .automaticPoints()
                .unaveraged());
 
@@ -95,12 +95,12 @@ auto acDropoutScript() -> void
     // compensating arithmetic afterwards.
     //
     Setup( Osc1.channel<3>()
-               .input( hal::ChannelInput::Dc1M)
-               .probeAdapter( hal::ProbeAdapter::Div10)
+               .input( hal::keysight_dso8064a::ChannelInput::Dc1M)
+               .probeAdapter( hal::keysight_dso8064a::ProbeAdapter::Div10)
                .voltsPerDivision( 100_mV)
                .verticalOffset( 5_V)
-               .bandwidth( hal::Bandwidth::Limited)
-               .display( hal::ChannelDisplay::On));
+               .bandwidth( hal::keysight_dso8064a::Bandwidth::Limited)
+               .display( hal::keysight_dso8064a::ChannelDisplay::On));
 
     //
     // ------------------------------------------------------------------

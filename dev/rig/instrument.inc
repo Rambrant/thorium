@@ -30,5 +30,5 @@
 // true.
 //
 INSTRUMENTS
-    INSTRUMENT( L4411A, Dmm1, Lan( "dev-dmm"))   // TODO(bench): the hostname of the meter on your desk
+    INSTRUMENT( keysight_l4411a::L4411A, Dmm1, Lan( "dev-dmm"))   // TODO(bench): the hostname of the meter on your desk
 END_INSTRUMENTS

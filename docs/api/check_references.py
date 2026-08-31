@@ -106,13 +106,13 @@ ALLOWED = {
         'history -- "there used to be a separate ..."',
     ( 'framework/runner/CMakeLists.txt', 'VARIANT/test_catalog.inc'):
         'a pattern with a variable in it, not a path',
-    ( 'instruments/ac6834b/CMakeLists.txt', 'include/ac6834b.hpp'):
+    ( 'instruments/keysight_ac6834b/CMakeLists.txt', 'include/keysight_ac6834b.hpp'):
         'contrast -- "include/hal/ac6834b.hpp, not include/ac6834b.hpp"',
-    ( 'instruments/dso8064a/CMakeLists.txt', 'include/dso8064a.hpp'):
+    ( 'instruments/keysight_dso8064a/CMakeLists.txt', 'include/keysight_dso8064a.hpp'):
         'contrast -- "include/hal/dso8064a.hpp, not include/dso8064a.hpp"',
-    ( 'instruments/l4411a/CMakeLists.txt', 'include/l4411a.hpp'):
+    ( 'instruments/keysight_l4411a/CMakeLists.txt', 'include/keysight_l4411a.hpp'):
         'contrast -- "include/hal/l4411a.hpp, not include/l4411a.hpp"',
-    ( 'instruments/n6701a/CMakeLists.txt', 'include/n6701a.hpp'):
+    ( 'instruments/keysight_n6701a/CMakeLists.txt', 'include/keysight_n6701a.hpp'):
         'contrast -- "include/hal/n6701a.hpp, not include/n6701a.hpp"',
     ( 'instruments/racal1260/CMakeLists.txt', 'include/racal1260.hpp'):
         'contrast -- "include/hal/racal1260.hpp, not include/racal1260.hpp"',

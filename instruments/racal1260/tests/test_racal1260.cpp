@@ -23,12 +23,12 @@
 //
 namespace
 {
-    static_assert(   std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Serial> );
-    static_assert(   std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Gpib> );
-    static_assert(   std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Simulated> );
-    static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Lan> );
-    static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId, hal::Usb> );
-    static_assert( ! std::constructible_from< hal::Racal1260, hal::InstrumentId> );
+    static_assert(   std::constructible_from< hal::racal1260::Racal1260, hal::InstrumentId, hal::Serial> );
+    static_assert(   std::constructible_from< hal::racal1260::Racal1260, hal::InstrumentId, hal::Gpib> );
+    static_assert(   std::constructible_from< hal::racal1260::Racal1260, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< hal::racal1260::Racal1260, hal::InstrumentId, hal::Lan> );
+    static_assert( ! std::constructible_from< hal::racal1260::Racal1260, hal::InstrumentId, hal::Usb> );
+    static_assert( ! std::constructible_from< hal::racal1260::Racal1260, hal::InstrumentId> );
 } // namespace
 
 #include <chrono>
@@ -37,7 +37,7 @@ namespace
 #include "hal/topology/adapter.hpp"
 
 //
-// hal::Racal1260's own tests, against a local adapter table and local wiring
+// hal::racal1260::Racal1260's own tests, against a local adapter table and local wiring
 // rather than this rig's -- the same isolation every driver directory keeps
 // (see instruments/README.md). Nothing here names another instrument, and the
 // fabric and the two wiring tables are built by the fixture rather than taken
@@ -64,7 +64,7 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::Racal1260         ser1{ hal::InstrumentId::Ser1, hal::Simulated{} };
+        hal::racal1260::Racal1260         ser1{ hal::InstrumentId::Ser1, hal::Simulated{} };
 
         Racal1260Fixture()
         {
@@ -90,22 +90,22 @@ namespace
 //
 TEST_F( Racal1260Fixture, SetupChangesOnlyTheFieldsItWasGiven)
 {
-    hal::setupDriver( ser1.rs232().baudRate( 9600).parity( hal::Parity::Even).config());
+    setupDriver( ser1.rs232().baudRate( 9600).parity( hal::racal1260::Parity::Even).config());
 
     ASSERT_TRUE( ser1.baudRate().has_value());
     EXPECT_EQ( *ser1.baudRate(), 9600u);
-    EXPECT_EQ( ser1.parity(), hal::Parity::Even);
+    EXPECT_EQ( ser1.parity(), hal::racal1260::Parity::Even);
 
     // A second Setup naming only the baud rate must not reset the parity.
-    hal::setupDriver( ser1.rs232().baudRate( 19200).config());
+    setupDriver( ser1.rs232().baudRate( 19200).config());
 
     EXPECT_EQ( *ser1.baudRate(), 19200u);
-    EXPECT_EQ( ser1.parity(), hal::Parity::Even);
+    EXPECT_EQ( ser1.parity(), hal::racal1260::Parity::Even);
 }
 
 TEST_F( Racal1260Fixture, ATextLiteralReachesTheInstrumentAsItsOctets)
 {
-    hal::writeDriver( ser1.rs232().config(), core::Bytes( "RD 30\r"));
+    writeDriver( ser1.rs232().config(), core::Bytes( "RD 30\r"));
 
     EXPECT_EQ( ser1.lastWrite(), core::Bytes( "RD 30\r"));
 }
@@ -117,8 +117,8 @@ TEST_F( Racal1260Fixture, RepliesComeBackInTheOrderTheDutSentThem)
 
     const auto config = ser1.rs232().config();
 
-    EXPECT_EQ( hal::readDriver( config), core::Bytes( "ACK\r"));
-    EXPECT_EQ( hal::readDriver( config), core::Bytes( "0xF5\r"));
+    EXPECT_EQ( readDriver( config), core::Bytes( "ACK\r"));
+    EXPECT_EQ( readDriver( config), core::Bytes( "0xF5\r"));
 }
 
 //
@@ -128,7 +128,7 @@ TEST_F( Racal1260Fixture, RepliesComeBackInTheOrderTheDutSentThem)
 //
 TEST_F( Racal1260Fixture, APortWithNothingToSayReturnsAnEmptyPayload)
 {
-    EXPECT_TRUE( hal::readDriver( ser1.rs232().timeout( std::chrono::milliseconds{ 50 }).config()).empty());
+    EXPECT_TRUE( readDriver( ser1.rs232().timeout( std::chrono::milliseconds{ 50 }).config()).empty());
 }
 
 //
@@ -138,7 +138,7 @@ TEST_F( Racal1260Fixture, APortWithNothingToSayReturnsAnEmptyPayload)
 //
 TEST_F( Racal1260Fixture, ConnectingTheInterfaceClosesEveryLineOnBothSides)
 {
-    hal::connectDriver( fabric, instrumentWiring, connectorWiring,
+    connectDriver( fabric, instrumentWiring, connectorWiring,
                         ser1.rs232().config(), core::at( Console).point);
 
     EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 16 }));
@@ -160,8 +160,8 @@ TEST_F( Racal1260Fixture, DisconnectingOpensExactlyWhatWasClosed)
 {
     const auto config = ser1.rs232().config();
 
-    hal::connectDriver(    fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
-    hal::disconnectDriver( fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
+    connectDriver(    fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
+    disconnectDriver( fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
 
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 16 }));
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 18 }));
@@ -176,9 +176,9 @@ TEST_F( Racal1260Fixture, DisconnectingOpensExactlyWhatWasClosed)
 //
 TEST_F( Racal1260Fixture, SafingDropsTheConnectionAndDiscardsAnythingQueued)
 {
-    hal::connectDriver( fabric, instrumentWiring, connectorWiring,
+    connectDriver( fabric, instrumentWiring, connectorWiring,
                         ser1.rs232().config(), core::at( Console).point);
-    hal::writeDriver( ser1.rs232().config(), core::Bytes( "RD 30\r"));
+    writeDriver( ser1.rs232().config(), core::Bytes( "RD 30\r"));
 
     ASSERT_TRUE( ser1.isConnected());
 
@@ -194,13 +194,13 @@ TEST_F( Racal1260Fixture, SafingDropsTheConnectionAndDiscardsAnythingQueued)
 //
 TEST_F( Racal1260Fixture, TheLogReportsOnlyTheSettingsThatWereActuallyGiven)
 {
-    const auto described = hal::describeConfig(
-        ser1.rs232().baudRate( 9600).wordLength( 8).parity( hal::Parity::None).stopBits( hal::StopBits::One).config());
+    const auto described = describeConfig(
+        ser1.rs232().baudRate( 9600).wordLength( 8).parity( hal::racal1260::Parity::None).stopBits( hal::racal1260::StopBits::One).config());
 
     EXPECT_EQ( described.Instrument, "Ser1");
     EXPECT_EQ( described.Settings,   "baud=9600, wordLength=8, parity=none, stopBits=1");
 
-    const auto sparse = hal::describeConfig( ser1.rs232().baudRate( 9600).config());
+    const auto sparse = describeConfig( ser1.rs232().baudRate( 9600).config());
 
     EXPECT_EQ( sparse.Settings, "baud=9600");
 }
@@ -211,7 +211,7 @@ TEST_F( Racal1260Fixture, TheLogReportsOnlyTheSettingsThatWereActuallyGiven)
 //
 TEST_F( Racal1260Fixture, OneAndAHalfStopBitsIsExpressible)
 {
-    const auto described = hal::describeConfig( ser1.rs232().stopBits( hal::StopBits::OnePointFive).config());
+    const auto described = describeConfig( ser1.rs232().stopBits( hal::racal1260::StopBits::OnePointFive).config());
 
     EXPECT_EQ( described.Settings, "stopBits=1.5");
 }
@@ -220,7 +220,7 @@ TEST_F( Racal1260Fixture, OneAndAHalfStopBitsIsExpressible)
 // A serial port has no output to energise, so there is nothing an
 // Apply( Ser1.rs232()) could mean -- and the absence of applyDriver is what
 // makes writing one a compile error rather than a call that silently does
-// nothing. The same guarantee hal::SwitchableIsolation gives Connect on a
+// nothing. The same guarantee hal::keysight_n6701a::SwitchableIsolation gives Connect on a
 // relay-less supply.
 //
 TEST_F( Racal1260Fixture, ThereIsNoApplyForAPortWithNoOutput)
@@ -231,5 +231,5 @@ TEST_F( Racal1260Fixture, ThereIsNoApplyForAPortWithNoOutput)
     };
 
     EXPECT_FALSE( appliable( ser1.rs232().config()));
-    EXPECT_TRUE(  ( requires { hal::setupDriver( ser1.rs232().config()); }));
+    EXPECT_TRUE(  ( requires { setupDriver( ser1.rs232().config()); }));
 }

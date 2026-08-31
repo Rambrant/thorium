@@ -249,10 +249,10 @@ that cannot be recovered from the code.
 
 | | |
 |---|---|
-| [`instruments/l4411a`](instruments/l4411a/README.md) | DMM — `Dmm1`/`Dmm2`, including the 4-wire sense path |
-| [`instruments/dso8064a`](instruments/dso8064a/README.md) | Oscilloscope — `Osc1` |
-| [`instruments/n6701a`](instruments/n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
-| [`instruments/ac6834b`](instruments/ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
+| [`instruments/keysight_l4411a`](instruments/keysight_l4411a/README.md) | DMM — `Dmm1`/`Dmm2`, including the 4-wire sense path |
+| [`instruments/keysight_dso8064a`](instruments/keysight_dso8064a/README.md) | Oscilloscope — `Osc1` |
+| [`instruments/keysight_n6701a`](instruments/keysight_n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
+| [`instruments/keysight_ac6834b`](instruments/keysight_ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
 | [`instruments/racal1260`](instruments/racal1260/README.md) | RS232 port — `Ser1`, routed to a DUT interface through the matrix |
 
 **This deployment's content**
@@ -1052,8 +1052,8 @@ will be a number, it will very likely be in tolerance, and it will mean nothing.
 
 **Both verbs are generic.** They live in `core/verbs/acquire.hpp` and are named for the
 operation, not the instrument: a transient recorder, a digitizer or a counter
-with an armed gate is the same shape. `hal::DSO8064A` is simply the first driver
-to answer to `armDriver`/`awaitDriver`, exactly as `hal::Racal1260` was the first
+with an armed gate is the same shape. `hal::keysight_dso8064a::DSO8064A` is simply the first driver
+to answer to `armDriver`/`awaitDriver`, exactly as `hal::racal1260::Racal1260` was the first
 to answer to `writeDriver`/`readDriver`.
 
 **Testing it without a bench** works as it does for a reading and a reply — an
@@ -1128,7 +1128,7 @@ Fetch.inject( "Osc1.Channel3", capturedEarlier);
 
 `Fetch` is generic and lives in `core/verbs/trace.hpp` — a transient recorder, a
 digitizer or a logger with a memory behind it hands back the same shape.
-`hal::DSO8064A` is simply the first driver to answer to `fetchDriver`.
+`hal::keysight_dso8064a::DSO8064A` is simply the first driver to answer to `fetchDriver`.
 
 ### When an instrument cannot make the measurement
 

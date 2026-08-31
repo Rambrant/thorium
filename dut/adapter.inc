@@ -11,11 +11,11 @@
 // knows about.
 //
 // A handful of these points are also where a fixed-wired source instrument
-// (hal::N6701A/hal::DcP1..DcP4, hal::Ac6834B/hal::AcP1) permanently lands --
+// (hal::keysight_n6701a::N6701A/hal::DcP1..DcP4, hal::keysight_ac6834b::Ac6834B/hal::AcP1) permanently lands --
 // Output5V and BackupSupply look like DC rails, AcInput_A/B/C/N look like a
 // three-phase-plus-neutral AC input, for instance. hal:: itself has no idea
 // any of that -- DcP1's fixed channel (rig/wiring.inc) is a bare
-// SwitchElementId with no notion of "Output5V" attached (see hal::N6701A's
+// SwitchElementId with no notion of "Output5V" attached (see hal::keysight_n6701a::N6701A's
 // own comment on why) -- so if that association matters to a reader here,
 // it belongs as a comment on the specific POINT() below, once it's known
 // which DcP/AcP instance is actually cabled to which pin on this rig. Not
@@ -82,7 +82,7 @@ ADAPTER( "Device X on standard adapter")
     // adapter, and the first that is routed rather than cabled.
     //
     // Ordinary LINEs, not SOURCE_LINEs: nothing on this bench is permanently
-    // wired onto these three pins. A serial port (hal::Racal1260/Ser1 -- see
+    // wired onto these three pins. A serial port (hal::racal1260::Racal1260/Ser1 -- see
     // rig/instrument.inc) is switched onto them for as long as a script holds
     // the connection open, which is what a console is for and what the AC
     // input above deliberately is not. Signal-level relays carry an interface

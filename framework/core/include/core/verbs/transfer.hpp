@@ -21,7 +21,7 @@ namespace core
     // interface, a bus analyser, a bootloader link) reuses them rather than
     // arriving with a third and fourth verb meaning the same two things. That
     // is also why this file is core/verbs/transfer.hpp and not core/serial.hpp:
-    // nothing here knows what RS232 is. hal::Racal1260 is simply the first
+    // nothing here knows what RS232 is. hal::racal1260::Racal1260 is simply the first
     // driver to answer to writeDriver/readDriver.
     //
     // Two verbs rather than one Transact, even though the shape a console

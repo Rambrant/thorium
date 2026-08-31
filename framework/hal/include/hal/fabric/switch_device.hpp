@@ -107,7 +107,7 @@ namespace hal
     // have, and it is recorded the same way for the same reason: their
     // mainframe slot is a separate column rather than a field on hal::Gpib,
     // because it is not part of how the PC reaches the box (see
-    // hal/driver/address.hpp, and hal::N6701A's own comment on its slot argument).
+    // hal/driver/address.hpp, and hal::keysight_n6701a::N6701A's own comment on its slot argument).
     // Writing a 1260 card number into hal::Gpib::secondary would read as a
     // 488 secondary address, which is a different thing the bus itself
     // understands, and would be wrong on the wire the day a driver believed

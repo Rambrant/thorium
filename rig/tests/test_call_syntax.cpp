@@ -14,16 +14,16 @@
 // state with each other.
 //
 // This also demonstrates the two shapes Connect/Disconnect can take side by
-// side: DcP3 is fixed-wired (hal::N6701A::dc() takes no point at all --
+// side: DcP3 is fixed-wired (hal::keysight_n6701a::N6701A::dc() takes no point at all --
 // see that header's own comment; DcP3 specifically has a real isolation
-// relay -- hal::N6701ARelay -- unlike DcP1/DcP2, which have none at all),
-// Osc1 is routed (hal::DSO8064A's Port takes at(...) on every Measure()) --
+// relay -- hal::keysight_n6701a::Relay -- unlike DcP1/DcP2, which have none at all),
+// Osc1 is routed (hal::keysight_dso8064a::DSO8064A's Port takes at(...) on every Measure()) --
 // both physically reach the same VPC pin (Output5V), but only Osc1's path
 // touches the mux; DcP3's connect() closes just its own fixed channel.
 //
-#include "hal/n6701a.hpp"
-#include "hal/dso8064a.hpp"
-#include "hal/l4411a.hpp"
+#include "hal/keysight_n6701a.hpp"
+#include "hal/keysight_dso8064a.hpp"
+#include "hal/keysight_l4411a.hpp"
 #include "hal/verbs/measure.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
@@ -45,7 +45,7 @@ namespace
 
     // Output5V/ClockOut are only ever named on the Measure() side below --
     // DcP3 reaches the same physical Output5V pin too, but as a fixed wire,
-    // not as an at(...) argument (see hal::N6701A's own comment).
+    // not as an at(...) argument (see hal::keysight_n6701a::N6701A's own comment).
     constexpr core::AdapterPointTag<kOutput5V>        Output5V{ "Output5V", "5Vdc supply port" };
     constexpr core::AdapterPointTag<kClockOut>        ClockOut{ "ClockOut", "clock edge test point" };
     constexpr core::AdapterPointTag<kResistancePoint> ResistancePoint{ "ResistancePoint", "4-wire Kelvin test point" };
@@ -64,9 +64,9 @@ namespace
         //
         hal::TapWiring         tapWiring;
 
-        hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
-        hal::DSO8064A osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
-        hal::L4411A  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+        hal::keysight_n6701a::Relay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::keysight_dso8064a::DSO8064A osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
+        hal::keysight_l4411a::L4411A  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};

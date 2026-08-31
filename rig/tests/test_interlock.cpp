@@ -1,9 +1,9 @@
 #include "hal/verbs/interlock.hpp"
 
 #include THORIUM_ACTIVE_INSTRUMENTS
-#include "hal/l4411a.hpp"
+#include "hal/keysight_l4411a.hpp"
 #include "hal/verbs/measure.hpp"
-#include "hal/n6701a.hpp"
+#include "hal/keysight_n6701a.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
 
@@ -90,7 +90,7 @@ namespace
         hal::TapWiring         tapWiring;
 
         // Local, for the hot-switch half -- see this file's own comment.
-        hal::N6701ARelay  localDcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::keysight_n6701a::Relay  localDcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};

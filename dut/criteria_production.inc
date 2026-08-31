@@ -16,7 +16,7 @@ CRITERIA( FS_Supply_1, "Supply rail voltage checks")
 END_CRITERIA
 
 //
-// The DUT's debug console (see dut::Console and hal::Racal1260). Two different
+// The DUT's debug console (see dut::Console and hal::racal1260::Racal1260). Two different
 // kinds of check, deliberately kept apart rather than folded into one
 // "the console works" criterion:
 //

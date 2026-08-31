@@ -20,7 +20,7 @@ namespace
 {
     //
     // AcP1's four fixed channels -- the three phases and the neutral return,
-    // which connectDriver closes and opens as one unit (see hal::Ac6834B).
+    // which connectDriver closes and opens as one unit (see hal::keysight_ac6834b::Ac6834B).
     // Phase A alone would not catch a restore that reconnected some of them.
     //
     constexpr hal::SwitchElementId kAcP1PhaseA { hal::SwitchDeviceId::Spst1, 0 };
@@ -76,12 +76,12 @@ TEST_F( TransientBracketFixture, PutsTheSourceBackToWhatTheSetupFound)
     EXPECT_TRUE( hal::fabric.isClosed( kAcP1PhaseA));
     EXPECT_TRUE( hal::fabric.isClosed( kAcP1Neutral));
 
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::A), 115_V);
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::B), 115_V);
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::C), 115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::A), 115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::B), 115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::C), 115_V);
 
     EXPECT_EQ( AcP1.frequency(),                   400_Hz);
-    EXPECT_EQ( AcP1.currentLimit( hal::Phase::A),  2_A);
+    EXPECT_EQ( AcP1.currentLimit( hal::keysight_ac6834b::Phase::A),  2_A);
 }
 
 //
@@ -101,9 +101,9 @@ TEST_F( TransientBracketFixture, RestoresTheSetpointsInForce_NotThePowerUpLitera
 
     EXPECT_TRUE( transientTeardown());
 
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::A), 100_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::A), 100_V);
     EXPECT_EQ( AcP1.frequency(),                  60_Hz);
-    EXPECT_EQ( AcP1.currentLimit( hal::Phase::A), 5_A);
+    EXPECT_EQ( AcP1.currentLimit( hal::keysight_ac6834b::Phase::A), 5_A);
 }
 
 //
@@ -113,7 +113,7 @@ TEST_F( TransientBracketFixture, RestoresTheSetpointsInForce_NotThePowerUpLitera
 //
 TEST_F( TransientBracketFixture, RestoresAnUnbalancedSourcePhaseByPhase)
 {
-    Apply( AcP1.ac().phaseVoltage( hal::phaseA( 113_V), hal::phaseB( 115_V), hal::phaseC( 117_V))
+    Apply( AcP1.ac().phaseVoltage( hal::keysight_ac6834b::phaseA( 113_V), hal::keysight_ac6834b::phaseB( 115_V), hal::keysight_ac6834b::phaseC( 117_V))
                     .frequency( 400_Hz));
 
     ASSERT_TRUE( transientSetup());
@@ -122,9 +122,9 @@ TEST_F( TransientBracketFixture, RestoresAnUnbalancedSourcePhaseByPhase)
 
     EXPECT_TRUE( transientTeardown());
 
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::A), 113_V);
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::B), 115_V);
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::C), 117_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::A), 113_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::B), 115_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::C), 117_V);
 }
 
 //
@@ -205,6 +205,6 @@ TEST_F( TransientBracketFixture, RemembersAfreshOnEveryPass)
 
     EXPECT_TRUE( transientTeardown());
 
-    EXPECT_EQ( AcP1.phaseVoltage( hal::Phase::A), 108_V);
+    EXPECT_EQ( AcP1.phaseVoltage( hal::keysight_ac6834b::Phase::A), 108_V);
     EXPECT_EQ( AcP1.frequency(),                  50_Hz);
 }

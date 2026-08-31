@@ -32,8 +32,8 @@ namespace core
     // for an oscilloscope. "Arm a capture, let the event happen, find out
     // whether it landed" is what a transient recorder does, what a digitizer
     // does, what a counter with an armed gate does, and what a DMM in triggered
-    // burst mode does. hal::DSO8064A is simply the first driver to answer to
-    // armDriver/awaitDriver, exactly as hal::Racal1260 was the first to answer
+    // burst mode does. hal::keysight_dso8064a::DSO8064A is simply the first driver to answer to
+    // armDriver/awaitDriver, exactly as hal::racal1260::Racal1260 was the first to answer
     // to writeDriver/readDriver (see core/verbs/transfer.hpp's own comment on the
     // same choice).
     //

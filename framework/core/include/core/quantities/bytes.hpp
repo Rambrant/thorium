@@ -109,7 +109,7 @@ namespace core
             // Everything up to (not including) the first occurrence of
             // delimiter, or the whole sequence when it does not occur. What
             // strips a terminator off a reply before it is compared -- see
-            // hal::Racal1260's terminator(), which is what a read stops at but
+            // hal::racal1260::Racal1260's terminator(), which is what a read stops at but
             // deliberately still returns.
             //
             [[nodiscard]] auto before( const Bytes & delimiter) const -> Bytes;

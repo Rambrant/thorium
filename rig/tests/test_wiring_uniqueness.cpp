@@ -57,7 +57,7 @@
 //     the mux common's, say, which no coverage check would notice
 //
 // Compared by *entry*, not by owner, which matters for the one instrument
-// that legitimately holds several rows: hal::Ac6834B's AcP1 has four, one per
+// that legitimately holds several rows: hal::keysight_ac6834b::Ac6834B's AcP1 has four, one per
 // conductor, and two of them on one relay is as much a mistake as any other
 // collision. Sharing a later hop between rows of one owner stays legal -- a
 // bundle whose conductors run through a common trunk is an ordinary bench.

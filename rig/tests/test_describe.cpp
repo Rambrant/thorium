@@ -1,7 +1,7 @@
-#include "hal/ac6834b.hpp"
+#include "hal/keysight_ac6834b.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
-#include "hal/n6701a.hpp"
+#include "hal/keysight_n6701a.hpp"
 #include "hal/verbs/safing.hpp"
 
 #include <gtest/gtest.h>
@@ -37,9 +37,9 @@ namespace
         // Same instrument set and wiring as test_source_instruments.cpp's
         // fixture: DcP1 direct-wired (Apply/Remove only), DcP3 relay-isolated
         // (the one Connect/Disconnect can be called on at all).
-        hal::N6701ADirect      dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
-        hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
-        hal::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
+        hal::keysight_n6701a::Direct      dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
+        hal::keysight_n6701a::Relay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::keysight_ac6834b::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};
@@ -158,12 +158,12 @@ TEST_F( DescribeFixture, SafingPostsToTheJournal)
 //
 // A per-phase Apply must not be logged as though it were balanced: a journal
 // showing one "phaseVoltage=115V" for a deliberately unbalanced run describes
-// a test that was never performed. See hal::describeConfig's own comment.
+// a test that was never performed. See describeConfig's own comment.
 //
 TEST_F( DescribeFixture, AnUnbalancedAcConfigLogsAllThreePhasesAndSaysItIsPerPhase)
 {
     const auto described = describeConfig( acP1.ac()
-                                                .phaseVoltage( hal::phaseA( 115.0_V), hal::phaseB( 113.0_V), hal::phaseC( 117.0_V))
+                                                .phaseVoltage( hal::keysight_ac6834b::phaseA( 115.0_V), hal::keysight_ac6834b::phaseB( 113.0_V), hal::keysight_ac6834b::phaseC( 117.0_V))
                                                 .frequency( 400.0_Hz)
                                                 .config());
 

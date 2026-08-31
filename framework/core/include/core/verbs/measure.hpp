@@ -394,7 +394,7 @@ namespace core
                 // The point's name, plus the port's qualifier when it carries
                 // one -- "Output5V" for an ordinary reading, "Output5V.Vbase"
                 // for one of the fifteen different answers an oscilloscope can
-                // give about the same pin (see hal::DSO8064AChannel).
+                // give about the same pin (see hal::keysight_dso8064a::Channel).
                 //
                 // Without this, two measurements taken at one point in one
                 // script share a session slot, so a test injecting them by
@@ -491,7 +491,7 @@ namespace core
             // This is how current is actually read on a rig whose matrix
             // carries signals only: a supply's own readback measures its rail
             // at full load, where routing that current through signal relays
-            // would be neither possible nor safe (see hal::N6701A's own comment
+            // would be neither possible nor safe (see hal::keysight_n6701a::N6701A's own comment
             // on why its output is hard-wired in the first place).
             //
             // Still goes through the session seam, so injection and replay work
@@ -557,7 +557,7 @@ namespace core
                 // than one output: a three-phase source reports a voltage per
                 // phase, and all three share one InstrumentId, so the port may
                 // also carry a qualifier naming which one -- "AcP1.B.Voltage"
-                // (see core::Port::qualifiedBy and hal::Ac6834B::measuredVoltage).
+                // (see core::Port::qualifiedBy and hal::keysight_ac6834b::Ac6834B::measuredVoltage).
                 // Ports that name a single output leave it empty and key
                 // exactly as they always did.
                 //

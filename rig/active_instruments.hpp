@@ -2,10 +2,10 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/instrument.hpp"
-#include "hal/l4411a.hpp"
-#include "hal/dso8064a.hpp"
-#include "hal/n6701a.hpp"
-#include "hal/ac6834b.hpp"
+#include "hal/keysight_l4411a.hpp"
+#include "hal/keysight_dso8064a.hpp"
+#include "hal/keysight_n6701a.hpp"
+#include "hal/keysight_ac6834b.hpp"
 #include "hal/racal1260.hpp"
 #include "hal/fabric/switch_fabric.hpp"
 
@@ -51,7 +51,7 @@
 // an address with more than one field be one macro argument at all.
 //
 // Anything after address is handed to the driver's constructor untouched --
-// hal::N6701A's mainframe slot is the only such argument on this rig. That
+// hal::keysight_n6701a::N6701A's mainframe slot is the only such argument on this rig. That
 // slot is deliberately NOT folded into the address, even though "GPIB 14,
 // slot 3" is how you would say aloud where DcP3 is: one address is one box
 // on the bus (DcP1..DcP4 share a mainframe and so share an address), the

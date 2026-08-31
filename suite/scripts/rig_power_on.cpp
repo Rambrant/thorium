@@ -36,7 +36,7 @@ auto rigPowerOn() -> bool
     // would also turn the build red: see
     // AcceptanceMachineLog.NoShippedScriptOrHookMovesARelayUnderLoad.
     //
-    // DcP1/DcP2 below get no Connect at all: they are hal::N6701ADirect, wired
+    // DcP1/DcP2 below get no Connect at all: they are hal::keysight_n6701a::Direct, wired
     // straight through with no isolation relay, so there is nothing to
     // sequence and Connect( DcP1.dc()) would not compile. Only DcP3 and AcP1
     // have one.
@@ -48,7 +48,7 @@ auto rigPowerOn() -> bool
     // Read back from the source itself -- no at(...), no point. This asks the
     // instrument what it is delivering over its own interface, which is a
     // different question from what a DMM would see at a DUT pin: a supply's
-    // rail does not travel the signal matrix (see hal::N6701A's own comment on
+    // rail does not travel the signal matrix (see hal::keysight_n6701a::N6701A's own comment on
     // why its output is hard-wired), so there is no route to name. Note that
     // passing at(...) here anyway *compiles* -- it selects the routed overload
     // and closes a mux path for a reading that never leaves the instrument. If
@@ -62,14 +62,14 @@ auto rigPowerOn() -> bool
     //
     // All three phases, not one. This used to read a single unqualified
     // measuredVoltage(), which was sound only while the three were equal by
-    // construction -- with per-phase setpoints available (see hal::Ac6834B),
+    // construction -- with per-phase setpoints available (see hal::keysight_ac6834b::Ac6834B),
     // checking phase A alone would pass a rig that had lost B or C entirely.
     // The Apply above is balanced, so all three are held to the same
     // criterion; an unbalanced power-up would want one criterion per phase.
     //
-    for( const auto phase : hal::phases)
+    for( const auto phase : hal::keysight_ac6834b::phases)
     {
-        allPassed &= Verify( "Primary AC input at nominal, phase " + std::string( hal::to_string( phase)),
+        allPassed &= Verify( "Primary AC input at nominal, phase " + std::string( to_string( phase)),
                              EQ( 115_V).epsilon( 2_V),
                              Measure( AcP1.measuredVoltage( phase)));
     }

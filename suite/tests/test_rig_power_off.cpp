@@ -35,7 +35,7 @@ namespace
             Apply( AcP1.ac().phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
 
             // Only the three that have a relay at all -- Connect( DcP1.dc())
-            // would not compile (see hal::SwitchableIsolation).
+            // would not compile (see hal::keysight_n6701a::SwitchableIsolation).
             Connect( DcP3.dc());
             Connect( AcP1.ac());
         }

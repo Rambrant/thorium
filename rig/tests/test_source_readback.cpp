@@ -1,6 +1,6 @@
-#include "hal/ac6834b.hpp"
+#include "hal/keysight_ac6834b.hpp"
 #include "hal/verbs/measure.hpp"
-#include "hal/n6701a.hpp"
+#include "hal/keysight_n6701a.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
 
@@ -45,8 +45,8 @@ namespace
         //
         hal::TapWiring         tapWiring;
 
-        hal::N6701ARelay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
-        hal::Ac6834B      acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
+        hal::keysight_n6701a::Relay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::keysight_ac6834b::Ac6834B      acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ApplyEngine    apply{};
         ConnectEngine  connect{ fabric, instrumentWiring, connectorWiring };
@@ -121,8 +121,8 @@ TEST_F( SourceReadbackFixture, AReadbackWithNoWiringEntryAtAllStillWorks)
     acP1.applyOutput( 115.0_V, 50.0_Hz, 5.0_A);
     acP1.setSimulatedOutputCurrent( 4.8_A);
 
-    EXPECT_DOUBLE_EQ( measure( acP1.measuredVoltage( hal::Phase::A)).value(), 115.0);
-    EXPECT_DOUBLE_EQ( measure( acP1.measuredCurrent( hal::Phase::A)).value(),   4.8);
+    EXPECT_DOUBLE_EQ( measure( acP1.measuredVoltage( hal::keysight_ac6834b::Phase::A)).value(), 115.0);
+    EXPECT_DOUBLE_EQ( measure( acP1.measuredCurrent( hal::keysight_ac6834b::Phase::A)).value(),   4.8);
 }
 
 //

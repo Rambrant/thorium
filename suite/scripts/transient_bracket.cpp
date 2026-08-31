@@ -48,7 +48,7 @@ namespace
     // Optionals throughout, because "never programmed" is a state the
     // instrument distinguishes and the restore has to preserve: std::nullopt
     // means leave that setting alone, which is what it means everywhere else in
-    // hal::Ac6834BConfig too. Range is normally exactly this case -- nothing in
+    // hal::keysight_ac6834b::AcConfig too. Range is normally exactly this case -- nothing in
     // this suite programs it.
     //
     struct AcSourceState
@@ -69,10 +69,10 @@ namespace
         //
         bool Energised{ false };
 
-        hal::PerPhaseValues<core::quantities::Voltage>                PhaseVoltage{};
+        hal::keysight_ac6834b::PerPhaseValues<core::quantities::Voltage>                PhaseVoltage{};
         std::optional<core::quantities::Frequency>                    Frequency{};
-        std::optional<hal::PerPhaseValues<core::quantities::Current>> CurrentLimit{};
-        std::optional<hal::PerPhaseValues<core::quantities::Voltage>> Range{};
+        std::optional<hal::keysight_ac6834b::PerPhaseValues<core::quantities::Current>> CurrentLimit{};
+        std::optional<hal::keysight_ac6834b::PerPhaseValues<core::quantities::Voltage>> Range{};
     };
 
     //
@@ -88,15 +88,15 @@ namespace
     // take all three or none, so a setting programmed on some phases and not
     // others is not something this hook could put back by halves -- and it is
     // not a state this instrument can be left in anyway (INSTrument:COUPle
-    // broadcasts, see hal::Ac6834BBuilder).
+    // broadcasts, see hal::keysight_ac6834b::AcBuilder).
     //
     template<typename QuantityT, typename ReadbackT>
     [[nodiscard]]
-    auto perPhase( ReadbackT && readback) -> std::optional<hal::PerPhaseValues<QuantityT>>
+    auto perPhase( ReadbackT && readback) -> std::optional<hal::keysight_ac6834b::PerPhaseValues<QuantityT>>
     {
-        hal::PerPhaseValues<QuantityT> values{};
+        hal::keysight_ac6834b::PerPhaseValues<QuantityT> values{};
 
-        for( const auto phase : hal::phases)
+        for( const auto phase : hal::keysight_ac6834b::phases)
         {
             const auto value = readback( phase);
 
@@ -105,7 +105,7 @@ namespace
                 return std::nullopt;
             }
 
-            values[ hal::indexOf( phase)] = *value;
+            values[ hal::keysight_ac6834b::indexOf( phase)] = *value;
         }
 
         return values;
@@ -133,16 +133,16 @@ auto transientSetup() -> bool
     //
     sAcP1 = {};
 
-    for( const auto phase : hal::phases)
+    for( const auto phase : hal::keysight_ac6834b::phases)
     {
-        sAcP1.PhaseVoltage[ hal::indexOf( phase)] = AcP1.phaseVoltage( phase);
+        sAcP1.PhaseVoltage[ hal::keysight_ac6834b::indexOf( phase)] = AcP1.phaseVoltage( phase);
     }
 
     sAcP1.Frequency    = AcP1.frequency();
     sAcP1.CurrentLimit = perPhase<core::quantities::Current>(
-                             []( const hal::Phase phase) { return AcP1.currentLimit( phase); });
+                             []( const hal::keysight_ac6834b::Phase phase) { return AcP1.currentLimit( phase); });
     sAcP1.Range        = perPhase<core::quantities::Voltage>(
-                             []( const hal::Phase phase) { return AcP1.range( phase); });
+                             []( const hal::keysight_ac6834b::Phase phase) { return AcP1.range( phase); });
 
     sAcP1.Energised = AcP1.isEnabled();
     sAcP1.Recorded  = true;
@@ -189,14 +189,14 @@ auto transientTeardown() -> bool
     // value invented here. Range is normally that case.
     //
     // The range readback is already resolved to what the instrument selected
-    // (150 V or 300 V, never the raw value someone passed), and hal::rangeFor
+    // (150 V or 300 V, never the raw value someone passed), and hal::keysight_ac6834b::rangeFor
     // maps each of those to itself -- so it round-trips through the setter
     // rather than being re-resolved into the other range.
     //
     const auto voltages = AcP1.ac().phaseVoltage(
-                              hal::phaseA( sAcP1.PhaseVoltage[ hal::indexOf( hal::Phase::A)]),
-                              hal::phaseB( sAcP1.PhaseVoltage[ hal::indexOf( hal::Phase::B)]),
-                              hal::phaseC( sAcP1.PhaseVoltage[ hal::indexOf( hal::Phase::C)]));
+                              hal::keysight_ac6834b::phaseA( sAcP1.PhaseVoltage[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::A)]),
+                              hal::keysight_ac6834b::phaseB( sAcP1.PhaseVoltage[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::B)]),
+                              hal::keysight_ac6834b::phaseC( sAcP1.PhaseVoltage[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::C)]));
 
     const auto withFrequency = sAcP1.Frequency
                                    ? voltages.frequency( *sAcP1.Frequency)
@@ -204,16 +204,16 @@ auto transientTeardown() -> bool
 
     const auto withCurrentLimit = sAcP1.CurrentLimit
                                       ? withFrequency.currentLimit(
-                                            hal::phaseA( ( *sAcP1.CurrentLimit)[ hal::indexOf( hal::Phase::A)]),
-                                            hal::phaseB( ( *sAcP1.CurrentLimit)[ hal::indexOf( hal::Phase::B)]),
-                                            hal::phaseC( ( *sAcP1.CurrentLimit)[ hal::indexOf( hal::Phase::C)]))
+                                            hal::keysight_ac6834b::phaseA( ( *sAcP1.CurrentLimit)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::A)]),
+                                            hal::keysight_ac6834b::phaseB( ( *sAcP1.CurrentLimit)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::B)]),
+                                            hal::keysight_ac6834b::phaseC( ( *sAcP1.CurrentLimit)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::C)]))
                                       : withFrequency;
 
     const auto restored = sAcP1.Range
                               ? withCurrentLimit.range(
-                                    hal::phaseA( ( *sAcP1.Range)[ hal::indexOf( hal::Phase::A)]),
-                                    hal::phaseB( ( *sAcP1.Range)[ hal::indexOf( hal::Phase::B)]),
-                                    hal::phaseC( ( *sAcP1.Range)[ hal::indexOf( hal::Phase::C)]))
+                                    hal::keysight_ac6834b::phaseA( ( *sAcP1.Range)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::A)]),
+                                    hal::keysight_ac6834b::phaseB( ( *sAcP1.Range)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::B)]),
+                                    hal::keysight_ac6834b::phaseC( ( *sAcP1.Range)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::C)]))
                               : withCurrentLimit;
 
     Apply( restored);

@@ -7,7 +7,7 @@ namespace hal
     //
     // The fixed, static list of instruments a rig actually has. Several
     // instruments can share the same underlying type (e.g. a rig's Dmm1 and
-    // Dmm2 might both be hal::L4411A -- see hal/l4411a.hpp) and be
+    // Dmm2 might both be hal::keysight_l4411a::L4411A -- see hal/keysight_l4411a.hpp) and be
     // interchanged during a test -- InstrumentId is what a hal::RouteTable
     // entry and a recorded sample identify the instrument by, since two
     // Dmms are two distinct wiring facts even though they're the same C++
@@ -21,8 +21,8 @@ namespace hal
     // swap mechanism core/criteria/active_criteria.hpp already uses for
     // THORIUM_CRITERIA_VARIANT_TABLES. A driver still names the *role* it plays
     // ("DC power, channel N"), not the model, the same reasoning that keeps
-    // hal::N6701A's own class name (not this enum) tied to the physical
-    // instrument model -- see hal::N6701A's own comment in hal/n6701a.hpp.
+    // hal::keysight_n6701a::N6701A's own class name (not this enum) tied to the physical
+    // instrument model -- see hal::keysight_n6701a::N6701A's own comment in hal/keysight_n6701a.hpp.
     //
     // instrument.inc is read here with INSTRUMENT redefined to keep only
     // the id token -- the same file rig/active_instruments.hpp declares the
@@ -88,8 +88,8 @@ namespace hal
     auto to_string( InstrumentId id) -> std::string_view;
 
     //
-    // Empty marker base -- every concrete instrument driver (hal::L4411A,
-    // hal::DSO8064A, hal::N6701A<Isolation>, hal::Ac6834B) inherits it
+    // Empty marker base -- every concrete instrument driver (hal::keysight_l4411a::L4411A,
+    // hal::keysight_dso8064a::DSO8064A, hal::keysight_n6701a::N6701A<Isolation>, hal::keysight_ac6834b::Ac6834B) inherits it
     // publicly, and nothing else does. hal::safeRig() (hal/src/verbs/safing.cpp)
     // is the only reason this exists: it reflects over the global namespace
     // for every InstrumentTag-derived variable (rig/active_instruments.hpp
@@ -128,7 +128,7 @@ namespace hal
     // asserts that a driver *without* safe() fails the concept, the only
     // way to demonstrate that the compile-time half of the safing contract
     // is real without breaking the build. Note it is not used to *skip*
-    // instruments that don't satisfy it: see hal::L4411A::safe() for why
+    // instruments that don't satisfy it: see hal::keysight_l4411a::L4411A::safe() for why
     // opt-in safing is the wrong shape here.
     //
     template<typename InstrumentT>

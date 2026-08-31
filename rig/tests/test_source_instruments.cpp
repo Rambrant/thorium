@@ -1,8 +1,8 @@
 //
-// What remains of a file that held hal::N6701A's and hal::Ac6834B's tests
+// What remains of a file that held hal::keysight_n6701a::N6701A's and hal::keysight_ac6834b::Ac6834B's tests
 // together: the one test that genuinely needs both. The rest went to the drivers
-// when they moved out to instruments/ -- see instruments/n6701a/tests/ and
-// instruments/ac6834b/tests/, each of which now carries its own trimmed copy of
+// when they moved out to instruments/ -- see instruments/keysight_n6701a/tests/ and
+// instruments/keysight_ac6834b/tests/, each of which now carries its own trimmed copy of
 // the fixture the two used to share.
 //
 // A test that names two instruments cannot live in either one's directory
@@ -12,8 +12,8 @@
 // either supply, which is why it is here rather than in framework/hal/tests/ too:
 // this is a rig-level test, and rig/tests/ is where those live now.
 //
-#include "hal/n6701a.hpp"
-#include "hal/ac6834b.hpp"
+#include "hal/keysight_n6701a.hpp"
+#include "hal/keysight_ac6834b.hpp"
 #include "hal/verbs/route.hpp"
 
 #include <gtest/gtest.h>
@@ -29,8 +29,8 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::N6701ARelay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
-        hal::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
+        hal::keysight_n6701a::Relay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::keysight_ac6834b::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ConnectEngine    connect{    fabric, instrumentWiring, connectorWiring };
         DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };

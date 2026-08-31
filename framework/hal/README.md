@@ -135,11 +135,11 @@ call site -- moving a driver out changed its build location and nothing else.
 
 | Driver | Directory |
 |---|---|
-| `hal::L4411A` | `instruments/l4411a/` |
-| `hal::DSO8064A` | `instruments/dso8064a/` |
-| `hal::N6701A` | `instruments/n6701a/` |
-| `hal::Ac6834B` | `instruments/ac6834b/` |
-| `hal::Racal1260` | `instruments/racal1260/` |
+| `hal::keysight_l4411a::L4411A` | `instruments/keysight_l4411a/` |
+| `hal::keysight_dso8064a::DSO8064A` | `instruments/keysight_dso8064a/` |
+| `hal::keysight_n6701a::N6701A` | `instruments/keysight_n6701a/` |
+| `hal::keysight_ac6834b::Ac6834B` | `instruments/keysight_ac6834b/` |
+| `hal::racal1260::Racal1260` | `instruments/racal1260/` |
 
 A rig's own instrument list, wiring data, and concrete instrument
 identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP4`/`AcP1`/`fabric` in
@@ -267,7 +267,7 @@ Apply(  AcP1.ac().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 3_A));
 
 Neither takes an `at(...)`: a source instrument here is fixed-wired straight to
 its VPC pin (or four, for `AcP1`), so there is no point left to choose -- see
-`hal::N6701A`'s own comment on why a real power rail is cabled rather than
+`hal::keysight_n6701a::N6701A`'s own comment on why a real power rail is cabled rather than
 routed. Where a relay does exist in the path, `Connect` closes it before the
 output comes up and `Disconnect` opens it after the output goes down, so the
 contacts never move under load -- see `core/verbs/source.hpp`. A sequence that gets
@@ -301,19 +301,19 @@ picks:
   way `Dmm1`/`Dmm2` don't encode which literal DMM model is plugged in.
   A script never needs to know or care that `DcP1` happens to be an N6701A
   channel underneath.
-- **The C++ class** (`hal::N6701A`, `hal::Ac6834B`) is named after the
+- **The C++ class** (`hal::keysight_n6701a::N6701A`, `hal::keysight_ac6834b::Ac6834B`) is named after the
   physical instrument model. A real power-supply driver's SCPI dialect and
   channel-addressing scheme is inherently tied to its exact model, so
   naming the class after the model documents that non-portability rather
-  than hiding it -- the same reasoning that named `hal::L4411A` (Dmm1/Dmm2's
-  concrete type) and `hal::DSO8064A` (Osc1's) after their real models, once
+  than hiding it -- the same reasoning that named `hal::keysight_l4411a::L4411A` (Dmm1/Dmm2's
+  concrete type) and `hal::keysight_dso8064a::DSO8064A` (Osc1's) after their real models, once
   each was known, retiring the old generic `hal::Dmm`/`hal::Oscilloscope`
   placeholders that stood in for "roughly any DMM/scope" before that.
 
-`DcP1`..`DcP4` are four separate `hal::N6701A` instances, one per module
+`DcP1`..`DcP4` are four separate `hal::keysight_n6701a::N6701A` instances, one per module
 slot of a single physical N6701A mainframe (it takes up to 4 independent
 DC power modules) -- not four different mainframes. Each instance's
-constructor takes that module's slot number (`hal::N6701A`'s `mChannel`,
+constructor takes that module's slot number (`hal::keysight_n6701a::N6701A`'s `mChannel`,
 1-4): a fact a real driver will eventually need to build the right SCPI
 channel list (e.g. `VOLT 24,(@2)`), kept on the class now even though
 nothing reads it yet, so the "one shared box, several independently
@@ -347,7 +347,7 @@ alternative:
 **One struct per bus kind, not a VISA resource string.** `"GPIB0::14::INSTR"`
 is a runtime typo the rig can only discover when the session refuses to open,
 which on a bench is halfway into an unattended run. This is the same argument
-`hal::Parity`/`hal::StopBits` already make against the legacy test language's
+`hal::racal1260::Parity`/`hal::racal1260::StopBits` already make against the legacy test language's
 `"BaudRate=9600 StopBits=1 WordLength=8 Parity=NONE"`. A driver that wants the
 VISA spelling can build one from these fields; it could not get these fields
 back out of a string.
@@ -364,7 +364,7 @@ bus's kind.
 
 **A constructor value, not a template parameter.** The rule this codebase
 follows is: template parameter when it changes what compiles, constructor
-argument when it does not. `hal::N6701A`'s `Isolation` is a template parameter
+argument when it does not. `hal::keysight_n6701a::N6701A`'s `Isolation` is a template parameter
 because `DirectWiring` genuinely removes `Connect`/`Disconnect` from the API.
 An address removes nothing -- a driver's interface is identical whichever
 number a technician set on the rear-panel switch -- and templating on it would
@@ -381,13 +381,13 @@ unconditionally, which is what driver tests construct with.
 
 | Driver | Reachable over |
 |---|---|
-| `hal::L4411A` | `Lan`, `Usb` |
-| `hal::DSO8064A` | `Gpib`, `Lan`, `Usb` |
-| `hal::N6701A` | `Gpib`, `Lan`, `Usb` |
-| `hal::Ac6834B` | `Gpib`, `Serial` |
-| `hal::Racal1260` | `Serial`, `Gpib` |
+| `hal::keysight_l4411a::L4411A` | `Lan`, `Usb` |
+| `hal::keysight_dso8064a::DSO8064A` | `Gpib`, `Lan`, `Usb` |
+| `hal::keysight_n6701a::N6701A` | `Gpib`, `Lan`, `Usb` |
+| `hal::keysight_ac6834b::Ac6834B` | `Gpib`, `Serial` |
+| `hal::racal1260::Racal1260` | `Serial`, `Gpib` |
 
-`hal::Racal1260` is the only row with two, and the reason is worth knowing: a
+`hal::racal1260::Racal1260` is the only row with two, and the reason is worth knowing: a
 matrix-routed RS232 port is either a port on the PC with its conductors cabled
 into the matrix (`Serial`) or a serial module in the switching chassis
 commanded over that chassis's bus (`Gpib`), and which one this bench has is not
@@ -405,7 +405,7 @@ path is not.
 
 ### What still has no address
 
-Nothing reads these yet -- the drivers carry them the way `hal::N6701A`
+Nothing reads these yet -- the drivers carry them the way `hal::keysight_n6701a::N6701A`
 carried its mainframe slot before any driver needed it, so that the rig table
 can state the fact at all. Two gaps are worth knowing about before real-driver
 work starts:
@@ -499,7 +499,7 @@ over — which is why hop zero has to be distinguishable, and therefore why a
 `Path` being written **endpoint-first** is now a rule rather than a habit.
 
 **Naming.** This codebase keeps three words doing three jobs, and the split is
-load-bearing: **driver** is the code that speaks to hardware (`hal::L4411A`),
+load-bearing: **driver** is the code that speaks to hardware (`hal::keysight_l4411a::L4411A`),
 **instrument** is the hardware a script names (`Dmm1` and `Dmm2` are two
 instruments sharing one driver), and **switch device** is the plumbing only
 wiring names. Collapsing them all into "drivers" would make "two instruments,
@@ -512,7 +512,7 @@ One rename is coming, though, and it isn't this one. `SwitchFabric`'s uniform
 `close(id)`/`open(id)` won't survive real hardware -- a Racal 1260 matrix card
 answers `CLOSE 1.0300` through its chassis controller and an Agilent E1472A
 takes SCPI on its own address -- so each card model eventually wants its own
-driver package, built exactly the way `instruments/l4411a/` is.
+driver package, built exactly the way `instruments/keysight_l4411a/` is.
 `hal::SwitchDeviceModel` and its spec table are where that starts: the part
 number, the kind and the channel space are already stated per card, in one
 place, which is what a driver would be constructed from. At that point the

@@ -33,8 +33,8 @@ auto consoleScript() -> void
     Setup( Ser1.rs232()
                .baudRate( 9600)
                .wordLength( 8)
-               .parity( hal::Parity::None)
-               .stopBits( hal::StopBits::One));
+               .parity( hal::racal1260::Parity::None)
+               .stopBits( hal::racal1260::StopBits::One));
 
     Write( Ser1.rs232(), "RD 30\r");
 

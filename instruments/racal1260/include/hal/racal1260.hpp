@@ -32,7 +32,30 @@
 //
 THORIUM_REQUIRE_HAL_API( 2);
 
-namespace hal
+//
+// This driver's own namespace, nested inside hal.
+//
+// Everything a driver declares used to land directly in hal, and two problems
+// followed. The satellite types had to invent long unique names to avoid each
+// other -- Racal1260Config, Racal1260Builder -- and the ones that did not,
+// because nothing had claimed the name yet, were sitting on words no single
+// instrument has any business owning: Parity and StopBits below would collide
+// with the very next serial instrument anybody wrote.
+//
+// The namespace carries the manufacturer as well as the model, because a model
+// number is not unique either -- two vendors may both ship a "1260". This one
+// already reads as Racal's, which is why it is racal1260 and not
+// racal_1260 the way the Keysight drivers are keysight_<model>.
+//
+// Nested inside hal rather than beside it, which is what keeps the driver
+// bodies unchanged: unqualified lookup still reaches hal::describeSetting,
+// hal::InstrumentId, hal::Simulated and the rest of the driver kit from in
+// here. And the ADL customization points below -- setupDriver, readDriver,
+// writeDriver, connectDriver, describeConfig -- are now found in *this*
+// namespace on this driver's own config type, rather than as one more overload
+// in a pile shared with every other instrument.
+//
+namespace hal::racal1260
 {
     //
     // Word framing, as the three settings a UART is actually configured with.
@@ -100,12 +123,12 @@ namespace hal
     // No location here, unlike the settings: which DUT interface this port is
     // routed to is chosen per Connect call (see connectDriver below), not
     // stored on the config. That is the difference between this instrument and
-    // hal::N6701A, whose output is cabled to one pin and so has nothing to
+    // hal::keysight_n6701a::N6701A, whose output is cabled to one pin and so has nothing to
     // choose -- a switched port can reach any interface the fabric wires up,
     // and which one it reached is a fact about a moment in the script rather
     // than about the instrument.
     //
-    struct Racal1260Config
+    struct Rs232Config
     {
         Racal1260 &                                Instrument;
         std::optional<unsigned>                    BaudRate{};
@@ -131,35 +154,33 @@ namespace hal
     // written the same way as core::Port's setup builders, so "how do I set X"
     // reads the same whether X is sourced, sensed or framed.
     //
-    class Racal1260Builder : public ConfigBuilder<Racal1260Builder, Racal1260Config>
+    class Rs232Builder : public ConfigBuilder<Rs232Builder, Rs232Config>
     {
         public:
-            using Config = Racal1260Config;
-
-            explicit Racal1260Builder( Racal1260 & instrument) : ConfigBuilder( Config{ instrument }) {}
+            explicit Rs232Builder( Racal1260 & instrument) : ConfigBuilder( Rs232Config{ instrument }) {}
 
             [[nodiscard]]
             auto baudRate( const unsigned rate) const
             {
-                return with( &Config::BaudRate, rate);
+                return with( &Rs232Config::BaudRate, rate);
             }
 
             [[nodiscard]]
             auto wordLength( const unsigned bits) const
             {
-                return with( &Config::WordLength, bits);
+                return with( &Rs232Config::WordLength, bits);
             }
 
             [[nodiscard]]
             auto parity( const Parity mode) const
             {
-                return with( &Config::ParityMode, mode);
+                return with( &Rs232Config::ParityMode, mode);
             }
 
             [[nodiscard]]
             auto stopBits( const StopBits bits) const
             {
-                return with( &Config::Stop, bits);
+                return with( &Rs232Config::Stop, bits);
             }
 
             //
@@ -175,13 +196,13 @@ namespace hal
             [[nodiscard]]
             auto terminator( core::Bytes value) const
             {
-                return with( &Config::Terminator, std::move( value));
+                return with( &Rs232Config::Terminator, std::move( value));
             }
 
             [[nodiscard]]
             auto timeout( const std::chrono::milliseconds limit) const
             {
-                return with( &Config::Timeout, limit);
+                return with( &Rs232Config::Timeout, limit);
             }
     };
 
@@ -202,12 +223,12 @@ namespace hal
     //
     // Deliberately named after a model at all, placeholder or not, rather than
     // hal::Rs232Port. That was the retired hal::Dmm/hal::Oscilloscope mistake
-    // (see hal::L4411A and hal::DSO8064A on how it went): a serial driver's
+    // (see hal::keysight_l4411a::L4411A and hal::keysight_dso8064a::DSO8064A on how it went): a serial driver's
     // command set, its framing limits and its idea of a timeout are as
     // model-specific as any SCPI dialect, and a generic name promises an
     // interchangeability no real driver has.
     //
-    // Routed, not cabled -- the opposite of hal::N6701A, and the reason this
+    // Routed, not cabled -- the opposite of hal::keysight_n6701a::N6701A, and the reason this
     // driver has a connectDriver taking a destination at all. A console is a
     // signal-level interface: the fabric carries it perfectly well, there is no
     // load current to keep off the relays, and one port being switchable
@@ -267,12 +288,12 @@ namespace hal
             // The one builder. Named for the electrical standard rather than
             // for the port number, because this class is one port -- a chassis
             // with several is several instances, exactly the way DcP1..DcP4 are
-            // four hal::N6701A instances (see rig/instrument.inc).
+            // four hal::keysight_n6701a::N6701A instances (see rig/instrument.inc).
             //
             [[nodiscard]]
-            auto rs232() -> Racal1260Builder
+            auto rs232() -> Rs232Builder
             {
-                return Racal1260Builder{ *this };
+                return Rs232Builder{ *this };
             }
 
             //
@@ -281,12 +302,12 @@ namespace hal
             // and reads no state.
             //
             // A serial port is not passive the way a DMM is, which is why this
-            // has a body where hal::L4411A's is empty: its transmit line is an
+            // has a body where hal::keysight_l4411a::L4411A's is empty: its transmit line is an
             // output, driven to a defined level, and on a real port it stays
             // driven after the last byte has gone. Safing therefore discards
             // anything still queued rather than letting a half-written command
             // finish arriving at a DUT nobody is supervising any more -- the
-            // same reasoning as hal::N6701A zeroing its setpoint rather than
+            // same reasoning as hal::keysight_n6701a::N6701A zeroing its setpoint rather than
             // merely disabling its output.
             //
             // The framing is deliberately left alone. With nothing queued and
@@ -339,12 +360,12 @@ namespace hal
 
             // --- What the ADL customization points below actually call ---
 
-            auto configurePort( const Racal1260Config & config) -> void
+            auto configurePort( const Rs232Config & config) -> void
             {
                 //
                 // value_or is wrong here and the loop of ifs is the point: an
                 // unset field means "leave what is already configured" (see
-                // Racal1260Config), so a Setup that named only the baud rate
+                // Rs232Config), so a Setup that named only the baud rate
                 // must not reset the parity to some default the builder never
                 // chose.
                 //
@@ -377,7 +398,7 @@ namespace hal
             // back -- see the builder's own comment.
             //
             [[nodiscard]]
-            auto receive( const Racal1260Config &) -> core::Bytes
+            auto receive( const Rs232Config &) -> core::Bytes
             {
                 if( mReplies.empty())
                 {
@@ -418,10 +439,10 @@ namespace hal
     // removeDriver. A serial port has no output to energise -- there is nothing
     // an Apply( Ser1.rs232()) could mean -- so Apply on this instrument is "no
     // matching function" at compile time, exactly the way Connect( DcP1.dc())
-    // is on a supply with no isolation relay (see hal::SwitchableIsolation).
+    // is on a supply with no isolation relay (see hal::keysight_n6701a::SwitchableIsolation).
     // The absence is the design.
     //
-    inline auto setupDriver( const Racal1260Config & config) -> void
+    inline auto setupDriver( const Rs232Config & config) -> void
     {
         config.Instrument.configurePort( config);
     }
@@ -430,13 +451,13 @@ namespace hal
     // ADL targets for core::WriteEngine/core::ReadEngine -- the byte-oriented
     // verbs, see core/verbs/transfer.hpp.
     //
-    inline auto writeDriver( const Racal1260Config & config, const core::Bytes & payload) -> void
+    inline auto writeDriver( const Rs232Config & config, const core::Bytes & payload) -> void
     {
         config.Instrument.transmit( payload);
     }
 
     [[nodiscard]]
-    inline auto readDriver( const Racal1260Config & config) -> core::Bytes
+    inline auto readDriver( const Rs232Config & config) -> core::Bytes
     {
         return config.Instrument.receive( config);
     }
@@ -452,7 +473,7 @@ namespace hal
     // three it was never told. Same reasoning as hal::describeSetting's, which
     // this uses for exactly that.
     //
-    inline auto describeConfig( const Racal1260Config & config) -> core::SourceDescription
+    inline auto describeConfig( const Rs232Config & config) -> core::SourceDescription
     {
         return core::SourceDescription{
             std::string( to_string( config.Instrument.id())),
@@ -471,7 +492,7 @@ namespace hal
     // ADL targets for core::ConnectEngine/DisconnectEngine's bundle overloads.
     //
     // This is the routed connectDriver the other drivers in this repo do not
-    // have: hal::N6701A and hal::Ac6834B close their own fixed channels and
+    // have: hal::keysight_n6701a::N6701A and hal::keysight_ac6834b::Ac6834B close their own fixed channels and
     // never consult the connector side at all, because their outputs are cabled
     // to a known pin. Here both halves matter -- the port's own fixed channels
     // and the channels the DUT interface's lines are wired to -- and the route
@@ -482,7 +503,7 @@ namespace hal
     // usable a wire at a time (see core::ConnectEngine's bundle overload on why
     // the interface rather than the pin is the unit), and closing the set
     // together is also what hal::InstrumentWiring::findAll already does for
-    // hal::Ac6834B's three phases and neutral -- the same idea reaching the
+    // hal::keysight_ac6834b::Ac6834B's three phases and neutral -- the same idea reaching the
     // connector side.
     //
     // The pairing of which instrument channel meets which DUT line is left to
@@ -497,7 +518,7 @@ namespace hal
     // every line of the destination interface is wired to.
     //
     // findAll rather than find on the instrument side, for the same reason
-    // hal::N6701A's connectDriver uses it: a serial port is at least two wires
+    // hal::keysight_n6701a::N6701A's connectDriver uses it: a serial port is at least two wires
     // at the instrument end too, so it has more than one WIRE_INSTRUMENT row
     // (see rig/wiring.inc), and they close and open as a unit.
     //
@@ -510,7 +531,7 @@ namespace hal
     [[nodiscard]]
     auto routeTo( const InstrumentWiring &  instrumentWiring,
                   const ConnectorWiring &   connectorWiring,
-                  const Racal1260Config &   config) -> Path
+                  const Rs232Config &   config) -> Path
     {
         auto path = instrumentWiring.findAll( config.Instrument.id());
 
@@ -528,7 +549,7 @@ namespace hal
     auto connectDriver( SwitchFabric &            fabric,
                         const InstrumentWiring &  instrumentWiring,
                         const ConnectorWiring &   connectorWiring,
-                        const Racal1260Config &   config,
+                        const Rs232Config &   config,
                         const core::AdapterBundle<BundleT> &) -> void
     {
         fabric.connect( routeTo<BundleT>( instrumentWiring, connectorWiring, config));
@@ -540,11 +561,11 @@ namespace hal
     auto disconnectDriver( SwitchFabric &            fabric,
                            const InstrumentWiring &  instrumentWiring,
                            const ConnectorWiring &   connectorWiring,
-                           const Racal1260Config &   config,
+                           const Rs232Config &   config,
                            const core::AdapterBundle<BundleT> &) -> void
     {
         fabric.disconnect( routeTo<BundleT>( instrumentWiring, connectorWiring, config));
 
         config.Instrument.setConnected( false);
     }
-} // namespace hal
+} // namespace hal::racal1260

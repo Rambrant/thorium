@@ -26,13 +26,13 @@
 // to).
 //
 // DcP1..DcP4 are the N6701A mainframe's four module slots, each its own
-// hal::N6701A instance -- see that class's own comment in hal/n6701a.hpp
+// hal::keysight_n6701a::N6701A instance -- see that class's own comment in hal/keysight_n6701a.hpp
 // for why the channel number is a constructor argument here, and why
 // that's a different fact from which InstrumentWiring/wiring.inc entry
 // they get.
 //
 // DcP1/DcP2 are wired straight through with no isolation relay at all;
-// DcP3/DcP4 each have one -- see hal::N6701A's own comment on
+// DcP3/DcP4 each have one -- see hal::keysight_n6701a::N6701A's own comment on
 // DirectWiring/RelayIsolated for what that means for Connect/Disconnect.
 // Matches this rig's real bench fact: some DC rails switchable, some not,
 // same instrument type either way.
@@ -40,9 +40,9 @@
 //
 // Ser1 is the one instrument here that is neither a meter nor a source: an
 // RS232 port switched onto the DUT through the same fabric everything else
-// uses (see hal::Racal1260, and dut::Console for the interface it talks to). It
+// uses (see hal::racal1260::Racal1260, and dut::Console for the interface it talks to). It
 // takes no constructor argument beyond its id and address -- one instance is
-// one port, the same way one hal::L4411A is one meter.
+// one port, the same way one hal::keysight_l4411a::L4411A is one meter.
 //
 // The third column is how the *PC* reaches each instrument -- the control
 // side, as against the signal side wiring.inc describes (see hal/driver/address.hpp
@@ -74,20 +74,20 @@
 // The underlying bench fact is still open, and the driver says so: it accepts
 // Serial *or* Gpib, because a switched RS232 port can be either a port on
 // this PC with its conductors cabled into the fabric or a serial module in the
-// switching chassis commanded over the chassis bus (see hal::Racal1260's own
+// switching chassis commanded over the chassis bus (see hal::racal1260::Racal1260's own
 // constructor comment). If it turns out to be the latter, this row becomes the
 // chassis's bus address and that constraint narrows to Gpib -- and this table
 // loses its Serial example, which is a reason to write one somewhere else, not
 // a reason to keep this row wrong.
 //
 INSTRUMENTS
-    INSTRUMENT( L4411A,       Dmm1, Lan( "bench-dmm1"))
-    INSTRUMENT( L4411A,       Dmm2, Lan( "bench-dmm2"))
-    INSTRUMENT( DSO8064A,      Osc1, Lan( "bench-osc1"))
-    INSTRUMENT( N6701ADirect, DcP1, Gpib( 0, 14), 1)
-    INSTRUMENT( N6701ADirect, DcP2, Gpib( 0, 14), 2)
-    INSTRUMENT( N6701ARelay,  DcP3, Gpib( 0, 14), 3)
-    INSTRUMENT( N6701ARelay,  DcP4, Gpib( 0, 14), 4)
-    INSTRUMENT( Ac6834B,      AcP1, Gpib( 0, 5))
-    INSTRUMENT( Racal1260,    Ser1, Serial( "/dev/ttyUSB0"))
+    INSTRUMENT( keysight_l4411a::L4411A,     Dmm1, Lan( "bench-dmm1"))
+    INSTRUMENT( keysight_l4411a::L4411A,     Dmm2, Lan( "bench-dmm2"))
+    INSTRUMENT( keysight_dso8064a::DSO8064A, Osc1, Lan( "bench-osc1"))
+    INSTRUMENT( keysight_n6701a::Direct,     DcP1, Gpib( 0, 14), 1)
+    INSTRUMENT( keysight_n6701a::Direct,     DcP2, Gpib( 0, 14), 2)
+    INSTRUMENT( keysight_n6701a::Relay,      DcP3, Gpib( 0, 14), 3)
+    INSTRUMENT( keysight_n6701a::Relay,      DcP4, Gpib( 0, 14), 4)
+    INSTRUMENT( keysight_ac6834b::Ac6834B,   AcP1, Gpib( 0, 5))
+    INSTRUMENT( racal1260::Racal1260,        Ser1, Serial( "/dev/ttyUSB0"))
 END_INSTRUMENTS

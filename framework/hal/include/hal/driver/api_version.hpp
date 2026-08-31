@@ -64,15 +64,15 @@
 //        (Gpib/Lan/Serial/Usb/Simulated, ReachableOver), hal/driver/instrument.hpp
 //        (InstrumentId, InstrumentTag), hal/topology/wiring.hpp, hal/fabric/switch_device.hpp,
 //        hal/fabric/switch_fabric.hpp, hal/topology/bundle.hpp, hal/driver/describe.hpp, and the
-//        core/ API those reach. hal::L4411A is still at 1 -- it has no fluent
+//        core/ API those reach. hal::keysight_l4411a::L4411A is still at 1 -- it has no fluent
 //        config chain and so nothing that 2 added.
 //
 //     2  Adds hal/driver/builder.hpp: hal::ConfigBuilder, the base a driver's
 //        fluent config chain is written on. Purely additive -- a driver at 1
 //        writes its setters out by hand and compiles here unchanged, which is
 //        why OLDEST_SUPPORTED stays at 1 -- but a driver that *uses* the base
-//        needs a hal that has it, so hal::N6701A, hal::Ac6834B,
-//        hal::Racal1260 and hal::DSO8064A ask for 2.
+//        needs a hal that has it, so hal::keysight_n6701a::N6701A, hal::keysight_ac6834b::Ac6834B,
+//        hal::racal1260::Racal1260 and hal::keysight_dso8064a::DSO8064A ask for 2.
 //
 // A driver written today asks for THORIUM_HAL_API_VERSION's current value, as a
 // literal -- never the macro itself, which would assert that this hal is

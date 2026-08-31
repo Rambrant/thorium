@@ -38,7 +38,7 @@ namespace hal
     // setters are not a table: each one carries a name chosen for the
     // instrument's own vocabulary, a type, and very often a paragraph
     // explaining what the setting means on that instrument (see
-    // hal::DSO8064AAcquisitionBuilder::averagedOver, which is mostly comment).
+    // hal::keysight_dso8064a::AcquisitionBuilder::averagedOver, which is mostly comment).
     // A macro would put all of that inside an argument list and take the
     // declarations out of reach of every tool that reads C++.
     //
@@ -51,8 +51,8 @@ namespace hal
     // with() and changed() hand back, so `.slope( ...).level( ...)` keeps
     // working exactly as it did.
     //
-    // The two class templates among the builders -- hal::N6701ABuilder and
-    // hal::Ac6834BBuilder -- inherit from a *dependent* base, so unqualified
+    // The two class templates among the builders -- hal::keysight_n6701a::DcBuilder and
+    // hal::keysight_ac6834b::AcBuilder -- inherit from a *dependent* base, so unqualified
     // lookup does not find mConfig inside them and they spell it this->mConfig.
     // That is ordinary C++ rather than a wrinkle of this design, and it is
     // confined to the handful of places those two touch the config directly.
@@ -78,7 +78,7 @@ namespace hal
             //
             // Built from a whole config rather than field by field, so that a
             // driver whose config has a non-optional member (a scope channel,
-            // see hal::DSO8064AChannelConfig) passes it and every other driver
+            // see hal::keysight_dso8064a::ChannelConfig) passes it and every other driver
             // passes nothing at all: `Config{ instrument }` leaves an aggregate
             // of optionals empty, which is what "the builder was never told"
             // means everywhere in this framework.
@@ -108,9 +108,9 @@ namespace hal
 
             //
             // Anything a single field does not cover: two settings that are one
-            // instruction (hal::DSO8064AAcquisitionBuilder::points, which also
+            // instruction (hal::keysight_dso8064a::AcquisitionBuilder::points, which also
             // clears the automatic choice), or a value the setter computes
-            // before storing (hal::Ac6834BBuilder::range, which stores the
+            // before storing (hal::keysight_ac6834b::AcBuilder::range, which stores the
             // range the instrument would actually select rather than the
             // voltage it was handed).
             //
@@ -132,7 +132,7 @@ namespace hal
 
             //
             // Protected rather than private: a builder that rebuilds its whole
-            // config reaches it directly. hal::Ac6834BBuilder is the one that
+            // config reaches it directly. hal::keysight_ac6834b::AcBuilder is the one that
             // does -- its per-phase setters widen a balanced config into a
             // per-phase one, which is a change of the config's *type* and so
             // not something with() or changed() can express.

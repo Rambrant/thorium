@@ -1,4 +1,4 @@
-# --- hal::Racal1260 -- Racal 1260-series switched RS232 port ---
+# --- hal::racal1260::Racal1260 -- Racal 1260-series switched RS232 port ---
 # One instrument driver, self-contained: its header, its tests, its README,
 # and this file. Nothing outside this directory names any of them -- the tree
 # above discovers this directory and hands framework/hal the path (see the top-level
@@ -14,11 +14,17 @@
 # file needs to know.
 add_library(hal_racal1260 INTERFACE)
 
-# include/hal/racal1260.hpp, not include/racal1260.hpp: the driver stays in namespace
-# hal and keeps its "hal/racal1260.hpp" spelling at every call site. It *is* a hal
-# driver -- it implements hal's instrument API and is useless without it -- and
-# renaming it on the way out of framework/hal would have churned every consumer, and
-# every comment referring to it, to say nothing new.
+# include/hal/racal1260.hpp, not include/racal1260.hpp: this driver keeps its
+# "hal/racal1260.hpp" spelling at every call site. It *is* a hal driver -- it
+# implements hal's instrument API and is useless without it -- so it stays under
+# hal/ on the include path even though its own declarations live in the nested
+# namespace hal::racal1260 (see the header's own comment on why they are
+# nested rather than sitting directly in hal).
+#
+# The directory, the header and the namespace all carry the same name, and it
+# carries the manufacturer as well as the model: a model number is not unique
+# across vendors, so a bare model name is a collision waiting for the second
+# vendor to ship one.
 target_include_directories(hal_racal1260 INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>

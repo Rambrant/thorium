@@ -1,4 +1,4 @@
-# hal::Racal1260
+# hal::racal1260::Racal1260
 
 An RS232 port on a Racal 1260-series switching/instrumentation chassis, routed
 onto the DUT through the switching fabric. Header-only, `namespace hal`, included as
@@ -44,7 +44,7 @@ same physical port, which is when that distinction is easiest to lose.
 energise, so there is nothing `Apply( Ser1.rs232())` could mean — and with no
 `applyDriver` to find, writing one is "no matching function" at compile time
 rather than a call that silently does nothing. Same guarantee
-`hal::SwitchableIsolation` gives `Connect` on a relay-less supply.
+`hal::keysight_n6701a::SwitchableIsolation` gives `Connect` on a relay-less supply.
 
 ## A dialogue
 
@@ -125,8 +125,8 @@ dut/adapter.inc             a BUNDLE for the interface it talks to
 ```
 
 Both halves of the route are rig data and live nowhere in this directory. Note
-that this driver needs `WIRE_CONNECTOR` rows where `hal::N6701A` and
-`hal::Ac6834B` need `WIRE_SOURCE` ones: their outputs are cabled to a known pin,
+that this driver needs `WIRE_CONNECTOR` rows where `hal::keysight_n6701a::N6701A` and
+`hal::keysight_ac6834b::Ac6834B` need `WIRE_SOURCE` ones: their outputs are cabled to a known pin,
 where a console is switched onto the DUT and off again.
 
 Which of this port's channels meets which DUT line is not asserted anywhere in

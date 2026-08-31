@@ -21,14 +21,14 @@ namespace hal
     //
     // Both are rig facts and both live in the rig's own .inc files, but they
     // are independent facts, the same way an N6701A module's mainframe slot
-    // is independent of its matrix channel (see hal::N6701A's own comment):
+    // is independent of its matrix channel (see hal::keysight_n6701a::N6701A's own comment):
     // re-cabling a supply's output to a different VPC pin doesn't change its
     // GPIB address, and moving the whole rack onto a different subnet doesn't
     // move a single relay.
     //
     // One struct per bus kind rather than one VISA resource string
-    // ("GPIB0::14::INSTR"), and this is the same argument hal::Parity/
-    // hal::StopBits already make against the legacy test language's
+    // ("GPIB0::14::INSTR"), and this is the same argument hal::racal1260::Parity/
+    // hal::racal1260::StopBits already make against the legacy test language's
     // "BaudRate=9600 StopBits=1 WordLength=8 Parity=NONE" (see
     // hal/racal1260.hpp): a string is a runtime typo the rig can only
     // discover at the moment the port refuses to open, which on a test bench
@@ -89,7 +89,7 @@ namespace hal
     //
     // A serial port on the PC itself -- "/dev/ttyUSB0", "COM3". This is the
     // port the *driver* talks through, which stays a different fact from
-    // hal::Racal1260's RS232 framing (see hal/racal1260.hpp) even when the two
+    // hal::racal1260::Racal1260's RS232 framing (see hal/racal1260.hpp) even when the two
     // land on the same hardware: the framing is what gets switched onto the
     // DUT and configured as part of a test, this is how the PC reaches
     // whatever provides it.
@@ -130,7 +130,7 @@ namespace hal
     // hooks are the instrument (setSimulatedVoltage() and friends). Every
     // driver accepts this one regardless of what its real back panel has, see
     // ReachableOver below, and every driver test uses it: a test constructing
-    // hal::L4411A{ InstrumentId::Dmm1, Simulated{} } is saying something true
+    // hal::keysight_l4411a::L4411A{ InstrumentId::Dmm1, Simulated{} } is saying something true
     // about what it is testing, where inventing a plausible GPIB address for
     // a thing that will never be opened would not be.
     //
@@ -167,8 +167,8 @@ namespace hal
     // sentence about hardware that does not exist. Each driver's constructor
     // is constrained by this concept naming its own back panel, so that line
     // fails to compile with "no matching constructor" -- the same guarantee
-    // hal::SwitchableIsolation gives Connect() on a relay-less supply (see
-    // hal/n6701a.hpp), and for the same reason: the alternative is a runtime
+    // hal::keysight_n6701a::SwitchableIsolation gives Connect() on a relay-less supply (see
+    // hal/keysight_n6701a.hpp), and for the same reason: the alternative is a runtime
     // throw partway into a run.
     //
     // Simulated satisfies this unconditionally, so a driver lists only the
@@ -182,7 +182,7 @@ namespace hal
     // API is identical whichever number it is -- there is nothing for a type
     // to protect. Making it a template parameter would give every driver a
     // second parameter that changes nothing about what compiles, and would
-    // multiply hal::N6701A's two aliases (N6701ADirect/N6701ARelay, which
+    // multiply hal::keysight_n6701a::N6701A's two aliases (N6701ADirect/N6701ARelay, which
     // exist purely to keep instrument.inc readable) by one per transport.
     // Template parameter when it changes what compiles, constructor argument
     // when it does not, is the rule this codebase already follows.

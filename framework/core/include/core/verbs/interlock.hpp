@@ -191,7 +191,7 @@ namespace core
         //
         // Optional, because most configs Connect/Disconnect are called with
         // are not sources at all and have no output to be energised: a serial
-        // port's config (hal::Racal1260Config) has a setupDriver and no
+        // port's config (hal::racal1260::Rs232Config) has a setupDriver and no
         // applyDriver, and asking whether a UART is live is not a question.
         //
         // But optional in the one shape that cannot lose the check by

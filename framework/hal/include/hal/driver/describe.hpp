@@ -16,7 +16,7 @@ namespace hal
     //
     // Shared helpers for the describeConfig() overloads each source instrument
     // provides for the run journal (see core/driver/describe.hpp's own comment on that
-    // customization point, and hal/n6701a.hpp / hal/ac6834b.hpp for the
+    // customization point, and hal/keysight_n6701a.hpp / hal/keysight_ac6834b.hpp for the
     // overloads themselves).
     //
     // These exist because every such overload has the same two problems --
@@ -64,7 +64,7 @@ namespace hal
     // for what they are: an instrument enum in this codebase is spelled
     // HighResolution or Div10 or LowFrequencyReject, and a log saying
     // "mode=HighResolution" is saying the thing the script wrote. Where an
-    // enum's log text genuinely differs from its enumerator -- hal::Parity's
+    // enum's log text genuinely differs from its enumerator -- hal::racal1260::Parity's
     // lowercase "none", a fault code's sentence of prose -- that enum keeps its
     // own to_string and does not come through here. Same split
     // core::to_string(QuantityKind) already draws.
