@@ -216,6 +216,201 @@ namespace hal
             std::vector<ConnectorWiringEntry> mEntries;
     };
 
+    namespace detail
+    {
+        //
+        // The right-hand column of the wiring grid: a table of (instrument,
+        // pin) rows with no fabric path between them.
+        //
+        // Two tables have that shape -- hal::SourceWiring, which records where
+        // a supply's output lands, and hal::TapWiring, which records where a
+        // meter's leads are bolted (see both below for what each fact is and
+        // why neither is an InstrumentWiring or a ConnectorWiring entry). They
+        // are different facts about different halves of the bench, but the
+        // questions asked of a set of (instrument, pin) rows are the same five
+        // whichever fact the rows record, and they were previously written out
+        // twice -- locationsOf() in particular character for character.
+        //
+        // Shared as a member rather than a base class, and that is the whole of
+        // why the two classes below still exist as their own types instead of
+        // being two aliases for this one. A landing is not a tap: the questions
+        // each *asks* differ (a source is looked up by pin, a tap is confirmed
+        // against one), the vocabulary differs (addLanding against addTap, for
+        // the reason each of those names gives), and one of them refuses two
+        // rows on a pin while the other's whole point is permitting them (see
+        // hal::sourcesAt against hal::tapsAt). Composition keeps the five
+        // bodies in one place and leaves all of that where it belongs.
+        //
+        // Templated on the row type so each table stores its own -- a
+        // SourceWiringEntry and a TapWiringEntry are structurally identical and
+        // deliberately still two types, so that a compile-time array of one can
+        // never be counted as the other.
+        //
+        template<typename EntryT>
+        class PinTable
+        {
+            public:
+                auto add( const InstrumentId instrument, const VpcLocation location) -> void
+                {
+                    mRows.push_back( EntryT{ instrument, location });
+                }
+
+                //
+                // Which instrument is on this pin, or nothing if none is. The
+                // first row wins, which matters only where more than one is
+                // legal -- see hal::TapWiring on why that is the tap side and
+                // not the source side.
+                //
+                [[nodiscard]]
+                auto instrumentAt( const VpcLocation location) const -> std::optional<InstrumentId>
+                {
+                    for( const auto & row : mRows)
+                    {
+                        if( row.location == location)
+                        {
+                            return row.instrument;
+                        }
+                    }
+
+                    return std::nullopt;
+                }
+
+                //
+                // Every pin this instrument is on. Empty rather than an error
+                // for an instrument with no rows at all: that is the ordinary,
+                // correct answer for every routed instrument on a rack rig, and
+                // for every measuring instrument on the source table.
+                //
+                [[nodiscard]]
+                auto locationsOf( const InstrumentId instrument) const -> std::vector<VpcLocation>
+                {
+                    std::vector<VpcLocation> locations;
+
+                    for( const auto & row : mRows)
+                    {
+                        if( row.instrument == instrument)
+                        {
+                            locations.push_back( row.location);
+                        }
+                    }
+
+                    return locations;
+                }
+
+                // Does this instrument appear at all?
+                [[nodiscard]]
+                auto covers( const InstrumentId instrument) const -> bool
+                {
+                    for( const auto & row : mRows)
+                    {
+                        if( row.instrument == instrument)
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+
+                // Does this instrument appear on *this* pin?
+                [[nodiscard]]
+                auto covers( const InstrumentId instrument, const VpcLocation location) const -> bool
+                {
+                    for( const auto & row : mRows)
+                    {
+                        if( row.instrument == instrument && row.location == location)
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+
+                //
+                // Every pin this instrument is on, as text, for a message.
+                //
+                // "none" rather than an empty string, because the caller is a
+                // refusal (see core::MeasureEngine) and an empty tail there
+                // would read as a truncated sentence rather than as an answer.
+                // That caller only asks about instruments covers() said yes to,
+                // so "none" is not reachable through it -- it is what this
+                // returns for anyone else who asks, rather than a case the
+                // message has to guard.
+                //
+                [[nodiscard]]
+                auto describe( const InstrumentId instrument) const -> std::string
+                {
+                    const auto locations = locationsOf( instrument);
+
+                    if( locations.empty())
+                    {
+                        return "none";
+                    }
+
+                    std::string described;
+
+                    for( const auto & location : locations)
+                    {
+                        if( ! described.empty())
+                        {
+                            described += ", ";
+                        }
+
+                        described += to_string( location);
+                    }
+
+                    return described;
+                }
+
+            private:
+                std::vector<EntryT> mRows;
+        };
+
+        //
+        // The same two questions at compile time, over one of the static row
+        // arrays the SOURCE_WIRING/TAP_WIRING macros build (see the bottom of
+        // this file). Written here so that sourcesAt(), tapsAt() and
+        // isTapWiredInstrument() are each one line of macro rather than a
+        // counting loop apiece.
+        //
+        // Generic over the container rather than taking a std::span of a named
+        // row type, so neither the macro nor this has to spell whatever
+        // std::define_static_array handed back.
+        //
+        template<typename RowsT>
+        [[nodiscard]]
+        consteval auto rowsAt( const RowsT & rows, const VpcLocation location) -> std::size_t
+        {
+            std::size_t count = 0;
+
+            for( const auto & row : rows)
+            {
+                if( row.location == location)
+                {
+                    ++count;
+                }
+            }
+
+            return count;
+        }
+
+        template<typename RowsT>
+        [[nodiscard]]
+        consteval auto rowsFor( const RowsT & rows, const InstrumentId instrument) -> bool
+        {
+            for( const auto & row : rows)
+            {
+                if( row.instrument == instrument)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    } // namespace detail
+
     //
     // A third static wiring fact, and the only one that is not a fabric path
     // at all: which VPC pin a fixed-wired source instrument's output is
@@ -265,7 +460,10 @@ namespace hal
             // a wire through the fabric -- keeping the verb distinct from
             // InstrumentWiring/ConnectorWiring's addWire() is the point.
             //
-            auto addLanding( InstrumentId instrument, VpcLocation location) -> void;
+            auto addLanding( const InstrumentId instrument, const VpcLocation location) -> void
+            {
+                mLandings.add( instrument, location);
+            }
 
             //
             // Which instrument lands on this pin, or nothing if none does.
@@ -280,7 +478,10 @@ namespace hal
             // invariant broke somewhere upstream.
             //
             [[nodiscard]]
-            auto findLanding( VpcLocation location) const -> std::optional<InstrumentId>;
+            auto findLanding( const VpcLocation location) const -> std::optional<InstrumentId>
+            {
+                return mLandings.instrumentAt( location);
+            }
 
             //
             // Which instrument lands on this pin. Throws std::runtime_error
@@ -301,10 +502,13 @@ namespace hal
             // on the rig.
             //
             [[nodiscard]]
-            auto findAll( InstrumentId instrument) const -> std::vector<VpcLocation>;
+            auto findAll( const InstrumentId instrument) const -> std::vector<VpcLocation>
+            {
+                return mLandings.locationsOf( instrument);
+            }
 
         private:
-            std::vector<SourceWiringEntry> mEntries;
+            detail::PinTable<SourceWiringEntry> mLandings;
     };
 
     //
@@ -410,7 +614,10 @@ namespace hal
             // the verb distinct from InstrumentWiring/ConnectorWiring's
             // addWire() is the point.
             //
-            auto addTap( InstrumentId instrument, VpcLocation location) -> void;
+            auto addTap( const InstrumentId instrument, const VpcLocation location) -> void
+            {
+                mTaps.add( instrument, location);
+            }
 
             //
             // Is this instrument cabled straight onto anything at all?
@@ -425,7 +632,10 @@ namespace hal
             // silently.
             //
             [[nodiscard]]
-            auto taps( InstrumentId instrument) const -> bool;
+            auto taps( const InstrumentId instrument) const -> bool
+            {
+                return mTaps.covers( instrument);
+            }
 
             //
             // Is this instrument cabled onto *this* pin?
@@ -440,7 +650,10 @@ namespace hal
             // rather than reads.
             //
             [[nodiscard]]
-            auto isTappedBy( InstrumentId instrument, VpcLocation location) const -> bool;
+            auto isTappedBy( const InstrumentId instrument, const VpcLocation location) const -> bool
+            {
+                return mTaps.covers( instrument, location);
+            }
 
             //
             // Every pin this instrument taps. Empty for every routed
@@ -448,7 +661,10 @@ namespace hal
             // error -- the same contract SourceWiring::findAll() has.
             //
             [[nodiscard]]
-            auto findAll( InstrumentId instrument) const -> std::vector<VpcLocation>;
+            auto findAll( const InstrumentId instrument) const -> std::vector<VpcLocation>
+            {
+                return mTaps.locationsOf( instrument);
+            }
 
             //
             // Where this instrument actually is cabled, as text, for the
@@ -462,10 +678,13 @@ namespace hal
             // string instead.
             //
             [[nodiscard]]
-            auto describeTaps( InstrumentId instrument) const -> std::string;
+            auto describeTaps( const InstrumentId instrument) const -> std::string
+            {
+                return mTaps.describe( instrument);
+            }
 
         private:
-            std::vector<TapWiringEntry> mEntries;
+            detail::PinTable<TapWiringEntry> mTaps;
     };
 
     //
@@ -1006,15 +1225,7 @@ namespace hal
     }();                                                                         \
     inline consteval auto sourcesAt( VpcLocation location) -> std::size_t        \
     {                                                                            \
-        std::size_t count = 0;                                                  \
-        for( const auto & entry : detail::sourceWiringEntries)                  \
-        {                                                                        \
-            if( entry.location == location)                                     \
-            {                                                                    \
-                ++count;                                                         \
-            }                                                                    \
-        }                                                                        \
-        return count;                                                            \
+        return detail::rowsAt( detail::sourceWiringEntries, location);           \
     }                                                                            \
     inline consteval auto isSourceWired( VpcLocation location) -> bool           \
     {                                                                            \
@@ -1085,15 +1296,7 @@ namespace hal
     }();                                                                         \
     inline consteval auto tapsAt( VpcLocation location) -> std::size_t           \
     {                                                                            \
-        std::size_t count = 0;                                                  \
-        for( const auto & entry : detail::tapWiringEntries)                     \
-        {                                                                        \
-            if( entry.location == location)                                     \
-            {                                                                    \
-                ++count;                                                         \
-            }                                                                    \
-        }                                                                        \
-        return count;                                                            \
+        return detail::rowsAt( detail::tapWiringEntries, location);              \
     }                                                                            \
     inline consteval auto isTapWired( VpcLocation location) -> bool              \
     {                                                                            \
@@ -1101,13 +1304,6 @@ namespace hal
     }                                                                            \
     inline consteval auto isTapWiredInstrument( InstrumentId instrument) -> bool \
     {                                                                            \
-        for( const auto & entry : detail::tapWiringEntries)                     \
-        {                                                                        \
-            if( entry.instrument == instrument)                                 \
-            {                                                                    \
-                return true;                                                     \
-            }                                                                    \
-        }                                                                        \
-        return false;                                                            \
+        return detail::rowsFor( detail::tapWiringEntries, instrument);           \
     }                                                                            \
     }

@@ -111,29 +111,17 @@ namespace hal
             "hal::ConnectorWiring: " + to_string( location) + " has no fixed sense path on this rig's fabric");
     }
 
-    auto SourceWiring::addLanding( const InstrumentId instrument, const VpcLocation location) -> void
-    {
-        mEntries.push_back( SourceWiringEntry{ instrument, location });
-    }
-
-    auto SourceWiring::findLanding( const VpcLocation location) const -> std::optional<InstrumentId>
-    {
-        for( const auto & entry : mEntries)
-        {
-            if( entry.location == location)
-            {
-                return entry.instrument;
-            }
-        }
-
-        return std::nullopt;
-    }
-
+    //
+    // The one thing this table does that the shared one below it does not: a
+    // caller that has already established a pin is a landing pin wants the
+    // throw, since reaching it means an invariant broke somewhere upstream.
+    //
+    // Expressed through findLanding rather than walking the rows a second
+    // time, so the two answers cannot come to differ about what "lands here"
+    // means -- the throw is the only thing this adds.
+    //
     auto SourceWiring::find( const VpcLocation location) const -> InstrumentId
     {
-        // Expressed through findLanding rather than walking mEntries a second
-        // time, so the two answers cannot come to differ about what "lands
-        // here" means -- the throw is the only thing this adds.
         if( const auto found = findLanding( location))
         {
             return *found;
@@ -143,106 +131,4 @@ namespace hal
             "hal::SourceWiring: no fixed-wired source lands on " + to_string( location));
     }
 
-    auto SourceWiring::findAll( const InstrumentId instrument) const -> std::vector<VpcLocation>
-    {
-        std::vector<VpcLocation> locations;
-
-        for( const auto & entry : mEntries)
-        {
-            if( entry.instrument == instrument)
-            {
-                locations.push_back( entry.location);
-            }
-        }
-
-        //
-        // No throw on empty -- see this method's own comment in
-        // hal/topology/wiring.hpp. Every routed instrument on the rig lands nowhere,
-        // and that is the correct answer rather than an error.
-        //
-        return locations;
-    }
-
-    auto TapWiring::addTap( const InstrumentId instrument, const VpcLocation location) -> void
-    {
-        mEntries.push_back( TapWiringEntry{ instrument, location });
-    }
-
-    auto TapWiring::taps( const InstrumentId instrument) const -> bool
-    {
-        for( const auto & entry : mEntries)
-        {
-            if( entry.instrument == instrument)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    auto TapWiring::isTappedBy( const InstrumentId instrument, const VpcLocation location) const -> bool
-    {
-        for( const auto & entry : mEntries)
-        {
-            if( entry.instrument == instrument && entry.location == location)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    auto TapWiring::findAll( const InstrumentId instrument) const -> std::vector<VpcLocation>
-    {
-        std::vector<VpcLocation> locations;
-
-        for( const auto & entry : mEntries)
-        {
-            if( entry.instrument == instrument)
-            {
-                locations.push_back( entry.location);
-            }
-        }
-
-        //
-        // No throw on empty, exactly as SourceWiring::findAll() has none, and
-        // for the same reason: "this instrument taps nothing" is the correct
-        // answer for every routed instrument on a rack rig.
-        //
-        return locations;
-    }
-
-    auto TapWiring::describeTaps( const InstrumentId instrument) const -> std::string
-    {
-        //
-        // "none" rather than an empty string, because the one caller is a
-        // refusal message (see core::MeasureEngine) and an empty tail there
-        // would read as a truncated sentence rather than as an answer. That
-        // caller only asks about instruments taps() said yes to, so "none" is
-        // not reachable through it -- it is what this returns for anyone else
-        // who asks, rather than a case the message has to guard.
-        //
-        const auto locations = findAll( instrument);
-
-        if( locations.empty())
-        {
-            return "none";
-        }
-
-        std::string described;
-
-        for( const auto & location : locations)
-        {
-            if( ! described.empty())
-            {
-                described += ", ";
-            }
-
-            described += to_string( location);
-        }
-
-        return described;
-    }
 } // namespace hal

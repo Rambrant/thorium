@@ -84,7 +84,7 @@ framework/hal/
             vpc_location.hpp   # VpcLocation/VpcRack -- the VPC90 coordinate system
             adapter.hpp        # ADAPTER/POINT/END_ADAPTER macros
             bundle.hpp         # BUNDLE/LINE -- the pins that are one physical interface
-            wiring.hpp         # InstrumentWiring/ConnectorWiring/SourceWiring + WIRE macros
+            wiring.hpp         # the four wiring tables + WIRE macros
         verbs/                 # this rig's instantiation of core's generic engines
             measure.hpp        # MeasureEngine alias + extern Measure/Read
             route.hpp          # Connect/Disconnect -- the fabric-only verbs
