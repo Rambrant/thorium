@@ -169,6 +169,23 @@ namespace core
             // caller can chain, and each is a no-op unless called. Bare
             // `Dmm1.voltage()` still behaves exactly as before.
             //
+            // Written out rather than built on hal::ConfigBuilder, which is
+            // where every instrument driver's identical chain now comes from
+            // (see hal/driver/builder.hpp). Two reasons, and the first alone
+            // settles it: that base is in hal, this is core, and core depends
+            // on nothing outward -- a port is named by drivers and by
+            // core::MeasureEngine alike, so it cannot reach for it.
+            //
+            // The second is that it would not fit if it could. A driver's
+            // builder carries one config and every setter writes a field of
+            // it; these seven write three different things -- five a field of
+            // mSetup, whenUnmeasurable a std::function beside it, qualifiedBy
+            // a string_view -- and requiresSensePath below returns a
+            // *different type* rather than a modified copy at all. What is
+            // shared with hal::ConfigBuilder is the shape a caller sees, which
+            // is the part that matters, and it is shared by both being written
+            // to it rather than by one deriving from the other.
+            //
             [[nodiscard]]
             auto range( QuantityT value) const -> Port
             {

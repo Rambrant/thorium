@@ -13,6 +13,7 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/api_version.hpp"
+#include "hal/driver/builder.hpp"
 #include "hal/topology/bundle.hpp"
 #include "hal/driver/describe.hpp"
 #include "hal/driver/instrument.hpp"
@@ -29,7 +30,7 @@
 // itself, which would only assert that this hal matches this hal. See
 // hal/driver/api_version.hpp for what the number means and when it moves.
 //
-THORIUM_REQUIRE_HAL_API( 1);
+THORIUM_REQUIRE_HAL_API( 2);
 
 namespace hal
 {
@@ -107,10 +108,10 @@ namespace hal
     struct Racal1260Config
     {
         Racal1260 &                                Instrument;
-        std::optional<unsigned>                    BaudRate;
-        std::optional<unsigned>                    WordLength;
-        std::optional<Parity>                      ParityMode;
-        std::optional<StopBits>                    Stop;
+        std::optional<unsigned>                    BaudRate{};
+        std::optional<unsigned>                    WordLength{};
+        std::optional<Parity>                      ParityMode{};
+        std::optional<StopBits>                    Stop{};
 
         //
         // What a Read stops at, and how long it waits. Both belong to the
@@ -119,55 +120,46 @@ namespace hal
         // site -- Ser1.rs232().terminator( "\r") reads better than a second
         // argument to Read whose meaning has to be remembered.
         //
-        core::Bytes                                Terminator;
-        std::optional<std::chrono::milliseconds>   Timeout;
+        core::Bytes                                Terminator{};
+        std::optional<std::chrono::milliseconds>   Timeout{};
     };
 
     //
-    // The fluent chain a script builds before handing it to a verb -- the same
-    // "return *this by value, updated" shape as hal::N6701ABuilder and
-    // core::Port's setup builders, so "how do I set X" reads the same whether X
-    // is sourced, sensed or framed.
+    // The fluent chain a script builds before handing it to a verb. The
+    // copy-modify-return shape is hal::ConfigBuilder's (see
+    // hal/driver/builder.hpp), shared with every other driver's builder and
+    // written the same way as core::Port's setup builders, so "how do I set X"
+    // reads the same whether X is sourced, sensed or framed.
     //
-    class Racal1260Builder
+    class Racal1260Builder : public ConfigBuilder<Racal1260Builder, Racal1260Config>
     {
         public:
             using Config = Racal1260Config;
 
-            explicit Racal1260Builder( Racal1260 & instrument) :
-                mConfig{ instrument, std::nullopt, std::nullopt, std::nullopt, std::nullopt, core::Bytes{}, std::nullopt }
-            {}
+            explicit Racal1260Builder( Racal1260 & instrument) : ConfigBuilder( Config{ instrument }) {}
 
             [[nodiscard]]
-            auto baudRate( const unsigned rate) const -> Racal1260Builder
+            auto baudRate( const unsigned rate) const
             {
-                auto copy = *this;
-                copy.mConfig.BaudRate = rate;
-                return copy;
+                return with( &Config::BaudRate, rate);
             }
 
             [[nodiscard]]
-            auto wordLength( const unsigned bits) const -> Racal1260Builder
+            auto wordLength( const unsigned bits) const
             {
-                auto copy = *this;
-                copy.mConfig.WordLength = bits;
-                return copy;
+                return with( &Config::WordLength, bits);
             }
 
             [[nodiscard]]
-            auto parity( const Parity mode) const -> Racal1260Builder
+            auto parity( const Parity mode) const
             {
-                auto copy = *this;
-                copy.mConfig.ParityMode = mode;
-                return copy;
+                return with( &Config::ParityMode, mode);
             }
 
             [[nodiscard]]
-            auto stopBits( const StopBits bits) const -> Racal1260Builder
+            auto stopBits( const StopBits bits) const
             {
-                auto copy = *this;
-                copy.mConfig.Stop = bits;
-                return copy;
+                return with( &Config::Stop, bits);
             }
 
             //
@@ -181,29 +173,16 @@ namespace hal
             // core::Bytes::before.
             //
             [[nodiscard]]
-            auto terminator( core::Bytes value) const -> Racal1260Builder
+            auto terminator( core::Bytes value) const
             {
-                auto copy = *this;
-                copy.mConfig.Terminator = std::move( value);
-                return copy;
+                return with( &Config::Terminator, std::move( value));
             }
 
             [[nodiscard]]
-            auto timeout( const std::chrono::milliseconds limit) const -> Racal1260Builder
+            auto timeout( const std::chrono::milliseconds limit) const
             {
-                auto copy = *this;
-                copy.mConfig.Timeout = limit;
-                return copy;
+                return with( &Config::Timeout, limit);
             }
-
-            [[nodiscard]]
-            auto config() const -> const Config &
-            {
-                return mConfig;
-            }
-
-        private:
-            Config mConfig;
     };
 
     //

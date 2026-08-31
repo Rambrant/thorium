@@ -16,6 +16,7 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/api_version.hpp"
+#include "hal/driver/builder.hpp"
 #include "hal/driver/describe.hpp"
 #include "hal/driver/instrument.hpp"
 
@@ -29,7 +30,7 @@
 // itself, which would only assert that this hal matches this hal. See
 // hal/driver/api_version.hpp for what the number means and when it moves.
 //
-THORIUM_REQUIRE_HAL_API( 1);
+THORIUM_REQUIRE_HAL_API( 2);
 
 namespace hal
 {
@@ -373,12 +374,12 @@ namespace hal
         // the config is the value. Same shape as DSO8064AChannel<N> handing
         // N to setChannel().
         //
-        std::optional<unsigned>                 EdgeSource;
-        std::optional<TriggerSlope>             Slope;
-        std::optional<core::quantities::Voltage> Level;
-        std::optional<TriggerSweep>             Sweep;
-        std::optional<TriggerCoupling>          Coupling;
-        std::optional<core::quantities::Time>   Holdoff;
+        std::optional<unsigned>                 EdgeSource{};
+        std::optional<TriggerSlope>             Slope{};
+        std::optional<core::quantities::Voltage> Level{};
+        std::optional<TriggerSweep>             Sweep{};
+        std::optional<TriggerCoupling>          Coupling{};
+        std::optional<core::quantities::Time>   Holdoff{};
     };
 
     //
@@ -395,15 +396,15 @@ namespace hal
         // times ten. Both exist on the instrument; carrying both here would
         // have let a script set them to values that disagree.
         //
-        std::optional<core::quantities::Time>   TimePerDivision;
+        std::optional<core::quantities::Time>   TimePerDivision{};
 
         //
         // Time between the trigger event and the reference point below.
         // Positive delays the record after the trigger; negative shows what
         // preceded it.
         //
-        std::optional<core::quantities::Time>   Position;
-        std::optional<TimebaseReference>        Reference;
+        std::optional<core::quantities::Time>   Position{};
+        std::optional<TimebaseReference>        Reference{};
     };
 
     //
@@ -412,7 +413,7 @@ namespace hal
     struct DSO8064AAcquisitionConfig
     {
         DSO8064A &                              Instrument;
-        std::optional<AcquisitionMode>          Mode;
+        std::optional<AcquisitionMode>          Mode{};
 
         //
         // Memory depth. Points and AutomaticPoints are two settings on the
@@ -422,8 +423,8 @@ namespace hal
         // first without knowing what the second would have been. The builder
         // is what keeps them consistent -- see points()/automaticPoints().
         //
-        std::optional<unsigned>                 Points;
-        std::optional<bool>                     AutomaticPoints;
+        std::optional<unsigned>                 Points{};
+        std::optional<bool>                     AutomaticPoints{};
 
         //
         // Averaging, as one decision in two fields: whether, and how many.
@@ -433,11 +434,11 @@ namespace hal
         // last told, which is exactly the kind of inherited state a
         // reproducible test must not depend on.
         //
-        std::optional<bool>                     Averaging;
-        std::optional<unsigned>                 AverageCount;
+        std::optional<bool>                     Averaging{};
+        std::optional<unsigned>                 AverageCount{};
 
-        std::optional<core::quantities::Frequency>  SampleRate;
-        std::optional<bool>                         AutomaticSampleRate;
+        std::optional<core::quantities::Frequency>  SampleRate{};
+        std::optional<bool>                         AutomaticSampleRate{};
     };
 
     //
@@ -456,14 +457,14 @@ namespace hal
         //
         unsigned                                Channel;
 
-        std::optional<ChannelInput>             Input;
+        std::optional<ChannelInput>             Input{};
 
         //
         // Volts per division -- the front-panel number again, and again not
         // its :CHANnel<N>:RANGe sibling, for the reason
         // DSO8064ATimebaseConfig gives about the horizontal axis.
         //
-        std::optional<core::quantities::Voltage>  VoltsPerDivision;
+        std::optional<core::quantities::Voltage>  VoltsPerDivision{};
 
         //
         // The voltage represented at the centre of the screen. Offsetting a
@@ -475,11 +476,11 @@ namespace hal
         // three places, which is the arithmetic this field exists to make
         // unnecessary.
         //
-        std::optional<core::quantities::Voltage>  VerticalOffset;
+        std::optional<core::quantities::Voltage>  VerticalOffset{};
 
-        std::optional<Bandwidth>                BandwidthLimit;
-        std::optional<ProbeAdapter>             Probe;
-        std::optional<ChannelDisplay>           Display;
+        std::optional<Bandwidth>                BandwidthLimit{};
+        std::optional<ProbeAdapter>             Probe{};
+        std::optional<ChannelDisplay>           Display{};
     };
 
     //
@@ -501,7 +502,7 @@ namespace hal
         // capture as not completed. Unset means the driver's own default (see
         // DSO8064A::kDefaultCaptureTimeout).
         //
-        std::optional<core::quantities::Time>   Timeout;
+        std::optional<core::quantities::Time>   Timeout{};
 
         //
         // How long Arm will poll :AER? for the scope to report itself armed
@@ -510,7 +511,7 @@ namespace hal
         // long as it takes regardless of the DUT, against the event arriving,
         // which is entirely about the DUT.
         //
-        std::optional<core::quantities::Time>   ArmTimeout;
+        std::optional<core::quantities::Time>   ArmTimeout{};
     };
 
     //
@@ -548,20 +549,26 @@ namespace hal
     // The fluent chains a script builds before handing them to a verb
     // ---------------------------------------------------------------------
     //
-    // All the same "return *this by value, updated" shape as
-    // hal::N6701ABuilder, hal::Racal1260Builder and core::Port's setup
-    // builders -- so "how do I set X" reads the same way whether X is
-    // sourced, sensed, framed or triggered.
+    // Six of them, one per subsystem this scope configures, and all six get
+    // their copy-modify-return shape from hal::ConfigBuilder (see
+    // hal/driver/builder.hpp) exactly as hal::N6701ABuilder and
+    // hal::Racal1260Builder do -- so "how do I set X" reads the same way
+    // whether X is sourced, sensed, framed or triggered, and a setter here is
+    // one line naming the field it sets.
+    //
+    // The exceptions are the three settings that are really two: points(),
+    // averagedOver() and sampleRate() each turn an automatic choice off as
+    // they set an explicit one, which is what changed() is for -- see each of
+    // them for why the pairing belongs in the config rather than in the
+    // driver.
     //
 
-    class DSO8064ATriggerBuilder
+    class DSO8064ATriggerBuilder : public ConfigBuilder<DSO8064ATriggerBuilder, DSO8064ATriggerConfig>
     {
         public:
             using Config = DSO8064ATriggerConfig;
 
-            explicit DSO8064ATriggerBuilder( DSO8064A & instrument) :
-                mConfig{ instrument, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt }
-            {}
+            explicit DSO8064ATriggerBuilder( DSO8064A & instrument) : ConfigBuilder( Config{ instrument }) {}
 
             //
             // Which channel the trigger watches, checked the same way
@@ -572,122 +579,81 @@ namespace hal
             template<unsigned N>
                 requires ValidDso8064aChannel<N>
             [[nodiscard]]
-            auto edgeSource() const -> DSO8064ATriggerBuilder
+            auto edgeSource() const
             {
-                auto copy = *this;
-                copy.mConfig.EdgeSource = N;
-                return copy;
+                return with( &Config::EdgeSource, N);
             }
 
             [[nodiscard]]
-            auto slope( const TriggerSlope value) const -> DSO8064ATriggerBuilder
+            auto slope( const TriggerSlope value) const
             {
-                auto copy = *this;
-                copy.mConfig.Slope = value;
-                return copy;
+                return with( &Config::Slope, value);
             }
 
             [[nodiscard]]
-            auto level( const core::quantities::Voltage value) const -> DSO8064ATriggerBuilder
+            auto level( const core::quantities::Voltage value) const
             {
-                auto copy = *this;
-                copy.mConfig.Level = value;
-                return copy;
+                return with( &Config::Level, value);
             }
 
             [[nodiscard]]
-            auto sweep( const TriggerSweep value) const -> DSO8064ATriggerBuilder
+            auto sweep( const TriggerSweep value) const
             {
-                auto copy = *this;
-                copy.mConfig.Sweep = value;
-                return copy;
+                return with( &Config::Sweep, value);
             }
 
             [[nodiscard]]
-            auto coupling( const TriggerCoupling value) const -> DSO8064ATriggerBuilder
+            auto coupling( const TriggerCoupling value) const
             {
-                auto copy = *this;
-                copy.mConfig.Coupling = value;
-                return copy;
+                return with( &Config::Coupling, value);
             }
 
             [[nodiscard]]
-            auto holdoff( const core::quantities::Time value) const -> DSO8064ATriggerBuilder
+            auto holdoff( const core::quantities::Time value) const
             {
-                auto copy = *this;
-                copy.mConfig.Holdoff = value;
-                return copy;
+                return with( &Config::Holdoff, value);
             }
 
-            [[nodiscard]]
-            auto config() const -> const Config &
-            {
-                return mConfig;
-            }
-
-        private:
-            Config mConfig;
     };
 
-    class DSO8064ATimebaseBuilder
+    class DSO8064ATimebaseBuilder : public ConfigBuilder<DSO8064ATimebaseBuilder, DSO8064ATimebaseConfig>
     {
         public:
             using Config = DSO8064ATimebaseConfig;
 
-            explicit DSO8064ATimebaseBuilder( DSO8064A & instrument) :
-                mConfig{ instrument, std::nullopt, std::nullopt, std::nullopt }
-            {}
+            explicit DSO8064ATimebaseBuilder( DSO8064A & instrument) : ConfigBuilder( Config{ instrument }) {}
 
             [[nodiscard]]
-            auto timePerDivision( const core::quantities::Time value) const -> DSO8064ATimebaseBuilder
+            auto timePerDivision( const core::quantities::Time value) const
             {
-                auto copy = *this;
-                copy.mConfig.TimePerDivision = value;
-                return copy;
+                return with( &Config::TimePerDivision, value);
             }
 
             [[nodiscard]]
-            auto position( const core::quantities::Time value) const -> DSO8064ATimebaseBuilder
+            auto position( const core::quantities::Time value) const
             {
-                auto copy = *this;
-                copy.mConfig.Position = value;
-                return copy;
+                return with( &Config::Position, value);
             }
 
             [[nodiscard]]
-            auto reference( const TimebaseReference value) const -> DSO8064ATimebaseBuilder
+            auto reference( const TimebaseReference value) const
             {
-                auto copy = *this;
-                copy.mConfig.Reference = value;
-                return copy;
+                return with( &Config::Reference, value);
             }
 
-            [[nodiscard]]
-            auto config() const -> const Config &
-            {
-                return mConfig;
-            }
-
-        private:
-            Config mConfig;
     };
 
-    class DSO8064AAcquisitionBuilder
+    class DSO8064AAcquisitionBuilder : public ConfigBuilder<DSO8064AAcquisitionBuilder, DSO8064AAcquisitionConfig>
     {
         public:
             using Config = DSO8064AAcquisitionConfig;
 
-            explicit DSO8064AAcquisitionBuilder( DSO8064A & instrument) :
-                mConfig{ instrument, std::nullopt, std::nullopt, std::nullopt,
-                         std::nullopt, std::nullopt, std::nullopt, std::nullopt }
-            {}
+            explicit DSO8064AAcquisitionBuilder( DSO8064A & instrument) : ConfigBuilder( Config{ instrument }) {}
 
             [[nodiscard]]
-            auto mode( const AcquisitionMode value) const -> DSO8064AAcquisitionBuilder
+            auto mode( const AcquisitionMode value) const
             {
-                auto copy = *this;
-                copy.mConfig.Mode = value;
-                return copy;
+                return with( &Config::Mode, value);
             }
 
             //
@@ -699,20 +665,15 @@ namespace hal
             // driver so that the config a log renders says both.
             //
             [[nodiscard]]
-            auto points( const unsigned count) const -> DSO8064AAcquisitionBuilder
+            auto points( const unsigned count) const
             {
-                auto copy = *this;
-                copy.mConfig.Points          = count;
-                copy.mConfig.AutomaticPoints = false;
-                return copy;
+                return changed( [&]( Config & config) { config.Points = count; config.AutomaticPoints = false; });
             }
 
             [[nodiscard]]
-            auto automaticPoints() const -> DSO8064AAcquisitionBuilder
+            auto automaticPoints() const
             {
-                auto copy = *this;
-                copy.mConfig.AutomaticPoints = true;
-                return copy;
+                return with( &Config::AutomaticPoints, true);
             }
 
             //
@@ -729,47 +690,29 @@ namespace hal
             // trigger.
             //
             [[nodiscard]]
-            auto averagedOver( const unsigned count) const -> DSO8064AAcquisitionBuilder
+            auto averagedOver( const unsigned count) const
             {
-                auto copy = *this;
-                copy.mConfig.Averaging    = true;
-                copy.mConfig.AverageCount = count;
-                return copy;
+                return changed( [&]( Config & config) { config.Averaging = true; config.AverageCount = count; });
             }
 
             [[nodiscard]]
-            auto unaveraged() const -> DSO8064AAcquisitionBuilder
+            auto unaveraged() const
             {
-                auto copy = *this;
-                copy.mConfig.Averaging = false;
-                return copy;
+                return with( &Config::Averaging, false);
             }
 
             [[nodiscard]]
-            auto sampleRate( const core::quantities::Frequency value) const -> DSO8064AAcquisitionBuilder
+            auto sampleRate( const core::quantities::Frequency value) const
             {
-                auto copy = *this;
-                copy.mConfig.SampleRate          = value;
-                copy.mConfig.AutomaticSampleRate = false;
-                return copy;
+                return changed( [&]( Config & config) { config.SampleRate = value; config.AutomaticSampleRate = false; });
             }
 
             [[nodiscard]]
-            auto automaticSampleRate() const -> DSO8064AAcquisitionBuilder
+            auto automaticSampleRate() const
             {
-                auto copy = *this;
-                copy.mConfig.AutomaticSampleRate = true;
-                return copy;
+                return with( &Config::AutomaticSampleRate, true);
             }
 
-            [[nodiscard]]
-            auto config() const -> const Config &
-            {
-                return mConfig;
-            }
-
-        private:
-            Config mConfig;
     };
 
     //
@@ -782,81 +725,60 @@ namespace hal
     // which is gone by the end of the full expression, well before Setup gets
     // its hands on the config.
     //
-    class DSO8064AChannelBuilder
+    class DSO8064AChannelBuilder : public ConfigBuilder<DSO8064AChannelBuilder, DSO8064AChannelConfig>
     {
         public:
             using Config = DSO8064AChannelConfig;
 
             DSO8064AChannelBuilder( DSO8064A & instrument, const unsigned channel) :
-                mConfig{ instrument, channel, std::nullopt, std::nullopt, std::nullopt,
-                         std::nullopt, std::nullopt, std::nullopt }
+                ConfigBuilder( Config{ instrument, channel })
             {}
 
             [[nodiscard]]
-            auto input( const ChannelInput value) const -> DSO8064AChannelBuilder
+            auto input( const ChannelInput value) const
             {
-                auto copy = *this;
-                copy.mConfig.Input = value;
-                return copy;
+                return with( &Config::Input, value);
             }
 
             [[nodiscard]]
-            auto voltsPerDivision( const core::quantities::Voltage value) const -> DSO8064AChannelBuilder
+            auto voltsPerDivision( const core::quantities::Voltage value) const
             {
-                auto copy = *this;
-                copy.mConfig.VoltsPerDivision = value;
-                return copy;
+                return with( &Config::VoltsPerDivision, value);
             }
 
             [[nodiscard]]
-            auto verticalOffset( const core::quantities::Voltage value) const -> DSO8064AChannelBuilder
+            auto verticalOffset( const core::quantities::Voltage value) const
             {
-                auto copy = *this;
-                copy.mConfig.VerticalOffset = value;
-                return copy;
+                return with( &Config::VerticalOffset, value);
             }
 
             [[nodiscard]]
-            auto bandwidth( const Bandwidth value) const -> DSO8064AChannelBuilder
+            auto bandwidth( const Bandwidth value) const
             {
-                auto copy = *this;
-                copy.mConfig.BandwidthLimit = value;
-                return copy;
+                return with( &Config::BandwidthLimit, value);
             }
 
             [[nodiscard]]
-            auto probeAdapter( const ProbeAdapter value) const -> DSO8064AChannelBuilder
+            auto probeAdapter( const ProbeAdapter value) const
             {
-                auto copy = *this;
-                copy.mConfig.Probe = value;
-                return copy;
+                return with( &Config::Probe, value);
             }
 
             [[nodiscard]]
-            auto display( const ChannelDisplay value) const -> DSO8064AChannelBuilder
+            auto display( const ChannelDisplay value) const
             {
-                auto copy = *this;
-                copy.mConfig.Display = value;
-                return copy;
+                return with( &Config::Display, value);
             }
 
-            [[nodiscard]]
-            auto config() const -> const Config &
-            {
-                return mConfig;
-            }
-
-        private:
-            Config mConfig;
     };
 
-    class DSO8064AWaveformBuilder
+    class DSO8064AWaveformBuilder : public ConfigBuilder<DSO8064AWaveformBuilder, DSO8064AWaveformConfig>
     {
         public:
             using Config = DSO8064AWaveformConfig;
 
             DSO8064AWaveformBuilder( DSO8064A & instrument, const unsigned channel) :
-                mConfig{ instrument, channel }
+                ConfigBuilder( Config{ instrument, channel })
             {}
 
             //
@@ -868,49 +790,27 @@ namespace hal
             // sub-range of the record, a segment index) it grows a method
             // rather than a new type.
             //
-            [[nodiscard]]
-            auto config() const -> const Config &
-            {
-                return mConfig;
-            }
-
-        private:
-            Config mConfig;
     };
 
-    class DSO8064ASingleBuilder
+    class DSO8064ASingleBuilder : public ConfigBuilder<DSO8064ASingleBuilder, DSO8064ASingleConfig>
     {
         public:
             using Config = DSO8064ASingleConfig;
 
-            explicit DSO8064ASingleBuilder( DSO8064A & instrument) :
-                mConfig{ instrument, std::nullopt, std::nullopt }
-            {}
+            explicit DSO8064ASingleBuilder( DSO8064A & instrument) : ConfigBuilder( Config{ instrument }) {}
 
             [[nodiscard]]
-            auto timeout( const core::quantities::Time value) const -> DSO8064ASingleBuilder
+            auto timeout( const core::quantities::Time value) const
             {
-                auto copy = *this;
-                copy.mConfig.Timeout = value;
-                return copy;
+                return with( &Config::Timeout, value);
             }
 
             [[nodiscard]]
-            auto armTimeout( const core::quantities::Time value) const -> DSO8064ASingleBuilder
+            auto armTimeout( const core::quantities::Time value) const
             {
-                auto copy = *this;
-                copy.mConfig.ArmTimeout = value;
-                return copy;
+                return with( &Config::ArmTimeout, value);
             }
 
-            [[nodiscard]]
-            auto config() const -> const Config &
-            {
-                return mConfig;
-            }
-
-        private:
-            Config mConfig;
     };
 
     //

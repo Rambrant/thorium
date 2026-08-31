@@ -13,6 +13,7 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/api_version.hpp"
+#include "hal/driver/builder.hpp"
 #include "hal/driver/describe.hpp"
 #include "hal/driver/instrument.hpp"
 #include "hal/fabric/switch_fabric.hpp"
@@ -28,7 +29,7 @@
 // itself, which would only assert that this hal matches this hal. See
 // hal/driver/api_version.hpp for what the number means and when it moves.
 //
-THORIUM_REQUIRE_HAL_API( 1);
+THORIUM_REQUIRE_HAL_API( 2);
 
 namespace hal
 {
@@ -256,9 +257,9 @@ namespace hal
     struct Ac6834BConfig
     {
         Ac6834B &                                           Instrument;
-        PhaseSetting<Symmetry, core::quantities::Voltage>   PhaseVoltage;
-        std::optional<core::quantities::Frequency>          Frequency;
-        PhaseSetting<Symmetry, core::quantities::Current>   CurrentLimit;
+        PhaseSetting<Symmetry, core::quantities::Voltage>   PhaseVoltage{};
+        std::optional<core::quantities::Frequency>          Frequency{};
+        PhaseSetting<Symmetry, core::quantities::Current>   CurrentLimit{};
 
         //
         // VOLTage:RANGe -- which of the instrument's two output ranges is in
@@ -272,7 +273,7 @@ namespace hal
         // they actually supply is a voltage the instrument then resolves --
         // see hal::rangeFor().
         //
-        PhaseSetting<Symmetry, core::quantities::Voltage>   Range;
+        PhaseSetting<Symmetry, core::quantities::Voltage>   Range{};
     };
 
     namespace detail
@@ -346,29 +347,29 @@ namespace hal
     // isn't a guess.
     //
     template<typename Symmetry>
-    class Ac6834BBuilder
+    class Ac6834BBuilder : public ConfigBuilder<Ac6834BBuilder<Symmetry>, Ac6834BConfig<Symmetry>>
     {
         public:
             using Config = Ac6834BConfig<Symmetry>;
 
             explicit Ac6834BBuilder( Ac6834B & instrument) :
-                mConfig{ instrument, std::nullopt, std::nullopt, std::nullopt, std::nullopt }
+                Ac6834BBuilder::ConfigBuilder( Config{ instrument })
             {}
 
             // Used by the per-phase setters below to carry an already-built
             // config across the symmetry change.
-            explicit Ac6834BBuilder( Config config) : mConfig( std::move( config)) {}
+            explicit Ac6834BBuilder( Config config) :
+                Ac6834BBuilder::ConfigBuilder( std::move( config))
+            {}
 
             //
             // All three phases alike. Under PerPhase this broadcasts rather
             // than being unavailable -- see detail::broadcast's own comment.
             //
             [[nodiscard]]
-            auto phaseVoltage( const core::quantities::Voltage v) const -> Ac6834BBuilder
+            auto phaseVoltage( const core::quantities::Voltage v) const
             {
-                auto copy = *this;
-                copy.mConfig.PhaseVoltage = settingOf( v);
-                return copy;
+                return this->with( &Config::PhaseVoltage, settingOf( v));
             }
 
             //
@@ -381,7 +382,7 @@ namespace hal
                                const PhaseValue<core::quantities::Voltage, Phase::B> b,
                                const PhaseValue<core::quantities::Voltage, Phase::C> c) const -> Ac6834BBuilder<PerPhase>
             {
-                auto widened = detail::asPerPhase( mConfig);
+                auto widened = detail::asPerPhase( this->mConfig);
 
                 widened.PhaseVoltage = PerPhaseValues<core::quantities::Voltage>{ a.Value, b.Value, c.Value };
 
@@ -393,19 +394,15 @@ namespace hal
             // comment for why there is nothing here to overload.
             //
             [[nodiscard]]
-            auto frequency( const core::quantities::Frequency f) const -> Ac6834BBuilder
+            auto frequency( const core::quantities::Frequency f) const
             {
-                auto copy = *this;
-                copy.mConfig.Frequency = f;
-                return copy;
+                return this->with( &Config::Frequency, f);
             }
 
             [[nodiscard]]
-            auto currentLimit( const core::quantities::Current c) const -> Ac6834BBuilder
+            auto currentLimit( const core::quantities::Current c) const
             {
-                auto copy = *this;
-                copy.mConfig.CurrentLimit = settingOf( c);
-                return copy;
+                return this->with( &Config::CurrentLimit, settingOf( c));
             }
 
             [[nodiscard]]
@@ -413,7 +410,7 @@ namespace hal
                                const PhaseValue<core::quantities::Current, Phase::B> b,
                                const PhaseValue<core::quantities::Current, Phase::C> c) const -> Ac6834BBuilder<PerPhase>
             {
-                auto widened = detail::asPerPhase( mConfig);
+                auto widened = detail::asPerPhase( this->mConfig);
 
                 widened.CurrentLimit = PerPhaseValues<core::quantities::Current>{ a.Value, b.Value, c.Value };
 
@@ -439,11 +436,9 @@ namespace hal
             // i.e. the 300 V range.
             //
             [[nodiscard]]
-            auto range( const core::quantities::Voltage accommodating) const -> Ac6834BBuilder
+            auto range( const core::quantities::Voltage accommodating) const
             {
-                auto copy = *this;
-                copy.mConfig.Range = settingOf( rangeFor( accommodating));
-                return copy;
+                return this->with( &Config::Range, settingOf( rangeFor( accommodating)));
             }
 
             [[nodiscard]]
@@ -451,18 +446,12 @@ namespace hal
                         const PhaseValue<core::quantities::Voltage, Phase::B> b,
                         const PhaseValue<core::quantities::Voltage, Phase::C> c) const -> Ac6834BBuilder<PerPhase>
             {
-                auto widened = detail::asPerPhase( mConfig);
+                auto widened = detail::asPerPhase( this->mConfig);
 
                 widened.Range = PerPhaseValues<core::quantities::Voltage>{
                     rangeFor( a.Value), rangeFor( b.Value), rangeFor( c.Value) };
 
                 return Ac6834BBuilder<PerPhase>{ widened };
-            }
-
-            [[nodiscard]]
-            auto config() const -> const Config &
-            {
-                return mConfig;
             }
 
         private:
@@ -482,8 +471,6 @@ namespace hal
                     return value;
                 }
             }
-
-            Config mConfig;
     };
 
     //

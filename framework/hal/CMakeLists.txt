@@ -65,16 +65,18 @@ add_library(hal STATIC
     src/topology/wiring.cpp
     # --- hal/driver: the driver-authoring kit ---
     # What a driver under instruments/ names directly: its API version gate,
-    # how the PC reaches hardware, the instrument identity enum, and the
-    # describe customization point its config is logged through. NOT the
-    # complete surface a driver may use -- that is everything this target
-    # exports, enforced by the hal/hal_rig split above, and the drivers do
-    # also reach fabric/ and topology/ (connectDriver takes a SwitchFabric &
-    # and both wiring tables). These four are simply the ones that are about
-    # being a driver rather than about this bench.
+    # how the PC reaches hardware, the instrument identity enum, the base its
+    # fluent config chain is built on, and the describe customization point
+    # its config is logged through. NOT the complete surface a driver may use
+    # -- that is everything this target exports, enforced by the hal/hal_rig
+    # split above, and the drivers do also reach fabric/ and topology/
+    # (connectDriver takes a SwitchFabric & and both wiring tables). These
+    # five are simply the ones that are about being a driver rather than about
+    # this bench.
     include/hal/driver/api_version.hpp    # header-only
     include/hal/driver/address.hpp        # header-only apart from src/driver/address.cpp
     include/hal/driver/instrument.hpp     # header-only apart from src/driver/instrument.cpp
+    include/hal/driver/builder.hpp        # header-only
     include/hal/driver/describe.hpp       # header-only
     # --- hal/fabric: the switching hardware itself ---
     # The devices a rig has, the elements they are made of, and the Path

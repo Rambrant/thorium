@@ -10,6 +10,7 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/api_version.hpp"
+#include "hal/driver/builder.hpp"
 #include "hal/driver/describe.hpp"
 #include "hal/driver/instrument.hpp"
 #include "hal/fabric/switch_fabric.hpp"
@@ -25,7 +26,7 @@
 // itself, which would only assert that this hal matches this hal. See
 // hal/driver/api_version.hpp for what the number means and when it moves.
 //
-THORIUM_REQUIRE_HAL_API( 1);
+THORIUM_REQUIRE_HAL_API( 2);
 
 namespace hal
 {
@@ -79,51 +80,40 @@ namespace hal
     struct N6701AConfig
     {
         N6701A<Isolation> &                       Instrument;
-        std::optional<core::quantities::Voltage>  Voltage;
-        std::optional<core::quantities::Current>  CurrentLimit;
+        std::optional<core::quantities::Voltage>  Voltage{};
+        std::optional<core::quantities::Current>  CurrentLimit{};
     };
 
     //
-    // The fluent chain a script builds up before handing it to Apply/Remove
-    // -- exactly the same "return *this by value, updated" shape as
-    // core::Port's range()/nplc()/frequency() builders in core/driver/port.hpp, for
-    // the same reason: a bare `DcP1.dc()` with no further calls is still a
-    // valid (if underspecified) config.
+    // The fluent chain a script builds up before handing it to Apply/Remove.
+    // The copy-modify-return shape every driver's builder has is
+    // hal::ConfigBuilder's (see hal/driver/builder.hpp), so what is left here
+    // is one line per setting. core::Port's range()/nplc()/frequency() builders
+    // in core/driver/port.hpp read the same way for the same reason, and for a
+    // shared reason too: a bare `DcP1.dc()` with no further calls is still a
+    // valid (if underspecified) config, because every field defaults to unset.
     //
     template<typename Isolation>
-    class N6701ABuilder
+    class N6701ABuilder : public ConfigBuilder<N6701ABuilder<Isolation>, N6701AConfig<Isolation>>
     {
         public:
             using Config = N6701AConfig<Isolation>;
 
             explicit N6701ABuilder( N6701A<Isolation> & instrument) :
-                mConfig{ instrument, std::nullopt, std::nullopt }
+                N6701ABuilder::ConfigBuilder( Config{ instrument })
             {}
 
             [[nodiscard]]
-            auto voltage( const core::quantities::Voltage v) const -> N6701ABuilder
+            auto voltage( const core::quantities::Voltage v) const
             {
-                auto copy = *this;
-                copy.mConfig.Voltage = v;
-                return copy;
+                return this->with( &Config::Voltage, v);
             }
 
             [[nodiscard]]
-            auto currentLimit( const core::quantities::Current c) const -> N6701ABuilder
+            auto currentLimit( const core::quantities::Current c) const
             {
-                auto copy = *this;
-                copy.mConfig.CurrentLimit = c;
-                return copy;
+                return this->with( &Config::CurrentLimit, c);
             }
-
-            [[nodiscard]]
-            auto config() const -> const Config &
-            {
-                return mConfig;
-            }
-
-        private:
-            Config mConfig;
     };
 
     //
