@@ -52,6 +52,17 @@
 // box with no GPIB connector, so Gpib( ...) on one of the Dmm rows is a
 // compile error rather than a run that dies on its first reading.
 //
+// Dmm1 and Dmm2 are two *different* models, and that is the one thing about
+// this table a reader is most likely to skim past. They were two
+// hal::keysight_l4411a::L4411A instances -- two wiring facts sharing one C++
+// type, exactly as DcP1..DcP4 still are -- and Dmm1 is now the meter this
+// bench actually has: a 5.5-digit hal::keysight_edu34450a::EDU34450A, against
+// the L4411A's 6.5. A script measuring a rail cannot tell them apart, and a
+// criterion tightened past 5.5 digits can; see that driver's own comment on
+// why one class for both would have had to lie about one of them. Both rows
+// are still LAN, and both models still refuse GPIB, so the paragraph above
+// holds for either.
+//
 // DcP1..DcP4 all carry the same address, and that repetition is the point:
 // they are four modules behind one mainframe interface, so there is one
 // address and four slots, not four addresses. If a second shared box ever
@@ -81,13 +92,13 @@
 // a reason to keep this row wrong.
 //
 INSTRUMENTS
-    INSTRUMENT( keysight_l4411a::L4411A,     Dmm1, Lan( "bench-dmm1"))
-    INSTRUMENT( keysight_l4411a::L4411A,     Dmm2, Lan( "bench-dmm2"))
-    INSTRUMENT( keysight_dso8064a::DSO8064A, Osc1, Lan( "bench-osc1"))
-    INSTRUMENT( keysight_n6701a::Direct,     DcP1, Gpib( 0, 14), 1)
-    INSTRUMENT( keysight_n6701a::Direct,     DcP2, Gpib( 0, 14), 2)
-    INSTRUMENT( keysight_n6701a::Relay,      DcP3, Gpib( 0, 14), 3)
-    INSTRUMENT( keysight_n6701a::Relay,      DcP4, Gpib( 0, 14), 4)
-    INSTRUMENT( keysight_ac6834b::Ac6834B,   AcP1, Gpib( 0, 5))
-    INSTRUMENT( racal1260::Racal1260,        Ser1, Serial( "/dev/ttyUSB0"))
+    INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "bench-dmm1"))
+    INSTRUMENT( keysight_l4411a::L4411A,       Dmm2, Lan( "bench-dmm2"))
+    INSTRUMENT( keysight_dso8064a::DSO8064A,   Osc1, Lan( "bench-osc1"))
+    INSTRUMENT( keysight_n6701a::Direct,       DcP1, Gpib( 0, 14), 1)
+    INSTRUMENT( keysight_n6701a::Direct,       DcP2, Gpib( 0, 14), 2)
+    INSTRUMENT( keysight_n6701a::Relay,        DcP3, Gpib( 0, 14), 3)
+    INSTRUMENT( keysight_n6701a::Relay,        DcP4, Gpib( 0, 14), 4)
+    INSTRUMENT( keysight_ac6834b::Ac6834B,     AcP1, Gpib( 0, 5))
+    INSTRUMENT( racal1260::Racal1260,          Ser1, Serial( "/dev/ttyUSB0"))
 END_INSTRUMENTS

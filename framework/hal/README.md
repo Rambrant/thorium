@@ -129,12 +129,13 @@ of the rig's static wiring facts, including `SourceWiring`, which is the one
 that is deliberately *not* a fabric path, because `rig/wiring.inc` declares all
 three in one file.
 
-No driver headers: all five now live under `instruments/`, one directory each,
-and are still spelled `#include "hal/<model>.hpp"`, in `namespace hal`, at every
+No driver headers: they all live under `instruments/`, one directory each, and
+are still spelled `#include "hal/<model>.hpp"`, in `namespace hal`, at every
 call site -- moving a driver out changed its build location and nothing else.
 
 | Driver | Directory |
 |---|---|
+| `hal::keysight_edu34450a::EDU34450A` | `instruments/keysight_edu34450a/` |
 | `hal::keysight_l4411a::L4411A` | `instruments/keysight_l4411a/` |
 | `hal::keysight_dso8064a::DSO8064A` | `instruments/keysight_dso8064a/` |
 | `hal::keysight_n6701a::N6701A` | `instruments/keysight_n6701a/` |
@@ -305,10 +306,14 @@ picks:
   physical instrument model. A real power-supply driver's SCPI dialect and
   channel-addressing scheme is inherently tied to its exact model, so
   naming the class after the model documents that non-portability rather
-  than hiding it -- the same reasoning that named `hal::keysight_l4411a::L4411A` (Dmm1/Dmm2's
-  concrete type) and `hal::keysight_dso8064a::DSO8064A` (Osc1's) after their real models, once
-  each was known, retiring the old generic `hal::Dmm`/`hal::Oscilloscope`
-  placeholders that stood in for "roughly any DMM/scope" before that.
+  than hiding it -- the same reasoning that named `hal::keysight_edu34450a::EDU34450A` (Dmm1's
+  concrete type), `hal::keysight_l4411a::L4411A` (Dmm2's) and
+  `hal::keysight_dso8064a::DSO8064A` (Osc1's) after their real models, once each
+  was known, retiring the old generic `hal::Dmm`/`hal::Oscilloscope`
+  placeholders that stood in for "roughly any DMM/scope" before that. `Dmm1`
+  and `Dmm2` being two *different* models is what that first bullet claims,
+  actually happening: the ids say what the rig uses each meter for, and the
+  classes say what each meter is.
 
 `DcP1`..`DcP4` are four separate `hal::keysight_n6701a::N6701A` instances, one per module
 slot of a single physical N6701A mainframe (it takes up to 4 independent
@@ -381,6 +386,7 @@ unconditionally, which is what driver tests construct with.
 
 | Driver | Reachable over |
 |---|---|
+| `hal::keysight_edu34450a::EDU34450A` | `Lan`, `Usb` |
 | `hal::keysight_l4411a::L4411A` | `Lan`, `Usb` |
 | `hal::keysight_dso8064a::DSO8064A` | `Gpib`, `Lan`, `Usb` |
 | `hal::keysight_n6701a::N6701A` | `Gpib`, `Lan`, `Usb` |

@@ -13,11 +13,17 @@ instruments/
         README.md
         include/hal/keysight_l4411a.hpp
         tests/test_keysight_l4411a.cpp
+    keysight_edu34450a/         # 5.5-digit dual-display bench DMM
     keysight_dso8064a/          # four-channel oscilloscope
     keysight_n6701a/            # one DC supply channel
     keysight_ac6834b/           # three-phase AC source
     racal1260/                  # matrix-routed RS232 port
 ```
+
+Two DMMs, and they are not the same model. `Dmm1` is the `EDU34450A`, `Dmm2` the
+`L4411A` -- 5.5 digits against 6.5, three discrete resolutions against NPLC. See
+`keysight_edu34450a/README.md` for why one class covering both would have had to
+lie about one of them.
 
 ## One name, in four places
 
@@ -154,8 +160,8 @@ before/after comparison that made the move verifiable.
 
 ## Adding a driver
 
-Copy `l4411a/` as the template. It is the smallest one, and it exercises every
-part of the arrangement: an `INTERFACE` header-only target, the
+Copy `keysight_l4411a/` as the template. It is the smallest one, and it
+exercises every part of the arrangement: an `INTERFACE` header-only target, the
 `include/hal/<model>.hpp` layout that keeps the `"hal/<model>.hpp"` spelling and
 `namespace hal` unchanged at every call site, the global-property registration,
 the export/install rules, and a test target linking the published API only.
@@ -227,7 +233,7 @@ switched off within a week.
 
 The number is written as a **literal**, never as `THORIUM_HAL_API_VERSION`
 itself — which would assert that this `hal` is compatible with this `hal`, and
-pass everywhere. All five drivers here are at 1.
+pass everywhere. Every driver here is at 1.
 
 One thing the gate cannot do, worth knowing before trusting it: nothing derives
 those two numbers from the API they describe, or checks them against it. They

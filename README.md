@@ -249,7 +249,8 @@ that cannot be recovered from the code.
 
 | | |
 |---|---|
-| [`instruments/keysight_l4411a`](instruments/keysight_l4411a/README.md) | DMM — `Dmm1`/`Dmm2`, including the 4-wire sense path |
+| [`instruments/keysight_edu34450a`](instruments/keysight_edu34450a/README.md) | DMM, 5½-digit — `Dmm1`, including the 4-wire sense path; resolution rather than NPLC |
+| [`instruments/keysight_l4411a`](instruments/keysight_l4411a/README.md) | DMM, 6½-digit — `Dmm2`, including the 4-wire sense path |
 | [`instruments/keysight_dso8064a`](instruments/keysight_dso8064a/README.md) | Oscilloscope — `Osc1` |
 | [`instruments/keysight_n6701a`](instruments/keysight_n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
 | [`instruments/keysight_ac6834b`](instruments/keysight_ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
@@ -815,7 +816,9 @@ It is a **transducer**: a named value, declared beside the point it belongs to.
 
 3. **Read it, then derive**, in the script:
    ```cpp
-   const auto sense   = Measure( Dmm1.voltage().range( 2_V).nplc( 10), at( dut::CoolantSense));
+   // Dmm2, not Dmm1: NPLC is the 6.5-digit L4411A's precision axis. Dmm1 is an
+   // EDU34450A, which has no NPLC command -- see that driver's own README.
+   const auto sense   = Measure( Dmm2.voltage().range( 2_V).nplc( 10), at( dut::CoolantSense));
    const auto coolant = dut::CoolantSensor( sense);        // a Temperature, not a double
 
    Verify( FS_Thermal_1::FS_Coolant_Max, coolant);

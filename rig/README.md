@@ -56,6 +56,15 @@ mainframe interface is one address and four slots, and the slot stays a
 separate constructor argument rather than a field on the address (see
 `active_instruments.hpp`'s own comment for that argument in full).
 
+`Dmm1` and `Dmm2` are two *different* models, which is the easiest thing in this
+table to skim past. They were two `hal::keysight_l4411a::L4411A` instances --
+two wiring facts sharing one C++ type, the way `DcP1`..`DcP4` still are -- and
+`Dmm1` is now a 5.5-digit `hal::keysight_edu34450a::EDU34450A` against the
+L4411A's 6.5. A script measuring a rail cannot tell them apart; a criterion
+tightened past 5.5 digits can, and so can anything reaching for `.nplc()`, which
+the EDU34450A has no command for. See
+`instruments/keysight_edu34450a/README.md`.
+
 Only one of those two is a macro-redefinition-and-re-`#include` this
 codebase couldn't replace with reflection -- see `hal/driver/instrument.hpp`'s own
 comment for why generating `hal::InstrumentId` has to work this way

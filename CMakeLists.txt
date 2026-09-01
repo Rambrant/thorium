@@ -389,16 +389,17 @@ file(GLOB _thorium_instrument_manifests CONFIGURE_DEPENDS
 # --- ...unless the deployment says which of them it wants ---
 # The glob above settles availability, and for the bench deployment that is the
 # whole story: a driver no INSTRUMENT() row names contributes no global, no
-# hal::InstrumentId enumerator and no object code, so building all five costs
-# nothing but compile time.
+# hal::InstrumentId enumerator and no object code, so building every package
+# costs nothing but compile time.
 #
 # It does cost one thing, and a second deployment is what made it visible: a
 # driver package's *tests* are object code, and every one of them constructs its
 # driver with an id from this bench's instrument list -- InstrumentId::Osc1 in
 # instruments/keysight_dso8064a/tests, ::AcP1 in ac6834b, ::Ser1 in racal1260. Those
 # enumerators do not exist on a bench that has no scope, no AC source and no
-# serial port, so a deployment declaring one instrument cannot build the other
-# four packages' tests at all. That is a real defect against the claim in
+# serial port, so a deployment declaring one meter cannot build those packages'
+# tests at all. (The two DMM packages are fine on such a bench -- both take
+# ::Dmm1 -- which is what makes the defect easy to forget about.) That is a real defect against the claim in
 # instruments/README.md that each directory is independently packageable, and it
 # is not fixed here -- see dev/README.md for what fixing it looks like.
 #
