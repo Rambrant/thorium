@@ -8,6 +8,7 @@
 #include "core/session/bench.hpp"
 #include "core/journal/journal.hpp"
 #include "core/verbs/route.hpp"
+#include "core/meta.hpp"
 #include "core/testing/capturing_sink.hpp"
 
 //
@@ -186,29 +187,41 @@ static_assert( ! core::EnergyReportingConfig< mock::PassiveConfig>);
 //
 static_assert(   core::requiresDeadNode( core::QuantityKind::Current));
 static_assert(   core::requiresDeadNode( core::QuantityKind::Resistance));
+static_assert(   core::requiresDeadNode( core::QuantityKind::Capacitance));
 static_assert( ! core::requiresDeadNode( core::QuantityKind::Voltage));
 static_assert( ! core::requiresDeadNode( core::QuantityKind::Frequency));
 static_assert( ! core::requiresDeadNode( core::QuantityKind::Power));
 static_assert( ! core::requiresDeadNode( core::QuantityKind::Time));
+static_assert( ! core::requiresDeadNode( core::QuantityKind::Temperature));
 
-TEST( InterlockPredicate, OnlyTheTwoReadingsThatCannotShareANodeWithASourceQualify)
+TEST( InterlockPredicate, OnlyTheThreeReadingsThatCannotShareANodeWithASourceQualify)
 {
     //
-    // The runtime spelling of the static_asserts above, kept so the list reads
-    // as a decision about the whole QuantityKind enum rather than as six
-    // scattered assertions -- a kind added later should be considered here.
+    // Every kind, not a hand-written list of them, and that is the fix for
+    // what this test used to be: it named ten of the twelve kinds that existed
+    // and said in its own comment that "a kind added later should be considered
+    // here" -- which is a comment asking a reader to do what a loop can. Two
+    // kinds had already slipped past it by the time a thirteenth arrived.
     //
-    EXPECT_TRUE(  core::requiresDeadNode( core::QuantityKind::Current));
-    EXPECT_TRUE(  core::requiresDeadNode( core::QuantityKind::Resistance));
+    // So the decision is written once, as the set that qualifies, and every
+    // other enumerator is asserted not to. A new QuantityKind now fails here
+    // until somebody decides which side it is on, which is the whole thing the
+    // old comment was asking for.
+    //
+    const auto qualifies = []( const core::QuantityKind kind)
+    {
+        return kind == core::QuantityKind::Current
+            || kind == core::QuantityKind::Resistance
+            || kind == core::QuantityKind::Capacitance;
+    };
 
-    EXPECT_FALSE( core::requiresDeadNode( core::QuantityKind::Voltage));
-    EXPECT_FALSE( core::requiresDeadNode( core::QuantityKind::Power));
-    EXPECT_FALSE( core::requiresDeadNode( core::QuantityKind::ApparentPower));
-    EXPECT_FALSE( core::requiresDeadNode( core::QuantityKind::ReactivePower));
-    EXPECT_FALSE( core::requiresDeadNode( core::QuantityKind::PowerFactor));
-    EXPECT_FALSE( core::requiresDeadNode( core::QuantityKind::Time));
-    EXPECT_FALSE( core::requiresDeadNode( core::QuantityKind::Decibel));
-    EXPECT_FALSE( core::requiresDeadNode( core::QuantityKind::Frequency));
+    for( const auto kind : core::meta::values<core::QuantityKind>)
+    {
+        EXPECT_EQ( core::requiresDeadNode( kind), qualifies( kind))
+            << "core::QuantityKind::" << core::meta::to_string( kind)
+            << " -- a reading either sources into the node it is taken at or it does not;"
+               " see core/verbs/interlock.hpp";
+    }
 }
 
 // ---------------------------------------------------------------------------

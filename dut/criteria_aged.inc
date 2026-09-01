@@ -51,3 +51,30 @@ CRITERIA( FS_Console_1, "Debug console dialogue over RS232")
     CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Ready)
     CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Fault)
 END_CRITERIA
+
+//
+// The bulk capacitance group, on equipment that has been in service for years,
+// and the row this whole variant exists for: an electrolytic drying out is the
+// textbook ageing failure, and it is exactly the fault a powered test cannot
+// see. Every rail still comes up in tolerance on a board whose input capacitor
+// has lost half its value; what fails is the next disturbance.
+//
+// So the floor drops and the ceiling does not move at all. Capacitance loss is
+// one-directional -- an electrolytic does not gain capacitance with age -- which
+// makes this the one criterion in the three tables that widens on one side only
+// for a reason that is not temperature. -20% from nominal is the conventional
+// end-of-life definition, and a part below it is a part to replace rather than a
+// unit to fail outright, which is what a separate aged table is for.
+//
+// FS_BulkCap_Rail_Dead does not widen, for the reason it does not widen in the
+// stress table: a node is discharged or it is not, and nothing about service
+// life changes that.
+//
+// PLACEHOLDER -- the -20% floor is the ordinary end-of-life convention rather
+// than Device X's own derating. Replace with the capacitor's stated endurance
+// figures.
+//
+CRITERIA( FS_BulkCap_1, "DUT input bulk capacitance on the 24Vdc battery rail (aged equipment)")
+    CRIT_FROM_PRODUCTION( FS_BulkCap_1, FS_BulkCap_Rail_Dead)
+    CRIT( FS_BulkCap_Battery,   IN( 640_uF, 1200_uF),    "24Vdc input bulk capacitance, at least 80% of 1000uF nominal (aged, PLACEHOLDER)")
+END_CRITERIA

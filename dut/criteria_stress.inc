@@ -55,3 +55,27 @@ CRITERIA( FS_Console_1, "Debug console dialogue over RS232")
     CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Ready)
     CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Fault)
 END_CRITERIA
+
+//
+// The bulk capacitance group, at temperature -- and the one criterion in this
+// table whose widening is a datasheet curve rather than a placeholder.
+//
+// An aluminium electrolytic's capacitance falls with temperature, and falls
+// hard: the electrolyte's conductivity drops, and a part that measures 1000 uF
+// at 20 degC can be down by a third at -40 degC and is a little *above* nominal
+// at the top of its range. So the floor moves a long way and the ceiling barely
+// moves, which is why this is the one row here that widens asymmetrically.
+//
+// FS_BulkCap_Rail_Dead does not widen and cannot: a node is discharged or it is
+// not, and there is no temperature at which a charged one becomes measurable.
+// Borrowed from production so the fact lives in one place -- the same treatment
+// FS_Transient_Captured gets above.
+//
+// PLACEHOLDER -- the -33%/+5% band below is the shape of the curve, taken from
+// what an aluminium electrolytic does rather than from Device X's own part.
+// Replace with the capacitor's own temperature characteristic.
+//
+CRITERIA( FS_BulkCap_1, "DUT input bulk capacitance on the 24Vdc battery rail (stress, PLACEHOLDER)")
+    CRIT_FROM_PRODUCTION( FS_BulkCap_1, FS_BulkCap_Rail_Dead)
+    CRIT( FS_BulkCap_Battery,   IN( 670_uF, 1260_uF),    "24Vdc input bulk capacitance, 1000uF -33%/+26% over the chamber range (stress, PLACEHOLDER)")
+END_CRITERIA

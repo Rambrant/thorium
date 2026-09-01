@@ -13,7 +13,8 @@ constrained to say so (see `hal/driver/address.hpp`). The front-panel USB *host*
 port takes a flash drive holding saved setups; it is not a way for the PC to
 reach the instrument.
 
-This is `Dmm1` on the bench rig (see `rig/instrument.inc`). `Dmm2` is a
+This is `Dmm1` on the bench rig (see `rig/instrument.inc`) and the one
+instrument on the dev bench (`dev/rig/instrument.inc`). `Dmm2` is a
 `hal::keysight_l4411a::L4411A`, and the two being different C++ types is the
 point — see [Why not just another L4411A](#why-not-just-another-l4411a).
 
@@ -28,6 +29,7 @@ point — see [Why not just another L4411A](#why-not-just-another-l4411a).
 | `resistance()` | ohms, 2-wire | 100 Ω – 100 MΩ, `SensePath::NotUsed` |
 | `fourWireResistance()` | ohms, 4-wire | `SensePath::Required` — routes force and sense together |
 | `frequency()` | hertz | 20 Hz – 300 kHz off the voltage input, 20 Hz – 10 kHz off the current one |
+| `capacitance()` | farads | 1 nF – 10 mF, 2-wire; requires a dead node — see below |
 
 Each returns a `core::Port` carrying the quantity *and* the sense requirement in
 its type, so a four-wire reading and a two-wire one are different types and
@@ -46,10 +48,45 @@ tests assert they stay distinct.
 
 | Function | Why not |
 |---|---|
-| capacitance | 1 nF – 10 mF on the instrument, and `core` has no farad unit. Adding one is a change to `core/quantities/`, made for a reading no script takes yet — the wrong order. When a test needs a capacitance, that change and this port arrive together. |
 | temperature | `core` does have a `Temperature`, but this is a 2-wire read of a 5 kΩ thermistor in the meter's own front terminals, auto-ranging only. It cannot travel through the matrix to a DUT pin, so the port would be one nothing on this rig could route. |
 | continuity, diode test | Threshold answers rather than measurements — a fixed 10 Ω threshold with a beeper, and a forward-voltage check on a fixed 1 V range, both fast-mode only. `resistance()` with an `LT( 10_Ohm)` criterion says the same thing in the vocabulary the report is already written in. |
 | secondary display | A whole parallel SCPI tree (`SEC:FUNC`, `CONF:SEC:…`, `MEAS:SEC:…?`) giving two readings from one acquisition — genuinely useful, and a shape `core::Port` does not have. A port is one quantity; two readings keying into one session slot is a design question, not a driver detail. |
+
+## Capacitance needs a dead node
+
+This is the one function neither the `L4411A` nor anything else on this bench
+has, and it is why `core` grew a farad (`core::quantities::Capacitance`,
+`_pF`/`_nF`/`_uF`/`_mF`/`_F`).
+
+It is measured the way a DMM measures a capacitance and not the way an LCR
+bridge does: a known current into the node — 100 nA on the 1 nF range, 1 mA on
+the 10 mF one — and the slope of the ramp that current produces. Two
+consequences:
+
+**It sources into what it measures.** `core::requiresDeadNode` names
+`Capacitance` alongside `Current` and `Resistance`
+(`core/verbs/interlock.hpp`), so `core::MeasureEngine` refuses a routed
+capacitance reading at a pin an energised supply is cabled onto, before
+anything closes. A rail driving that node does not merely spoil the reading —
+it holds the node at its own voltage, and the meter measures the rail's
+regulation loop. `Remove` the source first, or read the meter's own terminals
+with the point-free `Measure` overload.
+
+The rule did not change to accommodate this; it is what the predicate already
+said, asked about one more kind. That is the property of being named for what a
+reading requires of the *node* rather than for what an instrument does — and
+`rig/tests/test_interlock.cpp` asserts the refusal against this rig's real
+`SOURCE_WIRING`.
+
+**It reads the whole node.** Two terminals, DC: anything in parallel with the
+part is in the answer, and a leaky capacitor reads high because the leakage adds
+to the charging current. The data sheet's accuracies assume a NULL of the open
+test leads first — on the 1 nF range the leads are a meaningful fraction of full
+scale.
+
+No 4-wire variant and no sense path: the instrument has one capacitance function
+and it is 2-wire. Kelvin sensing answers a question about lead resistance, which
+is not what limits this measurement.
 
 ## Resolution, not NPLC
 
@@ -97,7 +134,10 @@ about one of them:
   resolution is not a criterion this meter can answer.
 - **Integration.** NPLC there, three discrete resolutions here.
 - **Functions.** Capacitance, temperature and a secondary display here; none of
-  those there, and more range and accuracy instead.
+  those there, and more range and accuracy instead. Capacitance is the one a
+  script can actually see: `Dmm1.capacitance()` compiles and `Dmm2.capacitance()`
+  does not, which is the difference between the two meters made checkable rather
+  than documented.
 
 Which is the argument this codebase already made when it retired the generic
 `hal::Dmm` placeholder: once the real model is known, naming the class after it
@@ -111,6 +151,13 @@ rig/instrument.inc          INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan
 rig/active_instruments.hpp  #include "hal/keysight_edu34450a.hpp"
 rig/wiring.inc              which fabric channels its force and sense leads land on
 ```
+
+A deployment that names its packages explicitly needs one more line —
+`THORIUM_INSTRUMENT_PACKAGES: "keysight_edu34450a"` in its preset. The bench
+deployment globs and needs none; the dev one names it (see `CMakePresets.json`).
+Note that it is a CMake *cache* variable, so changing it in a preset does not
+reach an existing build directory: reconfigure, or the build fails on a missing
+`hal/keysight_edu34450a.hpp`.
 
 The wiring is rig data and lives nowhere in this directory: which fabric channel
 a DMM's leads reach is a fact about the bench, not about the model.

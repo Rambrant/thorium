@@ -108,8 +108,8 @@ namespace core
     // Whether a reading of this quantity requires the node it is taken at to
     // be dead.
     //
-    // Two kinds qualify, for two different reasons, and it is worth keeping
-    // them apart rather than calling them both "low impedance" and moving on:
+    // Three kinds qualify, for reasons worth keeping apart rather than calling
+    // them all "low impedance" and moving on:
     //
     //   - Current. An ammeter is a shunt. Routed onto a pin in parallel with
     //     a driven rail it is a short across that rail, and the fabric relays
@@ -119,18 +119,31 @@ namespace core
     //     meaningless and can damage the input -- which is why "never measure
     //     resistance in a live circuit" is the first thing anyone is taught
     //     about a DMM's ohms range.
+    //   - Capacitance. The same argument as resistance, one step further. A
+    //     capacitance meter charges the node from its own current source and
+    //     times the ramp -- 100 nA on the smallest range, 1 mA on the largest
+    //     (see hal/keysight_edu34450a.hpp) -- so a rail driving that node does
+    //     not merely spoil the reading, it holds the node at its own voltage
+    //     and the meter measures the rail's regulation loop instead. And the
+    //     meter's input is the one being charged, so a rail arriving through
+    //     it is arriving somewhere built to source microamps.
+    //
+    // The third arrived with a driver that has the function; the rule did not
+    // change to accommodate it. It is what this predicate already said, asked
+    // about one more kind -- which is the property of being named for what it
+    // requires of the *node* rather than for what an instrument happens to do.
     //
     // Everything else -- Voltage, Frequency, Power, the scope's timebase
-    // quantities -- taps high-impedance and stays permitted. Named for what
-    // it requires of the node rather than for the port's impedance so the two
-    // reasons above can sit under one predicate honestly, and shaped after
+    // quantities -- taps high-impedance and stays permitted. Shaped after
     // core::Port::requiresSensePath, which is the same kind of question asked
     // of a port's type.
     //
     [[nodiscard]]
     constexpr auto requiresDeadNode( const QuantityKind kind) -> bool
     {
-        return kind == QuantityKind::Current || kind == QuantityKind::Resistance;
+        return kind == QuantityKind::Current
+            || kind == QuantityKind::Resistance
+            || kind == QuantityKind::Capacitance;
     }
 
     //

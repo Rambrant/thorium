@@ -84,9 +84,19 @@ in `suite/`, because a tolerance is a property of the DUT being tested --
 the same reasoning that puts `adapter.inc` here.
 
 One flat `.inc` file per variant. Each file holds every script's `CRITERIA`
-side by side (currently `FS_Fuse_6` for fuse-register checks and
-`FS_Supply_1` for supply-rail checks) -- the same `CRITERIA`/`CRIT` names
-across all three files, just different tolerance values.
+side by side -- `FS_Fuse_6` for the fuse register, `FS_Supply_1` for the supply
+rails, `FS_Transient_1` for the AC dropout, `FS_Console_1` for the console, and
+`FS_BulkCap_1` for the input bulk capacitance -- the same `CRITERIA`/`CRIT`
+names across all three files, just different tolerance values.
+
+Most of what differs between the three files today is marked `PLACEHOLDER`, and
+one row is not: `FS_BulkCap_1::FS_BulkCap_Battery` widens across the variants
+because an aluminium electrolytic genuinely loses capacitance when it is cold
+and when it is old, and asymmetrically -- the floor moves a long way and the
+ceiling barely moves. It is the one place in these tables where the shape of the
+widening is a datasheet curve rather than a number picked to be wider than the
+last one. The numbers themselves are still Device X's, which is to say still
+invented; the shape is not.
 
 Each `.inc` file is deliberately bare: just `CRITERIA( ... ) ... END_CRITERIA`
 blocks, nothing else. No `#pragma once`, no `#include`s, no namespace, and

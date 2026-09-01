@@ -51,6 +51,7 @@ TEST( CoreFormat, EveryUnitCarriesItsOwnSymbol)
     static_assert( ReactivePower::symbol()    == "var");
     static_assert( Temperature::symbol()      == "degC");
     static_assert( TemperatureDelta::symbol() == "K");
+    static_assert( Capacitance::symbol()      == "F");
 }
 
 //
@@ -162,6 +163,25 @@ TEST( CoreFormat, AValueOutsideItsUnitsSpanIsLeftUnprefixed)
     //
     EXPECT_EQ( core::describeValue( Voltage{ 5.0e-7 }),   "0.5 uV");
     EXPECT_EQ( core::describeValue( Voltage{ 1.0e-12 }),  "1e-12 V");
+}
+
+//
+// The farad, which is the unit this rule exists for more than any other: a
+// capacitance is essentially never written unprefixed, and the span from a
+// stray to a supercapacitor is twelve decades. Every scale a DMM's capacitance
+// function can reach has to come back as the number a datasheet prints.
+//
+TEST( CoreFormat, CapacitanceRendersAcrossItsWholeSpan)
+{
+    EXPECT_EQ( core::describeValue( 4700_pF),  "4.7 nF");
+    EXPECT_EQ( core::describeValue( 100_nF),   "100 nF");
+    EXPECT_EQ( core::describeValue( 470_uF),   "470 uF");
+    EXPECT_EQ( core::describeValue( 10_mF),    "10 mF");
+    EXPECT_EQ( core::describeValue( 1.5_F),    "1.5 F");
+
+    // The top of the span is the plain farad -- a kilofarad is not a capacitor,
+    // so a value above it stays in farads rather than growing a prefix.
+    EXPECT_EQ( core::describeValue( 2200_F),   "2200 F");
 }
 
 //

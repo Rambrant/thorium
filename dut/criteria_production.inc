@@ -59,3 +59,35 @@ CRITERIA( FS_Console_1, "Debug console dialogue over RS232")
     CRIT( FS_Console_Ready,  BIT_SET<3>(),              "Status bit 3 (READY) must be set once the rails are up")
     CRIT( FS_Console_Fault,  BIT_CLEAR<7>(),            "Status bit 7 (FAULT) must be clear")
 END_CRITERIA
+
+//
+// What the DUT presents as bulk capacitance on its 24 V battery input, and
+// whether the rail was actually dead when it was asked (see
+// suite/scripts/bulk_capacitance_script.cpp).
+//
+// Two criteria, and the split is the one FS_Transient_1 already draws between
+// FS_Transient_Captured and the reading it guards. A capacitance meter charges
+// the node from its own current source, so a node still holding charge gives a
+// number that is plausible, low, and about nothing -- and the capacitor under
+// test is itself what holds that charge, so "the supply is off" and "the node is
+// at zero" are genuinely different facts a millisecond apart.
+//
+// The residual limit is a bench fact rather than a DUT one, and 500 mV is chosen
+// against the meter rather than against the part: below that the charge left on
+// a 1 mF node is under a millijoule and the capacitance function's own ramp
+// dominates it. It does not widen with variant -- a node is discharged or it is
+// not, and there is no temperature or service life at which a charged one
+// becomes measurable.
+//
+// TODO(bench): 1000 uF nominal is Device X's stated input capacitance and the
+// +/-20% band is the ordinary tolerance an aluminium electrolytic is sold at.
+// Neither has been read off a schematic or a part number -- check both before
+// this is used for anything, exactly as the rail tolerances above want checking.
+// What is not invented is the shape: this is the criterion that widens across
+// all three variants, and it is the one place in this table where the widening
+// is physics rather than a placeholder.
+//
+CRITERIA( FS_BulkCap_1, "DUT input bulk capacitance on the 24Vdc battery rail")
+    CRIT( FS_BulkCap_Rail_Dead, LE( 500_mV),             "The battery rail must have discharged below 500mV before the capacitance is measured")
+    CRIT( FS_BulkCap_Battery,   IN( 800_uF, 1200_uF),    "24Vdc input bulk capacitance, 1000uF +/-20%")
+END_CRITERIA

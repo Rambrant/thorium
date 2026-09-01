@@ -76,7 +76,13 @@ namespace core
         // Appending costs nothing and cannot do that.
         //
         Temperature,
-        TemperatureDelta
+        TemperatureDelta,
+        //
+        // Appended for the same reason those two were, and it is the rule
+        // rather than a preference: a kind's position IS the alternative index
+        // of QuantityVariant.
+        //
+        Capacitance
     };
 
     namespace detail

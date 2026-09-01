@@ -15,6 +15,7 @@
 #include "hal/keysight_edu34450a.hpp"
 
 #include "core/meta.hpp"
+#include "core/verbs/interlock.hpp"
 
 #include <gtest/gtest.h>
 
@@ -234,6 +235,49 @@ TEST( Edu34450A, TheFrequencySettingOnAnAcPortIsNotAFrequencyReading)
 
     EXPECT_DOUBLE_EQ( port.rawMeasure().value(), 230.0);
     EXPECT_EQ( port.setup().Frequency, std::optional{ 50.0_Hz});
+}
+
+//
+// The one function on this meter that neither the L4411A nor anything else on
+// this bench has, and the reason core grew a farad. Its own function like FREQ,
+// so likewise unaffected by which of the DC/AC keys was last pressed.
+//
+TEST( Edu34450A, CapacitancePortReadsRegardlessOfWhichModeTheMeterIsIn)
+{
+    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    dmm.setSimulatedCapacitance( 470.0_uF);
+
+    EXPECT_DOUBLE_EQ( dmm.capacitance().rawMeasure().value(), 470.0e-6);
+
+    (void)dmm.acVoltage();
+
+    EXPECT_DOUBLE_EQ( dmm.capacitance().rawMeasure().value(), 470.0e-6);
+}
+
+//
+// Two claims about the capacitance port's type, and the second is the one that
+// matters on a rig.
+//
+// There is no 4-wire capacitance: the instrument has one capacitance function
+// and it is 2-wire, so the port must not carry a sense requirement.
+//
+// And a capacitance reading is one core::requiresDeadNode names -- the meter
+// charges the node from its own current source (see core/verbs/interlock.hpp)
+// -- so core::MeasureEngine refuses to route one to a pin an energised supply
+// is cabled onto. That check is an `if constexpr` on the port's quantity, so it
+// is settled here, by the type this returns, and asserted for real against this
+// rig's SOURCE_WIRING in rig/tests/test_interlock.cpp.
+//
+TEST( Edu34450A, CapacitanceIsATwoWireReadingThatRequiresADeadNode)
+{
+    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+
+    static_assert( decltype( dmm.capacitance())::SenseUse == core::SensePath::NotUsed);
+
+    static_assert(   core::requiresDeadNode( core::quantityKindOf<Capacitance>()));
+    static_assert( ! core::requiresDeadNode( core::quantityKindOf<Voltage>()));
+
+    (void) dmm;
 }
 
 //

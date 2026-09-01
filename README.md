@@ -135,9 +135,9 @@ Being honest about the edges matters more than the table above:
   `core/verbs/interlock.hpp` is where the reasoning lives:
 
   **An ammeter across a driven rail is refused.** A landing pin is deliberately
-  also tapped (see `core::PointKind`), so a current or resistance reading routed
-  onto a `SOURCE_POINT` is reachable today — and it puts a shunt across a rail
-  through relays sized for signals. `core::MeasureEngine` throws
+  also tapped (see `core::PointKind`), so a current, resistance or capacitance
+  reading routed onto a `SOURCE_POINT` is reachable today — and it puts a shunt,
+  or a test-current source, across a rail through relays sized for signals. `core::MeasureEngine` throws
   `core::InterlockViolation` before composing the path, naming the pin, the rail
   and the way out. A voltage tap on that same live pin stays permitted, because
   that is the measurement the landing pin is worth declaring for. There is no
@@ -249,7 +249,7 @@ that cannot be recovered from the code.
 
 | | |
 |---|---|
-| [`instruments/keysight_edu34450a`](instruments/keysight_edu34450a/README.md) | DMM, 5½-digit — `Dmm1`, including the 4-wire sense path; resolution rather than NPLC |
+| [`instruments/keysight_edu34450a`](instruments/keysight_edu34450a/README.md) | DMM, 5½-digit — `Dmm1` on both deployments; 4-wire sense, frequency and capacitance; resolution rather than NPLC |
 | [`instruments/keysight_l4411a`](instruments/keysight_l4411a/README.md) | DMM, 6½-digit — `Dmm2`, including the 4-wire sense path |
 | [`instruments/keysight_dso8064a`](instruments/keysight_dso8064a/README.md) | Oscilloscope — `Osc1` |
 | [`instruments/keysight_n6701a`](instruments/keysight_n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
@@ -1202,6 +1202,16 @@ nothing else — see `degC_Type`, and the two sections above on what that buys:
 ```cpp
 struct degC_Type { static constexpr std::string_view Symbol = "degC"; using DifferenceType = K_Type; };
 ```
+
+Two optional lines are worth knowing about, because both are easy to leave out
+and neither fails the build. A tag may declare an `SiPrefixRange`, which is what
+makes a value render as `470 uF` rather than `0.00047 F` — see `F_Type`, whose
+span is the widest here. And `core::requiresDeadNode` in
+`core/verbs/interlock.hpp` decides whether a reading of the new kind may be
+routed onto a live rail: it is a question about *sourcing into the node*, not
+about the instrument, and a kind that charges or drives what it measures belongs
+in it. `framework/core/tests/verbs/test_interlock.cpp` iterates every enumerator,
+so a new kind fails there until somebody decides which side it is on.
 
 ### Add a script unit test (no hardware)
 

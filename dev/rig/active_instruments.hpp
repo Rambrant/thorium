@@ -16,7 +16,7 @@
 //
 #include "hal/driver/address.hpp"
 #include "hal/driver/instrument.hpp"
-#include "hal/keysight_l4411a.hpp"
+#include "hal/keysight_edu34450a.hpp"
 #include "hal/fabric/switch_fabric.hpp"
 
 #define INSTRUMENTS

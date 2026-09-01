@@ -103,6 +103,32 @@ TEST( CoreQuantity, ReactivePowerLiteralsProduceExpectedValue)
 }
 
 //
+// Five scales, which is more than any other unit here has, for the reason
+// F_Type declares the widest prefix span -- see its own comment. Every one is
+// checked in both spellings, because the integer overload delegating to the
+// long double one is exactly where a copied line gets a factor of a thousand
+// wrong (see the literals section's own comment on that).
+//
+TEST( CoreQuantity, CapacitanceLiteralsProduceExpectedValue)
+{
+    EXPECT_DOUBLE_EQ( (1.0_F).value(),      1.0);
+    EXPECT_DOUBLE_EQ( (1_F).value(),        1.0);
+    EXPECT_DOUBLE_EQ( (10.0_mF).value(),    10.0e-3);
+    EXPECT_DOUBLE_EQ( (10_mF).value(),      10.0e-3);
+    EXPECT_DOUBLE_EQ( (470.0_uF).value(),   470.0e-6);
+    EXPECT_DOUBLE_EQ( (470_uF).value(),     470.0e-6);
+    EXPECT_DOUBLE_EQ( (100.0_nF).value(),   100.0e-9);
+    EXPECT_DOUBLE_EQ( (100_nF).value(),     100.0e-9);
+    EXPECT_DOUBLE_EQ( (4700.0_pF).value(),  4700.0e-12);
+    EXPECT_DOUBLE_EQ( (4700_pF).value(),    4700.0e-12);
+
+    // And the scales agree with each other, which the individual factors above
+    // could each be wrong about consistently.
+    EXPECT_DOUBLE_EQ( (1000.0_nF).value(),  (1.0_uF).value());
+    EXPECT_DOUBLE_EQ( (1000.0_uF).value(),  (1.0_mF).value());
+}
+
+//
 // One scale, and negatives written as an operator applied to the literal --
 // which is the only way C++ has, and works because Quantity has a unary minus.
 //

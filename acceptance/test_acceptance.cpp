@@ -666,9 +666,10 @@ TEST_F( AcceptanceCatalog, ListTestsPrintsOneLinePerTestAndWritesNoLog)
     EXPECT_TRUE( containsText( outPath(), mOut, "OutputVoltage|FuseRegister|"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Console|StatusRegister|"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Transient|AcDropout|"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "Capacitance|BulkCapacitance|"));
 
     // Exactly one line per catalog test, nothing else on stdout.
-    EXPECT_EQ( std::count( mOut.begin(), mOut.end(), '\n'), 4);
+    EXPECT_EQ( std::count( mOut.begin(), mOut.end(), '\n'), 5);
 
     EXPECT_FALSE( std::filesystem::exists( mDir / "logs"));
 }
@@ -1310,8 +1311,8 @@ TEST_F( AcceptanceRepeat, RepeatRunsTheWholeSelectionEachPassRatherThanEachScrip
     run( { "--repeat=2", "--no-color" });
 
     EXPECT_EQ( verdictOrder( mOut),
-        ( std::vector<std::string>{ "FuseRegister", "SupplyRail", "AcDropout", "StatusRegister",
-                                    "FuseRegister", "SupplyRail", "AcDropout", "StatusRegister" }));
+        ( std::vector<std::string>{ "FuseRegister", "SupplyRail", "AcDropout", "BulkCapacitance", "StatusRegister",
+                                    "FuseRegister", "SupplyRail", "AcDropout", "BulkCapacitance", "StatusRegister" }));
 }
 
 TEST_F( AcceptanceRepeat, RepeatAppliesToASelectionToo)
@@ -1835,7 +1836,17 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     //
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output5V.Vbase\tOsc1\tVoltage"));
 
-    EXPECT_EQ( recordedRows( tsv), 13u);   // six from setup, seven from the scripts
+    //
+    // And the same mechanism used by a *script* rather than by a driver, which
+    // bulkCapacitanceScript is the one place in this suite that does: two
+    // readings of two different quantities at one pin, which the qualifier is
+    // what keeps apart (see that script's own comment, and
+    // core::MeasureEngine's on the collision it does not otherwise fix).
+    //
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "BatterySupply.Residual\tDmm1\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "BatterySupply.Bulk\tDmm1\tCapacitance"));
+
+    EXPECT_EQ( recordedRows( tsv), 15u);   // six from setup, nine from the scripts
 }
 
 //
@@ -1887,7 +1898,19 @@ TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
         "9\t0\tAcDropout\tOutput5V.Vbase\tOsc1\tVoltage\t5.0\n"
         "10\t0\tAcDropout\tOsc1.Acquisition\tOsc1\t<flag>\t1\n"
         "11\t0\tAcDropout\tOutput5V.Vmin\tOsc1\tVoltage\t4.95\n"
-        "12\t0\tStatusRegister\tSer1.Data\tSer1\t<bytes>\t41434B0D08\n");
+        //
+        // bulkCapacitanceScript's two, and the order matters as much as the
+        // values: the residual is what the script checks before it will take
+        // the capacitance reading at all, so a file whose first row here held
+        // 24.0 would replay a run that measured no capacitance and said so.
+        //
+        // 0.00098 F is 980 uF, inside production's 800..1200 uF band. Written
+        // in farads because a stimulus and a recording both spell a value in
+        // its unit's own symbol with no SI prefix (see core::unitSymbol).
+        //
+        "12\t0\tBulkCapacitance\tBatterySupply.Residual\tDmm1\tVoltage\t0.02\n"
+        "13\t0\tBulkCapacitance\tBatterySupply.Bulk\tDmm1\tCapacitance\t0.00098\n"
+        "14\t0\tStatusRegister\tSer1.Data\tSer1\t<bytes>\t41434B0D08\n");
 
     EXPECT_EQ( run( { "--replay=passing.tsv", "--quiet" }), 0);
 
@@ -2018,12 +2041,13 @@ TEST_F( AcceptanceRecording, EachRepeatPassIsRecorded)
 
     const auto tsv = readFile( mDir / "readings.tsv");
 
-    // Seven observations per pass -- three voltages from the meters, the
-    // console reply, and the scope's baseline, capture flag and minimum --
-    // over three passes, plus the six the setup took, once, because the hooks
-    // bracket the whole selection rather than each pass (see AcceptanceHooks
-    // above). Six rather than four since rigPowerOn() reads AcP1 once per phase.
-    EXPECT_EQ( recordedRows( tsv), 27u);
+    // Nine observations per pass -- three voltages from the meters, the console
+    // reply, the scope's baseline, capture flag and minimum, and the battery
+    // rail's residual and bulk capacitance -- over three passes, plus the six
+    // the setup took, once, because the hooks bracket the whole selection
+    // rather than each pass (see AcceptanceHooks above). Six rather than four
+    // since rigPowerOn() reads AcP1 once per phase.
+    EXPECT_EQ( recordedRows( tsv), 33u);
 }
 
 //
@@ -2110,8 +2134,14 @@ TEST_F( AcceptanceSkeleton, AFailingSetupDoesNotTruncateTheSkeleton)
 
     const auto tsv = readFile( mDir / "skeleton.tsv");
 
-    // Thirteen reads: six from the hook, seven from the three scripts.
-    EXPECT_EQ( std::ranges::count( tsv, '\n') - std::ranges::count( tsv, '#'), 13);
+    // Fifteen reads: six from the hook, nine from the four scripts.
+    //
+    // Nine and not eight: a skeleton's placeholders are all zero, so
+    // bulkCapacitanceScript's residual reads 0 V, passes FS_BulkCap_Rail_Dead,
+    // and the capacitance reading behind it is reached. A script whose later
+    // reads sit behind a check is exactly the "first draft, not a complete
+    // file" case this format's own header warns about.
+    EXPECT_EQ( std::ranges::count( tsv, '\n') - std::ranges::count( tsv, '#'), 15);
 }
 
 //
@@ -2191,6 +2221,16 @@ namespace
         "Output5V.Vbase   = 5 V\n"
         "Osc1.Acquisition = true\n"
         "Output5V.Vmin    = 4.85 V\n"
+        //
+        // 0.00098 F is 980 uF, inside production's 800..1200 uF band. Farads
+        // rather than microfarads because a stimulus file spells a value in its
+        // unit's own symbol and the parser takes no SI prefix (see
+        // core::quantityKindFromSymbol). The residual has to be here too, and
+        // low: it is what bulkCapacitanceScript checks before it will take the
+        // capacitance reading at all.
+        //
+        "BatterySupply.Residual = 0.02 V\n"
+        "BatterySupply.Bulk     = 0.00098 F\n"
         "Ser1.Data        = <41 43 4B 0D 08>\n";
 } // namespace
 
@@ -2203,7 +2243,7 @@ TEST_F( AcceptanceInject, AnAuthoredFileDrivesTheWholeSuiteWithNoRig)
 
 //
 // The reason this file exists beside the recording format. Every value above is
-// sticky, so the same thirteen lines answer a run of any length -- where a
+// sticky, so the same fifteen lines answer a run of any length -- where a
 // recording holds one value per read and needs fifty passes' worth of rows to
 // survive --repeat=50.
 //

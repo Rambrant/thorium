@@ -23,7 +23,7 @@ ctest --test-dir build/dev
 
 ```
 dev/
-    rig/     one L4411A, no switching hardware, no wiring
+    rig/     one EDU34450A, no switching hardware, no wiring
     dut/     an adapter with no points, one criteria table
     suite/   one group, one test, one script
 ```
@@ -46,9 +46,17 @@ routing:
 
 ```cpp
 const auto reference = Measure( Dmm1.voltage());
+const auto bulk      = Measure( Dmm1.capacitance());
 ```
 
-No `at(...)`, no path composed, no relay closed. It was written for a supply
+No `at(...)`, no path composed, no relay closed. The second line is the one that
+could not be written before the meter on this desk became an EDU34450A, and it
+is also the one that could not be *routed* on the bench: a capacitance reading
+sources into the node it measures, so `core::requiresDeadNode` names it and
+`core::MeasureEngine` refuses to route one onto a live rail
+(`core/verbs/interlock.hpp`). Point-free, there is nothing to refuse — no
+fabric, no source, no pin, just a reference capacitor across the meter's
+terminals, which is exactly the shape a driver-development check wants. It was written for a supply
 reading back its own output at full load, and it is exactly what a bench with no
 fabric and no declared points needs for every reading it takes. (A bench that
 declares points reaches them with `at(...)` and no fabric either — see
@@ -126,11 +134,16 @@ deployment — which contradicts `instruments/README.md`'s claim that each
 directory is independently packageable.
 
 Worked around rather than fixed: `THORIUM_INSTRUMENT_PACKAGES` lets a deployment
-build only the packages it has an instrument for, and this one builds `l4411a`
-alone. `instruments/keysight_l4411a/tests` is fixed properly, as the pattern for the rest —
-it takes the ids it needs from `core::meta::values<hal::InstrumentId>` and skips
-the two-instrument test where there is only one. The other four want the same
-treatment, and that is a separate change.
+build only the packages it has an instrument for, and this one builds
+`keysight_edu34450a` alone. That package and `keysight_l4411a` are both fixed
+properly, as the pattern for the rest — each takes the ids it needs from
+`core::meta::values<hal::InstrumentId>` and skips the two-instrument test where
+there is only one. The other four want the same treatment, and that is a
+separate change.
+
+It is a CMake *cache* variable, which matters when this line changes: editing
+the preset does not reach an existing build directory. Reconfigure it, or the
+build fails on a driver header the include path no longer has.
 
 ## Adding to it
 
@@ -146,6 +159,12 @@ its driver header in `dev/rig/active_instruments.hpp`, its package in
 `THORIUM_INSTRUMENT_PACKAGES`, and the count in `dev/rig/tests/test_dev_rig.cpp` —
 which will fail until you change it, deliberately: what this bench is should not
 widen quietly.
+
+**A different meter in the same slot** is the same list minus the count: the row,
+the header, the package, and the `SafeableInstrument` assertion in
+`test_dev_rig.cpp` that names the driver type. Swapping the L4411A for the
+EDU34450A was exactly those four edits plus a reconfigure — and one more reading
+in `dmm_self_check.cpp`, which is not part of the swap but is the reason for it.
 
 **Acceptance tests.** `dev/acceptance/` — a fourth directory beside the three
 above, not a subdirectory of `dev/suite/` — plus `THORIUM_ACCEPTANCE_DIR:

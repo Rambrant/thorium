@@ -28,9 +28,20 @@ that one sits alone at file scope, where nothing around it says what it
 brackets. A group's hooks run only if something in that group was selected, and
 once per `--repeat` pass rather than once per run, which is the whole of the
 difference and the reason to reach for them: a rig state that only one group's
-tests need should not be established for a run that selected none of them. This
-catalog declares none; its groups need nothing beyond the run-level pair. See
+tests need should not be established for a run that selected none of them. See
 the README's "Bracket one group".
+
+Two groups here declare one. `Transient` takes the primary AC input away and
+`Capacitance` takes the battery rail down, and in both cases the *taking away*
+is in the script while the *putting back* is in the teardown — which is the
+split worth understanding before writing a third. A teardown runs whether or not
+the test did (the runner constructs its guard before the group's setup), so a
+restore written at the end of a script only happens on the path where the script
+reaches its end. The two groups differ in why their script drops a rail at all:
+for `Transient` it is the stimulus being measured, for `Capacitance` it is a
+precondition the framework enforces — a capacitance reading sources into the
+node it measures, so `core::requiresDeadNode` refuses to route one onto a live
+rail (`core/verbs/interlock.hpp`).
 
 The pair is worth reading for the distinction it draws against `hal::safeRig()`,
 which runs immediately after the teardown on every exit and looks like the same
@@ -122,18 +133,30 @@ suite/
         supply_rail_script.cpp
         console_script.cpp
         ac_dropout_script.cpp
+        bulk_capacitance_script.cpp
         rig_power_on.cpp             # the catalog's RUN_SETUP, not a test
         rig_power_off.cpp            # the catalog's RUN_TEARDOWN, not a test
+        transient_bracket.cpp        # the Transient group's SETUP/TEARDOWN pair
+        capacitance_bracket.cpp      # the Capacitance group's SETUP/TEARDOWN pair
     tests/
         verdict.hpp                  # verdictOf( script) -- a script returns no verdict to assert on
         test_fuse_register_script.cpp
         test_supply_rail_script.cpp
         test_console_script.cpp
         test_ac_dropout_script.cpp
+        test_bulk_capacitance_script.cpp
         test_rig_power_on.cpp
         test_rig_power_off.cpp
+        test_transient_bracket.cpp
         test_criteria_variants_compile.cpp
 ```
+
+A group's bracket is one file holding both hooks, where the run-level pair is
+split across two. That is mechanism rather than filing: a bracket exists to
+carry what the setup found across to the teardown, so the pair has to be one
+translation unit for there to be anything to share. `rig_power_on.cpp` and
+`rig_power_off.cpp` share nothing — each is written against the rig's stated
+setpoints, not against what the other one found.
 
 Related: `framework/runner` (not this directory) is the runner -- `main.cpp` plus the
 two build targets (`scripts`, `run_scripts`) it needs -- and it is framework,

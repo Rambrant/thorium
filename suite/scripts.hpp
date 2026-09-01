@@ -80,6 +80,20 @@ auto transientSetup() -> bool;
 auto transientTeardown() -> bool;
 
 //
+// The Capacitance group's own pair, declared by SETUP/TEARDOWN inside that
+// group for the same reason the Transient one is: they run only for a selection
+// that actually reaches it (see suite/test_catalog.inc).
+//
+// They share state -- what DcP3 was programmed to when the group was entered --
+// which is why both live in one file. See suite/scripts/capacitance_bracket.cpp.
+//
+[[nodiscard]]
+auto capacitanceSetup() -> bool;
+
+[[nodiscard]]
+auto capacitanceTeardown() -> bool;
+
+//
 // Verifies fuse register content and output voltage against expected
 // criteria. Demonstrates the declarative Criterion/Verify DSL style,
 // as opposed to the fluent TestCase style used above.
@@ -100,6 +114,15 @@ auto supplyRailScript() -> void;
 // script looks like when the DUT answers in bytes rather than in volts.
 //
 auto consoleScript() -> void;
+
+//
+// Measures the bulk capacitance the DUT presents on its 24V battery input, with
+// that rail taken down first. The one script here whose reading the framework
+// will not let it take on a live bench: a capacitance meter sources into the
+// node it measures, so core::requiresDeadNode names the quantity and a Measure
+// written without the Remove throws before a relay closes.
+//
+auto bulkCapacitanceScript() -> void;
 
 //
 // Drops the DUT's primary AC input and measures the negative transient the 5V

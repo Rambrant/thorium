@@ -239,6 +239,29 @@ TEST_F( InterlockFixture, AResistanceMeasurementAtALiveRailIsRefusedToo)
     EXPECT_THROW( (void)measure( Dmm1.resistance(), at( BatterySupply)), core::InterlockViolation);
 }
 
+TEST_F( InterlockFixture, ACapacitanceMeasurementAtALiveRailIsRefusedToo)
+{
+    apply( DcP3.dc().voltage( 24.0_V));
+
+    //
+    // The third kind core::requiresDeadNode names, and the newest -- it arrived
+    // with Dmm1 becoming an EDU34450A, which is the only instrument on this rig
+    // with a capacitance function at all (see
+    // instruments/keysight_edu34450a/README.md).
+    //
+    // Worth a row of its own next to the two above rather than trusted to the
+    // predicate's own unit test, because what is being asserted here is not
+    // that requiresDeadNode returns true -- that is a static_assert in
+    // framework/core/tests/verbs/test_interlock.cpp. It is that a driver adding
+    // a *new quantity* is picked up by a guard nobody edited: the check in
+    // core::MeasureEngine is an `if constexpr` over the port's own
+    // QuantityKind, so a port for a kind that requires a dead node is refused
+    // by existing. A driver author who added capacitance and forgot the
+    // interlock would find it already done.
+    //
+    EXPECT_THROW( (void)measure( Dmm1.capacitance(), at( BatterySupply)), core::InterlockViolation);
+}
+
 TEST_F( InterlockFixture, TheSameCurrentMeasurementIsAllowedOnceTheRailIsOff)
 {
     apply(  DcP3.dc().voltage( 24.0_V));

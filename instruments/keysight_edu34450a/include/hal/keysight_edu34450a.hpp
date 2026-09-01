@@ -33,7 +33,7 @@ namespace hal::keysight_edu34450a
     // Bench Essentials line. It measures eleven input signals -- DC and true
     // RMS AC volts, DC and true RMS AC amps, two- and four-wire ohms,
     // frequency, continuity, diode test, temperature and capacitance -- of
-    // which this class exposes the seven that this framework has a quantity
+    // which this class exposes the eight that this framework has a quantity
     // for (see "What is deliberately not here" below).
     //
     // It shares its SCPI dialect with the Keysight 34450A, whose programmer's
@@ -81,14 +81,6 @@ namespace hal::keysight_edu34450a
     // immediately and discards it, and it is tested rather than designed away.
     //
     // -- What is deliberately not here ----------------------------------------
-    //
-    // capacitance   the instrument measures 1 nF to 10 mF, and core has no
-    //               farad unit. Adding one is three lines in
-    //               core/quantities/quantity.hpp and one enumerator in
-    //               core/quantities/quantity_kind.hpp -- a change to core, made
-    //               for a reading no script on this rig takes yet, which is the
-    //               wrong order to do it in. When a test needs a capacitance,
-    //               that change and this port arrive together.
     //
     // temperature   core does have a Temperature, but this function is a
     //               2-wire measurement of a 5 kOhm thermistor plugged into the
@@ -288,6 +280,44 @@ namespace hal::keysight_edu34450a
                 return core::Port<core::quantities::Frequency, EDU34450A>{ *this };
             }
 
+            //
+            // The CAP function -- SCPI FUNC "CAP", 1 nF to 10 mF over eight
+            // ranges. The one function on this meter that neither the L4411A
+            // nor anything else on this bench has, and the reason core grew a
+            // farad (see core::quantities::Capacitance).
+            //
+            // Measured the way a DMM measures a capacitance and not the way an
+            // LCR bridge does: a known current into the node -- 100 nA on the
+            // 1 nF range, 1 mA on the 10 mF one -- and the slope of the ramp
+            // that current produces. Two consequences a script author should
+            // know before trusting a reading:
+            //
+            //   it is a *sourcing* measurement, so the node has to be dead.
+            //   core::requiresDeadNode names Capacitance for exactly this
+            //   (core/verbs/interlock.hpp), which means a routed reading at a
+            //   pin an energised supply is cabled onto is refused before
+            //   anything closes rather than attempted. Remove the source
+            //   first, or read the meter's own terminals with the point-free
+            //   Measure overload.
+            //
+            //   it is a two-terminal DC measurement, so it reads the whole
+            //   node: anything in parallel with the part is in the answer, and
+            //   a leaky capacitor reads high because the leakage adds to the
+            //   charging current. The data sheet's accuracies assume a NULL of
+            //   the open test leads first -- on the 1 nF range the leads
+            //   themselves are a meaningful fraction of full scale.
+            //
+            // No 4-wire variant, and no sense path: the instrument has one
+            // capacitance function and it is 2-wire. Kelvin sensing answers a
+            // question about lead resistance, which is not what limits this
+            // measurement.
+            //
+            [[nodiscard]]
+            auto capacitance() -> core::Port<core::quantities::Capacitance, EDU34450A>
+            {
+                return core::Port<core::quantities::Capacitance, EDU34450A>{ *this };
+            }
+
             [[nodiscard]]
             auto mode() const -> Mode
             {
@@ -387,6 +417,11 @@ namespace hal::keysight_edu34450a
                 mSimFrequency = f;
             }
 
+            auto setSimulatedCapacitance( const core::quantities::Capacitance c) -> void
+            {
+                mSimCapacitance = c;
+            }
+
             //
             // The setup is accepted and ignored, exactly as it is on every
             // other driver in this tree: nothing here opens a session yet. When
@@ -420,6 +455,11 @@ namespace hal::keysight_edu34450a
                     //
                     return mSimFrequency;
                 }
+                else if constexpr( std::is_same_v<QuantityT, core::quantities::Capacitance>)
+                {
+                    // Its own function too, and likewise unaffected by mMode.
+                    return mSimCapacitance;
+                }
                 else
                 {
                     static_assert( !sizeof( QuantityT), "EDU34450A has no port for this quantity");
@@ -446,5 +486,6 @@ namespace hal::keysight_edu34450a
             core::quantities::Resistance  mSimResistance{};
             core::quantities::Resistance  mSimFourWireResistance{};
             core::quantities::Frequency   mSimFrequency{};
+            core::quantities::Capacitance mSimCapacitance{};
     };
 } // namespace hal::keysight_edu34450a

@@ -101,6 +101,23 @@ namespace core
         struct var_Type  { static constexpr std::string_view Symbol = "var"; static constexpr SiPrefixRange Prefixes{  -3, 3 }; };
 
         //
+        // The farad, and the widest prefix span of any unit here -- which is
+        // the whole reason it needs one. A capacitance is essentially never
+        // written unprefixed: a decoupling capacitor is 100 nF, a bulk
+        // electrolytic 470 uF, a supercapacitor a few farads, and the span
+        // from one to the next covers seven decades. Reading "1e-07 F" off a
+        // report is reading a number nobody on a bench says out loud.
+        //
+        // The top of the range is 0 rather than 3: a kilofarad is not a
+        // capacitor. The bottom is -12, which is where a stray or a scope
+        // probe's input capacitance lives -- below the 1 nF the EDU34450A's
+        // lowest range starts at (see hal/keysight_edu34450a.hpp), on purpose,
+        // since a value near the bottom of an instrument's range still has to
+        // render.
+        //
+        struct F_Type    { static constexpr std::string_view Symbol = "F";   static constexpr SiPrefixRange Prefixes{ -12, 0 }; };
+
+        //
         // Temperature, in two units that are not two scales of one thing.
         //
         // Celsius is where a temperature *is*; kelvin, here, is how far apart
@@ -303,6 +320,26 @@ namespace core
         using Frequency     = Quantity< Hz_Type>;
         using PowerFactor   = Quantity< PF_Type>;
         using ReactivePower = Quantity< var_Type>;
+
+        //
+        // Capacitance is here as an ordinary unit and, like Temperature below,
+        // appears nowhere in the algebra: C = Q/V would need a charge unit
+        // nothing on this bench measures, and Xc = 1/(2*pi*f*C) is a relation
+        // between a capacitance and a *reactance*, which is an impedance and
+        // not the Resistance a DMM's ohms range reads. Both are real physics
+        // and neither is a conversion this framework has the second unit for,
+        // so writing either would mean inventing a unit to justify an
+        // operator rather than the other way round.
+        //
+        // A DMM measures this directly -- a known current into the node, and
+        // the slope of the ramp it produces (see
+        // hal::keysight_edu34450a::EDU34450A::capacitance) -- so unlike
+        // Temperature there is no Transducer in the way. What that costs
+        // instead is the node: charging it is sourcing into it, which is why
+        // core::requiresDeadNode names this kind alongside Current and
+        // Resistance (core/verbs/interlock.hpp).
+        //
+        using Capacitance   = Quantity< F_Type>;
 
         //
         // Temperature is here as an ordinary unit, and deliberately appears
@@ -650,6 +687,29 @@ namespace core
         constexpr quantities::Frequency operator""_Hz( unsigned long long v ) { return operator""_Hz( static_cast<long double>( v)); }
         constexpr quantities::Frequency operator""_kHz( long double v ) { return quantities::Frequency{ static_cast<double>(v) * 1000.0 }; }
         constexpr quantities::Frequency operator""_kHz( unsigned long long v ) { return operator""_kHz( static_cast<long double>( v)); }
+
+        //
+        // Five scales, where every other unit here has two or three, and for
+        // the reason F_Type declares the widest prefix span: a capacitance is
+        // written in whichever of these the part is sold in, and the plain
+        // farad is the one a bench sees least. 100_nF, 470_uF and 4700_pF are
+        // all ordinary; 0.0000001_F is not a number anyone would check against
+        // a datasheet.
+        //
+        // _uF rather than _µF, exactly as _us is spelled that way -- a literal
+        // suffix that cannot be typed on every keyboard in the building is a
+        // suffix that gets avoided (see the _us/_ns comment above).
+        //
+        constexpr quantities::Capacitance operator""_F( long double v ) { return quantities::Capacitance{ static_cast<double>(v) }; }
+        constexpr quantities::Capacitance operator""_F( unsigned long long v ) { return operator""_F( static_cast<long double>( v)); }
+        constexpr quantities::Capacitance operator""_mF( long double v ) { return quantities::Capacitance{ static_cast<double>(v) / 1'000.0 }; }
+        constexpr quantities::Capacitance operator""_mF( unsigned long long v ) { return operator""_mF( static_cast<long double>( v)); }
+        constexpr quantities::Capacitance operator""_uF( long double v ) { return quantities::Capacitance{ static_cast<double>(v) / 1'000'000.0 }; }
+        constexpr quantities::Capacitance operator""_uF( unsigned long long v ) { return operator""_uF( static_cast<long double>( v)); }
+        constexpr quantities::Capacitance operator""_nF( long double v ) { return quantities::Capacitance{ static_cast<double>(v) / 1'000'000'000.0 }; }
+        constexpr quantities::Capacitance operator""_nF( unsigned long long v ) { return operator""_nF( static_cast<long double>( v)); }
+        constexpr quantities::Capacitance operator""_pF( long double v ) { return quantities::Capacitance{ static_cast<double>(v) / 1'000'000'000'000.0 }; }
+        constexpr quantities::Capacitance operator""_pF( unsigned long long v ) { return operator""_pF( static_cast<long double>( v)); }
 
         //
         // Only the one scale, and no prefixed siblings: a millidegree is not a

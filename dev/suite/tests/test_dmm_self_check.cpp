@@ -29,7 +29,10 @@
 
 #include <gtest/gtest.h>
 
+using core::quantities::Capacitance;
 using core::quantities::Voltage;
+
+using namespace core::literals;
 
 namespace
 {
@@ -56,33 +59,95 @@ namespace
     };
 } // namespace
 
-TEST_F( DmmSelfCheckFixture, PassesWhenTheReferenceReadsNominal)
+//
+// Both readings, every time. The script takes two now, and a test that queued
+// only one would not fail on the missing check -- it would throw out of
+// Measure, which reads as a broken test rather than as the thing under test
+// (see ThrowsWhenAReadingIsMissing below, which asserts that on purpose).
+//
+// The capacitance key is "Dmm1.Capacitance" for the same reason the voltage one
+// is "Dmm1.Voltage": a readback has no DUT point to key by, so it keys as
+// "<instrument>.<quantity>" -- and the quantity half is QuantityKind's own
+// enumerator spelling, which is why adding a unit to core is all it took for
+// this key to exist. run_scripts --skeleton prints exactly these.
+//
+namespace
 {
-    Measure.inject( "Dmm1.Voltage", Voltage{ 5.01 });
+    constexpr auto kNominalReference = 5.01_V;
+    constexpr auto kNominalBulk      = 470.0_uF;
+} // namespace
+
+TEST_F( DmmSelfCheckFixture, PassesWhenBothReferencesReadNominal)
+{
+    Measure.inject( "Dmm1.Voltage",     kNominalReference);
+    Measure.inject( "Dmm1.Capacitance", kNominalBulk);
 
     EXPECT_TRUE( verdictOf( dmmSelfCheck));
 }
 
 TEST_F( DmmSelfCheckFixture, FailsWhenTheReferenceIsOutOfTolerance)
 {
-    Measure.inject( "Dmm1.Voltage", Voltage{ 5.20 });   // outside +/-50mV
+    Measure.inject( "Dmm1.Voltage",     Voltage{ 5.20 });   // outside +/-50mV
+    Measure.inject( "Dmm1.Capacitance", kNominalBulk);
 
     EXPECT_FALSE( verdictOf( dmmSelfCheck));
 }
 
 //
-// The boundary, in both directions. Worth having explicitly rather than
-// trusting the two above: an epsilon that had drifted by a factor of ten would
-// still pass the nominal case and fail the 5.20 case, and only a check at the
-// edge notices.
+// The capacitor's own row, failed on its own -- with the voltage left nominal,
+// so the verdict turns on the reading this deployment gained with the
+// EDU34450A and on nothing else.
+//
+TEST_F( DmmSelfCheckFixture, FailsWhenTheReferenceCapacitorIsOutOfTolerance)
+{
+    Measure.inject( "Dmm1.Voltage",     kNominalReference);
+    Measure.inject( "Dmm1.Capacitance", Capacitance{ 330.0e-6 });   // outside +/-47uF
+
+    EXPECT_FALSE( verdictOf( dmmSelfCheck));
+}
+
+//
+// The boundary, in both directions, on both rows. Worth having explicitly
+// rather than trusting the tests above: an epsilon that had drifted by a factor
+// of ten would still pass the nominal case and fail the far-out case, and only
+// a check at the edge notices.
+//
+// The capacitance edge is also where a wrong literal scale would show. 47_uF
+// either side of 470_uF is 423..517 uF; if _uF were off by a thousand in either
+// direction, both of these would land on the same side.
 //
 TEST_F( DmmSelfCheckFixture, HoldsTheToleranceAtItsEdge)
 {
-    Measure.inject( "Dmm1.Voltage", Voltage{ 5.04 });
+    Measure.inject( "Dmm1.Voltage",     5.04_V);
+    Measure.inject( "Dmm1.Capacitance", kNominalBulk);
     EXPECT_TRUE( verdictOf( dmmSelfCheck));
 
-    Measure.inject( "Dmm1.Voltage", Voltage{ 5.06 });
+    Measure.inject( "Dmm1.Voltage",     5.06_V);
+    Measure.inject( "Dmm1.Capacitance", kNominalBulk);
     EXPECT_FALSE( verdictOf( dmmSelfCheck));
+
+    Measure.inject( "Dmm1.Voltage",     kNominalReference);
+    Measure.inject( "Dmm1.Capacitance", 516.0_uF);
+    EXPECT_TRUE( verdictOf( dmmSelfCheck));
+
+    Measure.inject( "Dmm1.Voltage",     kNominalReference);
+    Measure.inject( "Dmm1.Capacitance", 518.0_uF);
+    EXPECT_FALSE( verdictOf( dmmSelfCheck));
+}
+
+//
+// A reading the script takes and the test never queued is a throw, not a quiet
+// failure -- the same rule the bench suite's ThrowsWhenAPointIsMissing asserts,
+// and worth restating here because the script's second reading is new enough
+// that "it passed" would otherwise be an easy thing to believe about a run that
+// never took it.
+//
+TEST_F( DmmSelfCheckFixture, ThrowsWhenAReadingIsMissing)
+{
+    Measure.inject( "Dmm1.Voltage", kNominalReference);
+    // Dmm1.Capacitance not provided at all.
+
+    EXPECT_THROW( dmmSelfCheck(), std::runtime_error);
 }
 
 //

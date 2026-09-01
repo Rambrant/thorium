@@ -19,7 +19,17 @@
 // question a rig cannot answer, because on a rig every reading is confounded
 // with a route.
 //
+//
+// DEV_Dmm_Bulk's epsilon is 10% where the two voltage rows are well under 1%,
+// and that is the capacitor's tolerance rather than the meter's. An aluminium
+// electrolytic is sold at +/-20% and a decent one measures inside 10%; the
+// EDU34450A's own capacitance accuracy is 1% of reading + 0.5% of range, an
+// order of magnitude tighter. A criterion written to the instrument's
+// specification here would fail on every part in the drawer and prove nothing
+// about the driver, which is what this table is for.
+//
 CRITERIA( DEV_Dmm_1, "The bench meter, against inputs whose value is known")
-    CRIT( DEV_Dmm_Zero,  EQ( 0.0_V).epsilon( 0.01_V),  "A shorted input must read zero within 10mV")
-    CRIT( DEV_Dmm_Ref,   EQ( 5.0_V).epsilon( 0.05_V),  "The 5V reference cell must read nominal within 50mV")
+    CRIT( DEV_Dmm_Zero,  EQ( 0.0_V).epsilon( 0.01_V),    "A shorted input must read zero within 10mV")
+    CRIT( DEV_Dmm_Ref,   EQ( 5.0_V).epsilon( 0.05_V),    "The 5V reference cell must read nominal within 50mV")
+    CRIT( DEV_Dmm_Bulk,  EQ( 470_uF).epsilon( 47_uF),    "The 470uF reference capacitor must read nominal within 10%")
 END_CRITERIA
