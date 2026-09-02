@@ -74,11 +74,19 @@
 //        needs a hal that has it, so hal::keysight_n6701a::N6701A, hal::keysight_ac6834b::Ac6834B,
 //        hal::racal1260::Racal1260 and hal::keysight_dso8064a::DSO8064A ask for 2.
 //
+//     3  Adds hal/io/: hal::io::ITransport, hal::io::openTransport() and
+//        hal::io::ScpiSession -- how a driver reaches real hardware, where
+//        before this every driver answered from its own simulation hooks.
+//        Purely additive, so OLDEST_SUPPORTED stays at 1 and every driver at 1
+//        or 2 compiles here unchanged and stays simulated. A driver that opens
+//        a session needs a hal that has one, so
+//        hal::keysight_edu34450a::EDU34450A asks for 3.
+//
 // A driver written today asks for THORIUM_HAL_API_VERSION's current value, as a
 // literal -- never the macro itself, which would assert that this hal is
 // compatible with this hal and pass everywhere.
 //
-#define THORIUM_HAL_API_VERSION           2
+#define THORIUM_HAL_API_VERSION           3
 #define THORIUM_HAL_API_OLDEST_SUPPORTED  1
 
 namespace hal

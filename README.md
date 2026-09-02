@@ -109,7 +109,26 @@ Being honest about the edges matters more than the table above:
   `tools/run-tests.sh` validates ids against the catalog before it gets that
   far, but a hand-typed flag has no such help.
 - **Instrument I/O.** Real instruments are absent, mis-addressed or lying. That
-  is what the runtime is for.
+  is what the runtime is for — and it is no longer hypothetical for one of the
+  six drivers. `hal::keysight_edu34450a::EDU34450A` opens a SCPI session over
+  the address its rig row declares (see `framework/hal/README.md` on `hal/io/`),
+  which makes three failures runtime facts rather than possibilities: the box is
+  unreachable (`hal::io::TransportError`), the box rejects what the driver sent
+  (`hal::io::ScpiFault`, naming the command and the instrument's own words), or
+  the box at that address is a different instrument (refused on `*IDN?`, before
+  a single reading). None of the three can be a compile error: a hostname, a
+  power switch and a patch cable are not things a type system can see.
+
+  What *is* still compile-checked around it is the part that can be, and the
+  distinction is worth keeping straight. Which bus kinds a driver may be
+  addressed over is a claim about its **back panel**, fixed and checked at
+  compile time (`hal::ReachableOver`) — `Gpib( ... )` on a meter with no GPIB
+  connector is a sentence about hardware that does not exist, and does not
+  compile. Which bus kinds this **machine** can open is a claim about what is
+  installed on it: a LAN instrument needs nothing, and USB, GPIB and serial go
+  through whatever VISA the bench has (`hal::io::isSupported`). That one has to
+  be a runtime answer, because the same binary gives a different answer on the
+  bench and on a developer's laptop.
 - **A measurement the instrument declines to make.** Not an error and not a
   compile-time question — a real third answer, reported with the instrument's
   own reason and read back as NaN unless the script says otherwise. See
@@ -242,7 +261,7 @@ that cannot be recovered from the code.
 
 | | |
 |---|---|
-| [`framework/hal`](framework/hal/README.md) | The two-target `hal`/`hal_rig` split, the static wiring facts and how a route is composed, adapter points, and what is still a runtime check |
+| [`framework/hal`](framework/hal/README.md) | The two-target `hal`/`hal_rig` split, the static wiring facts and how a route is composed, adapter points, `hal/io/` (how bytes reach an instrument), and what is still a runtime check |
 | [`instruments`](instruments/README.md) | Why each driver is its own packageable directory, and what a driver may assume |
 | [`cmake`](cmake/README.md) | The four build helpers: generated criteria tables, the per-layer test target, the install-time manifest, and the installed CMake package |
 
@@ -250,7 +269,7 @@ that cannot be recovered from the code.
 
 | | |
 |---|---|
-| [`instruments/keysight_edu34450a`](instruments/keysight_edu34450a/README.md) | DMM, 5½-digit — `Dmm1` on both deployments; 4-wire sense, frequency and capacitance; resolution rather than NPLC |
+| [`instruments/keysight_edu34450a`](instruments/keysight_edu34450a/README.md) | DMM, 5½-digit — `Dmm1` on both deployments; **the one driver that talks to real hardware**, so also the SCPI it sends and how to bring a meter up |
 | [`instruments/keysight_l4411a`](instruments/keysight_l4411a/README.md) | DMM, 6½-digit — `Dmm2`, including the 4-wire sense path |
 | [`instruments/keysight_dso8064a`](instruments/keysight_dso8064a/README.md) | Oscilloscope — `Osc1` |
 | [`instruments/keysight_n6701a`](instruments/keysight_n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |

@@ -1,8 +1,8 @@
 # instruments/
 
 One directory per instrument driver. Each is self-contained — its header, its
-tests, its README, its `CMakeLists.txt` — and nothing outside it names any of
-those files. A directory here can be zipped, versioned and handed to another rig
+sources if it has any, its tests, its README, its `CMakeLists.txt` — and
+nothing outside it names any of those files. A directory here can be zipped, versioned and handed to another rig
 as it stands, and unpacking it into that rig's `instruments/` is the whole
 installation procedure.
 
@@ -13,7 +13,12 @@ instruments/
         README.md
         include/hal/keysight_l4411a.hpp
         tests/test_keysight_l4411a.cpp
-    keysight_edu34450a/         # 5.5-digit dual-display bench DMM
+    keysight_edu34450a/         # 5.5-digit dual-display bench DMM -- talks to real hardware
+        CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
+        README.md
+        include/hal/keysight_edu34450a.hpp
+        src/keysight_edu34450a.cpp   #   the SCPI: command table, ranges, overload
+        tests/test_keysight_edu34450a.cpp
     keysight_dso8064a/          # four-channel oscilloscope
     keysight_n6701a/            # one DC supply channel
     keysight_ac6834b/           # three-phase AC source
@@ -24,6 +29,13 @@ Two DMMs, and they are not the same model. `Dmm1` is the `EDU34450A`, `Dmm2` the
 `L4411A` -- 5.5 digits against 6.5, three discrete resolutions against NPLC. See
 `keysight_edu34450a/README.md` for why one class covering both would have had to
 lie about one of them.
+
+**Five of the six are simulated; one talks.** `EDU34450A` opens a SCPI session
+over its address and reads the instrument (`hal/io/`, see
+`framework/hal/README.md`); the other five answer from their own simulation
+hooks whatever their rig row says, exactly as every driver here used to. That
+asymmetry is the current state of the work rather than a design; what doing it
+again involves is in **A driver with a transport** below.
 
 ## One name, in four places
 
@@ -160,7 +172,8 @@ before/after comparison that made the move verifiable.
 
 ## Adding a driver
 
-Copy `keysight_l4411a/` as the template. It is the smallest one, and it
+Copy `keysight_l4411a/` as the template for a simulated driver, or
+`keysight_edu34450a/` for one that talks. The first is the smallest one and
 exercises every part of the arrangement: an `INTERFACE` header-only target, the
 `include/hal/<model>.hpp` layout that keeps the `"hal/<model>.hpp"` spelling and
 `namespace hal` unchanged at every call site, the global-property registration,
@@ -191,6 +204,44 @@ that one line. Its header does not have to be included anywhere by hand — the
 row's type column names the driver's namespace, and
 `cmake/InstrumentDrivers.cmake` turns that into the `#include` at configure
 time.
+
+## A driver with a transport
+
+`hal/io/` is part of `Thorium::hal`, so a driver may use it under the rule
+above, and `keysight_edu34450a/` is the worked example. Four things about doing
+it are worth knowing before starting a second one, all of them learned from the
+first.
+
+**The address decides, and nothing else.** A driver checks for `hal::Simulated`
+and answers from its own hooks; anything else it opens with
+`hal::io::openTransport( address)`, which picks the transport — a socket for
+`Lan`, VISA for `Usb`/`Gpib`/`Serial` — so a driver never names one. No mode flag, no build option, no
+environment variable — a rig states what it has once, in its instrument table,
+and a script measuring a rail is identical either way. The corollary is that
+the address column becomes an *instruction* the moment a driver reads it: a
+hostname that no box answers to is now a failing run rather than a note to a
+reviewer, which is why `rig/instrument.inc`'s `Dmm1` row says `Simulated{}`.
+
+**The session opens lazily, and it has to.** A rig's instruments are globals
+constructed before `main()`, so a constructor that opened a socket would make
+every binary that links the rig — every unit test, `--replay`, `--help` — reach
+for the bench at static-initialisation time, and would throw from a constructor
+with nowhere to catch it. Open on the first reading that needs one, which is
+also exactly when a detached run does not need one.
+
+**Take the transport as an interface, and offer a way to hand one in.**
+`useTransport()` on the EDU34450A is what its tests use to assert the exact SCPI
+it would have sent, with no socket in sight — and is also how a rig with a VISA
+installation, or one on a bus `openTransport` does not implement, gets the
+driver working with no change to it. A driver written against a concrete socket
+class can only be tested against hardware, which means never in CI.
+
+**Configure through `checked()`, not `write()`.** A SCPI instrument does not
+answer a bad command: it queues an error and carries on measuring whatever it
+was measuring before. The reading after a silently-refused `CONFigure` is
+plausible, often in tolerance, and completely untraceable.
+`hal::io::ScpiSession::checked()` costs one round trip and turns that into an
+exception naming the command.
 
 ## Which hal a driver was written against
 
@@ -236,7 +287,8 @@ switched off within a week.
 
 The number is written as a **literal**, never as `THORIUM_HAL_API_VERSION`
 itself — which would assert that this `hal` is compatible with this `hal`, and
-pass everywhere. Every driver here is at 1.
+pass everywhere. `keysight_l4411a` is at 1, four are at 2 (they use
+`hal::ConfigBuilder`), and `keysight_edu34450a` is at 3 (it uses `hal/io/`).
 
 One thing the gate cannot do, worth knowing before trusting it: nothing derives
 those two numbers from the API they describe, or checks them against it. They

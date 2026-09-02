@@ -83,6 +83,37 @@ add_library(hal STATIC
     include/hal/driver/instrument.hpp     # header-only apart from src/driver/instrument.cpp
     include/hal/driver/builder.hpp        # header-only
     include/hal/driver/describe.hpp       # header-only
+    # --- hal/io: how bytes actually leave the PC ---
+    # The transport a driver opens to reach real hardware, and the SCPI layer on
+    # top of it. In hal rather than in a driver package because every driver
+    # needs the same thing and none of them may depend on another (see
+    # instruments/README.md), and in the generic half rather than hal_rig
+    # because a driver has to compile against it -- which is the whole reason
+    # the split exists.
+    #
+    # Two transports, and the split is which software owns the bus. A LAN
+    # instrument's port 5025 is a socket the operating system already provides,
+    # so that one is implemented here outright. GPIB, USB and serial are reached
+    # through a driver, and on Windows and Linux that driver arrives as part of a
+    # VISA distribution -- so those three go through whatever VISA is installed,
+    # loaded at runtime rather than linked (see hal/io/visa_transport.hpp for the
+    # whole argument, including why reimplementing USBTMC on Windows would mean
+    # taking the instrument away from its vendor driver).
+    #
+    # Note what that buys the build: nothing new to install. There is no
+    # find_package for VISA and no vendor header anywhere in this tree -- hal
+    # links and runs on a machine with no VISA at all, and openTransport simply
+    # refuses those three bus kinds saying that none was found. Which is also why
+    # the Windows presets' mingw toolchain is not a problem: GetProcAddress does
+    # not care what compiler built the DLL.
+    src/io/transport.cpp
+    src/io/socket_transport.cpp
+    src/io/visa_transport.cpp
+    src/io/scpi.cpp
+    include/hal/io/transport.hpp          # header-only apart from src/io/transport.cpp
+    include/hal/io/socket_transport.hpp   # header-only apart from src/io/socket_transport.cpp
+    include/hal/io/visa_transport.hpp     # header-only apart from src/io/visa_transport.cpp
+    include/hal/io/scpi.hpp               # header-only apart from src/io/scpi.cpp
     # --- hal/fabric: the switching hardware itself ---
     # The devices a rig has, the elements they are made of, and the Path
     # through them that a route closes. Knows nothing about VPC pins or DUTs:
@@ -111,6 +142,28 @@ target_include_directories(hal PUBLIC
 )
 
 target_link_libraries(hal PUBLIC core)
+
+# Winsock, for src/io/socket_transport.cpp. PRIVATE: nothing above this target
+# names a socket -- the platform headers live in that one .cpp precisely so that
+# they do not reach a driver (see that file's own comment) -- so the dependency
+# stops here. POSIX needs no such library, which is why there is no else branch.
+if(WIN32)
+    target_link_libraries(hal PRIVATE ws2_32)
+endif()
+
+# The dynamic loader, for src/io/visa_transport.cpp -- which opens whatever VISA
+# is installed with dlopen/LoadLibrary rather than linking it. CMAKE_DL_LIBS is
+# "dl" where that is a separate library and empty where dlopen lives in libc
+# (which is most places now, and all of Windows), so this needs no platform
+# branch of its own.
+#
+# This is the whole of what VISA support costs the build: one line, naming a
+# system library, on every platform. There is deliberately no find_package(VISA),
+# no bundled visa.h and no THORIUM_WITH_VISA option -- a build that had to know
+# whether vendor software was installed would be a build that behaves differently
+# on the developer's machine and the bench's, which is exactly what a test rig
+# must not have.
+target_link_libraries(hal PRIVATE ${CMAKE_DL_LIBS})
 
 # Thorium::hal -- see framework/core/CMakeLists.txt's own comment on Thorium::core
 # for why this alias exists alongside the plain "hal" target name.

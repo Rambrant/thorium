@@ -80,6 +80,11 @@ framework/hal/
             address.hpp        # Gpib/Lan/Serial/Usb/Simulated -- how the PC reaches an instrument
             instrument.hpp     # InstrumentId -- enumerators generated from THORIUM_INSTRUMENT_TABLE
             describe.hpp       # the describe customization point drivers hook into
+        io/                    # how bytes actually leave the PC
+            transport.hpp      # ITransport + openTransport( Address) -- the one thing a driver opens
+            socket_transport.hpp # SCPI over a raw TCP socket: LAN, no vendor software
+            visa_transport.hpp # SCPI through whatever VISA is installed: USB, GPIB, serial
+            scpi.hpp           # ScpiSession -- *IDN?/*RST/*OPC?/SYST:ERR?, overload, number formatting
         fabric/                # the switching hardware itself
             switch_device.hpp  # SwitchDeviceKind/Model + card specs, SwitchDeviceId (from THORIUM_DEVICE_TABLE), kindOf/addressOf/cardOf/hasChannel
             switch_fabric.hpp  # SwitchElementId, SwitchFabric (matrix/mux relay state)
@@ -98,7 +103,7 @@ framework/hal/
             safing.hpp         # safeRig()
 ```
 
-`src/` and `tests/` mirror those four folders.
+`src/` and `tests/` mirror those five folders.
 
 Three of the names are shared with `framework/core/include/core/`, and the
 pairing is exact rather than thematic. `verbs/` holds one header per
@@ -111,7 +116,7 @@ in core -- `core/verbs/route.hpp` and `core/verbs/measure.hpp` both include it,
 so it could never move here. `driver/` names the same kit as `core/driver/`
 from the other side.
 
-`verbs/` is also exactly the `hal_rig` target, and the other three are exactly
+`verbs/` is also exactly the `hal_rig` target, and the other four are exactly
 `hal` -- so the folder split and the target split are the same line, drawn once
 in the directory tree and once in `CMakeLists.txt`. That line is what the
 `instruments/` tree depends on: a driver compiles against `hal`, and
@@ -414,18 +419,198 @@ path is not.
 
 ### What still has no address
 
-Nothing reads these yet -- the drivers carry them the way `hal::keysight_n6701a::N6701A`
-carried its mainframe slot before any driver needed it, so that the rig table
-can state the fact at all. Two gaps are worth knowing about before real-driver
-work starts:
+One driver reads its address now -- `hal::keysight_edu34450a::EDU34450A`, over
+`hal/io/` (see the next section). The other five still carry theirs the way
+`hal::keysight_n6701a::N6701A` carried its mainframe slot before any driver
+needed it, so that the rig table can state the fact at all. Two gaps are worth
+knowing about:
 
 - **The run journal.** An address is per-run inventory rather than per-`Apply`,
   so `describeConfig` was deliberately left alone; `hal::to_string(Address)`
-  exists for whoever writes the inventory line.
+  exists for whoever writes the inventory line, and
+  `EDU34450A::identity()` is the better thing for it to write -- what the
+  instrument says it is, rather than what the table hoped.
 
 The switching fabric used to be on that list and no longer is: its cards are
 declared in `rig/devices.inc` with an address each, reachable through
 `hal::addressOf` -- see the section below.
+
+## `hal/io/` -- how bytes actually leave the PC
+
+The address says where an instrument is. This says how to talk to it, and it is
+the newest thing in this directory: until it landed, every driver in this tree
+answered its readings out of its own `mSimVoltage`, and no driver read its
+address at all.
+
+Four headers, in the order a call goes through them:
+
+| | |
+|---|---|
+| `hal/io/transport.hpp` | `ITransport` -- `send( "READ?")`, `receive()`, `description()`. Plus `openTransport( Address)`, which turns a rig table's address into one. |
+| `hal/io/socket_transport.hpp` | `SocketTransport` -- that interface over a raw TCP socket, which is what an LXI instrument's port 5025 speaks. |
+| `hal/io/visa_transport.hpp` | `VisaTransport` -- that interface over whatever VISA the machine has, loaded at runtime. |
+| `hal/io/scpi.hpp` | `ScpiSession` -- SCPI on top of a transport: `*IDN?`, `*RST`, `*OPC?`, the `SYST:ERR?` queue, the overload sentinel, and how a number is written into a command. |
+
+### Two transports, split by which software owns the bus
+
+| Address | `openTransport` gives it |
+|---|---|
+| `Lan` | a `SocketTransport` -- SCPI over TCP, port 5025 by default. Never VISA, even where VISA is installed. |
+| `Usb` | a `VisaTransport`, found by enumerating USB instruments and matching the serial number |
+| `Gpib` | a `VisaTransport` at `GPIB<board>::<primary>[::<secondary>]::INSTR` |
+| `Serial` | a `VisaTransport` at `ASRL<n>::INSTR`, for a port VISA can be given a resource name for |
+| `Simulated` | `UnsupportedTransport` -- and this one is not a gap: there is nothing at the other end, which is what the type means. A driver reaching here with one has skipped its own simulation hooks. |
+
+The line is not arbitrary, and it is not "the easy one first". A socket is a
+thing the *operating system* already provides, so implementing it here costs a
+few hundred lines and buys freedom from every dependency. A GPIB controller, a
+USBTMC endpoint and a Windows COM port are things a *driver* provides, and on
+the machines this rig runs on -- Windows, or Linux -- that driver arrives as
+part of a VISA distribution the bench already has. So:
+
+- **Raw sockets rather than VXI-11 or HiSLIP for LAN.** The bytes are the
+  protocol: no library, no IDL, and it is what every SCPI example in every
+  Keysight programmer's reference is written against. What it has no room for is
+  service requests, status-byte polling and device clear, all of which need a
+  control channel beside the data one; for a DMM answering `READ?` that is a
+  distinction without a difference. It is also the only transport here that can
+  be tested against a real listener, which is why LAN stays on it even on a
+  machine whose VISA could have served the same address.
+- **VISA rather than libusb for USB.** libusb genuinely works on Windows, and on
+  Windows it is the wrong answer: it can only reach a device that has a
+  WinUSB/libusbK/libusb0 driver *bound* to it, and on a Keysight bench that slot
+  belongs to the vendor's own USBTMC driver. Using libusb means re-binding the
+  instrument with Zadig, after which the meter disappears from Connection
+  Expert and from every other VISA program on the machine. A test rig must not
+  make that trade on the operator's behalf. (On Linux and macOS libusb is
+  perfectly fine -- so this is a decision about the *target*, and the target is
+  Windows or Linux.)
+- **VISA rather than a 488 library for GPIB.** linux-gpib and NI-488.2 are both
+  good, and both are *already reachable through VISA* on a machine that has
+  either. One implementation, three bus kinds.
+
+`hal::io::isSupported( address)` answers which of them this machine can do
+without touching an instrument -- for a bring-up report listing which of a
+rack's instruments are reachable before trying any of them. It is the one
+answer in this layer that differs between two machines running the same binary:
+LAN always, the other three only where a VISA library loads.
+
+### VISA is loaded, not linked
+
+No `visa.h`, no `visa32.lib`, no `find_package`: the library is opened with
+`dlopen`/`LoadLibrary` and its nine entry points looked up by name. The whole
+cost to the build is one line naming `${CMAKE_DL_LIBS}`.
+
+- **A build needs nothing installed.** `hal` compiles, links and passes its
+  tests on a machine with no VISA at all -- a CI runner, a developer's Mac --
+  and `openTransport` then refuses those three bus kinds saying no library was
+  *found*, naming IO Libraries, NI-VISA, and the `THORIUM_VISA_LIBRARY`
+  override for an install the loader cannot see. A build-time dependency would
+  have made the framework unbuildable without vendor software.
+- **MinGW stops mattering.** The Windows presets here use mingw64, and linking a
+  Microsoft-toolchain import library from MinGW is a known nuisance;
+  `GetProcAddress` has no opinion about which compiler built the DLL.
+- **The installed version stops mattering.** These nine functions have had the
+  same signatures since VISA 2.0, so any install works and IO Libraries can be
+  upgraded without rebuilding this.
+
+What it costs is that the signatures are declared by hand, so a mistake in one
+is a crash rather than a compile error. They are written out in
+`src/io/visa_transport.cpp` with the vendor's own typedefs beside them, and the
+two genuinely surprising ones are called out there: `ViSession` is a 32-bit
+integer even on 64-bit (it looks like a handle and is not one), and VISA's
+success codes are *non-negative* rather than zero -- a read that stopped on the
+termination character returns `VI_SUCCESS_TERM_CHAR`, so code written as
+`if( status != VI_SUCCESS)` rejects most of its own successful reads.
+
+### What is tested about VISA, and the one thing that is not
+
+`VisaTransport` is the only thing in this tree that cannot be exercised here,
+and that is worth stating plainly rather than leaving to be discovered: VISA is
+closed vendor software, installed on the bench and on no machine this
+repository is developed on. There is no fake VISA either -- a fake of a library
+whose real behaviour cannot be observed would only assert its author's guesses
+back at him.
+
+What *is* tested is the half where the mistakes actually live, and it is
+ordinary code: the resource strings built from each address kind, the
+serial-number matching that picks a USB instrument out of what VISA enumerated
+(including the field counting, which is off-by-one bait -- the serial is field
+four from the left, and counting back from `::INSTR` gets the optional
+interface number instead), and every refusal path. See
+`tests/io/test_visa_transport.cpp`, whose tests assert against `visaLibrary()`
+in *both* directions rather than skipping themselves on a developer machine.
+
+The rest -- whether `viOpen` on a real USBTMC meter behaves -- is confirmed by
+running it on the bench, exactly as the socket transport's SCPI was confirmed
+against a real listener. The socket transport has had that second step; this one
+has not, and the next person to plug a meter in over USB is performing it.
+
+### The interface exists for the fake as much as for the second bus
+
+A driver written against a concrete socket class can only be tested against
+hardware -- which means the SCPI strings it sends are checked by a human
+reading them once, at the moment they were typed, and never again. Against
+`ITransport` they are checked by assertion, in CI, on a machine with no
+instruments: see `instruments/keysight_edu34450a/tests`, which asserts the
+exact `CONF:VOLT:DC 10,1.5E-6` the meter would have received, and
+`EDU34450A::useTransport()`, which is the seam a test or a VISA-equipped rig
+hands one in through.
+
+What that cannot test is that the *instrument* accepts those strings. That is
+what a programmer's reference is read for and what a bring-up run on the desk
+bench confirms -- see `dev/README.md`. Both halves are needed and neither
+substitutes for the other.
+
+### The error queue is checked, and this is the failure it exists for
+
+A SCPI instrument does not answer a bad command: it queues an error and carries
+on. So a driver that sends `CONF:VOLT:DC 5000` to a 1000 V meter and then sends
+`READ?` gets a perfectly good reading -- on whatever range the meter was
+already using, which is not the range the script asked for and is nowhere
+recorded. The reading is plausible, in tolerance often enough, and completely
+untraceable.
+
+That is the worst failure mode a test rig has, and it is one `SYST:ERR?` away
+from being an exception naming the command. Hence `ScpiSession::checked()`,
+which is the call a driver configures through, and hence the distinction
+between the two exception families:
+
+| | Means | Catch it if |
+|---|---|---|
+| `hal::io::TransportError` | the bench is unreachable: no route, refused, closed, timed out (`TransportTimeout`), or a bus kind this build cannot open (`UnsupportedTransport`) | you are reporting on the rig |
+| `hal::io::ScpiFault` | the instrument rejected what a driver sent -- a command this model does not have, a value outside its range, or the wrong model answering at this address | you are reporting on the driver or the rig table |
+
+Deliberately *not* related by inheritance, so that a caller catching the first
+to mean "the instrument is missing" cannot silently also catch a wrong command.
+Neither is `core::UnmeasurableReading`, which is the instrument's third answer
+-- it made the measurement attempt and reports that it could not (a DMM
+overload, a scope with no edge to time) -- and is the one of the three that
+`core::MeasureEngine` catches, records as NaN with the reason beside it, and
+carries on from.
+
+### What is not here yet
+
+- **Binary block transfer** (`#800001024<bytes>`), which is how a scope hands
+  over a waveform. `core::Waveform` already exists to receive one; this needs
+  one more virtual on `ITransport` -- read a counted number of bytes rather
+  than a line -- and no instrument here needs it yet.
+- **Discovery.** Nothing enumerates a subnet or a USB bus. A rig states what it
+  has, in one reviewable table, and that is the design rather than a gap.
+- **Connection pooling or reconnection.** A session is opened on first use and
+  held; `EDU34450A::closeSession()` drops it. Nothing retries a timeout,
+  deliberately: how long to wait for a reading is a fact about the
+  measurement, so the policy belongs to whoever knows which one was asked for.
+- **Device clear.** VISA has `viClear` -- the one recovery step a raw socket
+  cannot offer at all -- and `ITransport` has nowhere to put it. Worth adding
+  when something needs to *recover* a wedged instrument rather than fail the
+  run.
+- **A native serial transport.** `Serial` goes through VISA, which means a Unix
+  device path (`/dev/ttyUSB0`) is refused unless the rig spells the `ASRL`
+  resource itself -- VISA's mapping from a path to an ASRL index is part of
+  that installation's configuration, not something derivable here. termios is
+  easy and would remove the asymmetry; nothing needs it yet, since this rig's
+  one serial instrument is still simulated.
 
 ## The switching devices are declared, not named in strings
 
@@ -562,7 +747,7 @@ above), and `api_version.hpp` puts a number on it. Each driver under
 `instruments/` names the version it was written against:
 
 ```cpp
-THORIUM_REQUIRE_HAL_API( 1);
+THORIUM_REQUIRE_HAL_API( 3);
 ```
 
 This exists because a driver directory is meant to be zipped and dropped into
@@ -580,6 +765,12 @@ the range this `hal` claims to serve; a driver's number either falls in it or
 does not. **Changing anything a driver can see is what obliges you to move
 them** — the numbers are a promise this directory makes, and nothing derives or
 verifies them.
+
+The log is in `api_version.hpp` itself; the short version is that 2 added
+`hal::ConfigBuilder` and 3 added `hal/io/`. Both were additive, so
+`OLDEST_SUPPORTED` is still 1 and a driver written against either earlier
+number compiles here unchanged -- and stays simulated, which is exactly what an
+additive transport layer should mean for a driver that does not use it.
 
 Macros, not only the `hal::kApiVersion`/`hal::kOldestSupportedApiVersion`
 constants beside them, because a driver spanning two `hal` versions writes

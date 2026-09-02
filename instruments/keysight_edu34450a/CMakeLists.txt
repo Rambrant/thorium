@@ -5,13 +5,27 @@
 # CMakeLists.txt and framework/hal/CMakeLists.txt) -- so the whole directory can
 # be zipped, versioned and dropped into another rig's instruments/ as it stands.
 #
-# INTERFACE, not STATIC: the driver is header-only, as every driver in this tree
-# is. That is not an accident of these particular models -- an instrument driver
-# is a type whose Port-returning members are consumed as types by the call site
-# (see core/driver/port.hpp), so its definitions have to be visible to whoever
-# measures through it. A driver that grows a real .cpp (talking to a VISA
-# library, say) becomes STATIC here and nothing outside this file needs to know.
-add_library(hal_keysight_edu34450a INTERFACE)
+# STATIC, and the first driver here that is -- which is exactly what the
+# previous version of this comment said would happen: "a driver that grows a
+# real .cpp (talking to a VISA library, say) becomes STATIC here and nothing
+# outside this file needs to know."
+#
+# Every other driver in this tree is still INTERFACE and still correct to be.
+# The rule has not changed: an instrument driver is a type whose Port-returning
+# members are consumed as types by the call site (see core/driver/port.hpp), so
+# those have to stay visible in the header, and they have. What moved into
+# src/keysight_edu34450a.cpp is the half that is *not* a template -- the SCPI
+# command table, the range and resolution rules, the overload check -- because
+# none of it depends on which quantity type the answer gets wrapped in. See
+# that file's own comment.
+#
+# Nothing outside this file needed to know, as promised: framework/hal's
+# foreach over THORIUM_INSTRUMENT_TARGETS links whatever target this directory
+# registers, and rig/, dev/ and the suite name none of it.
+add_library(hal_keysight_edu34450a STATIC
+    src/keysight_edu34450a.cpp
+    include/hal/keysight_edu34450a.hpp   # header-only apart from the above
+)
 
 # include/hal/keysight_edu34450a.hpp, not include/keysight_edu34450a.hpp: this
 # driver keeps its "hal/keysight_edu34450a.hpp" spelling at every call site. It
@@ -23,7 +37,12 @@ add_library(hal_keysight_edu34450a INTERFACE)
 # carries the manufacturer as well as the model: a model number is not unique
 # across vendors, so a bare model name is a collision waiting for the second
 # vendor to ship one.
-target_include_directories(hal_keysight_edu34450a INTERFACE
+#
+# PUBLIC rather than INTERFACE now that this target has a translation unit of
+# its own: src/keysight_edu34450a.cpp includes "hal/keysight_edu34450a.hpp"
+# through this same path, so the directory has to reach the target's own compile
+# as well as its consumers'.
+target_include_directories(hal_keysight_edu34450a PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
@@ -34,7 +53,7 @@ target_include_directories(hal_keysight_edu34450a INTERFACE
 # explicit check that rejects a driver reaching for hal_rig. (The check is
 # explicit because the cycle it closes is one CMake tolerates silently, which is
 # not what you would guess.)
-target_link_libraries(hal_keysight_edu34450a INTERFACE Thorium::hal)
+target_link_libraries(hal_keysight_edu34450a PUBLIC Thorium::hal)
 
 add_library(Thorium::hal_keysight_edu34450a ALIAS hal_keysight_edu34450a)
 
@@ -45,6 +64,9 @@ set_property(GLOBAL APPEND PROPERTY THORIUM_INSTRUMENT_TARGETS hal_keysight_edu3
 
 install(TARGETS hal_keysight_edu34450a
     EXPORT ThoriumTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})

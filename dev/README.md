@@ -7,10 +7,14 @@ it holds is the same three kinds of content `rig/`, `dut/` and `suite/` hold, fo
 a rig that is one meter on a desk with a LAN cable to it.
 
 It exists for the work the bench cannot host: developing an instrument driver
-against real hardware. Today every driver in this repository answers from its own
-simulation hooks — `mSimVoltage` and friends — and nothing reads an
-`hal::Address` yet. Making one of them open a real session is the next real piece
-of work, and doing it on the rack means booking the rack.
+against real hardware. Doing that on the rack means booking the rack.
+
+**The first driver has landed.** `hal::keysight_edu34450a::EDU34450A` — this
+deployment's one instrument — opens a real SCPI session over a socket and reads
+the meter (see `framework/hal/README.md` on `hal/io/`, and that driver's own
+README for what it sends). So this directory is no longer waiting for something:
+it is the bring-up loop, and running it against a meter on a desk is now a
+three-step procedure rather than a plan. See **Transport** below.
 
 ```bash
 cmake --preset macos-dev
@@ -97,12 +101,79 @@ spelling is refused for it — `Measure( Dmm1.voltage())` throws and says to wri
 under both. Nothing on this desk is tapped today, so `Measure( Dmm1.voltage())`
 above stays exactly as correct as it has always been.
 
-**Transport.** Still absent, and still the point. A run with the bench attached
-reads `0 V` and fails, correctly — nothing is at the other end of
-`Lan( "dev-dmm")` yet. `--inject` and `--skeleton` work fully, because they detach
-the bench and take their readings from a file. When a driver grows a real `.cpp`
-it becomes `STATIC` in its own `CMakeLists.txt`, which that file already
-anticipates.
+**Transport.** Present, and this is now the item this deployment is *for*
+rather than the one it is missing.
+
+Put the meter's address in `dev/rig/instrument.inc` — a serial number for USB,
+a hostname for LAN — build, and run:
+
+```cpp
+INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Usb( "MY60012345"))   // rear USBTMC port, via VISA
+INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "dev-dmm"))      // LXI port 5025, no vendor software
+```
+
+```bash
+cmake --preset windows-dev      # or macos-dev, or linux
+cmake --build build/dev
+./build/dev/bin/run_scripts
+```
+
+USB needs Keysight IO Libraries Suite or NI-VISA on the machine (almost
+certainly already there on a Windows or Linux bench — it is what Connection
+Expert belongs to); LAN needs nothing at all. Neither is needed to *build*. See
+that driver's README for what each failure message means.
+
+`dmm_self_check.cpp`'s two readings then come off the instrument — a DC volts
+and a capacitance, through `Measure`, a session, the journal, a criterion and
+both log sinks, with nothing stubbed anywhere in the chain:
+
+```
+	measure Dmm1.Voltage                5.001 V     (Dmm1)  instrument readback
+	measure Dmm1.Capacitance            468.3 uF    (Dmm1)  instrument readback
+	verify  DEV_Dmm_1::DEV_Dmm_Ref      5.001 V     = 5 V +/-50 mV      [PASS]
+	verify  DEV_Dmm_1::DEV_Dmm_Bulk     468.3 uF    = 470 uF +/-47 uF   [PASS]
+```
+
+What a run does with *no* meter at the other end changed, and changed in the
+direction this framework argues for everywhere else. It used to read `0 V` and
+fail its criteria; it now fails at the reading, immediately, saying what it
+could not reach:
+
+```
+Uncaught exception during test run: cannot resolve Lan dev-dmm:5025:
+    nodename nor servname provided, or not known
+```
+
+Which is the better failure. A rig that reads zero volts off a meter that was
+never connected is precisely the outcome this whole design is written against,
+and "there is no meter" and "the meter reads zero" must not look the same in a
+report. It is also fast — under half a second, because the transport carries a
+connect deadline rather than letting the OS retransmit its SYN for a minute.
+
+`--inject` and `--skeleton` still need no meter at all, because they detach the
+bench and take their readings from a file — which is what keeps a script's own
+unit tests hardware-free.
+
+The driver's own tests are hardware-free too, by a different route: they hand it
+a fake `hal::io::ITransport` and assert the exact SCPI it would have sent. So
+the division of labour for driver work is worth knowing before starting any:
+
+| Question | Answered in | Needs the desk |
+|---|---|---|
+| does the driver send what its author intended | `instruments/<model>/tests` | no |
+| does a reply mean what the driver thinks it means | `framework/hal/tests/io/test_scpi.cpp` | no |
+| do the bytes actually leave the process | `framework/hal/tests/io/test_socket_transport.cpp`, against a loopback listener | no |
+| does an address become the right VISA resource | `framework/hal/tests/io/test_visa_transport.cpp` | no |
+| does VISA itself behave | nowhere — it is closed vendor software, absent from every machine this repo is developed on | **yes** |
+| was the author right about the instrument | **here, with the meter plugged in** | yes |
+
+Only the last two rows need hardware, which is the point of the others. The
+LAN path has had that confirmation; the USB/VISA path has not, and the next
+person to plug a meter in over USB is performing it. A
+useful halfway house while writing a driver: a twenty-line script that listens
+on a socket and answers `*IDN?`, `SYST:ERR?` and `READ?` will drive the whole
+chain above end to end, including the journal and the criteria, without a meter
+on the desk at all.
 
 ## What landing this deployment turned up
 

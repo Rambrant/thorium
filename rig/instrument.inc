@@ -63,9 +63,11 @@
 // bench actually has: a 5.5-digit hal::keysight_edu34450a::EDU34450A, against
 // the L4411A's 6.5. A script measuring a rail cannot tell them apart, and a
 // criterion tightened past 5.5 digits can; see that driver's own comment on
-// why one class for both would have had to lie about one of them. Both rows
-// are still LAN, and both models still refuse GPIB, so the paragraph above
-// holds for either.
+// why one class for both would have had to lie about one of them. Both models
+// still refuse GPIB, so the paragraph above holds for either -- but the two
+// rows no longer read the same, and the next section is why: Dmm1's driver has
+// learned to open a real session, so its address column had to stop describing
+// a rack that does not exist.
 //
 // DcP1..DcP4 all carry the same address, and that repetition is the point:
 // they are four modules behind one mainframe interface, so there is one
@@ -77,8 +79,50 @@
 // wiring.inc is -- there is no physical bench yet. They are internally
 // consistent (one mainframe address for the four DC modules, LXI hostnames for
 // the three LAN instruments) and no more than that. Re-check against a real
-// rack. Deliberately not hal::Simulated{}, which would read as a decision
-// rather than a gap -- see that type's own comment in hal/driver/address.hpp.
+// rack.
+//
+// -- One row says Simulated, and that is now a decision ----------------------
+//
+// This paragraph used to argue that no row here should be hal::Simulated{},
+// because it "would read as a decision rather than a gap". That was right while
+// every driver in the tree answered from its own simulation hooks and no driver
+// read its address at all: an invented hostname was then a note to a reviewer
+// and nothing more.
+//
+// hal::keysight_edu34450a::EDU34450A changed that. It is the first driver here
+// that opens a real session -- SCPI over a socket to the address in this column
+// (see hal/io/transport.hpp) -- so for that row this column stopped being a
+// note and became an instruction. "Lan( "bench-dmm1")" now means *connect to
+// bench-dmm1*, and every reading taken through Dmm1 on a bench where no such
+// host exists fails with a name-resolution error, correctly and immediately.
+//
+// So Dmm1 is hal::Simulated{}, which has become the accurate statement rather
+// than the evasive one: there is no meter, this driver can tell, and the honest
+// thing for the table to say is that its readings come from the driver's own
+// hooks. It is still a gap -- the TODO above still holds, and closing it for
+// this row means a hostname *and* a box that answers to it -- but it is now a
+// gap that has to be stated in the type rather than in a comment, because the
+// code has started reading the column.
+//
+// The rule to apply as the other drivers grow transports, in one line: a row
+// may name a real bus address when there is a real instrument at it, and must
+// say Simulated{} until then. The four rows below that still carry invented
+// addresses do so because their drivers still ignore them entirely -- an
+// L4411A, a DSO8064A, an N6701A, an Ac6834B and a Racal1260 answer from
+// simulation hooks whatever this column says -- and they keep their addresses
+// because those addresses are this table's worked examples of the three bus
+// kinds a rig meets (see the paragraphs above and below on exactly that). The
+// day one of those drivers opens a session, its row gets the same treatment
+// this one just did.
+//
+// What is deliberately NOT lost by this: an attached run still reaches this
+// driver, and that is what the acceptance suite checks (see
+// acceptance/test_acceptance.cpp's AcceptanceBench group). hal::Simulated
+// removes the socket, not the driver -- Measure still calls rawMeasure, the
+// journal still records the reading, and the run still fails its criteria
+// because a simulated meter reads zero volts. What it removes is a CI machine
+// trying to open a TCP connection to a hostname that describes a rack nobody
+// has built.
 //
 // Ser1's row is Serial on purpose, and for a reason that is not a claim about
 // the bench: it is this table's one worked example of a PC-attached serial
@@ -96,7 +140,7 @@
 // a reason to keep this row wrong.
 //
 INSTRUMENTS
-    INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "bench-dmm1"))
+    INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Simulated{})            // TODO(bench): Lan( "bench-dmm1") once a meter answers there -- this driver connects
     INSTRUMENT( keysight_l4411a::L4411A,       Dmm2, Lan( "bench-dmm2"))
     INSTRUMENT( keysight_dso8064a::DSO8064A,   Osc1, Lan( "bench-osc1"))
     INSTRUMENT( keysight_n6701a::Direct,       DcP1, Gpib( 0, 14), 1)
