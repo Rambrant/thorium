@@ -10,8 +10,8 @@ here knows what "Device X" is (DUT-specific data lives under `dut/`,
 see its README) or what instruments a given rig actually has, what switching
 hardware sits between them, how they're wired, or what to call any of it
 (that's `rig/`, see its own README). A rig supplies those as four file paths
-at configure time -- see `THORIUM_ACTIVE_INSTRUMENTS`/
-`THORIUM_INSTRUMENT_TABLE`/`THORIUM_DEVICE_TABLE`/`THORIUM_WIRING_TABLE` in
+at configure time -- see `THORIUM_INSTRUMENT_TABLE`/
+`THORIUM_DEVICE_TABLE`/`THORIUM_WIRING_TABLE` in
 this directory's `CMakeLists.txt` -- the same
 compile-definition-swap mechanism `core/criteria/active_criteria.hpp` already uses
 for `THORIUM_CRITERIA_VARIANT_TABLES`. This repo's own top-level `CMakeLists.txt`
@@ -33,12 +33,15 @@ possible, and it is worth understanding before changing anything here.
 | | Sources | Compiles against |
 |---|---|---|
 | `hal` | `vpc_location` `switch_fabric` `instrument` `wiring` | `core`, and `rig/instrument.inc` for `InstrumentId`'s enumerators |
-| `hal_rig` | `apply` `measure` `safing` | all of the above, plus `rig/active_instruments.hpp` and so every driver behind it |
+| `hal_rig` | `apply` `measure` `safing` | all of the above, plus `hal/topology/active_instruments.hpp` and so every driver behind it |
 
 The asymmetry was always there and one target hid it. A driver must compile
 against `hal`, so `hal` has to be configurable before any driver is; but
-`active_instruments.hpp` reaches the drivers, so anything expanding it must come
-after them. The `instruments/` tree is configured between the two.
+`active_instruments.hpp` reaches the drivers (through the include list
+generated from the rig's instrument table, via `THORIUM_INSTRUMENT_DRIVERS`),
+so anything including it must come after them. That is why that one header, alone among
+`hal/topology/`, is listed on `hal_rig` rather than on `hal`. The
+`instruments/` tree is configured between the two.
 
 What this buys, beyond ordering: what a driver may assume is now exactly what
 `hal` exports, checked by the build rather than by reviewers. Note that the

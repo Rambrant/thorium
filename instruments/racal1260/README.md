@@ -118,7 +118,6 @@ than the test authored replies for throws rather than repeating the last one.
 
 ```
 rig/instrument.inc          INSTRUMENT( Racal1260, Ser1)
-rig/active_instruments.hpp  #include "hal/racal1260.hpp"
 rig/wiring.inc              WIRE_INSTRUMENT rows for its own channels,
                             WIRE_CONNECTOR rows for the interface's pins
 dut/adapter.inc             a BUNDLE for the interface it talks to

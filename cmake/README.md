@@ -1,6 +1,6 @@
 # cmake/ — the build's own moving parts
 
-Four files, each solving one problem the top-level `CMakeLists.txt` would
+Five files, each solving one problem the top-level `CMakeLists.txt` would
 otherwise solve badly inline. Nothing here is generic CMake boilerplate: each
 exists because a hand-written alternative had a failure mode worth avoiding, and
 that reasoning is the useful part of the file.
@@ -8,12 +8,13 @@ that reasoning is the useful part of the file.
 | File | Kind | Runs at | Entry point |
 |---|---|---|---|
 | `CriteriaVariants.cmake` | module, `include()`d | configure | `thorium_generate_criteria_variants()` |
+| `InstrumentDrivers.cmake` | module, `include()`d | configure | `thorium_generate_instrument_drivers()` |
 | `FetchGTest.cmake` | module, `include()`d | configure | `add_layer_tests()` |
 | `GenerateManifest.cmake` | script, `install(SCRIPT)` | **install** | the whole file |
 | `ThoriumConfig.cmake.in` | template, `configure_package_config_file()` | configure → install | `find_package(Thorium)` |
 
-The distinction in the *Kind* column matters. Two are modules included into the
-project's scope, so their functions are callable from any `CMakeLists.txt`. One
+The distinction in the *Kind* column matters. Three are modules included into
+the project's scope, so their functions are callable from any `CMakeLists.txt`. One
 is a standalone script executed in a fresh interpreter at install time, with no
 access to project variables except what the surrounding `install(CODE ...)`
 calls put in scope. One is never executed here at all — it is installed, to be
@@ -75,6 +76,41 @@ The variant list also becomes an X-macro,
 anything cleverer because what is repeated is a *token* — a namespace name
 pasted next to a group or `CRIT` identifier — and the preprocessor is the only
 stage that can still paste tokens.
+
+## `InstrumentDrivers.cmake` — the driver includes, read off the instrument table
+
+`hal/topology/active_instruments.hpp` declares the rig's instrument globals
+from `rig/instrument.inc`, so the driver headers behind that table's type
+column have to be visible before it expands. This module generates them:
+`instrument_drivers.hpp`, one `#include` per distinct driver, in the order the
+table first names them.
+
+It works because a driver package, its header and its namespace all carry one
+name — `keysight_n6701a`, `hal/keysight_n6701a.hpp`, `hal::keysight_n6701a` —
+so the qualifier on a row's type column (`keysight_n6701a::Direct`) already
+names the header that row needs. Four `DcP` rows share one driver and collapse
+to one include.
+
+The preprocessor could not do this itself, twice over: a macro expansion cannot
+emit an `#include` directive at all, and `instrument.inc` is read a second time
+by `hal/driver/instrument.hpp` — inside plain `hal`, which every driver depends
+on — where those headers must not appear. So it is either this or a
+hand-written list beside the table, which is what `rig/` used to hold: six
+lines restating what the type column already said.
+
+Two configure-time checks, both for mistakes the compiler would otherwise
+report from inside the generated file: a type column with no namespace
+qualifier (there is no header to derive and no honest guess), and a row naming
+a driver no configured package provides — which is what
+`THORIUM_INSTRUMENT_PACKAGES` excluding a driver the rig still names looks
+like. The package check goes through `THORIUM_INSTRUMENT_DIRS`, the directory
+list the rig supplied, rather than deriving a target name from the namespace:
+a driver package names its own target, and this must not start guessing it
+back.
+
+`instrument.inc` is a `CMAKE_CONFIGURE_DEPENDS` of `framework/hal/`, so editing
+a row regenerates the list on the next build. Written only when the content
+changes, for the same reason `CriteriaVariants.cmake` does it.
 
 ## `FetchGTest.cmake` — GoogleTest once, plus the per-layer test helper
 
@@ -164,7 +200,7 @@ It has no `find_dependency()` calls, because `core` and `hal` have no
 third-party dependency in their installed interface. GoogleTest is test-only.
 
 **What the package does not give a consumer:** a `hal` that works on their
-bench. `hal`'s `THORIUM_ACTIVE_INSTRUMENTS` / `THORIUM_INSTRUMENT_TABLE` /
+bench. `hal`'s `THORIUM_INSTRUMENT_TABLE` /
 `THORIUM_WIRING_TABLE` are baked in by `#include` at hal's own compile time, so
 an installed `libhal.a` is only ever built for the one rig that supplied those
 paths when *it* was configured. A different rig has to build hal from source
@@ -180,11 +216,14 @@ configures — not link a prebuilt hal from somebody else's install. See
 `instruments/*/CMakeLists.txt` are globbed: whether a file is present is the
 whole question, and a stale hand-written list would silently under-report.
 `THORIUM_KNOWN_CRITERIA_VARIANTS` and `rig/instrument.inc` are written out
-longhand: the list itself is the content, and its order is meaningful.
+longhand: the list itself is the content, and its order is meaningful. Anything
+derivable from one of those lists is generated from it rather than written
+beside it — which is what `InstrumentDrivers.cmake` does with the driver
+includes.
 
 **Fail at configure time, naming the list.** Both of `CriteriaVariants.cmake`'s
-checks exist because the same mistake, left to the compiler, produces an error
-inside a generated file that points at neither the declaration nor the
-requirement. That is the CMake-side counterpart to what the C++ does with
+checks and both of `InstrumentDrivers.cmake`'s exist because the same mistake,
+left to the compiler, produces an error inside a generated file that points at
+neither the declaration nor the requirement. That is the CMake-side counterpart to what the C++ does with
 `static_assert` — see the root [`README.md`](../README.md) on making things
 compile errors where they can be.

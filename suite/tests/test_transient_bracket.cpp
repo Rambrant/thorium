@@ -7,7 +7,7 @@
 // whole effect is: neither hook records a check, so there is no journal row to
 // read it off instead.
 //
-#include THORIUM_ACTIVE_INSTRUMENTS
+#include "hal/topology/active_instruments.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
 #include "hal/fabric/switch_fabric.hpp"

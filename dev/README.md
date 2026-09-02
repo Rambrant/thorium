@@ -155,8 +155,8 @@ glob picks up the file; the catalog name-checks against the header.
 `CRIT_FROM_PRODUCTION` and no variant to keep in step.
 
 **A second instrument.** One `INSTRUMENT(...)` row in `dev/rig/instrument.inc`,
-its driver header in `dev/rig/active_instruments.hpp`, its package in
-`THORIUM_INSTRUMENT_PACKAGES`, and the count in `dev/rig/tests/test_dev_rig.cpp` —
+its package in `THORIUM_INSTRUMENT_PACKAGES` (the row's own type column is what
+pulls the driver header in), and the count in `dev/rig/tests/test_dev_rig.cpp` —
 which will fail until you change it, deliberately: what this bench is should not
 widen quietly.
 

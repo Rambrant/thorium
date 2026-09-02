@@ -109,7 +109,6 @@ their id at once.
 
 ```
 rig/instrument.inc          INSTRUMENT( Ac6834B, AcP1)
-rig/active_instruments.hpp  #include "hal/keysight_ac6834b.hpp"
 rig/wiring.inc              WIRE_INSTRUMENT   four channels under one id: phases A/B/C + return
                             WIRE_SOURCE       the VPC pin each phase is cabled onto
 dut/adapter.inc             BUNDLE of four SOURCE_LINEs, one per conductor

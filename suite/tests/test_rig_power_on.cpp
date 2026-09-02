@@ -4,7 +4,7 @@
 // Reaches the rig's instrument globals and the fabric directly, for the same
 // reason test_rig_power_off.cpp does -- see that file's header comment.
 //
-#include THORIUM_ACTIVE_INSTRUMENTS
+#include "hal/topology/active_instruments.hpp"
 #include "hal/verbs/measure.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"

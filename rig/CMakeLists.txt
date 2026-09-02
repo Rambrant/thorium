@@ -1,5 +1,5 @@
 # No library target here: rig/ holds only this rig's own data (instrument.inc,
-# devices.inc, wiring.inc, active_instruments.hpp), not code -- see README.md.
+# devices.inc, wiring.inc), not code -- see README.md.
 # The same shape dut/CMakeLists.txt has, and for the same reason: a directory of
 # data can still have tests, and those tests need a target somewhere.
 #
@@ -11,8 +11,8 @@
 # why a test naming two drivers cannot live in either driver's directory.
 #
 # Linked against hal_rig, not hal, and every one of these files needs something
-# from that half: test_safing.cpp expands THORIUM_ACTIVE_INSTRUMENTS and calls
-# hal::safeRig(), test_interlock.cpp expands it and calls
+# from that half: test_safing.cpp includes hal/topology/active_instruments.hpp
+# and calls hal::safeRig(), test_interlock.cpp includes it and calls
 # hal::energisedSourceAt(), and the rest drive the Apply/Connect/Measure
 # engines. (No count here on purpose -- the last one went stale the first time a
 # file was added.) hal_rig carries the driver targets as PUBLIC link libraries, so the

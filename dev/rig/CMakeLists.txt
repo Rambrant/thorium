@@ -8,7 +8,8 @@
 # collide; see the top-level file's own comment on why that is deliberate.
 #
 # Linked against hal_rig for the same reason the bench rig's tests are: these
-# files expand THORIUM_ACTIVE_INSTRUMENTS and name Dmm1 and hal::safeRig().
+# files include hal/topology/active_instruments.hpp and name Dmm1 and
+# hal::safeRig().
 if(BUILD_TESTING_LAYERS)
     add_layer_tests(rig hal_rig ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 

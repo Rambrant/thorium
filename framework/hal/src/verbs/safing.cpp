@@ -1,6 +1,6 @@
 #include "hal/verbs/safing.hpp"
 
-#include THORIUM_ACTIVE_INSTRUMENTS
+#include "hal/topology/active_instruments.hpp"
 #include "hal/driver/instrument.hpp"
 
 #include <concepts>
@@ -30,15 +30,15 @@ namespace hal
     // marker), reflected over rather than hand-maintained: a hand-maintained
     // list of instruments to safe would be a second copy of rig/instrument.inc,
     // and the failure mode of a second copy is that it silently falls behind
-    // the first. An instrument added to the rig (rig/active_instruments.hpp,
-    // reached via THORIUM_ACTIVE_INSTRUMENTS above) is safed because it was
+    // the first. An instrument added to the rig (rig/instrument.inc, reached
+    // through hal/topology/active_instruments.hpp above) is safed because it was
     // added to the rig, not because somebody also remembered to add it here
     // -- and, unlike the X-macro-redefinition version this replaced, that
     // holds even for an instrument global declared some other way entirely,
     // as long as its type derives from InstrumentTag; there is no second
     // .inc read to fall out of sync with in the first place.
     //
-    // ^^:: is the global namespace -- rig/active_instruments.hpp deliberately
+    // ^^:: is the global namespace -- hal/topology/active_instruments.hpp deliberately
     // declares Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1 unqualified there (see that
     // file's own comment on why), so that's where they live to reflect over.
     // Filtering on "derives from InstrumentTag" rather than "has a safe()

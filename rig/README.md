@@ -16,11 +16,10 @@ for the four `THORIUM_*` compile definitions (declared and validated in
 
 ```
 rig/
-    CMakeLists.txt         # no library -- just rig_tests, over the four files below
+    CMakeLists.txt         # no library -- just rig_tests, over the three files below
     instrument.inc         # THORIUM_INSTRUMENT_TABLE -- this rig's fixed instrument list, and hal::InstrumentId's enumerators
     devices.inc            # THORIUM_DEVICE_TABLE -- this rig's switching cards, and hal::SwitchDeviceId's enumerators
     wiring.inc             # THORIUM_WIRING_TABLE -- this rig's fixed instrument/connector wiring
-    active_instruments.hpp # THORIUM_ACTIVE_INSTRUMENTS -- Dmm1/Dmm2/Osc1/DcP1..DcP4/AcP1/Ser1/fabric
     tests/                 # the integration tests that need this rig rather than a mechanism
 ```
 
@@ -34,13 +33,23 @@ separate parameter for it), how the PC reaches it, and any constructor
 arguments (e.g. `hal::keysight_n6701a::N6701A`'s slot number). Included from two different
 places, each with `INSTRUMENT` defined for its own purpose:
 
-- `active_instruments.hpp` below declares each id as an actual global
+- `hal/topology/active_instruments.hpp` declares each id as an actual global
 - `hal/driver/instrument.hpp` keeps only each id, to generate `hal::InstrumentId`'s
   enumerators (see that header's own comment)
 
 Both reads see this exact list, so an instrument added here can never
 desync from its own identity enumerator -- there's nothing left to desync
 from.
+
+CMake reads it a third time, at configure time rather than through the
+preprocessor: `cmake/InstrumentDrivers.cmake` takes the namespace qualifier off
+each row's type column (`keysight_n6701a` in `keysight_n6701a::Direct`) and
+generates the `#include` list `active_instruments.hpp` opens before it expands
+the table. A driver package, its header and its namespace all carry one name,
+so the qualifier that tells a *reader* which driver a row is also tells the
+build. That is why adding an instrument here is one row and nothing else --
+there is no include list in this directory to keep in step, and a row naming a
+driver this build has no package for fails at configure time saying so.
 
 The `address` column is the control side -- `Gpib(0, 14)`,
 `Lan("bench-dmm1")`, `Serial("/dev/ttyUSB0")` -- as against the signal side
@@ -54,7 +63,7 @@ that dies on its first reading.
 `DcP1`..`DcP4` all carry the same address on purpose: four modules behind one
 mainframe interface is one address and four slots, and the slot stays a
 separate constructor argument rather than a field on the address (see
-`active_instruments.hpp`'s own comment for that argument in full).
+`hal/topology/active_instruments.hpp`'s own comment for that argument in full).
 
 `Dmm1` and `Dmm2` are two *different* models, which is the easiest thing in this
 table to skim past. They were two `hal::keysight_l4411a::L4411A` instances --
@@ -182,15 +191,21 @@ Channels are written the way each card's manual numbers them:
 `<group><row><column>`, `BANK( RfMux1, 0, 1)` for the E1472A's
 `<bank><channel>`.
 
-## active_instruments.hpp
+## What is *not* here
 
-Declares this rig's actual instrument globals (`Dmm1`, `Dmm2`, `Osc1`,
-`DcP1`..`DcP4`, `AcP1`, `Ser1` in this repo) plus `hal::fabric`, the switching
-fabric's own global state. A script writes `Dmm1`/`DcP1`/etc directly --
-no factory function, no lookup -- so this file, together with
-`instrument.inc` right alongside it, is this rig's entire contribution to
-what would otherwise be a generic `hal::` library with no instruments
-plugged into it at all.
+The mechanism that turns these three tables into this rig's actual instrument
+globals (`Dmm1`, `Dmm2`, `Osc1`, `DcP1`..`DcP4`, `AcP1`, `Ser1`) plus
+`hal::fabric` is `hal/topology/active_instruments.hpp`, in the framework
+alongside the `wiring.hpp`/`adapter.hpp` mechanisms behind the other
+declarative tables. It used to be an `active_instruments.hpp` in this
+directory, which meant every rig carrying its own copy of a macro definition
+that never varies.
+
+What did vary was that file's driver `#include`s, and those are now generated
+from `instrument.inc` (see above). So what is left here is content: three
+tables of this bench's facts, and no C++ scaffolding at all. That is this
+rig's entire contribution to what would otherwise be a generic `hal::` library
+with no instruments plugged into it at all.
 
 ## tests/
 
@@ -204,7 +219,7 @@ stop being packageable on its own — see `instruments/README.md`).
 | File | What makes it rig-level |
 |---|---|
 | `test_call_syntax.cpp` | source a rail, connect it, measure it with a second instrument, tear down — three drivers and four engines, the shape a script actually writes |
-| `test_safing.cpp` | expands `active_instruments.hpp` and calls `hal::safeRig()`, which reflects over this rig's real globals |
+| `test_safing.cpp` | includes `hal/topology/active_instruments.hpp` and calls `hal::safeRig()`, which reflects over this rig's real globals |
 | `test_source_instruments.cpp` | `Connect`/`Disconnect` being additive, which takes a DC supply and an AC source in one test |
 | `test_describe.cpp` | that the engines actually post `describeConfig`'s output to the journal |
 | `test_source_readback.cpp` | a source measuring its own output, and leaving the fabric untouched |

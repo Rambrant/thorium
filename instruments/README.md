@@ -137,7 +137,7 @@ out of this tree:
 | File | Why it can't live in a driver directory |
 |---|---|
 | `test_call_syntax.cpp` | names three drivers at once |
-| `test_safing.cpp` | names all four, and expands `THORIUM_ACTIVE_INSTRUMENTS` |
+| `test_safing.cpp` | names all four, and includes `hal/topology/active_instruments.hpp` |
 | `test_source_instruments.cpp` | one test needing both a DC supply and an AC source |
 | `test_describe.cpp`, `test_source_readback.cpp` | assert that the *engines* post to the journal — a claim about the engine-and-driver pair, which neither side can make about itself |
 
@@ -185,9 +185,12 @@ Leave the `THORIUM_REQUIRE_HAL_API` line copied from the template alone unless
 the new driver actually needs something newer than the version it names — see
 the next section for what the number means.
 
-Then add an `INSTRUMENT()` line to `rig/instrument.inc` and an `#include` to
-`rig/active_instruments.hpp` — the driver is available after the copy, and part
-of the rig after those two lines.
+Then add an `INSTRUMENT()` line to `rig/instrument.inc`. That is the whole
+second step: the driver is available after the copy and part of the rig after
+that one line. Its header does not have to be included anywhere by hand — the
+row's type column names the driver's namespace, and
+`cmake/InstrumentDrivers.cmake` turns that into the `#include` at configure
+time.
 
 ## Which hal a driver was written against
 

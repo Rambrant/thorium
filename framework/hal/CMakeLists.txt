@@ -4,15 +4,18 @@
 # README.md) -- so it cannot hardcode which instruments a given rig has,
 # how they're wired, what switching hardware sits between them, or what to
 # call any of it. Whoever configures a build that includes this directory
-# supplies that as four file paths: this repo's own
+# supplies that as three file paths: this repo's own
 # top-level CMakeLists.txt does it below (pointing at ./rig/), the same way
 # a separate rig's own top-level CMakeLists.txt would after pulling this
 # library in via add_subdirectory/FetchContent. Same compile-definition-
 # swap mechanism core/criteria/active_criteria.hpp already uses for
 # THORIUM_CRITERIA_VARIANT_TABLES/THORIUM_TEST_CATALOG -- see rig/README.md for
-# what each of these four files actually contains.
-set(THORIUM_ACTIVE_INSTRUMENTS "" CACHE FILEPATH
-    "Path to the linking rig's active_instruments.hpp (its concrete instrument globals + fabric)")
+# what each of these three files actually contains.
+#
+# Three, not four: the driver headers the instrument table's type column needs
+# used to be a fourth file the rig wrote by hand, and are now generated from
+# that column (see cmake/InstrumentDrivers.cmake, called below). A rig states
+# what instruments it has once, in the table, and everything follows.
 set(THORIUM_INSTRUMENT_TABLE "" CACHE FILEPATH
     "Path to the linking rig's instrument.inc (its fixed instrument list, and hal::InstrumentId's enumerators)")
 set(THORIUM_WIRING_TABLE "" CACHE FILEPATH
@@ -20,7 +23,7 @@ set(THORIUM_WIRING_TABLE "" CACHE FILEPATH
 set(THORIUM_DEVICE_TABLE "" CACHE FILEPATH
     "Path to the linking rig's devices.inc (its switching devices, and hal::SwitchDeviceId's enumerators)")
 
-foreach(_thorium_rig_var THORIUM_ACTIVE_INSTRUMENTS THORIUM_INSTRUMENT_TABLE THORIUM_WIRING_TABLE THORIUM_DEVICE_TABLE)
+foreach(_thorium_rig_var THORIUM_INSTRUMENT_TABLE THORIUM_WIRING_TABLE THORIUM_DEVICE_TABLE)
     if(NOT ${_thorium_rig_var} OR NOT EXISTS "${${_thorium_rig_var}}")
         message(FATAL_ERROR
             "${_thorium_rig_var} must point at an existing file -- hal is a generic "
@@ -33,20 +36,22 @@ endforeach()
 # This library used to be a single "hal" target, and that hid a real
 # asymmetry. Four of its translation units (vpc_location, switch_fabric,
 # instrument, wiring) compile against nothing but core and their own
-# generic headers. Three others (route, measure, safing) open the
-# linking rig's active_instruments.hpp -- which declares that rig's
-# instrument globals, and so #includes that rig's concrete driver headers.
-# One target meant one compile-time dependency set, so the generic four
-# inherited the rig coupling of the other three whether they used it or
-# not. (src/verbs/source.cpp is the one file on the rig-coupled side that opens
+# generic headers. Three others (route, measure, safing) open
+# hal/topology/active_instruments.hpp -- which declares the linking rig's
+# instrument globals, and so #includes that rig's concrete driver headers
+# through THORIUM_INSTRUMENT_DRIVERS. One target meant one compile-time
+# dependency set, so the generic four inherited the rig coupling of the
+# other three whether they used it or not. (src/verbs/source.cpp is the one file on the rig-coupled side that opens
 # neither -- it is there for the boundary reason given below, not a
 # technical one.)
 #
 # That distinction is what makes an instruments/ tree possible at all. A
 # driver has to compile against hal (it needs InstrumentId, the Port
 # machinery, the fabric, the describe customization point), so hal must be
-# configurable and buildable *before* any driver is. But active_instruments.hpp
-# reaches the drivers, so anything expanding it must come *after* them.
+# configurable and buildable *before* any driver is. But
+# active_instruments.hpp reaches the drivers, so anything including it must
+# come *after* them -- which is why that header, alone among hal/topology/,
+# belongs to hal_rig below rather than to hal here.
 # Both cannot be true of one target -- hence hal (drivers depend on it) and
 # hal_rig (depends on the drivers), with the instruments/ tree configured
 # between them below.
@@ -94,6 +99,9 @@ add_library(hal STATIC
     include/hal/topology/vpc_location.hpp  # header-only apart from src/topology/vpc_location.cpp
     include/hal/topology/adapter.hpp       # header-only
     include/hal/topology/bundle.hpp        # header-only
+    # active_instruments.hpp is the fourth table mechanism in this folder and is
+    # deliberately NOT here -- it reaches the drivers, so it is listed on
+    # hal_rig below. See this file's own comment on the split.
     include/hal/topology/wiring.hpp        # header-only apart from src/topology/wiring.cpp
 )
 
@@ -128,7 +136,7 @@ install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 # Note this is only the instrument *list* (rig/instrument.inc: ids and driver
 # types as bare tokens), not the instrument *globals*. Expanding it needs no
 # driver header, which is precisely why generic hal can carry it and why
-# hal::InstrumentId exists before any driver does. THORIUM_ACTIVE_INSTRUMENTS
+# hal::InstrumentId exists before any driver does. THORIUM_INSTRUMENT_DRIVERS
 # and THORIUM_WIRING_TABLE belong to hal_rig below, for the opposite reason.
 # THORIUM_DEVICE_TABLE is PUBLIC for exactly the same reason as the instrument
 # table beside it: hal/fabric/switch_device.hpp is a public header and expands it
@@ -201,9 +209,30 @@ foreach(_thorium_instrument_target IN LISTS THORIUM_INSTRUMENT_TARGETS)
     endif()
 endforeach()
 
+# --- The driver headers the instrument table needs, generated from it ---
+# Runs here because it needs both halves: the table (supplied by the rig, at
+# the top of this file) and the driver package directories that must provide
+# what the table names (configured just above). See
+# cmake/InstrumentDrivers.cmake for what it reads out of the table and why
+# this is generated rather than written alongside it.
+#
+# CMAKE_CONFIGURE_DEPENDS on the table itself, so adding an INSTRUMENT row for
+# a driver not yet included re-runs this generation on the next build rather
+# than failing to compile against a list from the previous configure.
+include(InstrumentDrivers)
+
+thorium_generate_instrument_drivers(
+    "${THORIUM_INSTRUMENT_TABLE}"
+    "${THORIUM_INSTRUMENT_DIRS}"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/hal"
+)
+
+set_property(DIRECTORY APPEND
+    PROPERTY CMAKE_CONFIGURE_DEPENDS "${THORIUM_INSTRUMENT_TABLE}")
+
 # --- hal_rig: the half that knows which instruments this rig actually has ---
-# route/measure/safing/interlock all expand THORIUM_ACTIVE_INSTRUMENTS, so all
-# four reach the rig's concrete driver globals (Dmm1, DcP1, ...) and therefore
+# route/measure/safing/interlock all include hal/topology/active_instruments.hpp,
+# so all four reach the rig's concrete driver globals (Dmm1, DcP1, ...) and therefore
 # the driver headers behind them -- see this file's own comment on the split
 # above. safing and interlock go furthest: both reflect over the global
 # namespace for every hal::InstrumentTag-derived variable, which only works
@@ -228,6 +257,7 @@ endforeach()
 # this one: Arm and Await are defined in src/verbs/measure.cpp, not in a
 # translation unit of their own (see that header's own comment on why).
 add_library(hal_rig STATIC
+    include/hal/topology/active_instruments.hpp  # header-only; the rig's instrument globals + fabric
     src/verbs/measure.cpp
     src/verbs/route.cpp
     src/verbs/source.cpp
@@ -243,15 +273,18 @@ add_library(hal_rig STATIC
 )
 
 # PUBLIC on both counts. The driver targets carry the include directories the
-# driver headers are found through, and active_instruments.hpp needs those
-# wherever it is expanded -- which is not only here: rig_tests' test_safing.cpp
-# expands it too, and so would any other rig-level test or a scripts layer that
-# names an instrument global directly. THORIUM_ACTIVE_INSTRUMENTS is PUBLIC for
-# that same reason.
+# driver headers are found through, and the generated include list needs those
+# wherever active_instruments.hpp is included -- which is not only here:
+# rig_tests' test_safing.cpp includes it too, and so would any other rig-level
+# test or a scripts layer that names an instrument global directly.
+# THORIUM_INSTRUMENT_DRIVERS is PUBLIC for that same reason. (The generated
+# file spells each include "hal/<ns>.hpp", exactly as every call site does, so
+# it resolves through those same directories rather than through where it was
+# generated.)
 target_link_libraries(hal_rig PUBLIC hal ${THORIUM_INSTRUMENT_TARGETS})
 
 target_compile_definitions(hal_rig PUBLIC
-    THORIUM_ACTIVE_INSTRUMENTS="${THORIUM_ACTIVE_INSTRUMENTS}"
+    THORIUM_INSTRUMENT_DRIVERS="${THORIUM_INSTRUMENT_DRIVERS}"
 )
 
 # PRIVATE, unlike the two above: rig/wiring.inc is expanded by src/verbs/route.cpp,
@@ -282,7 +315,7 @@ if(BUILD_TESTING_LAYERS)
     # mechanism (test_call_syntax, test_safing, test_interlock,
     # test_source_instruments, test_describe, test_source_readback) went to
     # rig/tests/. What remains
-    # names no driver, expands neither THORIUM_ACTIVE_INSTRUMENTS nor
+    # names no driver, includes neither active_instruments.hpp nor
     # THORIUM_WIRING_TABLE, and tests only hal's own generic machinery: the
     # fabric, the wiring tables, VpcLocation, the adapter macros, addresses,
     # and what is left of test_instrument.cpp.

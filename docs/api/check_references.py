@@ -110,14 +110,14 @@ ALLOWED = {
         'contrast -- "include/hal/ac6834b.hpp, not include/ac6834b.hpp"',
     ( 'instruments/keysight_dso8064a/CMakeLists.txt', 'include/keysight_dso8064a.hpp'):
         'contrast -- "include/hal/dso8064a.hpp, not include/dso8064a.hpp"',
+    ( 'instruments/keysight_edu34450a/CMakeLists.txt', 'include/keysight_edu34450a.hpp'):
+        'contrast -- "include/hal/edu34450a.hpp, not include/edu34450a.hpp"',
     ( 'instruments/keysight_l4411a/CMakeLists.txt', 'include/keysight_l4411a.hpp'):
         'contrast -- "include/hal/l4411a.hpp, not include/l4411a.hpp"',
     ( 'instruments/keysight_n6701a/CMakeLists.txt', 'include/keysight_n6701a.hpp'):
         'contrast -- "include/hal/n6701a.hpp, not include/n6701a.hpp"',
     ( 'instruments/racal1260/CMakeLists.txt', 'include/racal1260.hpp'):
         'contrast -- "include/hal/racal1260.hpp, not include/racal1260.hpp"',
-    ( 'rig/active_instruments.hpp', 'instrument.inc/wiring.inc'):
-        'prose naming two files at once, not a path',
     ( 'rig/instrument.inc', 'InstrumentWiring/wiring.inc'):
         'prose pairing a type with a file, not a path',
 

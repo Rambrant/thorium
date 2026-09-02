@@ -62,7 +62,6 @@ force channel, no driver change needed.
 ```
 rig/instrument.inc          INSTRUMENT( N6701ADirect, DcP1, 1)
                             INSTRUMENT( N6701ARelay,  DcP3, 3)
-rig/active_instruments.hpp  #include "hal/keysight_n6701a.hpp"
 rig/wiring.inc              the fixed channel each relay-isolated output sits on
 ```
 

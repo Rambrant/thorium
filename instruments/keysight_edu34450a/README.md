@@ -148,7 +148,6 @@ pretending a DMM driver is interchangeable across models.
 
 ```
 rig/instrument.inc          INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "bench-dmm1"))
-rig/active_instruments.hpp  #include "hal/keysight_edu34450a.hpp"
 rig/wiring.inc              which fabric channels its force and sense leads land on
 ```
 

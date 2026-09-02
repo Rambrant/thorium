@@ -105,7 +105,7 @@ include(CMakePackageConfigHelpers)
 # nothing and keep the binary's identity unambiguous, which for a thing that
 # writes traceability headers is the property that matters.
 set(THORIUM_RIG_DIR "${CMAKE_SOURCE_DIR}/rig" CACHE PATH
-    "This deployment's rig data: instrument.inc, devices.inc, wiring.inc, active_instruments.hpp")
+    "This deployment's rig data: instrument.inc, devices.inc, wiring.inc")
 set(THORIUM_DUT_DIR "${CMAKE_SOURCE_DIR}/dut" CACHE PATH
     "This deployment's DUT data: adapter.inc and the criteria_<variant>.inc tables")
 set(THORIUM_SUITE_DIR "${CMAKE_SOURCE_DIR}/suite" CACHE PATH
@@ -343,17 +343,16 @@ endif()
 # instruments exist, how they're wired, and what to call them, as three file
 # paths (see framework/hal/CMakeLists.txt's own comment). This repo supplies them
 # from whichever deployment THORIUM_RIG_DIR names above; a separate rig repo
-# pulling hal in later would set these same four variables pointing at its own
+# pulling hal in later would set these same three variables pointing at its own
 # rig/-equivalent instead -- see rig/README.md.
 #
-# Derived from THORIUM_RIG_DIR rather than being four knobs of their own, and
-# FORCE'd because of it: the four are one fact (which bench), and a build with
-# three of them from one rig and the fourth from another is not a configuration
+# Derived from THORIUM_RIG_DIR rather than being three knobs of their own, and
+# FORCE'd because of it: the three are one fact (which bench), and a build with
+# two of them from one rig and the third from another is not a configuration
 # anyone wants to be able to reach by accident. Point THORIUM_RIG_DIR somewhere
-# else to change them. A rig whose files are not named the way these four lines
-# expect is a rig consuming this framework from outside, which sets the four
+# else to change them. A rig whose files are not named the way these three lines
+# expect is a rig consuming this framework from outside, which sets the three
 # directly before hal configures and never reaches this file at all.
-set(THORIUM_ACTIVE_INSTRUMENTS "${THORIUM_RIG_DIR}/active_instruments.hpp" CACHE FILEPATH "" FORCE)
 set(THORIUM_INSTRUMENT_TABLE "${THORIUM_RIG_DIR}/instrument.inc" CACHE FILEPATH "" FORCE)
 set(THORIUM_WIRING_TABLE "${THORIUM_RIG_DIR}/wiring.inc" CACHE FILEPATH "" FORCE)
 set(THORIUM_DEVICE_TABLE "${THORIUM_RIG_DIR}/devices.inc" CACHE FILEPATH "" FORCE)
@@ -443,7 +442,7 @@ add_subdirectory(framework/hal)
 # actually looks for).
 #
 # One thing this does NOT give a consumer: a hal that works for their rig
-# out of the box. hal's THORIUM_ACTIVE_INSTRUMENTS/THORIUM_INSTRUMENT_TABLE/
+# out of the box. hal's THORIUM_INSTRUMENT_TABLE/
 # THORIUM_WIRING_TABLE/THORIUM_DEVICE_TABLE (see framework/hal/CMakeLists.txt) are baked in via
 # #include at hal's OWN compile time, so an installed libhal.a is only ever
 # built for the one rig that supplied those three paths when IT was

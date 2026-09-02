@@ -360,8 +360,8 @@ instrument; trailing arguments are the driver's constructor arguments.
 
 ```cpp
 INSTRUMENTS
-    INSTRUMENT( L4411A,       Dmm3, Lan( "bench-dmm3"))     // a third DMM
-    INSTRUMENT( N6701ARelay,  DcP5, Gpib( 0, 14), 5)        // mainframe slot 5, relay-isolated
+    INSTRUMENT( keysight_l4411a::L4411A, Dmm3, Lan( "bench-dmm3"))  // a third DMM
+    INSTRUMENT( keysight_n6701a::Relay,  DcP5, Gpib( 0, 14), 5)     // slot 5, relay-isolated
 END_INSTRUMENTS
 ```
 
@@ -369,10 +369,17 @@ The address is mandatory, and which bus kinds a row may use is fixed by its
 driver — `Gpib(...)` on an L4411A is a compile error, because an LXI box has no
 GPIB connector (see `hal/driver/address.hpp`).
 
-Nothing else. `hal::InstrumentId`, the global handle, and the safing sweep are
-all derived from this list — safing reflects over `InstrumentTag`-derived globals
-rather than reading the file again, so a new instrument is safed because it
-exists.
+The type column's namespace qualifier is not decoration: a driver package, its
+header and its namespace all carry one name, so `keysight_l4411a` is what tells
+the build to include `hal/keysight_l4411a.hpp`
+(`cmake/InstrumentDrivers.cmake`). An unqualified type, or one naming a driver
+this build has no package for, fails at configure time saying which row and
+why.
+
+Nothing else. `hal::InstrumentId`, the global handle, the driver's `#include`
+and the safing sweep are all derived from this list — safing reflects over
+`InstrumentTag`-derived globals rather than reading the file again, so a new
+instrument is safed because it exists.
 
 ### Add a switching device to the rig
 
@@ -1731,9 +1738,9 @@ cmake --preset macos-debug -DTHORIUM_CRITERIA_VARIANT=stress
 | `THORIUM_RIG_NAME` | `thorium-rig-1` | bench name in the machine log |
 | `THORIUM_SUITE_VERSION`, `THORIUM_DUT_VERSION`, `THORIUM_RIG_VERSION` | `git describe --always --dirty` | content revision in both logs |
 | `BUILD_TESTING_LAYERS` | `ON` | build each layer's tests |
-| `THORIUM_ACTIVE_INSTRUMENTS`, `THORIUM_INSTRUMENT_TABLE`, `THORIUM_WIRING_TABLE` | this repo's `rig/` | the three paths a *separate* rig repo would point at its own data |
+| `THORIUM_INSTRUMENT_TABLE`, `THORIUM_WIRING_TABLE`, `THORIUM_DEVICE_TABLE` | this repo's `rig/` | the three paths a *separate* rig repo would point at its own data |
 
-The last four are how `framework/hal` stays generic: it is compiled against whichever
+The last three are how `framework/hal` stays generic: it is compiled against whichever
 rig supplied those paths, so an installed `libhal.a` is only ever valid for that
 one rig — a different bench builds hal from source against its own tables.
 

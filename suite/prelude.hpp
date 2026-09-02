@@ -40,7 +40,7 @@
 // verbs they are pointed through -- Measure, and the Apply/Connect/Disconnect/
 // Remove sourcing counterparts. at(...) comes with them.
 //
-#include "rig/active_instruments.hpp"
+#include "hal/topology/active_instruments.hpp"
 #include "hal/verbs/measure.hpp"
 #include "hal/verbs/source.hpp"
 #include "hal/verbs/route.hpp"

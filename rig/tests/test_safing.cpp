@@ -1,6 +1,6 @@
 #include "hal/verbs/safing.hpp"
 
-#include THORIUM_ACTIVE_INSTRUMENTS
+#include "hal/topology/active_instruments.hpp"
 #include "hal/keysight_ac6834b.hpp"
 #include "hal/keysight_dso8064a.hpp"
 #include "hal/driver/instrument.hpp"
@@ -75,7 +75,7 @@ namespace
 
     //
     // safeRig() acts on the rig's actual global instruments and global
-    // fabric (rig/active_instruments.hpp), not on locals a fixture owns --
+    // fabric (hal/topology/active_instruments.hpp), not on locals a fixture owns --
     // it takes no arguments precisely because it cannot be handed a
     // substitute. So these tests drive those globals directly, and each
     // one establishes the state it needs rather than assuming the rig is

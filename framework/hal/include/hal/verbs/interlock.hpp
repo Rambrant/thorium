@@ -36,7 +36,7 @@ namespace hal
     // Because answering it takes two things a script's translation unit does
     // not have and must not gain. hal::sourceWiring exists only where the
     // rig's wiring.inc has been expanded, and the instruments' own live state
-    // only where that rig's active_instruments.hpp has -- both of which stop
+    // only where hal/topology/active_instruments.hpp has -- both of which stop
     // at hal/src/verbs/interlock.cpp on purpose (see hal/src/verbs/measure.cpp and
     // hal/src/verbs/route.cpp, which are the same shape for the same reason, and
     // framework/hal/CMakeLists.txt on why that is a target boundary rather than a

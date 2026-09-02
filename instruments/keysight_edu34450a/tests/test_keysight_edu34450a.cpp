@@ -42,8 +42,8 @@ namespace
 
     //
     // And an address is not optional: an instrument the PC cannot reach is not
-    // an instrument a rig has -- see rig/active_instruments.hpp on why the
-    // INSTRUMENT() column is mandatory rather than defaulted.
+    // an instrument a rig has -- see hal/topology/active_instruments.hpp on
+    // why the INSTRUMENT() column is mandatory rather than defaulted.
     //
     static_assert( ! std::constructible_from< hal::keysight_edu34450a::EDU34450A, hal::InstrumentId> );
 

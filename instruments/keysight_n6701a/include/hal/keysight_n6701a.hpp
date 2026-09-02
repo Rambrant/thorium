@@ -208,9 +208,9 @@ namespace hal::keysight_n6701a
             // four modules DcP1..DcP4 model are four endpoints behind ONE
             // interface, so all four rows in a rig's instrument.inc carry the
             // same address and differ in the slot argument below (see
-            // hal::ReachableOver in hal/driver/address.hpp, and rig/
-            // active_instruments.hpp for why the slot is a separate argument
-            // rather than a field on the address).
+            // hal::ReachableOver in hal/driver/address.hpp, and
+            // hal/topology/active_instruments.hpp for why the slot is a
+            // separate argument rather than a field on the address).
             //
             template<typename AddressT>
                 requires ReachableOver<AddressT, Gpib, Lan, Usb>
@@ -386,7 +386,7 @@ namespace hal::keysight_n6701a
     // A rig's instrument.inc (rig/instrument.inc in this repo) names
     // instruments by these aliases, not by N6701A<...> directly -- partly
     // readability, partly mechanical: the INSTRUMENT(type, id, address, ...)
-    // macro in the rig's active_instruments.hpp splits its arguments on
+    // macro in hal/topology/active_instruments.hpp splits its arguments on
     // top-level commas, and N6701A<RelayIsolated> would be split at the
     // angle brackets' own comma-free content just fine here, but a bare
     // comma inside a template argument list (as a future Isolation-like

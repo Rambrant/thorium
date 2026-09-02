@@ -1,6 +1,6 @@
 #include "hal/verbs/interlock.hpp"
 
-#include THORIUM_ACTIVE_INSTRUMENTS
+#include "hal/topology/active_instruments.hpp"
 #include "hal/keysight_l4411a.hpp"
 #include "hal/verbs/measure.hpp"
 #include "hal/keysight_n6701a.hpp"

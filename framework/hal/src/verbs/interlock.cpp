@@ -1,6 +1,6 @@
 #include "hal/verbs/interlock.hpp"
 
-#include THORIUM_ACTIVE_INSTRUMENTS
+#include "hal/topology/active_instruments.hpp"
 #include "hal/driver/instrument.hpp"
 
 #include <concepts>
@@ -13,7 +13,7 @@
 // The two rig facts this answer is composed from, and the reason this file is
 // in hal_rig rather than hal: which pin each source is cabled onto (the wiring
 // table, via hal::sourceWiring) and whether that source is energised right now
-// (the instrument globals, via THORIUM_ACTIVE_INSTRUMENTS above). Neither is
+// (the instrument globals, via active_instruments.hpp above). Neither is
 // visible outside a translation unit that expands them -- see hal/src/verbs/measure.cpp
 // and hal/src/verbs/route.cpp, which are the same shape for the same reason.
 //
@@ -77,7 +77,7 @@ namespace hal
     // Here that failure mode is worse than safing's -- an interlock that has
     // quietly stopped covering a rail reports every route to it as safe.
     //
-    // ^^:: is the global namespace, which is where rig/active_instruments.hpp
+    // ^^:: is the global namespace, which is where hal/topology/active_instruments.hpp
     // declares the instrument globals; see hal/src/verbs/safing.cpp's own comment on
     // why they live there and why the filter is "derives from InstrumentTag"
     // rather than "has the member I am about to call".

@@ -25,8 +25,8 @@ namespace hal
     // instrument model -- see hal::keysight_n6701a::N6701A's own comment in hal/keysight_n6701a.hpp.
     //
     // instrument.inc is read here with INSTRUMENT redefined to keep only
-    // the id token -- the same file rig/active_instruments.hpp declares the
-    // real instrument globals from (INSTRUMENT(type, id, address, ...), one
+    // the id token -- the same file hal/topology/active_instruments.hpp
+    // declares the real instrument globals from (INSTRUMENT(type, id, address, ...), one
     // token for both the global's name and its identity -- see that file's
     // own comment on why there's no separate name parameter to ignore here).
     // The macro is spelled with all of that file's fixed columns even though
@@ -60,8 +60,8 @@ namespace hal
     //
     // push_macro/pop_macro rather than a bare #define/#undef: instrument.inc
     // starts with INSTRUMENTS and ends with END_INSTRUMENTS (see
-    // rig/active_instruments.hpp), so both need to be defined here too,
-    // regardless of whether this header is the first to touch them in a
+    // hal/topology/active_instruments.hpp), so both need to be defined here
+    // too, regardless of whether this header is the first to touch them in a
     // given translation unit or active_instruments.hpp already has.
     //
 #pragma push_macro( "INSTRUMENTS")
@@ -92,7 +92,7 @@ namespace hal
     // hal::keysight_dso8064a::DSO8064A, hal::keysight_n6701a::N6701A<Isolation>, hal::keysight_ac6834b::Ac6834B) inherits it
     // publicly, and nothing else does. hal::safeRig() (hal/src/verbs/safing.cpp)
     // is the only reason this exists: it reflects over the global namespace
-    // for every InstrumentTag-derived variable (rig/active_instruments.hpp
+    // for every InstrumentTag-derived variable (hal/topology/active_instruments.hpp
     // declares those globals unqualified, not inside a struct/namespace
     // this-rig-only code could instead reflect over directly) and calls
     // safe() on each, rather than re-reading rig/instrument.inc a third time

@@ -10,7 +10,7 @@
 // hal/verbs/source.hpp and hal/verbs/route.hpp) end to end, exactly the call syntax a
 // script would write,
 // just against a local fixture rather than the rig's real global fabric/
-// wiring/instruments (see rig/active_instruments.hpp) so tests don't share
+// wiring/instruments (see hal/topology/active_instruments.hpp) so tests don't share
 // state with each other.
 //
 // This also demonstrates the two shapes Connect/Disconnect can take side by

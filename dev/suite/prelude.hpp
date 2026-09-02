@@ -19,7 +19,7 @@
 // question rather than a prelude question.
 //
 #include "dev/suite/scripts.hpp"
-#include "dev/rig/active_instruments.hpp"
+#include "hal/topology/active_instruments.hpp"
 
 #include "hal/verbs/measure.hpp"
 #include "hal/verbs/source.hpp"

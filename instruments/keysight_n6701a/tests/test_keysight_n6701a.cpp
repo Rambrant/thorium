@@ -32,8 +32,9 @@
 //
 // The mainframe's interfaces, plus the argument the address deliberately
 // does not carry: the slot stays a constructor parameter of its own, so a
-// module declared without one does not compile (see rig/
-// active_instruments.hpp on why it was not folded into the address).
+// module declared without one does not compile (see
+// hal/topology/active_instruments.hpp on why it was not folded into the
+// address).
 //
 namespace
 {
@@ -251,7 +252,7 @@ TEST_F( SourceInstrumentFixture, TwoN6701AChannelsAreProgrammedIndependently)
 // One mainframe, four modules: the address is the box's and is therefore the
 // same for every module in it, while the slot is what tells them apart. That
 // is the reason the two are separate constructor arguments rather than one
-// combined "where is it" value -- see rig/active_instruments.hpp's own
+// combined "where is it" value -- see hal/topology/active_instruments.hpp's own
 // comment, and rig/instrument.inc, where all four DcP rows repeat the one
 // address deliberately.
 //

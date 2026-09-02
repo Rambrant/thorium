@@ -149,7 +149,7 @@ namespace hal
     // Measure/Apply overload a set of ids that cannot answer them.
     //
     // The same split is already visible in how the globals are declared:
-    // rig/active_instruments.hpp declares Dmm1 unqualified because a test
+    // hal/topology/active_instruments.hpp declares Dmm1 unqualified because a test
     // script writes that name itself, and hal::fabric qualified because
     // nothing but the measure/apply assembly ever names it.
     //

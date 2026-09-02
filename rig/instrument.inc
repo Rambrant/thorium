@@ -3,8 +3,8 @@
 //
 // This rig's fixed, concrete instrument list -- included from two
 // different places, each with INSTRUMENT defined for its own purpose:
-// rig/active_instruments.hpp declares each id below as an actual global,
-// and hal/driver/instrument.hpp keeps only each id to generate
+// hal/topology/active_instruments.hpp declares each id below as an actual
+// global, and hal/driver/instrument.hpp keeps only each id to generate
 // hal::InstrumentId's enumerators. Both read this exact list, so an
 // instrument added here can never desync from its own identity enumerator
 // -- there is nothing left to desync from, since the enumerator comes from
@@ -20,10 +20,14 @@
 // globals instead (see that struct's own comment in hal/driver/instrument.hpp),
 // because InstrumentId already existed by the time IT ran.
 //
-// See rig/active_instruments.hpp's own comment for the INSTRUMENTS/
+// See hal/topology/active_instruments.hpp's own comment for the INSTRUMENTS/
 // INSTRUMENT/END_INSTRUMENTS macros this expands through, and rig/wiring.inc
-// for the sibling fact (which channel each of these instruments is wired
-// to).
+// for the sibling fact (which channel each of these instruments is wired to).
+//
+// The type column's namespace qualifier does double duty: it says which
+// driver a row is to a reader, and it is also what generates that driver's
+// #include (cmake/InstrumentDrivers.cmake). Adding an instrument is this one
+// row and nothing else.
 //
 // DcP1..DcP4 are the N6701A mainframe's four module slots, each its own
 // hal::keysight_n6701a::N6701A instance -- see that class's own comment in hal/keysight_n6701a.hpp
@@ -46,7 +50,7 @@
 //
 // The third column is how the *PC* reaches each instrument -- the control
 // side, as against the signal side wiring.inc describes (see hal/driver/address.hpp
-// for the distinction, and rig/active_instruments.hpp for why it is a fixed
+// for the distinction, and hal/topology/active_instruments.hpp for why it is a fixed
 // column rather than one more constructor argument). Which bus kinds a given
 // row may use is fixed by its driver, not by this file: an L4411A is an LXI
 // box with no GPIB connector, so Gpib( ...) on one of the Dmm rows is a

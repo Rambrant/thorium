@@ -1,6 +1,6 @@
 #include "hal/verbs/safing.hpp"
 
-#include THORIUM_ACTIVE_INSTRUMENTS
+#include "hal/topology/active_instruments.hpp"
 #include "hal/driver/instrument.hpp"
 #include "hal/keysight_edu34450a.hpp"
 #include "hal/fabric/switch_device.hpp"

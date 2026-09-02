@@ -3,7 +3,7 @@
 //
 // Four globals and nothing else. Unlike hal/src/verbs/route.cpp and
 // hal/src/verbs/measure.cpp beside it, this translation unit expands neither
-// THORIUM_ACTIVE_INSTRUMENTS nor THORIUM_WIRING_TABLE: the sourcing engines
+// active_instruments.hpp nor THORIUM_WIRING_TABLE: the sourcing engines
 // hold no state at all (see core/verbs/source.hpp -- routing, and with it
 // every rig fact, moved out from under Apply), so there is nothing here for a
 // rig to supply.

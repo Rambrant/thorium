@@ -4,7 +4,7 @@
 // The dev bench's instrument list: one meter, and nothing else.
 //
 // Read exactly the way rig/instrument.inc is -- twice, once by
-// dev/rig/active_instruments.hpp to declare the global and once by
+// hal/topology/active_instruments.hpp to declare the global and once by
 // hal/driver/instrument.hpp to generate hal::InstrumentId's enumerators -- so see
 // that file's own comment for the mechanism. What is worth saying here is
 // what makes this list different from the bench's.
@@ -19,7 +19,8 @@
 // -- both for the same reason, which is that it is the meter actually on hand.
 // The change is worth more here than on the bench, because here it is the
 // whole deployment: a dev build compiles against exactly the drivers this file
-// names (see dev/rig/active_instruments.hpp), so the driver under development
+// names -- its type column is what pulls a driver header in at all, via
+// cmake/InstrumentDrivers.cmake -- so the driver under development
 // is the only driver in the binary. See instruments/keysight_edu34450a/ for
 // what the model is, and dev/suite/scripts/dmm_self_check.cpp for the reading
 // this deployment takes from it -- including capacitance, which is the one

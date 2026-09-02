@@ -32,7 +32,7 @@ namespace
 
     //
     // A rig may hoist a shared box's address into a named constant above its
-    // instrument table (see rig/active_instruments.hpp's own comment on the
+    // instrument table (see rig/instrument.inc's own comment on the
     // four DcP rows) -- which only works because every alternative stays a
     // literal type. Nothing else in this codebase would notice if a future
     // field broke that, so it is asserted here rather than discovered by the

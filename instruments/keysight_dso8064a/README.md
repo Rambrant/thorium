@@ -233,7 +233,6 @@ samples to a file beside the recording (see `core/session/recording.hpp`).
 
 ```
 rig/instrument.inc          INSTRUMENT( DSO8064A, Osc1, Lan( "bench-osc1"))
-rig/active_instruments.hpp  #include "hal/keysight_dso8064a.hpp"
 rig/wiring.inc              which fabric channel its probe input lands on
 ```
 

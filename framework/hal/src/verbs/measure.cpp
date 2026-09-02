@@ -3,7 +3,7 @@
 #include "hal/verbs/acquire.hpp"
 #include "hal/verbs/trace.hpp"
 
-#include THORIUM_ACTIVE_INSTRUMENTS
+#include "hal/topology/active_instruments.hpp"
 #include "hal/topology/wiring.hpp"
 
 //

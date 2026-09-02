@@ -48,7 +48,6 @@ one mode — so it is documented and tested rather than designed away. See
 
 ```
 rig/instrument.inc          INSTRUMENT( L4411A, Dmm1)
-rig/active_instruments.hpp  #include "hal/keysight_l4411a.hpp"
 rig/wiring.inc              which fabric channels its force and sense leads land on
 ```
 
