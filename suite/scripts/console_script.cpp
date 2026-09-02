@@ -12,6 +12,8 @@
 // separate thing that can go wrong, and a log that shows them in order is what
 // tells you whether a silent DUT was misconfigured, unconnected or simply dead.
 //
+namespace ser = hal::racal1260;
+
 auto consoleScript() -> void
 {
     using namespace std::chrono_literals;
@@ -33,8 +35,8 @@ auto consoleScript() -> void
     Setup( Ser1.rs232()
                .baudRate( 9600)
                .wordLength( 8)
-               .parity( hal::racal1260::Parity::None)
-               .stopBits( hal::racal1260::StopBits::One));
+               .parity( ser::Parity::None)
+               .stopBits( ser::StopBits::One));
 
     Write( Ser1.rs232(), "RD 30\r");
 

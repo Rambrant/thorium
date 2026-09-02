@@ -23,6 +23,27 @@
 // a missing transient means the DUT held up, the scope never triggered, or the
 // rail was never dropped in the first place.
 //
+
+//
+// The scope's own vocabulary, shortened -- osc::Coupling::Dc rather than
+// hal::keysight_dsox1202g::Coupling::Dc, eight times below.
+//
+// An alias rather than a using-directive, and the difference is what a reader
+// of one line can still tell. `using namespace` would let this file say
+// `Coupling::Dc` and `Bandwidth::Limited` with nothing left saying which
+// instrument those belong to -- and a driver's enums are exactly where that
+// matters, because the two scope drivers in this tree each declare a
+// Bandwidth, a TriggerSlope, a TimebaseReference and a ChannelDisplay meaning
+// different sets of values. Nothing collides here today only because
+// instrument.inc names one scope and so only one driver header reaches this
+// translation unit; the alias does not depend on that staying true.
+//
+// Same reasoning rig/instrument.inc's type column gives for staying qualified:
+// the namespace token is the one thing on the line that says which driver this
+// is, and it is worth keeping legible rather than short.
+//
+namespace osc = hal::keysight_dsox1202g;
+
 auto acDropoutScript() -> void
 {
     //
@@ -55,10 +76,10 @@ auto acDropoutScript() -> void
     //
     Setup( Osc1.trigger()
                .edgeSource<2>()
-               .slope( hal::keysight_dsox1202g::TriggerSlope::Falling)
+               .slope( osc::TriggerSlope::Falling)
                .level( 4.8_V)
-               .sweep( hal::keysight_dsox1202g::TriggerSweep::Auto)
-               .coupling( hal::keysight_dsox1202g::TriggerCoupling::Dc));
+               .sweep( osc::TriggerSweep::Auto)
+               .coupling( osc::TriggerCoupling::Dc));
 
     //
     // 10 ms/div with the trigger at the left edge, so the whole 100 ms
@@ -67,7 +88,7 @@ auto acDropoutScript() -> void
     //
     Setup( Osc1.timebase()
                .timePerDivision( 10_ms)
-               .reference( hal::keysight_dsox1202g::TimebaseReference::Left));
+               .reference( osc::TimebaseReference::Left));
 
     //
     // High-resolution acquisition and, below, a bandwidth-limited input.
@@ -90,7 +111,7 @@ auto acDropoutScript() -> void
     // are the whole story.
     //
     Setup( Osc1.acquisition()
-               .type( hal::keysight_dsox1202g::AcquisitionType::HighResolution));
+               .type( osc::AcquisitionType::HighResolution));
 
     //
     // Channel 2 carries a divide-by-10 probe on the 5 V rail -- channel 2
@@ -112,12 +133,12 @@ auto acDropoutScript() -> void
     // compensating arithmetic afterwards.
     //
     Setup( Osc1.channel<2>()
-               .coupling( hal::keysight_dsox1202g::Coupling::Dc)
+               .coupling( osc::Coupling::Dc)
                .probeAttenuation( 10.0)
                .voltsPerDivision( 100_mV)
                .verticalOffset( 5_V)
-               .bandwidth( hal::keysight_dsox1202g::Bandwidth::Limited)
-               .display( hal::keysight_dsox1202g::ChannelDisplay::On));
+               .bandwidth( osc::Bandwidth::Limited)
+               .display( osc::ChannelDisplay::On));
 
     //
     // ------------------------------------------------------------------
@@ -225,9 +246,9 @@ auto acDropoutScript() -> void
         //
         const auto lowest = Measure(
             Osc1.channel<2>().vmin().whenUnmeasurable(
-                []( const std::string_view) -> core::quantities::Voltage
+                []( const std::string_view) -> Voltage
                 {
-                    return core::quantities::Voltage{ std::numeric_limits<double>::quiet_NaN() };
+                    return Voltage{ std::numeric_limits<double>::quiet_NaN() };
                 }),
             at( dut::Output5V));
 

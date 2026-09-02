@@ -33,6 +33,8 @@
 // not anything was measured.
 //
 
+namespace acp = hal::keysight_ac6834b;
+
 namespace
 {
     //
@@ -69,10 +71,10 @@ namespace
         //
         bool Energised{ false };
 
-        hal::keysight_ac6834b::PerPhaseValues<core::quantities::Voltage>                PhaseVoltage{};
-        std::optional<core::quantities::Frequency>                    Frequency{};
-        std::optional<hal::keysight_ac6834b::PerPhaseValues<core::quantities::Current>> CurrentLimit{};
-        std::optional<hal::keysight_ac6834b::PerPhaseValues<core::quantities::Voltage>> Range{};
+        acp::PerPhaseValues<Voltage>                PhaseVoltage{};
+        std::optional< core::quantities::Frequency> Frequency{};
+        std::optional<acp::PerPhaseValues<Current>> CurrentLimit{};
+        std::optional<acp::PerPhaseValues<Voltage>> Range{};
     };
 
     //
@@ -92,11 +94,11 @@ namespace
     //
     template<typename QuantityT, typename ReadbackT>
     [[nodiscard]]
-    auto perPhase( ReadbackT && readback) -> std::optional<hal::keysight_ac6834b::PerPhaseValues<QuantityT>>
+    auto perPhase( ReadbackT && readback) -> std::optional<acp::PerPhaseValues<QuantityT>>
     {
         hal::keysight_ac6834b::PerPhaseValues<QuantityT> values{};
 
-        for( const auto phase : hal::keysight_ac6834b::phases)
+        for( const auto phase : acp::phases)
         {
             const auto value = readback( phase);
 
@@ -105,7 +107,7 @@ namespace
                 return std::nullopt;
             }
 
-            values[ hal::keysight_ac6834b::indexOf( phase)] = *value;
+            values[ acp::indexOf( phase)] = *value;
         }
 
         return values;
@@ -139,10 +141,10 @@ auto transientSetup() -> bool
     }
 
     sAcP1.Frequency    = AcP1.frequency();
-    sAcP1.CurrentLimit = perPhase<core::quantities::Current>(
-                             []( const hal::keysight_ac6834b::Phase phase) { return AcP1.currentLimit( phase); });
-    sAcP1.Range        = perPhase<core::quantities::Voltage>(
-                             []( const hal::keysight_ac6834b::Phase phase) { return AcP1.range( phase); });
+    sAcP1.CurrentLimit = perPhase<Current>(
+                             []( const acp::Phase phase) { return AcP1.currentLimit( phase); });
+    sAcP1.Range        = perPhase<Voltage>(
+                             []( const acp::Phase phase) { return AcP1.range( phase); });
 
     sAcP1.Energised = AcP1.isEnabled();
     sAcP1.Recorded  = true;
@@ -194,9 +196,9 @@ auto transientTeardown() -> bool
     // rather than being re-resolved into the other range.
     //
     const auto voltages = AcP1.ac().phaseVoltage(
-                              hal::keysight_ac6834b::phaseA( sAcP1.PhaseVoltage[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::A)]),
-                              hal::keysight_ac6834b::phaseB( sAcP1.PhaseVoltage[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::B)]),
-                              hal::keysight_ac6834b::phaseC( sAcP1.PhaseVoltage[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::C)]));
+                              acp::phaseA( sAcP1.PhaseVoltage[ acp::indexOf( acp::Phase::A)]),
+                              acp::phaseB( sAcP1.PhaseVoltage[ acp::indexOf( acp::Phase::B)]),
+                              acp::phaseC( sAcP1.PhaseVoltage[ acp::indexOf( acp::Phase::C)]));
 
     const auto withFrequency = sAcP1.Frequency
                                    ? voltages.frequency( *sAcP1.Frequency)
@@ -204,16 +206,16 @@ auto transientTeardown() -> bool
 
     const auto withCurrentLimit = sAcP1.CurrentLimit
                                       ? withFrequency.currentLimit(
-                                            hal::keysight_ac6834b::phaseA( ( *sAcP1.CurrentLimit)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::A)]),
-                                            hal::keysight_ac6834b::phaseB( ( *sAcP1.CurrentLimit)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::B)]),
-                                            hal::keysight_ac6834b::phaseC( ( *sAcP1.CurrentLimit)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::C)]))
+                                            acp::phaseA( ( *sAcP1.CurrentLimit)[ acp::indexOf( acp::Phase::A)]),
+                                            acp::phaseB( ( *sAcP1.CurrentLimit)[ acp::indexOf( acp::Phase::B)]),
+                                            acp::phaseC( ( *sAcP1.CurrentLimit)[ acp::indexOf( acp::Phase::C)]))
                                       : withFrequency;
 
     const auto restored = sAcP1.Range
                               ? withCurrentLimit.range(
-                                    hal::keysight_ac6834b::phaseA( ( *sAcP1.Range)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::A)]),
-                                    hal::keysight_ac6834b::phaseB( ( *sAcP1.Range)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::B)]),
-                                    hal::keysight_ac6834b::phaseC( ( *sAcP1.Range)[ hal::keysight_ac6834b::indexOf( hal::keysight_ac6834b::Phase::C)]))
+                                    acp::phaseA( ( *sAcP1.Range)[ acp::indexOf( acp::Phase::A)]),
+                                    acp::phaseB( ( *sAcP1.Range)[ acp::indexOf( acp::Phase::B)]),
+                                    acp::phaseC( ( *sAcP1.Range)[ acp::indexOf( acp::Phase::C)]))
                               : withCurrentLimit;
 
     Apply( restored);
