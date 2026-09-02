@@ -10,7 +10,7 @@
 // life, and there is no DUT here -- so a second table would be a copy of this
 // one with nothing to say. THORIUM_KNOWN_CRITERIA_VARIANTS is set to just
 // `production` for this deployment (see CMakePresets.json), which is what keeps
-// CRIT_FROM_PRODUCTION and the variant compile checks coherent with one table.
+// CRIT_FROM_MASTER and the variant compile checks coherent with one table.
 //
 // What these check is the *instrument*, not a device: that the meter answers,
 // and that what it answers is the value a known input should produce. That is

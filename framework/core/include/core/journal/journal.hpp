@@ -117,7 +117,7 @@ namespace core
     //
     // Split by where each field can honestly come from, because that decides
     // whether it can be trusted:
-    //   - baked in at build time (framework version, criteria variant, DUT
+    //   - baked in at build time (framework version, criteria master, DUT
     //     name, rig name) -- see defaultRunInfo() below and
     //     framework/core/CMakeLists.txt. These cannot be wrong about the binary
     //     doing the testing, because they *are* the binary.
@@ -130,6 +130,20 @@ namespace core
         std::string FrameworkName;
         std::string FrameworkVersion;
         std::string CriteriaVariant;
+
+        //
+        // Which variant the one above inherited its unchanged criteria from
+        // (CRIT_FROM_MASTER -- see core/criteria/criterion.hpp). Reported next
+        // to it because the variants are not independent tables: a run applying
+        // "stress" was held to stress's tolerances for the rows stress changes
+        // and to the master's for every row it does not, so the applied name
+        // alone does not say which numbers were in force.
+        //
+        // Build-stamped rather than selected, unlike CriteriaVariant: nothing
+        // at run time can move it (see core::masterCriteriaVariantName() in
+        // core/criteria/criteria_variants.hpp).
+        //
+        std::string CriteriaMaster;
         std::string DutName;
         std::string DutSerial;
         std::string RigName;

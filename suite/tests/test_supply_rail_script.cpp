@@ -118,7 +118,7 @@ TEST_F( SupplyRailFixture, TheSameScriptIsHeldToWhicheverVariantIsSelected)
 
 //
 // A variant that widens one criterion does not quietly widen the others: the
-// fuse register check is CRIT_FROM_PRODUCTION in both stress and aged (a
+// fuse register check is CRIT_FROM_MASTER in both stress and aged (a
 // register readback has no tolerance to loosen -- see dut/criteria_stress.inc),
 // so a rail far enough out fails under every variant.
 //

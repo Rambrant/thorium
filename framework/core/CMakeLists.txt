@@ -126,8 +126,14 @@ target_include_directories(core PUBLIC
 # is now compiled in and a run selects one with --criteria=, so the log reports
 # core::activeCriteriaVariantName() -- what the run actually applied -- rather
 # than a build-time constant that would now only describe the default. What the
-# build still supplies is the two definitions below it: which names are legal,
-# and which one applies when the flag is absent.
+# build still supplies is the three definitions below it: which names are legal,
+# which one applies when the flag is absent, and which one is the master.
+#
+# The master stays in the baked-in half, because it genuinely is a property of
+# the binary: it is which table the other variants inherited their unchanged
+# criteria from when they were compiled, and no flag can move it. Both log
+# streams carry it beside the applied variant -- see core::RunInfo, and
+# core/criteria/criteria_variants.hpp on why half an answer without it.
 #
 # PRIVATE, not PUBLIC: only src/journal/journal.cpp reads them, and a consumer of
 # Thorium::core has no reason to be recompiled when a rig renames itself.
@@ -183,6 +189,7 @@ target_compile_definitions(core PRIVATE
         THORIUM_FRAMEWORK_VERSION="${PROJECT_VERSION}"
         THORIUM_CRITERIA_VARIANT_NAMES="${THORIUM_CRITERIA_VARIANT_NAMES}"
         THORIUM_DEFAULT_CRITERIA_VARIANT="${THORIUM_CRITERIA_VARIANT}"
+        THORIUM_MASTER_CRITERIA_VARIANT="${THORIUM_CRITERIA_MASTER}"
         THORIUM_DUT_NAME="${THORIUM_DUT_NAME}"
         THORIUM_RIG_NAME="${THORIUM_RIG_NAME}"
         THORIUM_SUITE_VERSION="${THORIUM_SUITE_VERSION}"

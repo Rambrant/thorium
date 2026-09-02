@@ -15,13 +15,46 @@
 # differently-built binary -- it passes a flag to this one. defaultCriteria is
 # what it gets if it passes nothing.
 #
+# masterCriteriaVariant is not a third thing a caller can ask for -- it is not
+# selectable at all -- and it is reported for exactly that reason. The listed
+# variants are not independent tables: every one of them borrows the criteria it
+# does not change from the master (CRIT_FROM_MASTER, see
+# core/criteria/criterion.hpp), so "these tolerances came from the stress table"
+# is only half an answer if the other half, which table the unchanged rows were
+# inherited from, is invisible to whoever reads the results. Any variant can be
+# the master (THORIUM_CRITERIA_MASTER), so it cannot be inferred from the list.
+#
 # THORIUM_RUN_SCRIPTS_EXE / THORIUM_KNOWN_CRITERIA_VARIANTS /
-# THORIUM_CRITERIA_VARIANT / THORIUM_MANIFEST_OUTPUT are set by the
+# THORIUM_CRITERIA_VARIANT / THORIUM_CRITERIA_MASTER /
+# THORIUM_MANIFEST_OUTPUT are set by the
 # install(CODE ...) calls immediately before this script runs, not passed as -D
 # arguments -- install(SCRIPT ...) shares the same variable scope as the
 # install(CODE ...) calls around it in cmake_install.cmake, the ordinary way to
 # hand values into an install-time script.
 #
+#
+# Each of those is written into the manifest verbatim, so one that never arrives
+# produces a syntactically perfect manifest with an empty field in it -- and the
+# whole point of this file is to be the one thing that necessarily has it right.
+# Cheap to check and not hypothetical: adding masterCriteriaVariant to an install
+# tree whose cmake_install.cmake predated the matching install(CODE ...) call did
+# exactly this, and the manifest looked fine.
+#
+foreach(required
+        THORIUM_RUN_SCRIPTS_EXE
+        THORIUM_KNOWN_CRITERIA_VARIANTS
+        THORIUM_CRITERIA_VARIANT
+        THORIUM_CRITERIA_MASTER
+        THORIUM_MANIFEST_OUTPUT)
+    if(NOT ${required})
+        message(FATAL_ERROR
+            "${required} is empty or unset while generating manifest.json -- it should have "
+            "been set by an install(CODE ...) call in framework/runner/CMakeLists.txt. If one "
+            "was just added there, reconfigure: cmake_install.cmake is written at configure "
+            "time and an existing build tree still has the old one.")
+    endif()
+endforeach()
+
 execute_process(
     COMMAND "${THORIUM_RUN_SCRIPTS_EXE}" --list-tests
     OUTPUT_VARIABLE THORIUM_CATALOG_RAW
@@ -88,6 +121,7 @@ endforeach()
 file(WRITE "${THORIUM_MANIFEST_OUTPUT}" "{
   \"criteriaVariants\": [${THORIUM_VARIANTS_JSON}],
   \"defaultCriteriaVariant\": \"${THORIUM_CRITERIA_VARIANT}\",
+  \"masterCriteriaVariant\": \"${THORIUM_CRITERIA_MASTER}\",
   \"binary\": \"run_scripts\",
   \"tests\": [${THORIUM_TESTS_JSON}
   ]

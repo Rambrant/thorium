@@ -5,12 +5,13 @@
 // natural tolerance to loosen for aged equipment either -- the fuse is
 // blown or it isn't. Group/id are still stated explicitly (so a typo'd id
 // still fails to compile), but the value and its description are borrowed
-// from production's matching criterion via CRIT_FROM_PRODUCTION, so the
-// actual numbers live in exactly one place.
+// from the master table's matching criterion -- production, for this
+// deployment -- via CRIT_FROM_MASTER, so the actual numbers live in
+// exactly one place.
 //
 CRITERIA( FS_Fuse_6, "Check of Fuses @ Register CB30")
-    CRIT_FROM_PRODUCTION( FS_Fuse_6, FS_Fuse_01)
-    CRIT_FROM_PRODUCTION( FS_Fuse_6, FS_Fuse_02)
+    CRIT_FROM_MASTER( FS_Fuse_6, FS_Fuse_01)
+    CRIT_FROM_MASTER( FS_Fuse_6, FS_Fuse_02)
 END_CRITERIA
 
 //
@@ -36,7 +37,7 @@ END_CRITERIA
 //
 CRITERIA( FS_Transient_1, "Output rail behaviour on loss of the primary AC input (aged equipment)")
     CRIT( FS_Transient_5V0_Baseline, EQ( 5.0_V).epsilon( 0.15_V), "5Vdc rail must be at nominal before the input is dropped (aged, PLACEHOLDER)")
-    CRIT_FROM_PRODUCTION( FS_Transient_1, FS_Transient_Captured)
+    CRIT_FROM_MASTER( FS_Transient_1, FS_Transient_Captured)
     CRIT( FS_Transient_5V0_Dip,      LE( 500_mV),                 "5Vdc rail must not dip more than 500mV below its baseline (aged, PLACEHOLDER)")
 END_CRITERIA
 
@@ -47,9 +48,9 @@ END_CRITERIA
 // something other than ACK at temperature has not drifted -- it has failed.
 //
 CRITERIA( FS_Console_1, "Debug console dialogue over RS232")
-    CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Ack)
-    CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Ready)
-    CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Fault)
+    CRIT_FROM_MASTER( FS_Console_1, FS_Console_Ack)
+    CRIT_FROM_MASTER( FS_Console_1, FS_Console_Ready)
+    CRIT_FROM_MASTER( FS_Console_1, FS_Console_Fault)
 END_CRITERIA
 
 //
@@ -75,6 +76,6 @@ END_CRITERIA
 // figures.
 //
 CRITERIA( FS_BulkCap_1, "DUT input bulk capacitance on the 24Vdc battery rail (aged equipment)")
-    CRIT_FROM_PRODUCTION( FS_BulkCap_1, FS_BulkCap_Rail_Dead)
+    CRIT_FROM_MASTER( FS_BulkCap_1, FS_BulkCap_Rail_Dead)
     CRIT( FS_BulkCap_Battery,   IN( 640_uF, 1200_uF),    "24Vdc input bulk capacitance, at least 80% of 1000uF nominal (aged, PLACEHOLDER)")
 END_CRITERIA

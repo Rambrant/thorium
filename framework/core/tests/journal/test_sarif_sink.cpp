@@ -108,6 +108,7 @@ namespace
                 info.FrameworkName    = "Thorium";
                 info.FrameworkVersion = "0.1.0";
                 info.CriteriaVariant  = "stress";
+                info.CriteriaMaster   = "production";
                 info.DutName          = "DeviceX";
                 info.DutSerial        = "SN-000123";
                 info.RigName          = "bench-7";
@@ -254,6 +255,13 @@ TEST_F( SarifSinkTest, TraceabilityBagCarriesEveryRunInfoField)
     EXPECT_TRUE( contains( text, "\"dutSerial\": \"SN-000123\""));
     EXPECT_TRUE( contains( text, "\"rigName\": \"bench-7\""));
     EXPECT_TRUE( contains( text, "\"criteriaVariant\": \"stress\""));
+
+    //
+    // Both halves of "which tolerances were these": stress supplied the rows it
+    // changes, production every row it does not (CRIT_FROM_MASTER). A consumer
+    // trending a series needs the pair, not the applied name alone.
+    //
+    EXPECT_TRUE( contains( text, "\"criteriaMaster\": \"production\""));
 
     // automationDetails: what makes two runs comparable.
     EXPECT_TRUE( contains( text, "thorium/DeviceX/stress/"));

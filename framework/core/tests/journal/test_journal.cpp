@@ -543,6 +543,15 @@ TEST( CoreJournalRunInfo, DefaultsCarryWhatTheBuildKnowsAboutItself)
     EXPECT_FALSE( info.DutName.empty());
     EXPECT_FALSE( info.RigName.empty());
 
+    //
+    // From THORIUM_CRITERIA_MASTER, and the one criteria field a run cannot
+    // influence -- see core::masterCriteriaVariantName(). Non-empty is the same
+    // assertion as its neighbours: that the definition reached this TU. It is
+    // "unknown" for a core built with no criteria layer at all, which is a
+    // visibly absent value rather than a plausible wrong one.
+    //
+    EXPECT_FALSE( info.CriteriaMaster.empty());
+
     // Not derivable here -- the caller supplies them; see defaultRunInfo.
     EXPECT_TRUE( info.DutSerial.empty());
     EXPECT_TRUE( info.CommandLine.empty());

@@ -572,6 +572,13 @@ namespace core
         property(         out, kI4, "frameworkName",    mRunInfo.FrameworkName,    first);
         property(         out, kI4, "frameworkVersion", mRunInfo.FrameworkVersion, first);
         property(         out, kI4, "criteriaVariant",  mRunInfo.CriteriaVariant,  first);
+
+        //
+        // Not optional, and next to the variant it qualifies: a consumer
+        // trending "this DUT against these tolerances" is reading a series
+        // whose numbers are only fully identified by the pair (see RunInfo).
+        //
+        property(         out, kI4, "criteriaMaster",   mRunInfo.CriteriaMaster,   first);
         property(         out, kI4, "dutName",          mRunInfo.DutName,          first);
         optionalProperty( out, kI4, "dutSerial",        mRunInfo.DutSerial,        first);
         property(         out, kI4, "rigName",          mRunInfo.RigName,          first);

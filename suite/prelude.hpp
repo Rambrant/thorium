@@ -24,7 +24,7 @@
 // way scripts.hpp always has. suite/ is deployment content, not framework, so
 // unlike anything under framework/ it is allowed to know which DUT and which rig it
 // was built for. That is why there is no THORIUM_DUT_ADAPTER compile definition
-// to match THORIUM_PRODUCTION_CRITERIA: active_criteria.hpp needs one only
+// to match THORIUM_CRITERIA_VARIANT_TABLES: active_criteria.hpp needs one only
 // because it lives in core and must not name dut/ -- see the top-level
 // CMakeLists.txt's own comment on that split.
 //

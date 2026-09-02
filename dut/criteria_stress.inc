@@ -4,13 +4,13 @@
 // FS_Fuse_6 is unchanged from production: a fuse register readback is a
 // digital exact-bits check, with no natural thermal tolerance to widen.
 // Group/id are still stated explicitly (so a typo'd id still fails to
-// compile), but the value and its description are borrowed from
-// production's matching criterion via CRIT_FROM_PRODUCTION, so the actual
-// numbers live in exactly one place.
+// compile), but the value and its description are borrowed from the master
+// table's matching criterion -- production, for this deployment -- via
+// CRIT_FROM_MASTER, so the actual numbers live in exactly one place.
 //
 CRITERIA( FS_Fuse_6, "Check of Fuses @ Register CB30")
-    CRIT_FROM_PRODUCTION( FS_Fuse_6, FS_Fuse_01)
-    CRIT_FROM_PRODUCTION( FS_Fuse_6, FS_Fuse_02)
+    CRIT_FROM_MASTER( FS_Fuse_6, FS_Fuse_01)
+    CRIT_FROM_MASTER( FS_Fuse_6, FS_Fuse_02)
 END_CRITERIA
 
 //
@@ -40,7 +40,7 @@ END_CRITERIA
 //
 CRITERIA( FS_Transient_1, "Output rail behaviour on loss of the primary AC input (stress, PLACEHOLDER)")
     CRIT( FS_Transient_5V0_Baseline, EQ( 5.0_V).epsilon( 0.10_V), "5Vdc rail must be at nominal before the input is dropped (stress, PLACEHOLDER)")
-    CRIT_FROM_PRODUCTION( FS_Transient_1, FS_Transient_Captured)
+    CRIT_FROM_MASTER( FS_Transient_1, FS_Transient_Captured)
     CRIT( FS_Transient_5V0_Dip,      LE( 350_mV),                 "5Vdc rail must not dip more than 350mV below its baseline (stress, PLACEHOLDER)")
 END_CRITERIA
 
@@ -51,9 +51,9 @@ END_CRITERIA
 // something other than ACK at temperature has not drifted -- it has failed.
 //
 CRITERIA( FS_Console_1, "Debug console dialogue over RS232")
-    CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Ack)
-    CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Ready)
-    CRIT_FROM_PRODUCTION( FS_Console_1, FS_Console_Fault)
+    CRIT_FROM_MASTER( FS_Console_1, FS_Console_Ack)
+    CRIT_FROM_MASTER( FS_Console_1, FS_Console_Ready)
+    CRIT_FROM_MASTER( FS_Console_1, FS_Console_Fault)
 END_CRITERIA
 
 //
@@ -76,6 +76,6 @@ END_CRITERIA
 // Replace with the capacitor's own temperature characteristic.
 //
 CRITERIA( FS_BulkCap_1, "DUT input bulk capacitance on the 24Vdc battery rail (stress, PLACEHOLDER)")
-    CRIT_FROM_PRODUCTION( FS_BulkCap_1, FS_BulkCap_Rail_Dead)
+    CRIT_FROM_MASTER( FS_BulkCap_1, FS_BulkCap_Rail_Dead)
     CRIT( FS_BulkCap_Battery,   IN( 670_uF, 1260_uF),    "24Vdc input bulk capacitance, 1000uF -33%/+26% over the chamber range (stress, PLACEHOLDER)")
 END_CRITERIA

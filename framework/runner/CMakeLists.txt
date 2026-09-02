@@ -47,27 +47,25 @@ target_link_libraries(scripts PUBLIC hal_rig core)
 target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 
 # --- Criteria/tolerance variants ---
-# Points core/criteria/active_criteria.hpp at the two files it reads.
+# Points core/criteria/active_criteria.hpp at the one file it reads.
 #
 # THORIUM_CRITERIA_VARIANT_TABLES is generated (cmake/CriteriaVariants.cmake,
 # called from the top-level CMakeLists.txt) and holds *every* known variant's
-# .inc file, each in its own namespace, plus the X-macro that iterates them.
-# There is no longer a THORIUM_ACTIVE_CRITERIA: no single variant is "the
-# active one" at build time, since the binary carries all of them and a run
-# picks with --criteria=.
+# .inc file, each in its own namespace, plus the `master` alias, the master
+# table's own path, and the X-macro that iterates them. There is no longer a
+# THORIUM_ACTIVE_CRITERIA: no single variant is "the active one" at build time,
+# since the binary carries all of them and a run picks with --criteria=.
 #
-# THORIUM_PRODUCTION_CRITERIA is a second, fixed path -- always
-# criteria_production.inc -- and now has two jobs: other variants reference "the
-# same value as production" through it via CRIT_FROM_PRODUCTION, and it is the
-# reference table the merged criteria are generated from (see
-# core/criteria/active_criteria.hpp's pass 2 on why it is the right one for that).
+# One definition, not two: the master table's path used to be a second, fixed
+# path spelled out here (always criteria_production.inc), which meant this file
+# and THORIUM_CRITERIA_MASTER both decided which variant was the master and
+# could disagree. It is now a #define inside the generated file.
 #
-# Absolute paths, so no extra include-directory wrangling. The criteria live
+# An absolute path, so no extra include-directory wrangling. The criteria live
 # under the deployment's dut/, not here, because the tolerances they hold are a
 # property of the DUT being tested (the same reasoning that put adapter.inc
 # there) -- see dut/README.md.
 target_compile_definitions(scripts PRIVATE
-    THORIUM_PRODUCTION_CRITERIA="${THORIUM_DUT_DIR}/criteria_production.inc"
     THORIUM_CRITERIA_VARIANT_TABLES="${THORIUM_CRITERIA_VARIANT_TABLES}"
 )
 
@@ -131,6 +129,7 @@ install(TARGETS run_scripts RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(CODE "set(THORIUM_RUN_SCRIPTS_EXE \"$<TARGET_FILE:run_scripts>\")")
 install(CODE "set(THORIUM_KNOWN_CRITERIA_VARIANTS \"${THORIUM_KNOWN_CRITERIA_VARIANTS}\")")
 install(CODE "set(THORIUM_CRITERIA_VARIANT \"${THORIUM_CRITERIA_VARIANT}\")")
+install(CODE "set(THORIUM_CRITERIA_MASTER \"${THORIUM_CRITERIA_MASTER}\")")
 install(CODE "set(THORIUM_MANIFEST_OUTPUT \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/manifest.json\")")
 install(SCRIPT "${CMAKE_SOURCE_DIR}/cmake/GenerateManifest.cmake")
 

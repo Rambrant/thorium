@@ -188,19 +188,44 @@ if(NOT THORIUM_CRITERIA_VARIANT IN_LIST THORIUM_KNOWN_CRITERIA_VARIANTS)
         "THORIUM_CRITERIA_VARIANT='${THORIUM_CRITERIA_VARIANT}' is not one of: ${THORIUM_KNOWN_CRITERIA_VARIANTS}")
 endif()
 
+# Which of them is the *master* table -- a different question from the default
+# above, and the only place the choice is made. Two jobs, both of them
+# structural rather than a matter of preference:
+#
+#   - it is what CRIT_FROM_MASTER borrows from, so a criterion that doesn't
+#     change between variants has its value and prose in exactly one file
+#     (see core/criteria/criterion.hpp);
+#   - it is the table the merged criteria are generated from, so it is the one
+#     that must spell out every group and every id in full -- which is also why
+#     the master cannot itself use CRIT_FROM_MASTER.
+#
+# "production" by default because that is the table a DUT usually has first and
+# most completely. It is a default, not an assumption: a deployment whose
+# fullest table is the stress-chamber one (or that calls its baseline "nominal",
+# or "golden") points this at that name instead, and nothing in C++ has to
+# change -- cmake/CriteriaVariants.cmake generates a `master` namespace alias
+# and the macro resolves through it.
+set(THORIUM_CRITERIA_MASTER "production" CACHE STRING
+    "Which criteria variant is the master CRIT_FROM_MASTER borrows from and the merge reads (${THORIUM_KNOWN_CRITERIA_VARIANTS})")
+set_property(CACHE THORIUM_CRITERIA_MASTER PROPERTY STRINGS ${THORIUM_KNOWN_CRITERIA_VARIANTS})
+
 include(CriteriaVariants)
 
 # Sets THORIUM_CRITERIA_VARIANT_TABLES / THORIUM_CRITERIA_VARIANT_NAMES to the
 # two generated files' paths; framework/core and framework/runner hand those to the translation
 # units that read them, as compile definitions, exactly the way
-# THORIUM_PRODUCTION_CRITERIA and THORIUM_TEST_CATALOG already work.
+# THORIUM_TEST_CATALOG already works. The master's *own* path is not a third
+# definition: it is a #define inside the generated tables file, so this variable
+# is the only place it is decided (validated in there, against the list above).
 thorium_generate_criteria_variants(
     "${THORIUM_KNOWN_CRITERIA_VARIANTS}"
+    "${THORIUM_CRITERIA_MASTER}"
     "${THORIUM_DUT_DIR}"
     "${CMAKE_BINARY_DIR}/generated/thorium"
 )
 
-message(STATUS "Criteria variants: ${THORIUM_KNOWN_CRITERIA_VARIANTS} (default: ${THORIUM_CRITERIA_VARIANT})")
+message(STATUS "Criteria variants: ${THORIUM_KNOWN_CRITERIA_VARIANTS} "
+               "(master: ${THORIUM_CRITERIA_MASTER}, default: ${THORIUM_CRITERIA_VARIANT})")
 
 # --- Content revision, for the run logs' traceability header ---
 # Both log streams record which revision of this deployment's *content* -- the

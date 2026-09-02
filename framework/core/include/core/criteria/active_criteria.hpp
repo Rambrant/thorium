@@ -13,18 +13,21 @@
 // This is deliberately a separate header from criterion.hpp: that file is the
 // general, dependency-free CRITERIA/CRIT mechanism (used on its own by e.g.
 // test_criterion.cpp, with no notion of "variants" at all), while this one is a
-// specific consumer of it -- resolving THORIUM_CRITERIA_VARIANT_TABLES/
-// THORIUM_PRODUCTION_CRITERIA requires the scripts target's build
+// specific consumer of it -- resolving THORIUM_CRITERIA_VARIANT_TABLES (and,
+// through it, THORIUM_CRITERIA_MASTER_FILE) requires the scripts target's build
 // configuration, so folding this into criterion.hpp would force that
 // requirement onto every unrelated user of the general macros.
-// (CRIT_FROM_PRODUCTION's *definition* lives in criterion.hpp despite assuming
+// (CRIT_FROM_MASTER's *definition* lives in criterion.hpp despite assuming
 // the same convention -- see the comment there for why that one's different:
 // it's opt-in and inert until actually used.)
 //
-// Both file paths are compile definitions set by CMake from a single, validated
-// list (THORIUM_KNOWN_CRITERIA_VARIANTS -- see the top-level CMakeLists.txt,
-// cmake/CriteriaVariants.cmake and suite/README.md), not raw, untyped
-// environment variables read via #ifdef.
+// That path is a compile definition set by CMake from a single, validated list
+// (THORIUM_KNOWN_CRITERIA_VARIANTS plus THORIUM_CRITERIA_MASTER -- see the
+// top-level CMakeLists.txt, cmake/CriteriaVariants.cmake and suite/README.md),
+// not raw, untyped environment variables read via #ifdef. The second path this
+// header needs, the master table's, is a #define inside that generated file
+// rather than a definition of its own, so which variant is the master is
+// decided in exactly one place.
 //
 // Every .inc file itself has no scaffolding of its own (no #pragma once, no
 // #includes, no namespace, no "core::"/"using namespace" of its own) -- this
@@ -53,13 +56,15 @@
 //
 // The generated file (cmake/CriteriaVariants.cmake) is a namespace per known
 // variant -- thorium::criteria::production, ::stress, ::aged -- each #including
-// its own dut/criteria_<name>.inc, plus the X-macro pass 2 iterates below.
+// its own dut/criteria_<name>.inc, plus a `master` alias for whichever of them
+// THORIUM_CRITERIA_MASTER names, the master table's own path, and the X-macro
+// pass 2 iterates below.
 //
 // Nested inside thorium::criteria rather than sitting at global scope, so this
 // does not declare FS_Supply_1 three times over; only the merged table below
 // lands at global scope, which is what scripts actually name. The namespaces
-// being *siblings* is also what makes CRIT_FROM_PRODUCTION work from inside any
-// of them: its deliberately unqualified `production::group::id` (see
+// being *siblings* is also what makes CRIT_FROM_MASTER work from inside any of
+// them: its deliberately unqualified `master::group::id` (see
 // core/criteria/criterion.hpp) resolves by walking out to thorium::criteria and back in.
 //
 // suite/tests/test_criteria_variants_compile.cpp used to be the only place all
@@ -75,24 +80,25 @@
 // Pass 2: merge them into the table a script names
 // ---------------------------------------------------------------------------
 //
-// The reference table is re-read a second time with CRITERIA/CRIT redefined, so
+// The master table is re-read a second time with CRITERIA/CRIT redefined, so
 // that each CRIT emits not one Criterion but a MultiCriterion holding every
 // variant's same-named criterion (see core/criteria/criterion.hpp). It is the same
-// redefine-the-macro-and-re-#include trick CRIT_FROM_PRODUCTION and
+// redefine-the-macro-and-re-#include trick CRIT_FROM_MASTER and
 // hal::safeRig() use, and it is doing something reflection cannot: building a
 // *new struct type* whose members are named by another file.
 //
-// Reading production's table for the shape is not an arbitrary choice of
+// Reading the master's table for the shape is not an arbitrary choice of
 // reference -- it is already the baseline every other variant borrows from via
-// CRIT_FROM_PRODUCTION, and it is the one table that cannot itself use that
-// macro, so it is the one guaranteed to spell out every group and every id in
-// full.
+// CRIT_FROM_MASTER, and it is the one table that cannot itself use that macro,
+// so it is the one guaranteed to spell out every group and every id in full.
+// Which variant that is comes from THORIUM_CRITERIA_MASTER; nothing below
+// assumes it is production.
 //
 // What this costs in compile-time checking: nothing. What it adds:
 //
 //   - a script's FS_Supply_1::FS_Supply_5V0 is still a static constexpr member
 //     of a real struct, so a typo is still "no such member" -- unchanged;
-//   - a CRIT that production declares and another variant does not is now a
+//   - a CRIT that the master declares and another variant does not is now a
 //     compile error naming both the id and the variant missing it, where before
 //     it needed suite/tests/test_criteria_variants_compile.cpp to catch it;
 //   - every variant's predicates are now type-checked against the reading each
@@ -101,14 +107,14 @@
 //     (see the diagnostics in core/criteria/verify.hpp).
 //
 // What it does not catch, and what that test file is therefore still for: a
-// group or CRIT that exists ONLY in a non-reference variant. Nothing here reads
+// group or CRIT that exists ONLY in a non-master variant. Nothing here reads
 // those tables looking for surplus, so a stray id in dut/criteria_stress.inc is
 // invisible to this pass -- it is simply never merged, and never runs.
 //
 #undef CRITERIA
 #undef CRIT
 #undef END_CRITERIA
-#undef CRIT_FROM_PRODUCTION
+#undef CRIT_FROM_MASTER
 
 //
 // One `using ThoriumVariantN = <namespace>::<group>;` per known variant, inside
@@ -140,7 +146,7 @@
 // pred and desc are accepted and dropped. Both still live in the per-variant
 // tables read in pass 1 -- this pass is building the *index* over those, and
 // taking either from here would mean the merged table quietly imposing the
-// reference variant's tolerance or prose on every other variant's criterion.
+// master variant's tolerance or prose on every other variant's criterion.
 // That is the exact failure this whole mechanism exists to make impossible.
 //
 #define CRIT( id, pred, desc)                                                 \
@@ -148,13 +154,14 @@
             THORIUM_FOR_EACH_CRITERIA_VARIANT( THORIUM_CRIT_REF, id) );
 
 //
-// Defined identically to CRIT rather than left undefined. The reference table
-// cannot use it (production is what CRIT_FROM_PRODUCTION borrows *from*), so
-// this never fires today -- but "never fires today" is a poor reason for the
-// merge pass to break confusingly if the reference variant ever changes, and
-// the merge does not care where a criterion's value came from in any case.
+// Defined identically to CRIT rather than left undefined. The master table
+// cannot use it (the master is what CRIT_FROM_MASTER borrows *from*), so this
+// never fires -- but a macro left undefined in a pass that re-reads a
+// hand-written file would turn a mistake in that file into a confusing
+// preprocessor error, and the merge does not care where a criterion's value
+// came from in any case.
 //
-#define CRIT_FROM_PRODUCTION( groupName, id) CRIT( id, , )
+#define CRIT_FROM_MASTER( groupName, id) CRIT( id, , )
 
 #define END_CRITERIA };
 
@@ -176,4 +183,4 @@
 using namespace core::quantities;
 using namespace core::literals;
 
-#include THORIUM_PRODUCTION_CRITERIA
+#include THORIUM_CRITERIA_MASTER_FILE

@@ -97,7 +97,7 @@ namespace core
     //
     // group and id are lifted out of the variants and stored once because they
     // are identical across all of them by construction (the merge pass stamps
-    // both from the reference table). description deliberately is NOT: each
+    // both from the master table). description deliberately is NOT: each
     // variant writes its own prose, and a log has to quote the one that was
     // actually applied -- see suite/README.md.
     //
@@ -163,33 +163,40 @@ namespace core
 #define END_CRITERIA };
 
 //
-// CRIT_FROM_PRODUCTION( group, id): a companion to CRIT for tolerance-variant
-// files (see suite/README.md) where a criterion's value doesn't change
-// from production -- group/id are still stated explicitly, so a typo'd id
+// CRIT_FROM_MASTER( group, id): a companion to CRIT for tolerance-variant
+// files (see suite/README.md) where a criterion's value doesn't change from
+// the master table -- group/id are still stated explicitly, so a typo'd id
 // still fails to compile exactly like an ordinary CRIT (there's no
 // inheritance here, nothing to silently fall back to), but the predicate AND
-// description are borrowed from production's matching criterion, so the
+// description are borrowed from the master's matching criterion, so the
 // actual tolerance value and its prose live in exactly one place. A typo in
-// the reference itself is also a hard compile error: production::group::id
+// the reference itself is also a hard compile error: master::group::id
 // simply won't exist.
 //
-// This macro's definition is inert on its own -- it only requires a
-// "production" namespace to exist at the point it's actually *used*, not
-// merely defined, so declaring it here costs nothing to code that never
-// invokes it (e.g. this file's own reflection support below, or
-// test_criterion.cpp's throwaway groups). That's different from baking
-// "production" awareness into CRITERIA/CRIT themselves, which would force
-// every use of the general mechanism to satisfy it.
+// `master` is a namespace *alias*, not a variant name. Which variant it aliases
+// is THORIUM_CRITERIA_MASTER's business (the alias is generated next to the
+// variant namespaces -- see cmake/CriteriaVariants.cmake), so no variant is
+// privileged by this file, and a deployment whose fullest table is the
+// stress-chamber one points the variable at that name without touching a line
+// of C++. The macro was called CRIT_FROM_PRODUCTION when the master could only
+// ever be production.
 //
-// Deliberately unqualified (production::group::id, not ::production::...):
-// resolves correctly whether "production" is a sibling at global scope (a
-// real build) or nested inside a wrapper namespace (as in
+// This macro's definition is inert on its own -- it only requires the alias to
+// exist at the point it's actually *used*, not merely defined, so declaring it
+// here costs nothing to code that never invokes it (e.g. this file's own
+// reflection support below, or test_criterion.cpp's throwaway groups). That's
+// different from baking master-awareness into CRITERIA/CRIT themselves, which
+// would force every use of the general mechanism to satisfy it.
+//
+// Deliberately unqualified (master::group::id, not ::master::...): resolves
+// correctly whether the alias is a sibling at global scope (a real build) or
+// nested inside a wrapper namespace (as in
 // test_criteria_variants_compile.cpp, which needs every variant to compile
 // side by side rather than picking one).
 //
-#define CRIT_FROM_PRODUCTION( group, id)                                                   \
-        static constexpr auto id = ::core::makeCriterion(                                  \
-            Name, #id, production::group::id.description, production::group::id.predicate);
+#define CRIT_FROM_MASTER( group, id)                                               \
+        static constexpr auto id = ::core::makeCriterion(                          \
+            Name, #id, master::group::id.description, master::group::id.predicate);
 
 //
 // ---------------------------------------------------------------------------

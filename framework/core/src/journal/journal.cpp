@@ -180,6 +180,13 @@ namespace core
             // claims and what the checks below it applied cannot come apart.
             //
             .CriteriaVariant  = std::string( activeCriteriaVariantName()),
+
+            //
+            // Build-stamped, and so the one criteria field here that a run
+            // cannot influence -- which is the point of reporting it: it says
+            // where the rows the applied variant did not change came from.
+            //
+            .CriteriaMaster   = std::string( masterCriteriaVariantName()),
             .DutName          = THORIUM_DUT_NAME,
             .DutSerial        = {},
             .RigName          = THORIUM_RIG_NAME,

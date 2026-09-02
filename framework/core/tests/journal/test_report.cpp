@@ -451,6 +451,7 @@ namespace
         info.FrameworkName    = "Thorium";
         info.FrameworkVersion = "0.1.0";
         info.CriteriaVariant  = "stress";
+        info.CriteriaMaster   = "production";
         info.DutName          = "DeviceX";
         info.DutSerial        = "SN-000123";
         info.RigName          = "bench-7";
@@ -491,6 +492,33 @@ TEST( CoreReport, HeaderCarriesTheFullTraceabilityBag)
     EXPECT_TRUE( containsText( lines, "7e4ff59"));
     EXPECT_TRUE( containsText( lines, "2026-08-01T09:14:02.371Z"));
     EXPECT_TRUE( containsText( lines, "run_scripts --select=SupplyRail"));
+}
+
+//
+// The applied variant alone does not say which numbers were in force: a stress
+// run was held to stress's tolerances for the rows stress changes and to the
+// master's for every row it does not. So both names are in the header, and the
+// master's row is there even when it names the same variant -- the header is a
+// form, and a field that appears only when the two differ is one nobody
+// comparing two reports can rely on finding.
+//
+TEST( CoreReport, HeaderNamesTheMasterTheAppliedVariantInheritedFrom)
+{
+    const auto lines = core::humanHeaderLines( fullRunInfo());
+
+    EXPECT_TRUE( containsText( lines, "Criteria master"));
+    EXPECT_TRUE( containsText( lines, "production"));
+}
+
+TEST( CoreReport, TheMasterRowIsThereEvenWhenItIsTheAppliedVariant)
+{
+    auto info = fullRunInfo();
+    info.CriteriaVariant = info.CriteriaMaster;
+
+    const auto lines = core::humanHeaderLines( info);
+
+    EXPECT_TRUE( containsText( lines, "Criteria master"));
+    EXPECT_EQ( lines.size(), core::humanHeaderLines( fullRunInfo()).size());
 }
 
 //

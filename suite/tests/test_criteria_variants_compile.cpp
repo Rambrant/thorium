@@ -23,16 +23,16 @@
 //
 // That is now how the framework itself works. core/criteria/active_criteria.hpp reads
 // every variant into thorium::criteria::<name> and merges them, so a real
-// build already fails if a group or CRIT that production declares is missing
+// build already fails if a group or CRIT that the master declares is missing
 // from another variant -- with an error naming the id and the variant, which
 // is a better diagnostic than the static_asserts below produce.
 //
 // What survives that, and is why this file is still here: the merge only ever
-// looks up the ids production declares. A group or CRIT that exists ONLY in a
-// non-reference variant is invisible to it -- never merged, never run, and
+// looks up the ids the master declares. A group or CRIT that exists ONLY in a
+// non-master variant is invisible to it -- never merged, never run, and
 // never complained about. The both-directions checkParity() calls at the
 // bottom are what catch that, and they are the reason this runs both ways
-// between every pair rather than only outward from production.
+// between every pair rather than only outward from the master.
 //
 namespace thorium_criteria_compile_check
 {
@@ -43,6 +43,17 @@ namespace thorium_criteria_compile_check
 
         #include "dut/criteria_production.inc"
     }
+
+    //
+    // The same alias cmake/CriteriaVariants.cmake generates beside the real
+    // variant namespaces, and the reason CRIT_FROM_MASTER's `master::group::id`
+    // is deliberately unqualified: the variants live inside a wrapper namespace
+    // here rather than at global scope, and ordinary lookup walks out to find
+    // this. Which variant it names is this file's own choice, independent of
+    // THORIUM_CRITERIA_MASTER -- the parity checks below run every pair both
+    // ways, so nothing here depends on the deployment's answer.
+    //
+    namespace master = production;
 
     namespace stress
     {
@@ -73,7 +84,7 @@ namespace thorium_criteria_compile_check
     // catch.
     //
     // The technique used to be the same redefine-the-macro-and-re-#include
-    // trick CRIT_FROM_PRODUCTION and hal::safeRig() also use -- re-reading
+    // trick CRIT_FROM_MASTER and hal::safeRig() also use -- re-reading
     // each variant's .inc file a second time with CRITERIA/CRIT redefined
     // to emit a concept+static_assert instead of building a Criterion
     // table. Reflection replaces that here: production::/stress::/aged::
@@ -141,9 +152,9 @@ namespace thorium_criteria_compile_check
         // named CRIT too. One direction only catches an id/group *missing*
         // from Other; everyVariantMatches below runs this both ways between
         // every pair, which is what also catches a stray/extra group or id
-        // that exists in only one non-reference variant -- the same
+        // that exists in only one non-master variant -- the same
         // coverage driving the old mechanism from all three variants (not
-        // just production) gave.
+        // just the master) gave.
         //
         template<std::meta::info Reference, std::meta::info Other>
         consteval auto checkParity() -> bool

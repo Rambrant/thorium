@@ -135,34 +135,56 @@ be honest about what it did, leave it inline.
 
 ## When a criterion doesn't actually change between variants
 
-Most variants only change *some* of production's criteria -- a lot of them
+Most variants only change *some* of the master's criteria -- a lot of them
 stay identical. Rather than retype an unchanged value (and risk it quietly
-drifting between files), use `CRIT_FROM_PRODUCTION( group, id)` instead of
+drifting between files), use `CRIT_FROM_MASTER( group, id)` instead of
 `CRIT`:
 
 ```cpp
 CRITERIA( FS_Fuse_6, "Check of Fuses @ Register CB30")
-    CRIT_FROM_PRODUCTION( FS_Fuse_6, FS_Fuse_01)
-    CRIT_FROM_PRODUCTION( FS_Fuse_6, FS_Fuse_02)
+    CRIT_FROM_MASTER( FS_Fuse_6, FS_Fuse_01)
+    CRIT_FROM_MASTER( FS_Fuse_6, FS_Fuse_02)
 END_CRITERIA
 ```
 
 `group`/`id` are still stated explicitly -- unlike inheritance, there's
 nothing to silently fall back to, so a typo'd id still fails to compile
 exactly like an ordinary `CRIT` would. Only the predicate and description
-are borrowed from `production`'s matching criterion, so the actual
+are borrowed from the master's matching criterion, so the actual
 tolerance value and its prose live in exactly one place. A typo in the
 reference itself (wrong group or id) is also a hard compile error. See the
 macro's own comment in `core/criteria/criterion.hpp` for the full reasoning,
 including why it's a companion to `CRIT` rather than a change to `CRITERIA`
 itself.
 
-This is why `criteria_production.inc` is always available as `production::...`
-from inside any other variant (see `core/criteria/active_criteria.hpp`) -- every other
-variant can reference it. It is also the *reference table* the merged criteria
-are generated from, for the same reason: it is the one file that cannot use
-`CRIT_FROM_PRODUCTION` itself, so it is the one guaranteed to spell out every
-group and every id in full.
+## Which variant is the master
+
+The master has two jobs, and both of them come down to being the one table
+that spells out every group and every id in full:
+
+- it is what `CRIT_FROM_MASTER` borrows from, so it is always available from
+  inside any other variant (see `core/criteria/active_criteria.hpp`);
+- it is the table the merged criteria are generated from -- so it is also the
+  one file that cannot use `CRIT_FROM_MASTER` itself.
+
+Which variant it is comes from `THORIUM_CRITERIA_MASTER` (top-level
+`CMakeLists.txt`), and **any** of them will do:
+
+```
+cmake -B build -DTHORIUM_CRITERIA_MASTER=stress
+```
+
+`production` is the default because it is the table a DUT usually has first and
+most completely, not because anything in the framework assumes it. A deployment
+whose fullest table is the stress-chamber one, or that calls its baseline
+`nominal` or `golden`, points the variable there and no C++ changes:
+`cmake/CriteriaVariants.cmake` generates a `namespace master = <the master>`
+alias beside the variant namespaces, and the macro resolves through it.
+
+Configuring a master that uses `CRIT_FROM_MASTER` is a configure-time error
+naming the file, not a puzzling compile error inside a generated one. This is a
+separate choice from `THORIUM_CRITERIA_VARIANT` below, which decides which
+variant a *run* applies -- the two are unrelated and need not agree.
 
 ## Selecting a variant
 
@@ -189,7 +211,9 @@ that looks entirely normal.
 
 The choice is still coherent per run, never a mix: it is frozen the moment the
 journal opens, so the variant named in both logs' traceability header is
-provably the one every check in them was made against.
+provably the one every check in them was made against. Both logs name the
+master beside it, since the rows the applied variant does not change came from
+there -- see "Which variant is the master" above.
 
 This used to be a build-wide setting -- one variant baked in per build, three
 variants meaning three build directories and three binaries. It is not any
@@ -201,15 +225,16 @@ more, and nothing was given up in compile-time checking to get there; see
 `core/criteria/active_criteria.hpp` reads the variant files twice.
 
 **Pass 1** pulls in every variant, each into its own namespace
-(`thorium::criteria::production`, `::stress`, `::aged`) -- generated from
-`THORIUM_KNOWN_CRITERIA_VARIANTS` by `cmake/CriteriaVariants.cmake`. Their
-being siblings is what makes `CRIT_FROM_PRODUCTION`'s unqualified
-`production::group::id` resolve from inside any of them.
+(`thorium::criteria::production`, `::stress`, `::aged`), plus the `master`
+alias -- generated from `THORIUM_KNOWN_CRITERIA_VARIANTS` and
+`THORIUM_CRITERIA_MASTER` by `cmake/CriteriaVariants.cmake`. Their being
+siblings is what makes `CRIT_FROM_MASTER`'s unqualified `master::group::id`
+resolve from inside any of them.
 
-**Pass 2** re-reads the reference table with `CRITERIA`/`CRIT` redefined, so
+**Pass 2** re-reads the master table with `CRITERIA`/`CRIT` redefined, so
 each `CRIT` emits not one `Criterion` but a `core::MultiCriterion` holding
 every variant's same-named criterion. That is the same
-redefine-the-macro-and-re-`#include` trick `CRIT_FROM_PRODUCTION` and
+redefine-the-macro-and-re-`#include` trick `CRIT_FROM_MASTER` and
 `hal::safeRig()` use, and it is doing something reflection cannot: building a
 *new struct type* whose members are named by another file.
 
@@ -223,7 +248,7 @@ What this costs in compile-time checking is nothing. What it adds:
 | | before | now |
 |---|---|---|
 | Typo'd `CRIT` id in a script | no such member | unchanged |
-| A `CRIT` production declares that a variant is missing | caught by `scripts_tests` | compile error naming the id **and** the variant |
+| A `CRIT` the master declares that a variant is missing | caught by `scripts_tests` | compile error naming the id **and** the variant |
 | A variant whose predicate doesn't fit the reading (an amp criterion on a volt rail) | **shipped silently** until someone targeted that variant | compile error, on every build |
 
 That last row is the one worth noticing: the compiler previously never saw the
@@ -233,8 +258,8 @@ have caught it.
 ## Why every variant compiles, always
 
 Given the above, a real build now enforces most of this on its own. What it
-cannot see is a group or `CRIT` that exists **only** in a non-reference variant:
-the merge only ever looks up the ids production declares, so a stray id in
+cannot see is a group or `CRIT` that exists **only** in a non-master variant:
+the merge only ever looks up the ids the master declares, so a stray id in
 `criteria_stress.inc` is never merged, never run, and never complained about.
 
 `suite/tests/test_criteria_variants_compile.cpp` is what catches that. It
@@ -252,8 +277,8 @@ alongside the rest of the test-script tests" split this whole directory uses --
    names as its siblings.
 2. Add the new variant name to `THORIUM_KNOWN_CRITERIA_VARIANTS` in the
    top-level `CMakeLists.txt`.
-3. Add a namespace for it, and a `checkParity` pair against `production`, in
-   `suite/tests/test_criteria_variants_compile.cpp`.
+3. Add a namespace for it, and a `checkParity` pair against that file's
+   `master`, in `suite/tests/test_criteria_variants_compile.cpp`.
 
 Steps 1 and 2 are what a run needs; the tables, the `--criteria=` name list and
 the manifest all follow from that one list. Step 3 is the surplus-id check the
@@ -262,8 +287,8 @@ build cannot do for itself.
 ## Adding a new CRITERIA block (e.g. for a new script)
 
 1. Add the `CRITERIA`/`CRIT` block to every existing `.inc` file here --
-   use `CRIT_FROM_PRODUCTION( group, id)` in place of `CRIT` for any
-   criterion that's identical to production's.
+   use `CRIT_FROM_MASTER( group, id)` in place of `CRIT` for any
+   criterion that's identical to the master's.
 2. Reference it from the script the same way `supply_rail_script.cpp` and
    `fuse_register_script.cpp` do: `#include "core/criteria/active_criteria.hpp"`,
    then use `YourGroupName::YourCritName` directly.
@@ -279,8 +304,8 @@ one variant and the build says so.
 mechanism -- it's used on its own (e.g. by `test_criterion.cpp`) with no
 notion of "variants" at all. `core/criteria/active_criteria.hpp` is a specific
 *consumer* of that mechanism: it resolves `THORIUM_CRITERIA_VARIANT_TABLES`
-and `THORIUM_PRODUCTION_CRITERIA`, which require the `scripts` target's build
-configuration. Folding the two
+(and, through it, `THORIUM_CRITERIA_MASTER_FILE`), which requires the `scripts`
+target's build configuration. Folding the two
 together would force that requirement onto every unrelated user of the
 general macros -- `core`'s own unit tests would stop compiling.
 

@@ -151,8 +151,9 @@ build fails on a driver header the include path no longer has.
 `dev/suite/scripts.hpp`, one `TEST(...)` row in `dev/suite/test_catalog.inc`. The
 glob picks up the file; the catalog name-checks against the header.
 
-**A criterion.** `dev/dut/criteria_production.inc`. One table, so no
-`CRIT_FROM_PRODUCTION` and no variant to keep in step.
+**A criterion.** `dev/dut/criteria_production.inc`. One table, which is also
+this deployment's master, so no `CRIT_FROM_MASTER` and no variant to keep in
+step.
 
 **A second instrument.** One `INSTRUMENT(...)` row in `dev/rig/instrument.inc`,
 its package in `THORIUM_INSTRUMENT_PACKAGES` (the row's own type column is what

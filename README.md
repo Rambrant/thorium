@@ -77,10 +77,11 @@ three weeks later. Same trick for tolerance variants in
 
 **Criteria variants.** Production, stress-chamber and aged-equipment tolerances
 are three separate tables, **all compiled into one binary** and chosen per run
-with `run_scripts --criteria=stress`. A criterion whose value is unchanged from
-production is written `CRIT_FROM_PRODUCTION`, so the number lives in exactly one
-place — and a typo in the reference is a hard compile error, not a silent
-fallback.
+with `run_scripts --criteria=stress`. One of them is the *master*
+(`THORIUM_CRITERIA_MASTER`, `production` by default but any of them will do), and
+a criterion whose value is unchanged from it is written `CRIT_FROM_MASTER`, so
+the number lives in exactly one place — and a typo in the reference is a hard
+compile error, not a silent fallback.
 
 Nothing was traded away to get the runtime choice. A script still writes
 `FS_Supply_1::FS_Supply_5V0` as an ordinary struct member, so a typo is still
@@ -495,15 +496,15 @@ tolerates. Unlike `ANY`, it cannot reject a mixed-unit list when it is built (a
 compile error at the point of use instead — the resulting predicate is callable
 with neither unit.
 
-Then add it to `criteria_stress.inc` and `criteria_aged.inc` — same value as
-production means:
+Then add it to `criteria_stress.inc` and `criteria_aged.inc` — same value as the
+master table means:
 
 ```cpp
-CRIT_FROM_PRODUCTION( FS_Supply_1, FS_Supply_12V)
+CRIT_FROM_MASTER( FS_Supply_1, FS_Supply_12V)
 ```
 
 **Miss a variant and the build will not complete** — the merged table that every
-script names is generated from production's, so a missing id is a compile error
+script names is generated from the master's, so a missing id is a compile error
 that says which variant is short of it.
 
 ### Add a test script
@@ -1581,6 +1582,7 @@ DeviceX -- Sun 23 Aug 2026 18:53:45 CEST
 DUT serial        SN-000123
 Operator          thomas
 Criteria          production
+Criteria master   production
 Bench             DETACHED -- no instrument was touched
 Framework         Thorium 0.1.0
 ```
@@ -1634,9 +1636,17 @@ tests are the build system's business, deliberately not reachable from there.
 ### The two logs
 
 Both are written by default, named for the run's start time, and both carry the
-same traceability header — DUT, serial, operator, criteria variant, whether a
-bench was attached, framework version, content revision, UTC instant, command
-line.
+same traceability header — DUT, serial, operator, criteria variant, the master
+that variant inherited its unchanged criteria from, whether a bench was
+attached, framework version, content revision, UTC instant, command line.
+
+The master is there because the variants are not independent tables: a `stress`
+run was held to stress's tolerances for the rows stress changes and to the
+master's for every row it does not, so the applied name alone does not say which
+numbers were in force. It is a row of its own even when it repeats the applied
+variant — the header is a form, and a field that appears only sometimes is one
+nobody comparing two reports can rely on finding. The machine log carries it as
+`"criteriaMaster"`, beside `"criteriaVariant"`.
 
 **`*.rtf` — for people.** Colour-coded, grouped the way the catalog is,
 descriptions in grey, each check stating what was measured *and what was
@@ -1647,6 +1657,7 @@ required*. It carries what the run **observed** — `Measure`, `Read` and `Verif
 DeviceX -- Sat 01 Aug 2026 11:13:16 CEST
 DUT serial        SN-000123
 Criteria          production
+Criteria master   production
 Bench             attached
 Suite/DUT/rig     5a4052f
 --------------------------------------------------------------------
@@ -1734,6 +1745,7 @@ cmake --preset macos-debug -DTHORIUM_CRITERIA_VARIANT=stress
 |---|---|---|
 | `THORIUM_KNOWN_CRITERIA_VARIANTS` | `production stress aged` | which tolerance tables are compiled in. Each needs a matching `dut/criteria_<name>.inc`, checked at *configure* time |
 | `THORIUM_CRITERIA_VARIANT` | `production` | which of them applies when `--criteria=` is not given. A typo fails the *configure* step |
+| `THORIUM_CRITERIA_MASTER` | `production` | which of them is the master: the table `CRIT_FROM_MASTER` borrows from and the merged criteria are generated from. Any variant will do, provided it spells every criterion out with `CRIT` (checked at *configure* time) |
 | `THORIUM_DUT_NAME` | `DeviceX` | DUT name in both logs |
 | `THORIUM_RIG_NAME` | `thorium-rig-1` | bench name in the machine log |
 | `THORIUM_SUITE_VERSION`, `THORIUM_DUT_VERSION`, `THORIUM_RIG_VERSION` | `git describe --always --dirty` | content revision in both logs |

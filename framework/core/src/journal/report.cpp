@@ -289,6 +289,18 @@ namespace core
         append( lines, { metadataLine( "DUT serial", info.DutSerial) });
         append( lines, { metadataLine( "Operator",   info.Operator) });
         append( lines, { metadataLine( "Criteria",   info.CriteriaVariant) });
+
+        //
+        // A row of its own rather than a parenthetical on the row above, and
+        // present even when it repeats it. The header is a form (see
+        // metadataLine): a reader comparing two reports side by side should
+        // find the same fields in the same places, and a field that appears
+        // only when the applied variant differs from the master is one nobody
+        // can rely on being there. Repeating the name is also the honest
+        // reading in that case -- a run against the master table inherited
+        // nothing, and the row says so by naming itself.
+        //
+        append( lines, { metadataLine( "Criteria master", info.CriteriaMaster) });
         append( lines, { benchLine( info.BenchAttached) });
         append( lines, { metadataLine( "Framework",  info.FrameworkName + " " + info.FrameworkVersion) });
         append( lines, versionLines( info));

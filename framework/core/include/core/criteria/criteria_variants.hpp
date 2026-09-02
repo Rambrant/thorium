@@ -52,6 +52,26 @@ namespace core
     auto defaultCriteriaVariantName() -> std::string_view;
 
     //
+    // Which variant is this build's *master*: the table the others borrow their
+    // unchanged criteria from via CRIT_FROM_MASTER, baked in from
+    // THORIUM_CRITERIA_MASTER at build time (see cmake/CriteriaVariants.cmake).
+    //
+    // Not selectable, and here for exactly that reason. The variants are not
+    // independent tables -- a run reporting "stress" applied stress's own
+    // tolerances for the rows stress changes and the master's for every row it
+    // does not, so "which tolerances were these" is only half answered without
+    // it. Both log streams carry it in their traceability header alongside the
+    // applied variant (see core::RunInfo in core/journal/journal.hpp), and
+    // manifest.json reports it for the same reason.
+    //
+    // A name and no index: nothing selects by it, and unlike the default it is
+    // never resolved against the list here -- the build already rejected a
+    // master that is not one of the known variants, at configure time.
+    //
+    [[nodiscard]]
+    auto masterCriteriaVariantName() -> std::string_view;
+
+    //
     // The active variant, as an index into criteriaVariantNames() and into
     // every MultiCriterion's tuple of tolerances. Read once per Verify.
     //

@@ -234,7 +234,7 @@ TEST_F( AcDropoutFixture, TheSameScriptIsHeldToWhicheverVariantIsSelected)
 TEST_F( AcDropoutFixture, NoVariantMakesAMissingCaptureAcceptable)
 {
     //
-    // FS_Transient_Captured is CRIT_FROM_PRODUCTION in both variant tables,
+    // FS_Transient_Captured is CRIT_FROM_MASTER in both variant tables,
     // and this is what that means in practice: there is no temperature and no
     // amount of service life at which half a capture becomes a result.
     //

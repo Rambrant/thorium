@@ -869,6 +869,14 @@ TEST_F( AcceptanceCriteria, TheFlagChangesTheToleranceThatIsActuallyApplied)
     EXPECT_TRUE( containsText( outPath(), mOut, "= 5 V +/-150 mV"));
 
     //
+    // The flag moves the applied variant and not the master: aged borrows every
+    // row it does not widen from production, and the header says both. This is
+    // the case where the two rows differ, which is what makes the master row
+    // worth carrying.
+    //
+    EXPECT_TRUE( containsText( outPath(), mOut, "Criteria master   production"));
+
+    //
     // The 5V rail specifically, not "+/-50 mV" anywhere: fuse_register_script
     // also makes an ad-hoc EQ( 12.0_V).epsilon( 0.05_V) check that no variant
     // has any say over, so the broader assertion would fail on a criterion that
@@ -922,6 +930,27 @@ TEST_F( AcceptanceCriteria, BothLogsRecordTheVariantThatWasApplied)
 }
 
 //
+// And both name the master beside it. A stress run was held to stress's
+// tolerances only for the rows stress changes -- every row it leaves alone came
+// from the master via CRIT_FROM_MASTER -- so "criteria: stress" on its own does
+// not identify the numbers that were in force. Any variant can be the master
+// (THORIUM_CRITERIA_MASTER), so a reader cannot infer it either.
+//
+TEST_F( AcceptanceCriteria, BothLogsRecordTheMasterTheVariantInheritedFrom)
+{
+    run( { "--quiet", "--criteria=stress" });
+
+    const auto sarif = findArtifact( ".sarif");
+    const auto rtf   = findArtifact( ".rtf");
+
+    ASSERT_FALSE( sarif.empty());
+    ASSERT_FALSE( rtf.empty());
+
+    EXPECT_TRUE( containsText( sarif, readFile( sarif), R"("criteriaMaster": "production")"));
+    EXPECT_TRUE( containsText( rtf,   readFile( rtf),   "Criteria master"));
+}
+
+//
 // Fatal, and it says what would have worked. A runner that quietly fell back to
 // the default here would apply the wrong tolerances to real hardware and hand
 // back a log that looks entirely normal -- worse than the unknown-flag case,
@@ -950,12 +979,13 @@ TEST_F( AcceptanceHumanLog, ConsoleCarriesTheHeaderTestNamesAndVerdicts)
     //
     // Traceability header. The title names the DUT and the local time; the rows
     // under it are the report's fixed schedule -- serial, operator, criteria,
-    // framework, content revision, UTC instant, command line.
+    // criteria master, framework, content revision, UTC instant, command line.
     //
     EXPECT_TRUE( containsText( outPath(), mOut, "DeviceX -- "));
     EXPECT_TRUE( containsText( outPath(), mOut, "DUT serial        SN-000123"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Operator          acceptance"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Criteria"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "Criteria master   production"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Framework         Thorium"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Started (UTC)"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Command line"));

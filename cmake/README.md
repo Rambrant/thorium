@@ -28,10 +28,12 @@ read by somebody else's build.
 tolerance variants this deployment knows: `production stress aged`. Every
 variant is compiled into the binary and chosen per run with `--criteria=`, so
 that list has to reach both the compiler and the runtime selector.
+`THORIUM_CRITERIA_MASTER` names which one of them is the master.
 
 ```cmake
 thorium_generate_criteria_variants(
     "${THORIUM_KNOWN_CRITERIA_VARIANTS}"   # the variant names, in order
+    "${THORIUM_CRITERIA_MASTER}"           # which of them is the master
     "${CMAKE_SOURCE_DIR}/dut"              # where criteria_<name>.inc live
     "${CMAKE_BINARY_DIR}/generated/thorium")
 ```
@@ -45,8 +47,10 @@ definitions.
 should acquire the other's dependencies:
 
 - `criteria_variant_tables.inc` — every variant's `CRITERIA`/`CRIT` table, each
-  in its own namespace. Read by `core/criteria/active_criteria.hpp`, i.e. by every script
-  translation unit, and so pulls in the whole predicate/quantity vocabulary.
+  in its own namespace, plus a `namespace master = <the master>` alias and a
+  `THORIUM_CRITERIA_MASTER_FILE` define holding the master table's path. Read by
+  `core/criteria/active_criteria.hpp`, i.e. by every script translation unit,
+  and so pulls in the whole predicate/quantity vocabulary.
 - `criteria_variant_names.inc` — the names as string literals, nothing else.
   Read only by the runtime `--criteria=` selector, which needs to know what the
   legal names are and not what any of them mean.
@@ -55,13 +59,33 @@ should acquire the other's dependencies:
 a hand-maintained C++ list beside the CMake one. The second is two lists that
 can disagree, and the disagreement is silent.
 
-**Two configure-time checks**, both placed here because here is where the list
+**The master, and why C++ never learns its name.** The master is the table
+`CRIT_FROM_MASTER` borrows from and the one the merged criteria are generated
+from, so it has to spell every group and every id out in full. Rather than
+pasting the chosen variant's name into a macro, this file emits
+`namespace master = <the master>;` next to the variant namespaces, and
+`core/criteria/criterion.hpp` pastes the fixed token `master`. No header names a
+variant, and `THORIUM_CRITERIA_MASTER` is the only place the choice is made.
+
+The master's table is also emitted **first**, whatever position it holds in the
+list, because every other variant's `CRIT_FROM_MASTER` rows read
+`master::group::id` at namespace scope and need the master's groups to be
+complete types by then. Only the declaration order changes — the X-macro below
+still iterates the list as given, since those indices are what `--criteria=`
+means.
+
+**Four configure-time checks**, all placed here because here is where the list
 actually is:
 
-- The variant set must contain `production`. `CRIT_FROM_PRODUCTION` resolves an
-  unqualified `production::group::id`, so a set without one fails at some
-  unrelated `.inc` file's first use of the macro — an error naming neither the
-  list nor the requirement.
+- `THORIUM_CRITERIA_MASTER` must be one of the known variants. Otherwise the
+  alias fails at some unrelated `.inc` file's first use of the macro — an error
+  naming neither the list nor the requirement.
+- No variant may be called `master`, which is the alias's own name.
+- The master's table must not itself use `CRIT_FROM_MASTER`: that asks a
+  criterion to initialise itself from itself, which the compiler reports as an
+  incomplete type inside a generated file. Matched as an invocation at the start
+  of a line, so a table that merely *mentions* the macro in a comment (the dev
+  deployment's single table does) is not failed for a sentence.
 - Every named variant must have a `dut/criteria_<name>.inc` behind it.
   Otherwise it surfaces as a missing-include error *inside a generated file*,
   pointing at neither the list that named it nor the directory it was expected
@@ -175,9 +199,16 @@ half of a real change: every variant is compiled in and chosen per run, so one
 installed binary offers what previously needed one install per variant.
 `defaultCriteriaVariant` is what a caller gets by passing nothing.
 
+`masterCriteriaVariant` is reported precisely because it is *not* selectable.
+The listed variants are not independent tables: each borrows the criteria it
+does not change from the master via `CRIT_FROM_MASTER`, so "these tolerances
+came from the stress table" is half an answer unless whoever reads the results
+can also see which table the unchanged rows were inherited from. Any variant can
+be the master, so it cannot be inferred from the list either.
+
 Inputs arrive as plain variables — `THORIUM_RUN_SCRIPTS_EXE`,
 `THORIUM_KNOWN_CRITERIA_VARIANTS`, `THORIUM_CRITERIA_VARIANT`,
-`THORIUM_MANIFEST_OUTPUT` — set by the `install(CODE ...)` calls immediately
+`THORIUM_CRITERIA_MASTER`, `THORIUM_MANIFEST_OUTPUT` — set by the `install(CODE ...)` calls immediately
 before, **not** passed as `-D` arguments. `install(SCRIPT)` shares variable
 scope with the surrounding `install(CODE)` calls in `cmake_install.cmake`, which
 is the ordinary way to hand values into an install-time script.

@@ -22,6 +22,10 @@
     #define THORIUM_DEFAULT_CRITERIA_VARIANT "unknown"
 #endif
 
+#ifndef THORIUM_MASTER_CRITERIA_VARIANT
+    #define THORIUM_MASTER_CRITERIA_VARIANT "unknown"
+#endif
+
 namespace core
 {
     namespace
@@ -86,6 +90,18 @@ namespace core
     auto defaultCriteriaVariantName() -> std::string_view
     {
         return Names[ defaultIndex()];
+    }
+
+    //
+    // Returned as the build stamped it, not looked up in Names first. The
+    // configure step already rejects a master that is not one of the known
+    // variants, and a traceability field is the last place to launder a value
+    // that disagrees with the build into a plausible-looking one -- the same
+    // reasoning behind the "unknown" fallback above.
+    //
+    auto masterCriteriaVariantName() -> std::string_view
+    {
+        return THORIUM_MASTER_CRITERIA_VARIANT;
     }
 
     auto activeCriteriaVariant() -> std::size_t

@@ -182,7 +182,7 @@ TEST_F( BulkCapacitanceFixture, TheSameScriptIsHeldToWhicheverVariantIsSelected)
 // No variant widens the precondition, and it is not the kind of thing that
 // could: a node is discharged or it is not, and there is no temperature or
 // service life at which a charged one becomes measurable. Both derived tables
-// take that row via CRIT_FROM_PRODUCTION so the fact lives in one place -- the
+// take that row via CRIT_FROM_MASTER so the fact lives in one place -- the
 // same treatment FS_Transient_Captured gets.
 //
 TEST_F( BulkCapacitanceFixture, NoVariantAcceptsAReadingTakenOnALiveRail)
