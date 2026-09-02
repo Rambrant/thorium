@@ -68,6 +68,14 @@
 //          Channels 0-15 are that power block; 16 up are signal-level leads
 //          that need isolating without needing a changeover (Ser1's three).
 //
+//          The 2 A is a rating this rig has now run into rather than merely
+//          recorded, and it is what decides one row of rig/instrument.inc:
+//          the EDU36311A's 6 V output is a 5 A output, so DcP5's lead cannot
+//          pass through this card at all and is cabled straight through
+//          instead. Its two 1 A siblings, DcP6 and DcP7, sit on channels 6
+//          and 7. A switched 5 A rail on this rig would need a contactor
+//          card this rack does not have.
+//
 // Spdt1    1260-17, 80 Form C relays. The console changeover: each of the
 //          DUT's three console pins sits on the common of one relay, with the
 //          bench's serial line on the normally-open contact and the parked

@@ -109,9 +109,11 @@ Being honest about the edges matters more than the table above:
   `tools/run-tests.sh` validates ids against the catalog before it gets that
   far, but a hand-typed flag has no such help.
 - **Instrument I/O.** Real instruments are absent, mis-addressed or lying. That
-  is what the runtime is for — and it is no longer hypothetical for one of the
-  six drivers. `hal::keysight_edu34450a::EDU34450A` opens a SCPI session over
-  the address its rig row declares (see `framework/hal/README.md` on `hal/io/`),
+  is what the runtime is for — and it is no longer hypothetical for three of the
+  eight drivers. `hal::keysight_edu34450a::EDU34450A`,
+  `hal::keysight_dsox1202g::DSOX1202G` and
+  `hal::keysight_edu36311a::EDU36311A` open a SCPI session over
+  the address their rig row declares (see `framework/hal/README.md` on `hal/io/`),
   which makes three failures runtime facts rather than possibilities: the box is
   unreachable (`hal::io::TransportError`), the box rejects what the driver sent
   (`hal::io::ScpiFault`, naming the command and the instrument's own words), or
@@ -274,6 +276,7 @@ that cannot be recovered from the code.
 | [`instruments/keysight_dsox1202g`](instruments/keysight_dsox1202g/README.md) | Oscilloscope, 2-channel — `Osc1`; **talks to real hardware**, including the arm-and-poll sequence and waveform transfer |
 | [`instruments/keysight_dso8064a`](instruments/keysight_dso8064a/README.md) | Oscilloscope, 4-channel — in the tree, on no bench: the driver `Osc1` used to be |
 | [`instruments/keysight_n6701a`](instruments/keysight_n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
+| [`instruments/keysight_edu36311a`](instruments/keysight_edu36311a/README.md) | DC supply, triple output — `DcP5`..`DcP7`; **talks to real hardware**, and the first source that does |
 | [`instruments/keysight_ac6834b`](instruments/keysight_ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
 | [`instruments/racal1260`](instruments/racal1260/README.md) | RS232 port — `Ser1`, routed to a DUT interface through the matrix |
 
@@ -375,7 +378,7 @@ instrument; trailing arguments are the driver's constructor arguments.
 ```cpp
 INSTRUMENTS
     INSTRUMENT( keysight_l4411a::L4411A, Dmm3, Lan( "bench-dmm3"))  // a third DMM
-    INSTRUMENT( keysight_n6701a::Relay,  DcP5, Gpib( 0, 14), 5)     // slot 5, relay-isolated
+    INSTRUMENT( keysight_n6701a::Relay,  DcP8, Gpib( 0, 14), 4)     // slot 4, relay-isolated
 END_INSTRUMENTS
 ```
 

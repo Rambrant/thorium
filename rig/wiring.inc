@@ -89,6 +89,22 @@ INSTRUMENT_WIRING
     WIRE_INSTRUMENT( DcP3, HOP( Spst1, 4))
     WIRE_INSTRUMENT( DcP4, HOP( Spst1, 5))
 
+    // DcP6/DcP7 are the EDU36311A's two 30 V / 1 A outputs, and they get
+    // relays here for the same reason DcP3/DcP4 do. DcP5 -- the same box's
+    // 6 V / 5 A output -- has no entry, and that one is arithmetic rather
+    // than history: a 1260-18 relay is rated 2 A, so a 5 A rail cannot pass
+    // through this card at all. It is cabled straight through and its row in
+    // rig/instrument.inc says DirectOutput1, which is what makes
+    // Connect( DcP5.dc()) a compile error rather than a relay carrying two
+    // and a half times its rating (see
+    // hal::keysight_edu36311a::SwitchableIsolation).
+    //
+    // Both are inside the 0-15 power block this card's comment in
+    // rig/devices.inc sets aside, which had six of its sixteen channels
+    // spoken for (AcP1's four, DcP3, DcP4) and now has eight.
+    WIRE_INSTRUMENT( DcP6, HOP( Spst1, 6))
+    WIRE_INSTRUMENT( DcP7, HOP( Spst1, 7))
+
     // AcP1 is fixed-wired on four channels, not one -- phases A/B/C plus
     // the neutral/ground return, all closed and opened together (see
     // hal::keysight_ac6834b::Ac6834B's own comment on why the return is included, and
@@ -240,6 +256,17 @@ END_CONNECTOR_WIRING
 // rig/instrument.inc) but nothing drives it and no adapter point corresponds
 // to it -- a spare module in the mainframe. hal::SourceWiring::findAll()
 // returns empty for it rather than throwing, which is exactly that case.
+//
+// DcP5, DcP6 and DcP7 are absent for that same reason, and it is now the
+// commoner case rather than the odd one out: the EDU36311A's three outputs are
+// declared, two of them have isolation relays above, and none of the three
+// lands anywhere yet, because this DUT has no point for a 6 V or a 30 V rail
+// (see dut/adapter.inc's SOURCE_POINTs, which are the three 24-28 V ones the
+// N6701A modules feed). A row here would have to invent both the pin and the
+// adapter point beside it -- and the pairing is checked, so it would have to
+// invent a matching pair. What closes this gap is a DUT that wants those
+// rails, at which point each new output gets a WIRE_SOURCE row here and a
+// SOURCE_POINT there, together.
 //
 SOURCE_WIRING
     WIRE_SOURCE( DcP1, A, 1, 5)   // dut::BackupSupply,   28Vdc

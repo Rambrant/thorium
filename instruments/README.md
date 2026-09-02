@@ -25,6 +25,12 @@ instruments/
         include/hal/keysight_dsox1202g.hpp
         src/keysight_dsox1202g.cpp   #   the SCPI: setup, arm/await, waveform transfer
         tests/test_keysight_dsox1202g.cpp
+    keysight_edu36311a/         # triple-output DC supply -- DcP5..DcP7, talks to real hardware
+        CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
+        README.md
+        include/hal/keysight_edu36311a.hpp
+        src/keysight_edu36311a.cpp   #   the SCPI: the Apply ordering, readback, safing
+        tests/test_keysight_edu36311a.cpp
     keysight_dso8064a/          # four-channel oscilloscope -- no longer on this bench
     keysight_n6701a/            # one DC supply channel
     keysight_ac6834b/           # three-phase AC source
@@ -45,18 +51,32 @@ situation. Their differences are instructive rather than cosmetic (two channels
 against four, one reason for an unmeasurable reading against nineteen, no 50 ohm
 input), and `keysight_dsox1202g/README.md` lists them.
 
-**Five of the seven are simulated; two talk.** `EDU34450A` and `DSOX1202G` open
-a SCPI session over their address and read the instrument (`hal/io/`, see
-`framework/hal/README.md`); the other five answer from their own simulation
-hooks whatever their rig row says, exactly as every driver here used to. That
-asymmetry is the current state of the work rather than a design; what doing it
-again involves is in **A driver with a transport** below.
+**Two DC supplies, and they are not the same shape either.** `DcP1`..`DcP4` are
+four `N6701A` module slots behind one mainframe address; `DcP5`..`DcP7` are the
+three outputs of one `EDU36311A` chassis. Both are "one box, several
+endpoints", and where they differ is where the endpoint lives: the mainframe
+takes its slot as a constructor argument, because any module can be in any
+slot, and the EDU36311A puts its output in the *type*, because output 1 is the
+6 V / 5 A one and cannot be anything else. See
+`keysight_edu36311a/README.md`.
 
-The two that talk are worth reading in that order. The meter is the smaller
+**Five of the eight are simulated; three talk.** `EDU34450A`, `DSOX1202G` and
+`EDU36311A` open a SCPI session over their address and drive or read the
+instrument (`hal/io/`, see `framework/hal/README.md`); the other five answer
+from their own simulation hooks whatever their rig row says, exactly as every
+driver here used to. That asymmetry is the current state of the work rather
+than a design; what doing it again involves is in **A driver with a transport**
+below.
+
+The three that talk are worth reading in that order. The meter is the smallest
 case -- configure, read one number, check the queue. The scope adds the three
 things a DMM never needs: a sequence that has to be *waited on* (arm, then poll
 two registers), a record transferred rather than a reading, and a measurement
-whose answer may be "I could not".
+whose answer may be "I could not". The supply is the first one that *drives*
+rather than observes, and what that adds is a third kind of care again: the
+order of four commands is the safety argument, `*OPC?` earns its place because
+a source's commands complete after they return, and `safe()` finally has
+something it genuinely has to say on the wire.
 
 ## One name, in four places
 
@@ -80,6 +100,12 @@ is today rather than the badge on the unit: the DSO8064A, L4411A and N6701A all
 shipped as Agilent products and are now Keysight, and one vendor appearing under
 two spellings would be worse than a name that is one acquisition out of date.
 `racal1260` already reads as Racal's, which is why it is not `racal_1260`.
+
+`keysight_edu36311a` is the case where this rule stops being about vendors and
+starts being about one vendor's own catalogue: Keysight also ships an `E36311A`,
+which speaks the same SCPI and has different ranges and a negative rail. The
+model number is not enough there either, which is why that driver refuses an
+E36311A on `*IDN?` rather than tolerating it.
 
 **Everything a driver declares goes in its own namespace, nested inside `hal`.**
 This is the rule to follow when adding one, and the reason is what happens

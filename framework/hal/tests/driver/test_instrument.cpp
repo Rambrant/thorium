@@ -30,8 +30,8 @@
 // What the mechanism promises is that an enumerator's name comes back verbatim
 // and that every enumerator has one, and that is checkable without knowing any
 // of the names: reflect over the enum, and require the round trip. A bench with
-// eight instruments exercises it eight times, a desk with one exercises it once,
-// and neither has to be written down here.
+// eleven instruments exercises it eleven times, a desk with one exercises it
+// once, and neither has to be written down here.
 //
 // Which enumerators a given deployment *should* have is a real question, and it
 // has an owner: the deployment. rig/tests/ and dev/rig/tests/ each assert their

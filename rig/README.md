@@ -65,6 +65,22 @@ mainframe interface is one address and four slots, and the slot stays a
 separate constructor argument rather than a field on the address (see
 `hal/topology/active_instruments.hpp`'s own comment for that argument in full).
 
+`DcP5`..`DcP7` are a second box of that shape and the comparison is instructive
+rather than repetitive: three outputs of one `hal::keysight_edu36311a::EDU36311A`
+triple-output supply, 6 V/5 A and two of 30 V/1 A. One address again, but the
+endpoint is in the *type* column (`DirectOutput1`, `RelayOutput2`,
+`RelayOutput3`) rather than a trailing argument, because these three outputs are
+built into the chassis and a channel number handed in separately would let this
+table write down an output the instrument does not have. The mainframe's slot is
+rightly an argument for the opposite reason -- any module can be in any slot.
+
+Which of the two isolation aliases each of those rows takes is arithmetic, and
+it is the one thing about them a reader might think arbitrary: `Spst1`'s relays
+are rated 2 A, so `DcP6` and `DcP7` (1 A each) get one and `DcP5` (5 A) cannot
+have one at all and is cabled straight through. None of the three has a
+`SOURCE_WIRING` row yet -- this DUT has no point for a 6 V or a 30 V rail, and
+inventing one would be inventing a DUT fact.
+
 `Dmm1` and `Dmm2` are two *different* models, which is the easiest thing in this
 table to skim past. They were two `hal::keysight_l4411a::L4411A` instances --
 two wiring facts sharing one C++ type, the way `DcP1`..`DcP4` still are -- and
@@ -191,8 +207,9 @@ buses. There are two:
   `wiring.inc`'s own `TODO(bench)`.
 
 Two things stay off the buses on purpose. Supply leads (`DcP3`/`DcP4`,
-`AcP1`'s phases) switch on `Spst1`, because it is load current that has to be
-kept off signal relays. The console's three conductors switch on `Spdt1`
+`DcP6`/`DcP7`, `AcP1`'s phases) switch on `Spst1`, because it is load current
+that has to be kept off signal relays -- and `DcP5`'s 5 A lead switches nowhere
+at all, because 2 A is what that card's relays are rated for. The console's three conductors switch on `Spdt1`
 against `Ser1`'s own three `Spst1` relays, because three wires that must stay
 three wires cannot share a mux common -- writing them as mux channels, which
 this file used to, describes a rig that shorts its console together the moment
@@ -206,7 +223,7 @@ Channels are written the way each card's manual numbers them:
 ## What is *not* here
 
 The mechanism that turns these three tables into this rig's actual instrument
-globals (`Dmm1`, `Dmm2`, `Osc1`, `DcP1`..`DcP4`, `AcP1`, `Ser1`) plus
+globals (`Dmm1`, `Dmm2`, `Osc1`, `DcP1`..`DcP7`, `AcP1`, `Ser1`) plus
 `hal::fabric` is `hal/topology/active_instruments.hpp`, in the framework
 alongside the `wiring.hpp`/`adapter.hpp` mechanisms behind the other
 declarative tables. It used to be an `active_instruments.hpp` in this

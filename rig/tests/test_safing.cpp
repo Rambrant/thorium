@@ -3,6 +3,7 @@
 #include "hal/topology/active_instruments.hpp"
 #include "hal/keysight_ac6834b.hpp"
 #include "hal/keysight_dsox1202g.hpp"
+#include "hal/keysight_edu36311a.hpp"
 #include "hal/driver/instrument.hpp"
 #include "hal/keysight_l4411a.hpp"
 #include "hal/keysight_n6701a.hpp"
@@ -11,6 +12,7 @@
 #include <gtest/gtest.h>
 
 #include <concepts>
+#include <optional>
 #include <stdexcept>
 
 using namespace core::literals;
@@ -97,6 +99,20 @@ namespace
             DcP2.applyOutput( 5.0_V, 2.0_A);
             DcP3.applyOutput( 12.0_V, 1.0_A);
             DcP4.applyOutput( 48.0_V, 0.5_A);
+
+            //
+            // The EDU36311A's three outputs, each within its own badge -- 6 V
+            // on the 6 V / 5 A one and 24 V on the two 30 V / 1 A ones. Not
+            // arbitrary numbers: that driver refuses a setpoint beyond an
+            // output's rating before anything is remembered (see
+            // hal::keysight_edu36311a::RatingExceeded), so a fixture handing
+            // one 48 V the way DcP4 gets it above would throw rather than
+            // energise.
+            //
+            DcP5.applyOutput(  5.0_V, 4.0_A, std::nullopt);
+            DcP6.applyOutput( 24.0_V, 0.5_A, std::nullopt);
+            DcP7.applyOutput( 12.0_V, 0.5_A, std::nullopt);
+
             AcP1.applyOutput( 115.0_V, 400.0_Hz, 3.0_A);
 
             hal::fabric.close( someElement);
@@ -124,6 +140,22 @@ TEST_F( SafingFixture, SafeRigDisablesEveryDcSourceAndZeroesItsSetpoint)
     EXPECT_DOUBLE_EQ( DcP2.outputVoltage().value(), 0.0);
     EXPECT_DOUBLE_EQ( DcP3.outputVoltage().value(), 0.0);
     EXPECT_DOUBLE_EQ( DcP4.outputVoltage().value(), 0.0);
+
+    //
+    // And the second supply, which is a different driver and a different C++
+    // type reached by the same reflection -- which is the part of safeRig()
+    // this half actually tests. Its safe() makes the same two promises for the
+    // same reason (see hal::keysight_edu36311a::EDU36311A::safe()), and if this
+    // rig ever declares a source whose driver forgot the member, the build
+    // fails naming the type rather than the run leaving a rail live.
+    //
+    EXPECT_FALSE( DcP5.isEnabled());
+    EXPECT_FALSE( DcP6.isEnabled());
+    EXPECT_FALSE( DcP7.isEnabled());
+
+    EXPECT_DOUBLE_EQ( DcP5.outputVoltage().value(), 0.0);
+    EXPECT_DOUBLE_EQ( DcP6.outputVoltage().value(), 0.0);
+    EXPECT_DOUBLE_EQ( DcP7.outputVoltage().value(), 0.0);
 }
 
 TEST_F( SafingFixture, SafeRigDisablesTheAcSourceAndZeroesItsSetpoint)

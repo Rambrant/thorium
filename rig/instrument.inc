@@ -41,6 +41,41 @@
 // Matches this rig's real bench fact: some DC rails switchable, some not,
 // same instrument type either way.
 //
+// -- DcP5..DcP7 are a second box, and a differently shaped one --------------
+//
+// Three more DC rails, and they are not three more N6701A modules: DcP5, DcP6
+// and DcP7 are the three outputs of one Keysight EDU36311A triple-output bench
+// supply (hal::keysight_edu36311a::EDU36311A), 90 W in one chassis as 6 V / 5 A,
+// 30 V / 1 A and 30 V / 1 A. So this table now has two "one box, several
+// endpoints" groups in it rather than one, and they are worth comparing,
+// because they are the same shape written two different ways for a reason.
+//
+// Both repeat one address per row and put the endpoint somewhere else. The
+// N6701A puts it in a constructor argument, because that mainframe has four
+// *slots* and any module can be in any of them -- which slot a channel is in
+// says nothing about what it can source. The EDU36311A puts it in the type,
+// because its three outputs are built into the chassis: output 1 IS the
+// 6 V / 5 A one. Handing that one a channel number and a rating separately
+// would let this table write down a combination the instrument does not have,
+// and nothing would object. Hence DirectOutput1/RelayOutput2/RelayOutput3 in
+// the type column, each naming one physical output.
+//
+// Which of the two isolation aliases each row takes is arithmetic on this rig,
+// and it is the one thing about these three rows a reader might otherwise
+// think arbitrary. The isolation relays are on Spst1, a Racal 1260-18, whose
+// relays are rated 2 A (see rig/devices.inc). Outputs 2 and 3 are 1 A outputs
+// and fit inside that with room to spare, so DcP6 and DcP7 are RelayOutput*
+// and each has a real fixed channel in rig/wiring.inc. Output 1 is a 5 A
+// output and no relay in this rack will carry it, so DcP5 is DirectOutput1 --
+// cabled straight through, nothing to Connect or Disconnect, exactly as
+// DcP1/DcP2 are, and for a reason that can be checked rather than remembered.
+//
+// None of the three appears in SOURCE_WIRING, deliberately: this rig now
+// declares three outputs that nothing drives and that no adapter point
+// corresponds to, which is the case DcP4 was already the example of (see
+// rig/wiring.inc's SOURCE_WIRING comment). Giving them landing pins would mean
+// inventing DUT facts, and the DUT is dut/adapter.inc's business.
+//
 //
 // Ser1 is the one instrument here that is neither a meter nor a source: an
 // RS232 port switched onto the DUT through the same fabric everything else
@@ -71,9 +106,15 @@
 //
 // DcP1..DcP4 all carry the same address, and that repetition is the point:
 // they are four modules behind one mainframe interface, so there is one
-// address and four slots, not four addresses. If a second shared box ever
-// appears here, the thing to add is a named constant above this table for
-// each chassis -- not a slot field on the address.
+// address and four slots, not four addresses.
+//
+// A second shared box has since appeared -- DcP5..DcP7 behind one EDU36311A --
+// and the answer this paragraph used to predict for that case still stands and
+// still is not needed yet: a named constant above this table per chassis, not a
+// slot field on the address. Not needed because those three rows carry
+// Simulated{} rather than an address (see below), so there is as yet nothing to
+// name. The day one of them gets a hostname, all three get the same one, and
+// that is the day to write the constant.
 //
 // TODO(bench): every address below is invented, exactly as every channel in
 // wiring.inc is -- there is no physical bench yet, beyond the one instrument
@@ -82,7 +123,7 @@
 // for the one meter still reached that way) and no more than that. Re-check
 // against a real rack.
 //
-// -- One row says Simulated, and that is now a decision ----------------------
+// -- Some rows say Simulated, and that is now a decision ---------------------
 //
 // This paragraph used to argue that no row here should be hal::Simulated{},
 // because it "would read as a decision rather than a gap". That was right while
@@ -97,7 +138,8 @@
 // bench-dmm1*, and every reading taken through Dmm1 on a bench where no such
 // host exists fails with a name-resolution error, correctly and immediately.
 //
-// So Dmm1 is hal::Simulated{}, which has become the accurate statement rather
+// So Dmm1 is hal::Simulated{} -- the first row here to say it -- which has
+// become the accurate statement rather
 // than the evasive one: there is no meter, this driver can tell, and the honest
 // thing for the table to say is that its readings come from the driver's own
 // hooks. It is still a gap -- the TODO above still holds, and closing it for
@@ -115,6 +157,15 @@
 // meets (see the paragraphs above and below on exactly that). The day one of
 // those drivers opens a session, its row gets the same treatment Dmm1's just
 // did.
+//
+// DcP5..DcP7 arrived under that rule rather than being converted to it: their
+// driver opens a session from the day it landed, so all three say Simulated{}
+// and each carries the TODO that says what replaces it. What is not yet known
+// about them is which of two things that will be -- an EDU36311A has both a
+// LAN interface and a USB device port, so the row becomes Lan( "<hostname>")
+// or Usb( "<serial>") depending on how the box is cabled, and both compile.
+// Unlike Osc1's gap, this one is not one line from closing: there is no supply
+// on the bench yet at all.
 //
 // -- And now Osc1 says it too, for the same reason --------------------------
 //
@@ -180,6 +231,9 @@ INSTRUMENTS
     INSTRUMENT( keysight_n6701a::Direct,       DcP2, Gpib( 0, 14), 2)
     INSTRUMENT( keysight_n6701a::Relay,        DcP3, Gpib( 0, 14), 3)
     INSTRUMENT( keysight_n6701a::Relay,        DcP4, Gpib( 0, 14), 4)
+    INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Simulated{})        // TODO(bench): Lan( "<host>") or Usb( "<serial>") once a supply answers -- this driver connects
+    INSTRUMENT( keysight_edu36311a::RelayOutput2,  DcP6, Simulated{})        // 30 V / 1 A, isolation relay on Spst1/6
+    INSTRUMENT( keysight_edu36311a::RelayOutput3,  DcP7, Simulated{})        // 30 V / 1 A, isolation relay on Spst1/7
     INSTRUMENT( keysight_ac6834b::Ac6834B,     AcP1, Gpib( 0, 5))
     INSTRUMENT( racal1260::Racal1260,          Ser1, Serial( "/dev/ttyUSB0"))
 END_INSTRUMENTS

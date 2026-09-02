@@ -148,12 +148,13 @@ call site -- moving a driver out changed its build location and nothing else.
 | `hal::keysight_dsox1202g::DSOX1202G` | `instruments/keysight_dsox1202g/` |
 | `hal::keysight_dso8064a::DSO8064A` | `instruments/keysight_dso8064a/` (in the tree, not on the bench) |
 | `hal::keysight_n6701a::N6701A` | `instruments/keysight_n6701a/` |
+| `hal::keysight_edu36311a::EDU36311A` | `instruments/keysight_edu36311a/` |
 | `hal::keysight_ac6834b::Ac6834B` | `instruments/keysight_ac6834b/` |
 | `hal::racal1260::Racal1260` | `instruments/racal1260/` |
 
 A rig's own instrument list, wiring data, and concrete instrument
-identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP4`/`AcP1`/`fabric` in
-this repo's case) live in `rig/` at the repo root, not here -- see
+identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP7`/`AcP1`/`Ser1`/`fabric`
+in this repo's case) live in `rig/` at the repo root, not here -- see
 `rig/README.md`.
 
 ## Static wiring facts, composed at measurement (or sourcing) time
@@ -298,7 +299,7 @@ the builder's `.config()` type, the same trick `core::MeasureEngine` uses
 for `to_string(instrumentId)` -- `core/verbs/source.hpp` itself has no dependency
 on `hal::` at all.
 
-## Instrument identity (DcP1..DcP4/AcP1) vs. instrument class (N6701A/Ac6834B)
+## Instrument identity (DcP1..DcP7/AcP1) vs. instrument class (N6701A/EDU36311A/Ac6834B)
 
 `InstrumentId`'s enumerators are rig data, not hal data -- generated from
 `THORIUM_INSTRUMENT_TABLE` (`rig/instrument.inc` in this repo's case), not
@@ -342,6 +343,23 @@ which crosspoint a module's output leads land on in the switching fabric;
 `mChannel` is which slot the module occupies inside the mainframe. Neither
 table knows about the other, and neither is the mainframe's own address on
 the bus -- that is a third axis, and the section below is about it.
+
+`DcP5`..`DcP7` are the same pattern with the endpoint in the other place, and
+the pair is worth comparing because it says what "one shared box" does and does
+not settle. They are three `hal::keysight_edu36311a::EDU36311A` instances,
+three outputs of one chassis, one address repeated three times -- so far
+identical. But that driver takes its output as a *template* parameter
+(`DirectOutput1`, `RelayOutput2`, ...) rather than a constructor argument,
+because on that instrument the endpoint and its capability are one fact: output
+1 is the 6 V / 5 A one, outputs 2 and 3 are the 30 V / 1 A ones, and no
+rearrangement is possible. A slot number and a rating handed in separately
+would let a rig table write down an output the box does not have. The N6701A's
+slot is rightly an argument for the mirror-image reason -- any module can be in
+any slot, so the slot says nothing about what the channel can source.
+
+Which is the same rule the address section below states, applied to a different
+column: template parameter when it changes what compiles, constructor argument
+when it does not.
 
 ## How the PC reaches an instrument, and why that is a value
 
@@ -405,8 +423,15 @@ unconditionally, which is what driver tests construct with.
 | `hal::keysight_dsox1202g::DSOX1202G` | `Usb` |
 | `hal::keysight_dso8064a::DSO8064A` | `Gpib`, `Lan`, `Usb` |
 | `hal::keysight_n6701a::N6701A` | `Gpib`, `Lan`, `Usb` |
+| `hal::keysight_edu36311a::EDU36311A` | `Lan`, `Usb` |
 | `hal::keysight_ac6834b::Ac6834B` | `Gpib`, `Serial` |
 | `hal::racal1260::Racal1260` | `Serial`, `Gpib` |
+
+`hal::keysight_edu36311a::EDU36311A` shares the EDU34450A's pair, and for the
+same reason: both are Smart Bench Essentials boxes with gigabit LAN and a rear
+USBTMC port and no GPIB option. That is worth noticing next to the
+`N6701A` row above it -- two DC supplies on this bench, and only one of them can
+be reached over GPIB.
 
 `hal::keysight_dsox1202g::DSOX1202G` is the only row with *one*, and that is the
 table's sharpest entry: the 1000 X-Series has a USB device port and no network
@@ -432,12 +457,12 @@ path is not.
 
 ### What still has no address
 
-Two drivers read their address now -- `hal::keysight_edu34450a::EDU34450A` over
-LAN or USB, and `hal::keysight_dsox1202g::DSOX1202G` over USB (see the next
-section). The other four still carry theirs the way
-`hal::keysight_n6701a::N6701A` carried its mainframe slot before any driver
-needed it, so that the rig table can state the fact at all. Two gaps are worth
-knowing about:
+Three drivers read their address now -- `hal::keysight_edu34450a::EDU34450A`
+over LAN or USB, `hal::keysight_dsox1202g::DSOX1202G` over USB, and
+`hal::keysight_edu36311a::EDU36311A` over either (see the next section). The
+other four still carry theirs the way `hal::keysight_n6701a::N6701A` carried its
+mainframe slot before any driver needed it, so that the rig table can state the
+fact at all. Two gaps are worth knowing about:
 
 - **The run journal.** An address is per-run inventory rather than per-`Apply`,
   so `describeConfig` was deliberately left alone; `hal::to_string(Address)`
