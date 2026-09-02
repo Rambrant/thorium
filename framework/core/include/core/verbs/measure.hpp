@@ -394,7 +394,7 @@ namespace core
                 // The point's name, plus the port's qualifier when it carries
                 // one -- "Output5V" for an ordinary reading, "Output5V.Vbase"
                 // for one of the fifteen different answers an oscilloscope can
-                // give about the same pin (see hal::keysight_dso8064a::Channel).
+                // give about the same pin (see hal::keysight_dsox1202g::Channel).
                 //
                 // Without this, two measurements taken at one point in one
                 // script share a session slot, so a test injecting them by

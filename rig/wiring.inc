@@ -36,7 +36,7 @@
 // has one LF bus and one HF bus:
 //
 //   the LF measurement bus is column 00 of Matrix1's group 0. Dmm1, Dmm2 and
-//   Osc1's channel 3 sit on rows 0, 1 and 2; Mux1's common sits on row 3. So
+//   Osc1's channel 2 sit on rows 0, 1 and 2; Mux1's common sits on row 3. So
 //   an instrument's path is its own crosspoint onto that column, a pin's path
 //   is its mux channel plus the crosspoint that puts the mux common on the
 //   same column, and a reading closes both ends of one bus. The shared
@@ -47,6 +47,17 @@
 //   the HF bus is the common of RfMux1's bank 0, cabled to Osc1's channel 1.
 //   A tree-switched 1 x 4 needs no instrument-side hop at all -- closing the
 //   pin's channel is the whole path from pin to scope input.
+//
+// TODO(bench): that HF path now needs a part it did not need before. The
+// E1472A is a 50 ohm card and its bank commons are 50 ohm cable, and the scope
+// on the end of it is no longer the Infiniium whose inputs could be switched
+// to 50 ohm: a DSOX1202G's inputs are 1 MOhm and nothing else
+// (:CHANnel<n>:IMPedance takes only ONEMeg -- see hal::keysight_dsox1202g::Coupling).
+// So the HF bus is unterminated at the instrument end, and a config clock read
+// through it will show reflections rather than the edge it went looking for.
+// The fix is a 50 ohm feedthrough terminator at Osc1's channel 1 BNC, which is
+// a part to buy rather than a line to write -- and it is a wiring fact, so it
+// is recorded here rather than in the driver.
 //
 // The second of those is where this rig's wiring model shows its edge, and it
 // is worth stating rather than discovering: wiring is keyed by InstrumentId,
@@ -161,6 +172,8 @@ CONNECTOR_WIRING
     // an LF mux is read through the wrong thing, whatever the reading says.
     // Bank 0, channel 01 -- channel 00 of that bank is the 50 ohm park the
     // card powers up into, and bank 0's common is cabled to Osc1's channel 1.
+    // (Which now wants a feedthrough terminator on it -- see this file's own
+    // TODO(bench) above on what a 1 MOhm-only scope does to a 50 ohm path.)
     //
     // One hop, not two: a tree-switched 1 x 4 puts the pin on the scope input
     // by itself, so there is no instrument-side crosspoint in this path (see

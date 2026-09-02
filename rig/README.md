@@ -74,6 +74,16 @@ tightened past 5.5 digits can, and so can anything reaching for `.nplc()`, which
 the EDU34450A has no command for. See
 `instruments/keysight_edu34450a/README.md`.
 
+`Osc1` is the other row whose model has changed, and it changed further than the
+meter did. It was a four-channel `hal::keysight_dso8064a::DSO8064A` reconstructed
+from a legacy ATE script; it is now the `hal::keysight_dsox1202g::DSOX1202G`
+actually on the bench, which has two channels, 1 MOhm inputs and no LAN
+connector — so the row's address column could not stay `Lan("bench-osc1")` even
+in principle, and does not compile if it tries. See
+`instruments/keysight_dsox1202g/README.md` for what a script has to re-decide,
+and `instrument.inc`'s own comment for why this row now says `Simulated{}` while
+the instrument it names is the one thing on this rig that physically exists.
+
 Only one of those two is a macro-redefinition-and-re-`#include` this
 codebase couldn't replace with reflection -- see `hal/driver/instrument.hpp`'s own
 comment for why generating `hal::InstrumentId` has to work this way
@@ -169,14 +179,16 @@ works where they meet -- so the topology this file describes is built around
 buses. There are two:
 
 - **the LF measurement bus** is column 00 of `Matrix1`'s group 0. `Dmm1`,
-  `Dmm2` and `Osc1` sit on rows 0-2, `Mux1`'s common on row 3. An instrument's
+  `Dmm2` and `Osc1`'s channel 2 sit on rows 0-2, `Mux1`'s common on row 3. An instrument's
   path is its own crosspoint onto that column; a pin's path is its mux channel
   plus the crosspoint that puts the mux common on the same column. One shared
   crosspoint appears in every routed pin's path, which is what
   `hal::SwitchFabric`'s use counting is for.
 - **the HF bus** is `RfMux1` bank 0's common, cabled to `Osc1`'s channel 1. A
   tree-switched 1x4 needs no instrument-side hop: the pin's channel is the
-  whole path.
+  whole path. It is 50 ohm cable into a scope with 1 MOhm-only inputs, so it
+  wants a feedthrough terminator at that BNC — a part, not a line of code; see
+  `wiring.inc`'s own `TODO(bench)`.
 
 Two things stay off the buses on purpose. Supply leads (`DcP3`/`DcP4`,
 `AcP1`'s phases) switch on `Spst1`, because it is load current that has to be

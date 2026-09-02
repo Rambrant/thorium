@@ -145,7 +145,8 @@ call site -- moving a driver out changed its build location and nothing else.
 |---|---|
 | `hal::keysight_edu34450a::EDU34450A` | `instruments/keysight_edu34450a/` |
 | `hal::keysight_l4411a::L4411A` | `instruments/keysight_l4411a/` |
-| `hal::keysight_dso8064a::DSO8064A` | `instruments/keysight_dso8064a/` |
+| `hal::keysight_dsox1202g::DSOX1202G` | `instruments/keysight_dsox1202g/` |
+| `hal::keysight_dso8064a::DSO8064A` | `instruments/keysight_dso8064a/` (in the tree, not on the bench) |
 | `hal::keysight_n6701a::N6701A` | `instruments/keysight_n6701a/` |
 | `hal::keysight_ac6834b::Ac6834B` | `instruments/keysight_ac6834b/` |
 | `hal::racal1260::Racal1260` | `instruments/racal1260/` |
@@ -316,9 +317,14 @@ picks:
   naming the class after the model documents that non-portability rather
   than hiding it -- the same reasoning that named `hal::keysight_edu34450a::EDU34450A` (Dmm1's
   concrete type), `hal::keysight_l4411a::L4411A` (Dmm2's) and
-  `hal::keysight_dso8064a::DSO8064A` (Osc1's) after their real models, once each
-  was known, retiring the old generic `hal::Dmm`/`hal::Oscilloscope`
-  placeholders that stood in for "roughly any DMM/scope" before that. `Dmm1`
+  `hal::keysight_dsox1202g::DSOX1202G` (Osc1's) after their real models, once
+  each was known, retiring the old generic `hal::Dmm`/`hal::Oscilloscope`
+  placeholders that stood in for "roughly any DMM/scope" before that. `Osc1` has
+  since been through that once more, which is the same argument arriving a
+  second time: it was a `hal::keysight_dso8064a::DSO8064A` while the model was a
+  reconstruction from a legacy script, and naming the class after the model is
+  what made swapping in the scope that actually turned up a compile-time event
+  rather than a set of readings that quietly meant something else. `Dmm1`
   and `Dmm2` being two *different* models is what that first bullet claims,
   actually happening: the ids say what the rig uses each meter for, and the
   classes say what each meter is.
@@ -396,10 +402,17 @@ unconditionally, which is what driver tests construct with.
 |---|---|
 | `hal::keysight_edu34450a::EDU34450A` | `Lan`, `Usb` |
 | `hal::keysight_l4411a::L4411A` | `Lan`, `Usb` |
+| `hal::keysight_dsox1202g::DSOX1202G` | `Usb` |
 | `hal::keysight_dso8064a::DSO8064A` | `Gpib`, `Lan`, `Usb` |
 | `hal::keysight_n6701a::N6701A` | `Gpib`, `Lan`, `Usb` |
 | `hal::keysight_ac6834b::Ac6834B` | `Gpib`, `Serial` |
 | `hal::racal1260::Racal1260` | `Serial`, `Gpib` |
+
+`hal::keysight_dsox1202g::DSOX1202G` is the only row with *one*, and that is the
+table's sharpest entry: the 1000 X-Series has a USB device port and no network
+connector, so `Lan( ... )` on `Osc1`'s row does not compile. The row above it
+accepted three buses, `Osc1` used to say `Lan`, and swapping the driver is what
+turned that into a build failure instead of a connection timeout.
 
 `hal::racal1260::Racal1260` is the only row with two, and the reason is worth knowing: a
 matrix-routed RS232 port is either a port on the PC with its conductors cabled

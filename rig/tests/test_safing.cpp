@@ -2,7 +2,7 @@
 
 #include "hal/topology/active_instruments.hpp"
 #include "hal/keysight_ac6834b.hpp"
-#include "hal/keysight_dso8064a.hpp"
+#include "hal/keysight_dsox1202g.hpp"
 #include "hal/driver/instrument.hpp"
 #include "hal/keysight_l4411a.hpp"
 #include "hal/keysight_n6701a.hpp"
@@ -30,7 +30,7 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_n6701a::Relay> );
     static_assert( hal::SafeableInstrument< hal::keysight_ac6834b::Ac6834B> );
     static_assert( hal::SafeableInstrument< hal::keysight_l4411a::L4411A> );
-    static_assert( hal::SafeableInstrument< hal::keysight_dso8064a::DSO8064A> );
+    static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::DSOX1202G> );
 
     //
     // The other compile-time half, specific to reflecting over InstrumentTag
@@ -51,7 +51,7 @@ namespace
     static_assert( std::derived_from< hal::keysight_n6701a::Relay,  hal::InstrumentTag> );
     static_assert( std::derived_from< hal::keysight_ac6834b::Ac6834B,      hal::InstrumentTag> );
     static_assert( std::derived_from< hal::keysight_l4411a::L4411A,       hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::keysight_dso8064a::DSO8064A,      hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_dsox1202g::DSOX1202G,    hal::InstrumentTag> );
 
     //
     // The other direction, which is the half that actually demonstrates
@@ -213,10 +213,10 @@ TEST_F( SafingFixture, SafeRigDoesNotDisturbPassiveInstrumentState)
     // instruments were told to look at. Nothing about them can energise
     // the DUT, and safing runs after a script has already died, so there
     // is no reason to discard the one piece of state still worth reading
-    // afterwards -- see hal::keysight_dso8064a::DSO8064A::safe().
+    // afterwards -- see hal::keysight_dsox1202g::DSOX1202G::safe().
     static_cast<void>( Dmm1.acVoltage());
-    static_cast<void>( Osc1.channel<3>());
-    Osc1.setMode( hal::keysight_dso8064a::DSO8064A::Mode::Vrms);
+    static_cast<void>( Osc1.channel<2>());
+    Osc1.setMode( hal::keysight_dsox1202g::DSOX1202G::Mode::Vrms);
 
     const auto dmmMode     = Dmm1.mode();
     const auto scopeMode   = Osc1.mode();

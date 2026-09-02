@@ -197,7 +197,7 @@ reaches for the rig's names.
 ### One defect left open
 
 **A driver package's tests name this bench's instrument ids.**
-`instruments/keysight_dso8064a/tests` constructs its driver with `InstrumentId::Osc1`,
+`instruments/keysight_dsox1202g/tests` constructs its driver with `InstrumentId::Osc1`,
 `ac6834b` with `::AcP1`, `racal1260` with `::Ser1`, `n6701a` with `::DcP1..3`. None
 of those enumerators exists on a bench that has no scope, no AC source and no
 serial port, so those three packages' tests do not compile against this

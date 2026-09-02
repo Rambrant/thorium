@@ -108,6 +108,8 @@ ALLOWED = {
         'contrast -- "include/hal/ac6834b.hpp, not include/ac6834b.hpp"',
     ( 'instruments/keysight_dso8064a/CMakeLists.txt', 'include/keysight_dso8064a.hpp'):
         'contrast -- "include/hal/dso8064a.hpp, not include/dso8064a.hpp"',
+    ( 'instruments/keysight_dsox1202g/CMakeLists.txt', 'include/keysight_dsox1202g.hpp'):
+        'contrast -- "include/hal/dsox1202g.hpp, not include/dsox1202g.hpp"',
     ( 'instruments/keysight_edu34450a/CMakeLists.txt', 'include/keysight_edu34450a.hpp'):
         'contrast -- "include/hal/edu34450a.hpp, not include/edu34450a.hpp"',
     ( 'instruments/keysight_l4411a/CMakeLists.txt', 'include/keysight_l4411a.hpp'):

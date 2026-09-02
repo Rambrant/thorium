@@ -72,7 +72,11 @@
 //        writes its setters out by hand and compiles here unchanged, which is
 //        why OLDEST_SUPPORTED stays at 1 -- but a driver that *uses* the base
 //        needs a hal that has it, so hal::keysight_n6701a::N6701A, hal::keysight_ac6834b::Ac6834B,
-//        hal::racal1260::Racal1260 and hal::keysight_dso8064a::DSO8064A ask for 2.
+//        hal::racal1260::Racal1260, hal::keysight_dso8064a::DSO8064A and
+//        hal::keysight_dsox1202g::DSOX1202G ask for 2. The last of those was
+//        written after 3 existed and still asks for 2, which is the number
+//        meaning what this log says it means: the oldest hal that serves the
+//        driver, not the newest one in the tree the day it was written.
 //
 //     3  Adds hal/io/: hal::io::ITransport, hal::io::openTransport() and
 //        hal::io::ScpiSession -- how a driver reaches real hardware, where
@@ -82,9 +86,15 @@
 //        a session needs a hal that has one, so
 //        hal::keysight_edu34450a::EDU34450A asks for 3.
 //
-// A driver written today asks for THORIUM_HAL_API_VERSION's current value, as a
-// literal -- never the macro itself, which would assert that this hal is
-// compatible with this hal and pass everywhere.
+// A driver asks for the oldest version that has everything it uses, written as
+// a literal -- never the macro itself, which would assert that this hal is
+// compatible with this hal and pass everywhere. For most new drivers that is
+// simply THORIUM_HAL_API_VERSION's current value, because a driver written
+// today tends to use what was most recently added; a driver that deliberately
+// uses less asks for less, and hal::keysight_dsox1202g::DSOX1202G at 2 is the
+// worked example above. Asking for more than you use costs something real: it
+// refuses a hal that would have served the driver perfectly, which is the
+// nuisance the two-number scheme exists to avoid.
 //
 #define THORIUM_HAL_API_VERSION           3
 #define THORIUM_HAL_API_OLDEST_SUPPORTED  1

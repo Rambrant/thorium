@@ -163,15 +163,23 @@ TEST_F( AcDropoutFixture, FailsWhenTheCaptureNeverCompleted)
     EXPECT_FALSE( verdictOf( acDropoutScript));
 }
 
-TEST_F( AcDropoutFixture, AnUnfindableMinimumIsTreatedAsNoExcursionAtAll)
+TEST_F( AcDropoutFixture, AnUnmeasurableMinimumFailsRatherThanPassingAsNoExcursion)
 {
     //
-    // The whenUnmeasurable handler in the script, exercised: a scope that
-    // cannot find a minimum has found no excursion, and no excursion is a dip
-    // of zero volts -- a pass, recorded as one.
+    // The whenUnmeasurable handler in the script, exercised -- and this test
+    // says the opposite of what it used to, because the scope changed.
     //
-    // This is what the legacy ATE spelled as `if( ISINVALID( dVOLTMIN))
+    // It was called AnUnfindableMinimumIsTreatedAsNoExcursionAtAll, and the
+    // script it described substituted 0 V when the Infiniium answered "min not
+    // found": no excursion is a dip of zero volts, a pass, recorded as one.
+    // That is what the legacy ATE spelled as `if( ISINVALID( dVOLTMIN))
     // dNEGTRANSIENT = 0;` several lines below the measurement it applied to.
+    //
+    // The DSOX1202G cannot say "min not found". It answers +9.9E+37 with no
+    // reason attached (see hal::keysight_dsox1202g::kUnmeasurable), so the
+    // script can no longer tell a healthy rail from a clipped trace, and now
+    // takes the failing side deliberately -- see its own comment on why that is
+    // the safe direction.
     //
     Measure.inject( kBaseline, Voltage{ 5.00 });
     Await.inject(   kCapture,  true);
@@ -183,7 +191,8 @@ TEST_F( AcDropoutFixture, AnUnfindableMinimumIsTreatedAsNoExcursionAtAll)
     // reaches the instrument that would have refused), so a script test cannot
     // drive the handler through injection. What it can assert is the other
     // half of the contract -- that a NaN reaching a criterion fails it rather
-    // than passing quietly, which is what makes the NaN default safe.
+    // than passing quietly, which is what makes the NaN default safe, and is
+    // now also what the handler itself relies on.
     //
     EXPECT_FALSE( verdictOf( acDropoutScript));
 }

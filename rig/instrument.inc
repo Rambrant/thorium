@@ -76,10 +76,11 @@
 // each chassis -- not a slot field on the address.
 //
 // TODO(bench): every address below is invented, exactly as every channel in
-// wiring.inc is -- there is no physical bench yet. They are internally
-// consistent (one mainframe address for the four DC modules, LXI hostnames for
-// the three LAN instruments) and no more than that. Re-check against a real
-// rack.
+// wiring.inc is -- there is no physical bench yet, beyond the one instrument
+// that has arrived (see Osc1, two sections down). They are internally
+// consistent (one mainframe address for the four DC modules, an LXI hostname
+// for the one meter still reached that way) and no more than that. Re-check
+// against a real rack.
 //
 // -- One row says Simulated, and that is now a decision ----------------------
 //
@@ -106,14 +107,40 @@
 //
 // The rule to apply as the other drivers grow transports, in one line: a row
 // may name a real bus address when there is a real instrument at it, and must
-// say Simulated{} until then. The four rows below that still carry invented
+// say Simulated{} until then. The rows below that still carry invented
 // addresses do so because their drivers still ignore them entirely -- an
-// L4411A, a DSO8064A, an N6701A, an Ac6834B and a Racal1260 answer from
-// simulation hooks whatever this column says -- and they keep their addresses
-// because those addresses are this table's worked examples of the three bus
-// kinds a rig meets (see the paragraphs above and below on exactly that). The
-// day one of those drivers opens a session, its row gets the same treatment
-// this one just did.
+// L4411A, an N6701A, an Ac6834B and a Racal1260 answer from simulation hooks
+// whatever this column says -- and they keep their addresses because those
+// addresses are this table's worked examples of the three bus kinds a rig
+// meets (see the paragraphs above and below on exactly that). The day one of
+// those drivers opens a session, its row gets the same treatment Dmm1's just
+// did.
+//
+// -- And now Osc1 says it too, for a different reason -----------------------
+//
+// Osc1 is hal::Simulated{} as well, and the two rows are Simulated for
+// opposite halves of the same rule. Dmm1's driver connects and its meter does
+// not exist; Osc1's instrument exists -- there is a Keysight DSOX1202G on the
+// bench -- and its driver does not connect yet.
+//
+// So the honest column value is neither a real address (this driver would not
+// open it, and writing one would claim a session nobody has tested) nor an
+// invented one in the style of the four rows below (those describe a rack that
+// does not exist; this box does, and inventing a serial number for a real
+// instrument is a lie a later reader would paste into a VISA resource string).
+// Simulated{} says the true thing: readings on this row come from the driver's
+// own hooks. The TODO on the row says what replaces it and when -- the serial
+// from the instrument's own *IDN?, on the day hal::keysight_dsox1202g::DSOX1202G
+// opens a session.
+//
+// Note what that row can never say again, and that this is now enforced rather
+// than reviewed: Lan( ... ). The DSOX1202G has a USB device port and no network
+// connector at all -- Keysight's own programmer's guide, "There is no LAN
+// interface (only USB is supported)" -- so its constructor accepts hal::Usb and
+// hal::Simulated and nothing else, and the Lan( "bench-osc1") this row used to
+// carry does not compile against it. The scope this rig had before accepted
+// GPIB, LAN and USB, which is exactly why the old row could say something this
+// bench cannot do.
 //
 // What is deliberately NOT lost by this: an attached run still reaches this
 // driver, and that is what the acceptance suite checks (see
@@ -142,7 +169,7 @@
 INSTRUMENTS
     INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Simulated{})            // TODO(bench): Lan( "bench-dmm1") once a meter answers there -- this driver connects
     INSTRUMENT( keysight_l4411a::L4411A,       Dmm2, Lan( "bench-dmm2"))
-    INSTRUMENT( keysight_dso8064a::DSO8064A,   Osc1, Lan( "bench-osc1"))
+    INSTRUMENT( keysight_dsox1202g::DSOX1202G, Osc1, Simulated{})            // TODO(bench): Usb( "<serial>") once this driver opens a session -- see below
     INSTRUMENT( keysight_n6701a::Direct,       DcP1, Gpib( 0, 14), 1)
     INSTRUMENT( keysight_n6701a::Direct,       DcP2, Gpib( 0, 14), 2)
     INSTRUMENT( keysight_n6701a::Relay,        DcP3, Gpib( 0, 14), 3)

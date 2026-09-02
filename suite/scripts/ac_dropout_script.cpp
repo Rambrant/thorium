@@ -32,7 +32,7 @@ auto acDropoutScript() -> void
     //
     // Four Setups because the instrument has four subsystems, and each one
     // answers a different question: when to capture, how long a window,
-    // how to sample it, and what the probe on channel 3 is looking at. A
+    // how to sample it, and what the probe on channel 2 is looking at. A
     // single call naming all of it would read as one decision, and it is
     // four.
     //
@@ -45,16 +45,20 @@ auto acDropoutScript() -> void
     // indistinguishable from "the capture failed" -- which is precisely the
     // distinction the Verify below is for.
     //
-    // Falling edge, and only falling: this instrument's edge trigger has no
-    // either-edge setting (see hal::keysight_dso8064a::TriggerSlope), and a rail dropping out is
-    // a falling event anyway.
+    // Falling edge, and now that is a choice rather than the only option.
+    // This script asked for it on a scope whose edge trigger had no
+    // either-edge setting at all; the DSOX1202G has one (see
+    // hal::keysight_dsox1202g::TriggerSlope), and it would be the wrong thing
+    // to use here -- a rail that sags and recovers has a rising edge too, and
+    // Either would let the recovery arm the capture that was meant for the
+    // sag.
     //
     Setup( Osc1.trigger()
-               .edgeSource<3>()
-               .slope( hal::keysight_dso8064a::TriggerSlope::Falling)
+               .edgeSource<2>()
+               .slope( hal::keysight_dsox1202g::TriggerSlope::Falling)
                .level( 4.8_V)
-               .sweep( hal::keysight_dso8064a::TriggerSweep::Auto)
-               .coupling( hal::keysight_dso8064a::TriggerCoupling::Dc));
+               .sweep( hal::keysight_dsox1202g::TriggerSweep::Auto)
+               .coupling( hal::keysight_dsox1202g::TriggerCoupling::Dc));
 
     //
     // 10 ms/div with the trigger at the left edge, so the whole 100 ms
@@ -63,7 +67,7 @@ auto acDropoutScript() -> void
     //
     Setup( Osc1.timebase()
                .timePerDivision( 10_ms)
-               .reference( hal::keysight_dso8064a::TimebaseReference::Left));
+               .reference( hal::keysight_dsox1202g::TimebaseReference::Left));
 
     //
     // High-resolution acquisition and, below, a bandwidth-limited input.
@@ -73,19 +77,32 @@ auto acDropoutScript() -> void
     // to.
     //
     // Not averaged, and it could not be: averaging works across successive
-    // triggers and there is exactly one (see the acquisition builder's own
-    // comment on the two mechanisms).
+    // triggers and there is exactly one. On this instrument that is one line
+    // rather than two, because averaging is one of the acquisition *types*
+    // (:ACQuire:TYPE AVERage) rather than a flag beside the type -- so asking
+    // for HighResolution is already saying "not averaged", and there is no
+    // unaveraged() left to say it twice.
+    //
+    // Nothing here names a memory depth either, and that is the instrument
+    // rather than an omission: :ACQuire:POINts is query-only on this scope, so
+    // how deep the record is follows from the timebase above and cannot be
+    // asked for. The 100 ms window and the sample rate the scope picks for it
+    // are the whole story.
     //
     Setup( Osc1.acquisition()
-               .mode( hal::keysight_dso8064a::AcquisitionMode::HighResolution)
-               .automaticPoints()
-               .unaveraged());
+               .type( hal::keysight_dsox1202g::AcquisitionType::HighResolution));
 
     //
-    // Channel 3 carries a divide-by-10 probe on the 5 V rail. DC coupling at
-    // 1 MOhm, because the rail's DC level is the thing the transient is
-    // measured against -- AC coupling would throw away the baseline and leave
-    // only the wiggle.
+    // Channel 2 carries a divide-by-10 probe on the 5 V rail -- channel 2
+    // because this scope has two, and channel 1 is the one cabled to RfMux1's
+    // HF path (see rig/wiring.inc). DC coupling, because the rail's DC level
+    // is the thing the transient is measured against -- AC coupling would
+    // throw away the baseline and leave only the wiggle.
+    //
+    // Coupling and nothing else: the input impedance is 1 MOhm and cannot be
+    // anything else on this model, so unlike the scope this script was written
+    // for there is no combined "DC at 1 MOhm" to select (see
+    // hal::keysight_dsox1202g::Coupling).
     //
     // The vertical offset is what makes 100 mV/div usable on a 5 V rail:
     // without it the trace sits five divisions off screen, and an off-screen
@@ -94,13 +111,13 @@ auto acDropoutScript() -> void
     // so the offset does not bias any of them -- which is why it needs no
     // compensating arithmetic afterwards.
     //
-    Setup( Osc1.channel<3>()
-               .input( hal::keysight_dso8064a::ChannelInput::Dc1M)
-               .probeAdapter( hal::keysight_dso8064a::ProbeAdapter::Div10)
+    Setup( Osc1.channel<2>()
+               .coupling( hal::keysight_dsox1202g::Coupling::Dc)
+               .probeAttenuation( 10.0)
                .voltsPerDivision( 100_mV)
                .verticalOffset( 5_V)
-               .bandwidth( hal::keysight_dso8064a::Bandwidth::Limited)
-               .display( hal::keysight_dso8064a::ChannelDisplay::On));
+               .bandwidth( hal::keysight_dsox1202g::Bandwidth::Limited)
+               .display( hal::keysight_dsox1202g::ChannelDisplay::On));
 
     //
     // ------------------------------------------------------------------
@@ -111,7 +128,7 @@ auto acDropoutScript() -> void
     // waveform spends its time at, so a spike later in the record does not
     // move it. That is exactly what a transient should be measured against.
     //
-    const auto baseline = Measure( Osc1.channel<3>().vbase(), at( dut::Output5V));
+    const auto baseline = Measure( Osc1.channel<2>().vbase(), at( dut::Output5V));
 
     Verify( FS_Transient_1::FS_Transient_5V0_Baseline, baseline);
 
@@ -176,25 +193,41 @@ auto acDropoutScript() -> void
     if( captured)
     {
         //
-        // whenUnmeasurable says what this script means by a missing answer,
-        // on the line that asks the question. A scope that cannot find a
-        // minimum here has found no excursion at all, and no excursion is a
-        // dip of zero volts -- a pass, and it should be recorded as one
-        // rather than as a NaN failing a check the DUT actually met.
+        // whenUnmeasurable says what this script means by a missing answer, on
+        // the line that asks the question -- and what it means changed when
+        // the scope did, so this is the one place in this file where the new
+        // instrument makes the test stricter rather than merely different.
         //
-        // Note what this deliberately does NOT do: substitute for every
-        // reason the instrument might give. A clipped trace also has no
-        // trustworthy minimum, and that one is a bench fault rather than a
-        // healthy DUT -- so it is left to come back as NaN and fail, with the
-        // instrument's own words in the log beside it.
+        // On the Infiniium this script was written for, the handler
+        // discriminated: "min not found" meant the scope had found no
+        // excursion at all, which is a dip of zero volts and a pass, while any
+        // other reason -- a clipped trace, nothing on screen -- was a bench
+        // fault and was left to come back as NaN and fail. That worked because
+        // that instrument said which. This one does not: the 1000 X-Series
+        // answers +9.9E+37 and stops there, with no :MEASure:SENDvalid and no
+        // result state behind it (see hal::keysight_dsox1202g::kUnmeasurable).
+        //
+        // So the discrimination is gone, and the branch it protected has to be
+        // chosen deliberately rather than inherited. This takes the failing
+        // side, for two reasons. It is the safe direction -- reading "no
+        // excursion" out of an answer that might equally mean "the trace was
+        // clipped" would turn a bench fault into a passing test, which is the
+        // one outcome a test rig must never produce. And it is very nearly
+        // vacuous on this instrument anyway: VMIN over a displayed record is
+        // the lowest sample in it, so it fails essentially when there is no
+        // record on screen to measure -- which is a fault, not a healthy rail.
+        //
+        // NaN is what a bare whenUnmeasurable-less Measure would already give
+        // (see core::MeasureEngine), so the handler is written out rather than
+        // dropped for exactly one reason: without it, a reader comparing this
+        // script against the report it produces would have no idea the
+        // question had ever been asked.
         //
         const auto lowest = Measure(
-            Osc1.channel<3>().vmin().whenUnmeasurable(
-                []( const std::string_view reason) -> core::quantities::Voltage
+            Osc1.channel<2>().vmin().whenUnmeasurable(
+                []( const std::string_view) -> core::quantities::Voltage
                 {
-                    return reason.contains( "min not found")
-                               ? 0_V
-                               : core::quantities::Voltage{ std::numeric_limits<double>::quiet_NaN() };
+                    return core::quantities::Voltage{ std::numeric_limits<double>::quiet_NaN() };
                 }),
             at( dut::Output5V));
 

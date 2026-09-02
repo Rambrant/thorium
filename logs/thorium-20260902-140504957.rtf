@@ -1,0 +1,48 @@
+{\rtf1\ansi\ansicpg1252\deff0
+{\fonttbl{\f0\fmodern\fprq1\fcharset0 Courier New;}}
+{\colortbl ;\red0\green0\blue0;\red0\green128\blue0;\red192\green0\blue0;\red0\green51\blue153;\red112\green112\blue112;\red176\green112\blue0;}
+{\f0\fs22\b\cf4 DeviceX -- Wed 02 Sep 2026 16:05:04 CEST}\par
+{\f0\fs20\cf5 DUT serial        }\par
+{\f0\fs20\cf5 Operator          thomas}\par
+{\f0\fs20\cf5 Criteria          production}\par
+{\f0\fs20\cf5 Criteria master   production}\par
+{\f0\fs20\cf5 Bench             attached}\par
+{\f0\fs20\cf5 Framework         Thorium 0.1.0}\par
+{\f0\fs20\cf5 Suite/DUT/rig     8958c7a-dirty}\par
+{\f0\fs20\cf5 Started (UTC)     2026-09-02T14:05:04.957Z}\par
+{\f0\fs20\cf5 Command line      ./cmake-build-debug/bin/run_scripts --select=AcDropout}\par
+{\f0\fs20\cf5 --------------------------------------------------------------------------}\par
+\par
+{\f0\fs22\b\cf4 setup }{\f0\fs20\cf5 Bring the AC input and the three DC supplies up, checking each rail as it comes}\par
+{\f0\fs20\cf1 \tab measure AcP1.A.Voltage              115 V       (AcP1)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              115 V       = 115 V +/-2 V          [PASS]  }{\f0\fs20\cf5 Primary AC input at nominal, phase A}\par
+{\f0\fs20\cf1 \tab measure AcP1.B.Voltage              115 V       (AcP1)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              115 V       = 115 V +/-2 V          [PASS]  }{\f0\fs20\cf5 Primary AC input at nominal, phase B}\par
+{\f0\fs20\cf1 \tab measure AcP1.C.Voltage              115 V       (AcP1)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              115 V       = 115 V +/-2 V          [PASS]  }{\f0\fs20\cf5 Primary AC input at nominal, phase C}\par
+{\f0\fs20\cf1 \tab measure DcP1.Voltage                28 V        (DcP1)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              28 V        = 28 V +/-100 mV        [PASS]  }{\f0\fs20\cf5 Backup supply at nominal}\par
+{\f0\fs20\cf1 \tab measure DcP2.Voltage                28 V        (DcP2)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              28 V        = 28 V +/-100 mV        [PASS]  }{\f0\fs20\cf5 Secondary backup supply at nominal}\par
+{\f0\fs20\cf1 \tab measure DcP3.Voltage                24 V        (DcP3)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              24 V        = 24 V +/-100 mV        [PASS]  }{\f0\fs20\cf5 Battery supply at nominal}\par
+\par
+{\f0\fs22\b\cf4 Transient }{\f0\fs20\cf5 Tests validating DUT behaviour while a supply is disturbed}\par
+{\f0\fs22\b\cf4 \tab setup }{\f0\fs20\cf5 Record how the primary AC source is programmed, before its test drops it}\par
+\par
+{\f0\fs22\b\cf4 \tab AcDropout }{\f0\fs20\cf5 Verify the 5V rail rides a loss of the primary AC input}\par
+{\f0\fs20\cf1 \tab measure Output5V.Vbase              0 V         (Osc1)  }{\f0\fs20\cf5 5Vdc supply port}\par
+{\f0\fs20\b\cf3 \tab verify  FS_Transient_1::FS_Transient_5V0_Baseline 0 V         = 5 V +/-50 mV          [FAIL]  }{\f0\fs20\cf5 5Vdc rail must be at nominal before the input is dropped}\par
+{\f0\fs20\cf1 \tab await   Osc1.Acquisition            complete    (Osc1)  }{\f0\fs20\cf5 acquisition complete}\par
+{\f0\fs20\b\cf2 \tab verify  FS_Transient_1::FS_Transient_Captured true        = true                  [PASS]  }{\f0\fs20\cf5 The dropout must actually be captured by the scope}\par
+{\f0\fs20\cf1 \tab measure Output5V.Vmin               0 V         (Osc1)  }{\f0\fs20\cf5 5Vdc supply port}\par
+{\f0\fs20\b\cf2 \tab verify  FS_Transient_1::FS_Transient_5V0_Dip 0 V         <= 200 mV               [PASS]  }{\f0\fs20\cf5 5Vdc rail must not dip more than 200mV below its baseline}\par
+{\f0\fs20\b\cf3 \tab RESULT  AcDropout                                                       [FAIL]}\par
+\par
+{\f0\fs22\b\cf4 \tab teardown }{\f0\fs20\cf5 Put the primary AC source back the way the setup found it}\par
+\par
+{\f0\fs22\b\cf4 teardown }{\f0\fs20\cf5 Take the supplies back down in the inverse order and open the fabric}\par
+\par
+{\f0\fs20\cf5 --------------------------------------------------------------------------}\par
+{\f0\fs20\b\cf3 SOME SCRIPTS FAILED}\par
+}

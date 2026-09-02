@@ -51,7 +51,7 @@ Twenty-four classes of mistake, none of which can reach the bench:
 | A criterion present in one variant only | `scripts_tests` fails to build |
 | Misspelled or renamed script in `TEST(...)` | undeclared identifier |
 | `Connect( DcP1.dc())` on a supply with no isolation relay | no matching `connectDriver` |
-| `Osc1.channel<5>()` or `Osc1.trigger().edgeSource<5>()` on a four-channel scope | no valid instantiation |
+| `Osc1.channel<3>()` or `Osc1.trigger().edgeSource<3>()` on a two-channel scope | no valid instantiation |
 | An instrument driver with no `safe()` | `static_assert` naming the type |
 | A new `QuantityKind` with no matching `Quantity` alias | `static_assert` with the fix |
 | A new source instrument with no `describeConfig` | no matching function |
@@ -61,7 +61,7 @@ Twenty-four classes of mistake, none of which can reach the bench:
 | `Apply( Ser1.rs232())` on a port with no output to energise | no matching `applyDriver` |
 | `Apply( Osc1.trigger())` on a scope, which energises nothing | no matching `applyDriver` |
 | `Arm( Osc1.trigger())` — arming something that is not a capture | no matching `armDriver` |
-| `Setup( Osc1.channel<3>())` naming a channel and no setting | no matching function |
+| `Setup( Osc1.channel<2>())` naming a channel and no setting | no matching function |
 | `BIT_SET<9>()` against a `std::byte` | constraint not satisfied |
 | Adding two temperatures — `ambient + hotspot` | no matching operator: a Celsius value is a point, not a magnitude |
 | A sensor applied to the wrong reading — `dut::CoolantSensor( current)` | no matching function |
@@ -271,7 +271,8 @@ that cannot be recovered from the code.
 |---|---|
 | [`instruments/keysight_edu34450a`](instruments/keysight_edu34450a/README.md) | DMM, 5½-digit — `Dmm1` on both deployments; **the one driver that talks to real hardware**, so also the SCPI it sends and how to bring a meter up |
 | [`instruments/keysight_l4411a`](instruments/keysight_l4411a/README.md) | DMM, 6½-digit — `Dmm2`, including the 4-wire sense path |
-| [`instruments/keysight_dso8064a`](instruments/keysight_dso8064a/README.md) | Oscilloscope — `Osc1` |
+| [`instruments/keysight_dsox1202g`](instruments/keysight_dsox1202g/README.md) | Oscilloscope, 2-channel — `Osc1`, and what changed when the real scope replaced the reconstructed one |
+| [`instruments/keysight_dso8064a`](instruments/keysight_dso8064a/README.md) | Oscilloscope, 4-channel — in the tree, on no bench: the driver `Osc1` used to be |
 | [`instruments/keysight_n6701a`](instruments/keysight_n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
 | [`instruments/keysight_ac6834b`](instruments/keysight_ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
 | [`instruments/racal1260`](instruments/racal1260/README.md) | RS232 port — `Ser1`, routed to a DUT interface through the matrix |
@@ -1028,14 +1029,14 @@ thing being captured happens *between* the halves and the script is what causes
 it. That is the whole reason `Arm` and `Await` exist as two verbs.
 
 ```cpp
-Setup( Osc1.trigger().edgeSource<3>().slope( TriggerSlope::Falling)
+Setup( Osc1.trigger().edgeSource<2>().slope( TriggerSlope::Falling)
                      .level( 4.8_V).sweep( TriggerSweep::Auto));
 Setup( Osc1.timebase().timePerDivision( 10_ms).reference( TimebaseReference::Left));
-Setup( Osc1.acquisition().mode( AcquisitionMode::HighResolution).automaticPoints());
-Setup( Osc1.channel<3>().input( ChannelInput::Dc1M).probeAdapter( ProbeAdapter::Div10)
+Setup( Osc1.acquisition().type( AcquisitionType::HighResolution));
+Setup( Osc1.channel<2>().coupling( Coupling::Dc).probeAttenuation( 10.0)
                         .voltsPerDivision( 100_mV).verticalOffset( 5_V));
 
-const auto baseline = Measure( Osc1.channel<3>().vbase(), at( dut::Output5V));
+const auto baseline = Measure( Osc1.channel<2>().vbase(), at( dut::Output5V));
 
 Arm( Osc1.single().timeout( 2_s));       // returns once the scope is ARMED
 
@@ -1053,9 +1054,9 @@ Verify( FS_Transient_1::FS_Transient_Captured, captured);
 arm.** Those are different moments, and the gap between them is where a
 single-shot test silently fails — the event fires while the scope is still
 setting itself up, nothing triggers, and the run reports a missing transient
-that was in fact there. Keysight's own Infiniium programmer's reference gives
-the sequence (`:SINGLE`, then poll `:AER?`) with the comment *"oscilloscope is
-armed and ready, enable DUT here"* on exactly the line `Remove` sits on above.
+that was in fact there. Keysight's own programmer's guide gives the sequence
+(`:SINGle`, then poll `:AER?`) with the comment *"oscilloscope is armed and
+ready, enable DUT here"* on exactly the line `Remove` sits on above.
 So the ordering rule is **Arm, then cause the event**, and nothing enforces it.
 Unlike Connect-before-Apply, breaking it is not even recorded: whether a scope
 was armed in time is a fact about the hardware's own state machine, and the
@@ -1075,7 +1076,7 @@ will be a number, it will very likely be in tolerance, and it will mean nothing.
 
 **Both verbs are generic.** They live in `core/verbs/acquire.hpp` and are named for the
 operation, not the instrument: a transient recorder, a digitizer or a counter
-with an armed gate is the same shape. `hal::keysight_dso8064a::DSO8064A` is simply the first driver
+with an armed gate is the same shape. `hal::keysight_dsox1202g::DSOX1202G` is simply the first driver
 to answer to `armDriver`/`awaitDriver`, exactly as `hal::racal1260::Racal1260` was the first
 to answer to `writeDriver`/`readDriver`.
 
@@ -1094,10 +1095,13 @@ EXPECT_TRUE( acDropoutScript());
 `Write`, so there is nothing for a replay to reproduce about it. A flag row in a
 recording carries `<flag>` where a reading carries its unit.
 
-Note the two measurement keys. An oscilloscope gives fifteen different answers
-about one pin, so its ports name which one they are (`core::Port::qualifiedBy`)
-and key as `"Output5V.Vbase"` rather than sharing one `"Output5V"` slot. An
-ordinary DMM reading needs no such thing and is unaffected.
+Note the two measurement keys. An oscilloscope gives a dozen or more different
+answers about one pin, so its ports name which one they are
+(`core::Port::qualifiedBy`) and key as `"Output5V.Vbase"` rather than sharing one
+`"Output5V"` slot. An ordinary DMM reading needs no such thing and is unaffected.
+Those qualifiers are the driver's own vocabulary, and `Osc1` changing model kept
+every one of them — which is what lets a recording taken against the old scope
+replay against the new one.
 
 ### Take the whole captured trace
 
@@ -1109,7 +1113,7 @@ const auto captured = Await( Osc1.single());
 
 Verify( FS_Transient_1::FS_Transient_Captured, captured);
 
-const auto trace = Fetch( Osc1.channel<3>().waveform());
+const auto trace = Fetch( Osc1.channel<2>().waveform());
 
 Verify( FS_Transient_1::FS_Dip_Depth, trace.minimum<Voltage>());
 ```
@@ -1143,29 +1147,31 @@ which spelling out four thousand numbers is what a reader wanted; the trace
 itself is in the recording, at full precision, which is what `--replay` reads.
 
 **Testing it without a bench** is the same as for the other three, and each
-channel has its own key, since a four-channel scope holds four records at once:
+channel has its own key, since a scope holds one record per channel at once:
 
 ```cpp
-Fetch.inject( "Osc1.Channel3", capturedEarlier);
+Fetch.inject( "Osc1.Channel2", capturedEarlier);
 ```
 
 `Fetch` is generic and lives in `core/verbs/trace.hpp` — a transient recorder, a
 digitizer or a logger with a memory behind it hands back the same shape.
-`hal::keysight_dso8064a::DSO8064A` is simply the first driver to answer to `fetchDriver`.
+`hal::keysight_dsox1202g::DSOX1202G` is simply the first driver to answer to `fetchDriver`.
 
 ### When an instrument cannot make the measurement
 
 A real instrument has a third answer besides a number and a fault: *"I could not
-measure that."* An Infiniium returns `9.99999E+37`, and with `:MEASure:SENDvalid`
-on it also returns which of some thirty specific things went wrong — no edge on
-the trace, the waveform clipped, top and base equal.
+measure that."* This bench's scope, an InfiniiVision `DSOX1202G`, returns
+`+9.9E+37` and stops there. Others say more: the Infiniium that used to be on
+this row returns `9.99999E+37` and, with `:MEASure:SENDvalid` on, which of some
+thirty specific things went wrong — no edge on the trace, the waveform clipped,
+top and base equal.
 
-A driver reports this by throwing `core::UnmeasurableReading` carrying the
-instrument's own words. `Measure` catches it, and the default is **NaN**:
+A driver reports this by throwing `core::UnmeasurableReading` carrying whatever
+the instrument was able to say. `Measure` catches it, and the default is **NaN**:
 
 ```cpp
-const auto rise = Measure( Osc1.channel<3>().riseTime(), at( dut::ClkProbe));
-// nan, if there was no edge -- and the log says why
+const auto rise = Measure( Osc1.channel<2>().riseTime(), at( dut::ClkProbe));
+// nan, if there was no edge -- and the log says as much as the scope knows
 ```
 
 NaN is chosen rather than defaulted to. It compares false against every
@@ -1178,12 +1184,12 @@ Where a script has a *specific* meaning for the absence, it says so on the line
 that asks the question:
 
 ```cpp
-Osc1.channel<3>().vmin().whenUnmeasurable( []{ return 0_V; })
+Osc1.channel<2>().vmin().whenUnmeasurable( []{ return 0_V; })
 
-Osc1.channel<3>().vmin().whenUnmeasurable( []( auto reason)
+Osc1.channel<2>().vmin().whenUnmeasurable( []( auto reason)
 {
-    // No excursion is a dip of zero. A clipped trace is a bench fault, and
-    // should still fail.
+    // Only worth writing against an instrument that says which: no excursion
+    // is a dip of zero, a clipped trace is a bench fault and should still fail.
     return reason.contains( "min not found") ? 0_V : Voltage{ NAN };
 })
 ```
@@ -1192,6 +1198,15 @@ A callable and not a value, deliberately: the substitution is a decision, and a
 decision deserves somewhere to put its reasoning. `.whenUnmeasurable( 0_V)` would
 read as "this measured zero", which is the one thing it must never be mistaken
 for.
+
+**How much a handler can decide depends on the instrument, and that is worth
+knowing before writing one.** The second form above discriminates on the reason,
+which needs an instrument that gives reasons; `ac_dropout_script.cpp` was written
+that way against the Infiniium and had to be re-decided when the `DSOX1202G`
+arrived, because there is now exactly one reason and no way to tell a healthy
+rail from a blank screen. It now takes the failing side deliberately — a
+substitution that could turn a bench fault into a pass is the one outcome a test
+rig must not produce. See `instruments/keysight_dsox1202g/README.md`.
 
 This replaces the legacy ATE's `ISINVALID()` predicate, which answered only
 *whether* a reading failed and threw away *why* — and did it in an `if` block
@@ -1286,7 +1301,7 @@ path)` reads a plain file of numbers into a `Waveform` — the same file, read b
 the same reader, that a stimulus line's `trace( V, ..., "dip.samples")` names:
 
 ```cpp
-Fetch.inject( "Osc1.Channel3",
+Fetch.inject( "Osc1.Channel2",
               core::traceFromFile( core::quantityKindOf<Voltage>(),
                                    { -1e-3_s, 1e-06_s }, "dip.samples"));
 ```
@@ -1421,7 +1436,7 @@ contents:
 
 ```
 12  1787491956557  Ser1.Data       Ser1  <bytes>  41434B0D
-13  1787491956558  Osc1.Channel3   Osc1  <trace>  Voltage  -0.001  1e-06  @3F0A19C4D2E7B815.wfm
+13  1787491956558  Osc1.Channel2   Osc1  <trace>  Voltage  -0.001  1e-06  @3F0A19C4D2E7B815.wfm
 ```
 
 Both halves move together: `--replay=PATH` finds the directory from the file's
@@ -1535,7 +1550,7 @@ Output5V          = 5.01 V                  # sticky: however often it is read
 Output5V.Vmin     = 4.85 V, 4.70 V          # a list: one per read, in order
 Osc1.Acquisition  = true
 Ser1.Data         = <41 43 4B 0D 08>
-Osc1.Channel3     = trace( V, -0.001 s, 1e-06 s, "dip.samples")
+Osc1.Channel2     = trace( V, -0.001 s, 1e-06 s, "dip.samples")
 ```
 
 Two rules carry the whole format. **One value is sticky; a list is a sequence**
@@ -1830,7 +1845,7 @@ ctest --test-dir build/debug -N                      # count and name them, run 
 |---|---|
 | `core_tests` | units, predicates, criteria, sessions, journal, all three log sinks |
 | `hal_tests` | hal's own generic mechanism — switching fabric, wiring, VPC locations, adapter macros, addresses |
-| `<model>_tests` | one per driver directory, each linking its own driver alone (`l4411a_tests`, `dso8064a_tests`, …) |
+| `<model>_tests` | one per driver directory, each linking its own driver alone (`keysight_l4411a_tests`, `keysight_dsox1202g_tests`, …) |
 | `rig_tests` | the integration tests that need this rig — several instruments at once, safing, `describeConfig` reaching the journal |
 | `dut_tests` | the DUT profile — including the wiring-coverage build check |
 | `scripts_tests` | the test scripts, injected; plus the variant parity build check |

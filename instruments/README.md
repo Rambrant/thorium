@@ -19,7 +19,12 @@ instruments/
         include/hal/keysight_edu34450a.hpp
         src/keysight_edu34450a.cpp   #   the SCPI: command table, ranges, overload
         tests/test_keysight_edu34450a.cpp
-    keysight_dso8064a/          # four-channel oscilloscope
+    keysight_dsox1202g/         # two-channel oscilloscope -- Osc1
+        CMakeLists.txt
+        README.md
+        include/hal/keysight_dsox1202g.hpp
+        tests/test_keysight_dsox1202g.cpp
+    keysight_dso8064a/          # four-channel oscilloscope -- no longer on this bench
     keysight_n6701a/            # one DC supply channel
     keysight_ac6834b/           # three-phase AC source
     racal1260/                  # matrix-routed RS232 port
@@ -30,9 +35,18 @@ Two DMMs, and they are not the same model. `Dmm1` is the `EDU34450A`, `Dmm2` the
 `keysight_edu34450a/README.md` for why one class covering both would have had to
 lie about one of them.
 
-**Five of the six are simulated; one talks.** `EDU34450A` opens a SCPI session
+**Two scopes, and only one of them is plugged in.** `Osc1` is the `DSOX1202G`,
+the two-channel InfiniiVision on the bench; `keysight_dso8064a` is the Infiniium
+this rig was written against before the real instrument arrived. It is kept
+because it is a working, tested driver for a real model, not because anything
+here names it — see **Availability is not use** below, which is exactly this
+situation. Their differences are instructive rather than cosmetic (two channels
+against four, one reason for an unmeasurable reading against nineteen, no 50 ohm
+input), and `keysight_dsox1202g/README.md` lists them.
+
+**Six of the seven are simulated; one talks.** `EDU34450A` opens a SCPI session
 over its address and reads the instrument (`hal/io/`, see
-`framework/hal/README.md`); the other five answer from their own simulation
+`framework/hal/README.md`); the other six answer from their own simulation
 hooks whatever their rig row says, exactly as every driver here used to. That
 asymmetry is the current state of the work rather than a design; what doing it
 again involves is in **A driver with a transport** below.
@@ -68,7 +82,10 @@ types had to invent long unique names to stay out of each other's way —
 because nothing had claimed the word yet: `Parity`, `StopBits`, `TriggerSlope`,
 `Bandwidth`, `ChannelInput`, `ProbeAdapter` and four more were sitting directly
 in `hal`, owned by whichever driver happened to declare them first. The second
-serial instrument or the second scope collides on all of them.
+serial instrument or the second scope collides on all of them — and this tree
+now *has* a second scope, so that is no longer hypothetical: `keysight_dsox1202g`
+and `keysight_dso8064a` both declare a `Bandwidth`, a `TriggerSlope`, a
+`TimebaseReference` and six more, and they mean different sets of values.
 
 Inside its own namespace a driver's types say only what they are —
 `hal::keysight_dso8064a::TriggerBuilder`, `hal::racal1260::Parity` — and cannot
@@ -88,7 +105,7 @@ The rig names the type in full, once, where it declares the instrument:
 
 ```cpp
 // rig/instrument.inc
-INSTRUMENT( keysight_dso8064a::DSO8064A, Osc1, Lan( "bench-osc1"))
+INSTRUMENT( keysight_dsox1202g::DSOX1202G, Osc1, Simulated{})
 ```
 
 ## How a directory here gets built

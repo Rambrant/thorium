@@ -19,7 +19,7 @@ namespace core
     // connecting or disconnecting one instrument's path never disturbs
     // whatever else is currently routed. That path can be a genuine
     // matrix-plus-mux route chosen at the call site (a measuring
-    // instrument like hal::keysight_dso8064a::DSO8064A, which takes an at(...) point), or
+    // instrument like hal::keysight_dsox1202g::DSOX1202G, which takes an at(...) point), or
     // just an instrument's own fixed channel(s) with nothing left to
     // choose (hal::keysight_n6701a::N6701A/hal::keysight_ac6834b::Ac6834B -- see their own comments on why a
     // real power rail is hard-wired rather than routed) -- Connect/

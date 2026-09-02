@@ -149,7 +149,7 @@ namespace hal
             // (hal::keysight_ac6834b::Ac6834B's three phases plus ground/neutral return, or
             // a power supply's remote-sense leads if this rig has them).
             // Single-connection instruments with no sense wiring
-            // (hal::keysight_dso8064a::DSO8064A, hal::keysight_l4411a::L4411A) keep using find() above.
+            // (hal::keysight_dsox1202g::DSOX1202G, hal::keysight_l4411a::L4411A) keep using find() above.
             // Throws std::runtime_error if this instrument has no fixed
             // path at all.
             //
@@ -586,7 +586,7 @@ namespace hal
     // the pairing check below answers "is this instrument cabled to this pin
     // at all" and not "on which channel" -- because a core::Port does not
     // carry its channel. A scope channel is instrument state set by
-    // DSO8064AChannel::method() and the port's qualifier holds the
+    // the scope driver's Channel::method() and the port's qualifier holds the
     // measurement mode ("Vpp"), not the channel; making the channel visible
     // here would mean threading it through core::Port and every driver.
     //
