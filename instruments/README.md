@@ -19,10 +19,11 @@ instruments/
         include/hal/keysight_edu34450a.hpp
         src/keysight_edu34450a.cpp   #   the SCPI: command table, ranges, overload
         tests/test_keysight_edu34450a.cpp
-    keysight_dsox1202g/         # two-channel oscilloscope -- Osc1
-        CMakeLists.txt
+    keysight_dsox1202g/         # two-channel oscilloscope -- Osc1, talks to real hardware
+        CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
         README.md
         include/hal/keysight_dsox1202g.hpp
+        src/keysight_dsox1202g.cpp   #   the SCPI: setup, arm/await, waveform transfer
         tests/test_keysight_dsox1202g.cpp
     keysight_dso8064a/          # four-channel oscilloscope -- no longer on this bench
     keysight_n6701a/            # one DC supply channel
@@ -44,12 +45,18 @@ situation. Their differences are instructive rather than cosmetic (two channels
 against four, one reason for an unmeasurable reading against nineteen, no 50 ohm
 input), and `keysight_dsox1202g/README.md` lists them.
 
-**Six of the seven are simulated; one talks.** `EDU34450A` opens a SCPI session
-over its address and reads the instrument (`hal/io/`, see
-`framework/hal/README.md`); the other six answer from their own simulation
+**Five of the seven are simulated; two talk.** `EDU34450A` and `DSOX1202G` open
+a SCPI session over their address and read the instrument (`hal/io/`, see
+`framework/hal/README.md`); the other five answer from their own simulation
 hooks whatever their rig row says, exactly as every driver here used to. That
 asymmetry is the current state of the work rather than a design; what doing it
 again involves is in **A driver with a transport** below.
+
+The two that talk are worth reading in that order. The meter is the smaller
+case -- configure, read one number, check the queue. The scope adds the three
+things a DMM never needs: a sequence that has to be *waited on* (arm, then poll
+two registers), a record transferred rather than a reading, and a measurement
+whose answer may be "I could not".
 
 ## One name, in four places
 
@@ -225,9 +232,9 @@ time.
 ## A driver with a transport
 
 `hal/io/` is part of `Thorium::hal`, so a driver may use it under the rule
-above, and `keysight_edu34450a/` is the worked example. Four things about doing
-it are worth knowing before starting a second one, all of them learned from the
-first.
+above. There are two worked examples now — `keysight_edu34450a/` for a meter and
+`keysight_dsox1202g/` for a scope — and the first four points below were learned
+from the meter, the last two from the scope.
 
 **The address decides, and nothing else.** A driver checks for `hal::Simulated`
 and answers from its own hooks; anything else it opens with
@@ -259,6 +266,26 @@ was measuring before. The reading after a silently-refused `CONFigure` is
 plausible, often in tolerance, and completely untraceable.
 `hal::io::ScpiSession::checked()` costs one round trip and turns that into an
 exception naming the command.
+
+**An instrument you have to *wait* for needs two different failures.** The meter
+answers `READ?` when it has a reading and there is nothing to decide. A scope is
+armed, then waited on, and the two ends of that are not the same kind of event:
+`Arm` throwing when the instrument never armed is right, because the script is
+one line from causing an event with nothing listening and then measuring the
+*previous* acquisition; `Await` returning `false` when nothing triggered is also
+right, because "no transient" is a result a criterion checks. Getting these the
+same way round would either abandon runs over ordinary DUT behaviour or record
+readings of a capture that never happened. Timeouts belong to the call rather
+than to the driver, for the same reason — see `DSOX1202G::armSingle`.
+
+**`safe()` may use a session; it may not open one.** Safing runs when a script
+has already failed, quite possibly *because* an instrument is unreachable, and
+`hal::safeRig()` does not catch. So a driver with something worth saying on the
+wire (`:STOP`, for a scope left armed) says it only down a session that is
+already open, and swallows the transport error if that fails — otherwise the
+cleanup path replaces the run's real failure with its own, and abandons the
+safing of every instrument after it. Closing the session is not safing's job
+either: its error queue is the best evidence of what went wrong.
 
 ## Which hal a driver was written against
 

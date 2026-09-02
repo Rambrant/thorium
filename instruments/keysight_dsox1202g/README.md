@@ -1,8 +1,8 @@
 # hal::keysight_dsox1202g::DSOX1202G
 
 Keysight InfiniiVision **DSOX1202G** — two channels, 2 GSa/s, 70 MHz as shipped
-and licence-upgradable to 200. Header-only, `namespace hal::keysight_dsox1202g`,
-included as `"hal/keysight_dsox1202g.hpp"`.
+and licence-upgradable to 200. `namespace hal::keysight_dsox1202g`, included as
+`"hal/keysight_dsox1202g.hpp"`.
 
 Target: `hal_keysight_dsox1202g` / `Thorium::hal_keysight_dsox1202g`. Depends on
 `Thorium::hal` only.
@@ -68,8 +68,10 @@ replaced accepted GPIB, LAN and USB and this rig's table said `Lan`, which is
 exactly the sentence about hardware that does not exist that `hal::ReachableOver`
 exists to reject.
 
-**The row currently says `Simulated{}`,** because this driver does not open a
-session yet. See **Still to come** below.
+**The row currently says `Simulated{}`,** and that is now about the *serial
+number* rather than about this driver: it opens a real session, and a
+`hal::Usb` address is written with the instrument's own serial (see
+**Bringing one up**).
 
 ## Setup — four subsystems, four builders
 
@@ -229,20 +231,122 @@ records and one slot for both would let an injected channel-1 trace answer a
 channel-2 fetch.
 
 `:WAVeform:POINts` and `:WAVeform:POINts:MODE` — how much of the record to
-transfer — are real settings on this instrument and are deliberately not modelled
-while there is no transport to spend the transfer time on. They are the first
-thing `WaveformBuilder` should grow when there is.
+transfer — are real settings on this instrument and are still not modelled: what
+comes back is the screen record the instrument defaults to. They are the first
+thing `WaveformBuilder` should grow, and they go in alongside binary transfer
+rather than before it (see **The trace, and why it comes back as text**), since
+asking for the whole acquisition memory in ASCII is the one case where the format
+starts to matter.
+
+## On the wire
+
+Everything this driver sends is in `src/keysight_dsox1202g.cpp`, in the order the
+instrument sees it, checked against the programmer's guide rather than against
+another program's source. Three things about it are worth knowing before reading
+it.
+
+**Every configuration command is `checked()`.** A SCPI instrument does not answer
+a bad command — it queues an error and carries on — so an unchecked
+`:CHANnel2:SCALe` that the scope refused would leave it on whatever scale it was
+already using, and the measurement two lines later would be a perfectly
+plausible reading of the wrong thing. `hal::io::ScpiSession::checked()` reads the
+error queue afterwards and throws naming the command. It costs one round trip
+per setting and nothing per reading.
+
+**Three orderings are load-bearing**, and all three are asserted by tests rather
+than left to a comment:
+
+| Order | Why |
+|---|---|
+| `:TRIGger:MODE EDGE` before any trigger setting | the edge settings are merely *stored* while another trigger kind is selected — a scope left in `GLITch` mode by the front panel accepts everything and then triggers on a pulse width |
+| `:TRIGger:EDGE:SOURce` before `:LEVel` | the level is held per source, so a level sent first lands on the previously selected channel |
+| `:CHANnel<n>:PROBe` before `:SCALe`, `:OFFSet` | scale, offset and trigger level are all expressed at the probe tip, so they are scaled by the attenuation factor |
+
+**A measurement names its source in the query**: `:MEASure:VBASe? CHANnel2`
+rather than a `:MEASure:SOURce` followed by a bare query. One round trip instead
+of two, and one fewer piece of instrument state for a later reading to inherit.
+
+### Arming, on the wire
+
+```
+:STOP
+*OPC?                              # the stop has actually taken effect
+:SINGle
+:AER?                    → poll until 1     # armed and ready; enable the DUT here
+:OPERegister:CONDition?  → poll until the RUN bit (0x08) clears
+```
+
+Polled every 100 ms, which is Keysight's own example's interval. `Arm` throws if
+the scope never reports itself armed — a script that proceeds from there would
+cause its event with nothing listening, and then measure the *previous*
+acquisition against a criterion. `Await` returning `false` is the opposite case
+and is a result, not a fault: the transient did not happen, or did not cross the
+trigger level. A timed-out `Await` sends `:STOP` on the way out, so the capture
+does not sit armed waiting for the next script's stimulus.
+
+### The trace, and why it comes back as text
+
+`:WAVeform:FORMat ASCii`, then `:WAVeform:PREamble?` for the timebase and
+`:WAVeform:DATA?` for the samples — which arrive as an IEEE 488.2
+definite-length block (`#800001234…`) whatever the format is.
+
+ASCII rather than `BYTE`/`WORD`, and this is a deliberate trade with a real
+cost. The binary forms send two bytes a point against as many as 13, and they
+are how anyone transfers deep memory. They also need something `hal/io/` does not
+have: a definite-length block of *binary* has to be read as counted bytes, and
+`hal::io::ITransport` reads a line (`hal/io/scpi.hpp` names binary block transfer
+as the one real gap in it). An ASCII block contains nothing a line-oriented read
+would choke on, and it arrives with the Y values already converted to volts — so
+the preamble is read for the time axis only, and scaling the values again would
+square the vertical scale.
+
+What this rig captures is a screenful — 1000 points, about 13 kB — so the cost is
+nothing. The day this driver models `:WAVeform:POINts:MODE RAW` and asks for the
+whole acquisition memory, it wants `WORD`, and `hal/io/` wants a counted read.
+That is the order those two changes go in.
+
+## Bringing one up
+
+The instrument has a USB device port and no LAN, so its address is a
+`hal::Usb` written with the instrument's own serial number — which
+`hal::io::openTransport` routes through whatever VISA the bench has (see
+`hal/io/visa_transport.hpp` for why VISA rather than libusb, and note that no
+VISA is *linked*: it is loaded at runtime, so a machine without one builds fine
+and refuses to open USB).
+
+1. **Get the serial.** `*IDN?` in Keysight Connection Expert, or the front panel:
+   **[Utility] > I/O**. The reply looks like
+   `KEYSIGHT TECHNOLOGIES,DSO-X 1202G,CN12345678,01.20.2019030220` — the third
+   field is what goes in the address.
+2. **Put it in the rig table**, replacing the `Simulated{}` this row currently
+   carries:
+   ```cpp
+   INSTRUMENT( keysight_dsox1202g::DSOX1202G, Osc1, Usb( "CN12345678"))
+   ```
+3. **Run something that measures through `Osc1`.** The session opens on the first
+   command that needs it, drains whatever the last user left in the error queue,
+   and asks `*IDN?`.
+
+### What the failures mean
+
+| What you see | What it is |
+|---|---|
+| `no VISA library found` | this machine has no IO Libraries / NI-VISA installed; nothing about the scope |
+| `UnsupportedTransport` naming `Simulated` | the row still says `Simulated{}`, and something asked for a live reading |
+| `expected a DSOX1202G or a DSOX1202A and found "…"` | that serial belongs to a different instrument — a copied row, or a re-cabled bench |
+| `rejected ":CHANnel2:SCALe …": -222,"Data out of range"` | the command was refused; the value is outside what this model takes |
+| `did not report itself armed within … s of :SINGle` | `:SINGle` was accepted but `:AER?` never went to 1 — usually a scope stuck in a mode that cannot arm |
+
+The identity check accepts `DSOX1202G` and `DSOX1202A` however they are
+punctuated (`*IDN?` answers `DSO-X 1202G`; everything else calls it
+`DSOX1202G`). It refuses the four-channel `DSOX1204A/G` deliberately: it is a
+real InfiniiVision that speaks nearly this command set, and this driver's
+two-channel bound would silently confine a script to half of it.
 
 ## Still to come
 
-**A transport.** Every reading here comes from the driver's own simulation hooks,
-and the address is stored and never opened, exactly as the scope this replaced
-did. Replacing the instrument and replacing the transport are two changes, and
-doing both at once would make *"the readings changed"* and *"the wiring changed"*
-indistinguishable in one diff. `instruments/keysight_edu34450a` is the worked
-example of the second step; when it lands here, this driver moves to hal API 3,
-grows a `.cpp`, becomes `STATIC` in its `CMakeLists.txt`, and `Osc1`'s row gets
-the instrument's real USB serial.
+**Binary waveform transfer**, and the counted read in `hal/io/` it needs — see
+**The trace** above for when that becomes worth doing.
 
 **The waveform generator.** The G in DSOX1202G is a built-in 20 MHz function
 generator. It is a *source*: modelling it means `applyDriver`, `removeDriver` and

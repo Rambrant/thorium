@@ -432,8 +432,9 @@ path is not.
 
 ### What still has no address
 
-One driver reads its address now -- `hal::keysight_edu34450a::EDU34450A`, over
-`hal/io/` (see the next section). The other five still carry theirs the way
+Two drivers read their address now -- `hal::keysight_edu34450a::EDU34450A` over
+LAN or USB, and `hal::keysight_dsox1202g::DSOX1202G` over USB (see the next
+section). The other four still carry theirs the way
 `hal::keysight_n6701a::N6701A` carried its mainframe slot before any driver
 needed it, so that the rig table can state the fact at all. Two gaps are worth
 knowing about:

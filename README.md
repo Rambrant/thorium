@@ -269,9 +269,9 @@ that cannot be recovered from the code.
 
 | | |
 |---|---|
-| [`instruments/keysight_edu34450a`](instruments/keysight_edu34450a/README.md) | DMM, 5½-digit — `Dmm1` on both deployments; **the one driver that talks to real hardware**, so also the SCPI it sends and how to bring a meter up |
+| [`instruments/keysight_edu34450a`](instruments/keysight_edu34450a/README.md) | DMM, 5½-digit — `Dmm1` on both deployments; **talks to real hardware**, so also the SCPI it sends and how to bring a meter up |
 | [`instruments/keysight_l4411a`](instruments/keysight_l4411a/README.md) | DMM, 6½-digit — `Dmm2`, including the 4-wire sense path |
-| [`instruments/keysight_dsox1202g`](instruments/keysight_dsox1202g/README.md) | Oscilloscope, 2-channel — `Osc1`, and what changed when the real scope replaced the reconstructed one |
+| [`instruments/keysight_dsox1202g`](instruments/keysight_dsox1202g/README.md) | Oscilloscope, 2-channel — `Osc1`; **talks to real hardware**, including the arm-and-poll sequence and waveform transfer |
 | [`instruments/keysight_dso8064a`](instruments/keysight_dso8064a/README.md) | Oscilloscope, 4-channel — in the tree, on no bench: the driver `Osc1` used to be |
 | [`instruments/keysight_n6701a`](instruments/keysight_n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
 | [`instruments/keysight_ac6834b`](instruments/keysight_ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |

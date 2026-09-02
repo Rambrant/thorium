@@ -116,22 +116,28 @@
 // those drivers opens a session, its row gets the same treatment Dmm1's just
 // did.
 //
-// -- And now Osc1 says it too, for a different reason -----------------------
+// -- And now Osc1 says it too, for the same reason --------------------------
 //
-// Osc1 is hal::Simulated{} as well, and the two rows are Simulated for
-// opposite halves of the same rule. Dmm1's driver connects and its meter does
-// not exist; Osc1's instrument exists -- there is a Keysight DSOX1202G on the
-// bench -- and its driver does not connect yet.
+// Osc1 is hal::Simulated{} as well, and it is now the same statement Dmm1's row
+// makes rather than a different one. hal::keysight_dsox1202g::DSOX1202G opens a
+// session (see instruments/keysight_dsox1202g/src/keysight_dsox1202g.cpp for
+// everything it sends), so this column has become an instruction for this row
+// too -- and the rule above applies unchanged: a row may name a real bus
+// address when there is a real instrument at it, and must say Simulated{} until
+// then.
 //
-// So the honest column value is neither a real address (this driver would not
-// open it, and writing one would claim a session nobody has tested) nor an
-// invented one in the style of the four rows below (those describe a rack that
-// does not exist; this box does, and inventing a serial number for a real
-// instrument is a lie a later reader would paste into a VISA resource string).
-// Simulated{} says the true thing: readings on this row come from the driver's
-// own hooks. The TODO on the row says what replaces it and when -- the serial
-// from the instrument's own *IDN?, on the day hal::keysight_dsox1202g::DSOX1202G
-// opens a session.
+// The gap here is narrower than Dmm1's and is worth stating precisely, because
+// it is one line from closing. There *is* a scope on the bench. What is missing
+// is its USB serial number, which is what a hal::Usb address is written with
+// (see hal/driver/address.hpp on why a serial rather than a bus/device number),
+// and inventing one would be worse than inventing a hostname for a rack that
+// does not exist: a plausible serial is a thing a later reader pastes into a
+// VISA resource string and then debugs for an hour.
+//
+// So: Simulated{}, and the TODO on the row says exactly what replaces it --
+// Usb( "<serial>"), read off the instrument's own *IDN? or its Utility > I/O
+// screen. Nothing else about this row changes when it does; the driver already
+// routes hal::Usb through VISA (hal/io/visa_transport.hpp).
 //
 // Note what that row can never say again, and that this is now enforced rather
 // than reviewed: Lan( ... ). The DSOX1202G has a USB device port and no network
@@ -169,7 +175,7 @@
 INSTRUMENTS
     INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Simulated{})            // TODO(bench): Lan( "bench-dmm1") once a meter answers there -- this driver connects
     INSTRUMENT( keysight_l4411a::L4411A,       Dmm2, Lan( "bench-dmm2"))
-    INSTRUMENT( keysight_dsox1202g::DSOX1202G, Osc1, Simulated{})            // TODO(bench): Usb( "<serial>") once this driver opens a session -- see below
+    INSTRUMENT( keysight_dsox1202g::DSOX1202G, Osc1, Simulated{})            // TODO(bench): Usb( "<serial>") off the scope's own *IDN? -- this driver connects
     INSTRUMENT( keysight_n6701a::Direct,       DcP1, Gpib( 0, 14), 1)
     INSTRUMENT( keysight_n6701a::Direct,       DcP2, Gpib( 0, 14), 2)
     INSTRUMENT( keysight_n6701a::Relay,        DcP3, Gpib( 0, 14), 3)

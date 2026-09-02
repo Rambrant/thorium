@@ -2,10 +2,12 @@
 
 #include <array>
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <variant>
 
 #include "core/driver/describe.hpp"
 #include "core/meta.hpp"
@@ -19,6 +21,7 @@
 #include "hal/driver/builder.hpp"
 #include "hal/driver/describe.hpp"
 #include "hal/driver/instrument.hpp"
+#include "hal/io/scpi.hpp"
 
 //
 // Which hal API version this driver was written against -- a literal, never
@@ -27,15 +30,14 @@
 // it moves, and instruments/README.md for why a driver package has to say this
 // at all.
 //
-// Two, not three, although three is current: this driver uses hal::ConfigBuilder
-// (which is what 2 added) and nothing from hal/io/, because it does not open a
-// session yet -- it answers from its own simulation hooks exactly as
-// hal::keysight_dso8064a::DSO8064A does. The number is the oldest hal this
-// driver can be compiled against, not the newest one in the tree when it was
-// written; asking for 3 would refuse a hal that serves this driver perfectly.
-// It becomes 3 the day the transport below lands.
+// Three, not two, and it moved for exactly the reason the version log gives:
+// this driver now opens a session (hal/io/), where it used to answer every
+// reading from its own simulation hooks and ask only for hal::ConfigBuilder.
+// The number is still the oldest hal that serves this driver -- see the log in
+// api_version.hpp, and this driver's own README on what the transport step
+// changed.
 //
-THORIUM_REQUIRE_HAL_API( 2);
+THORIUM_REQUIRE_HAL_API( 3);
 
 //
 // This driver's own namespace, nested inside hal -- see instruments/README.md
@@ -576,10 +578,12 @@ namespace hal::keysight_dsox1202g
     // "Mostly", because this instrument does have one transfer setting worth a
     // name eventually: :WAVeform:POINts and :WAVeform:POINts:MODE decide how
     // much of the acquisition record is sent -- a decimated screenful or the
-    // whole raw memory. That is a genuine choice, it costs transfer time, and
-    // it is deliberately not modelled while there is no transport to spend
-    // that time on. It is the first thing this builder should grow when there
-    // is.
+    // whole raw memory. That is a genuine choice and it is still not modelled:
+    // what comes back is the screen record this instrument defaults to, which
+    // is what this rig captures. It is the first thing this builder should
+    // grow, and it arrives together with binary transfer rather than before it
+    // -- see fetchWaveform() on why the ASCII format that makes the transfer
+    // possible today is also what makes a deep record expensive.
     //
     struct WaveformConfig
     {
@@ -1026,21 +1030,30 @@ namespace hal::keysight_dsox1202g
     // active when the handle was obtained -- harmless for
     // Measure( port, at( ...))'s read-immediately-and-discard usage.
     //
-    // -- What this driver does not do yet ------------------------------------
+    // -- It talks ------------------------------------------------------------
     //
-    // Talk. Every reading below comes from this class's own simulation hooks,
-    // exactly as the scope it replaces does, and the address it is constructed
-    // with is stored and not opened. That is a deliberate first step and not
-    // an oversight: replacing the instrument and replacing the transport are
-    // two changes, and doing them at once would have made "the readings
-    // changed" and "the wiring changed" indistinguishable in one diff. See
-    // hal/io/ and hal::keysight_edu34450a::EDU34450A for what the second step
-    // looks like -- that meter is the worked example of a driver that opens a
-    // SCPI session, and this one follows it.
+    // Every command below goes out over a real SCPI session when this driver is
+    // constructed with a real address (see isSimulated(), and
+    // src/keysight_dsox1202g.cpp for everything that is actually sent). USBTMC
+    // through whatever VISA the bench has, because that is this instrument's
+    // one connector -- hal::io::openTransport routes hal::Usb there (see
+    // hal/io/visa_transport.hpp on why VISA rather than libusb).
     //
-    // Until then rig/instrument.inc says hal::Simulated{} for this row, which
-    // is the honest column value for a driver that reads no address (see that
-    // file's own rule on when a row may name a real bus address).
+    // What a session does, once, before the first command that needs it:
+    //
+    //     SYST:ERR?                 until empty -- whatever the last user of
+    //                               this scope left queued is not this run's
+    //     *IDN?                     and refused if the model is not this one
+    //                               (verifyIdentity)
+    //
+    // The simulation hooks below are still here and still what a driver test
+    // uses, and an attached instrument never reads them: rawMeasure() branches
+    // on isSimulated() once, and every other path in this class does the same.
+    //
+    // rig/instrument.inc still says hal::Simulated{} for this row, and that is
+    // now the same statement Dmm1's row makes rather than a different one:
+    // this driver reads its address column, so the column may not name a bus
+    // address until there is a serial number to put in it. See that file.
     //
     // Also still deliberately deferred:
     //   - Segmented acquisition (:ACQuire:MODE SEGMented) -- a licensed
@@ -1112,11 +1125,94 @@ namespace hal::keysight_dsox1202g
                 requires ReachableOver<AddressT, Usb>
             DSOX1202G( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 
-            // Where the PC reaches this scope -- see hal/driver/address.hpp.
+            //
+            // Where the PC reaches this scope -- and, since this driver grew a
+            // transport, the column that decides whether a reading comes off
+            // hardware or out of the simulation hooks below. See isSimulated().
+            //
             [[nodiscard]]
             auto address() const -> const Address &
             {
                 return mAddress;
+            }
+
+            //
+            // Whether there is nothing at the other end -- a hal::Simulated
+            // address and no transport handed in.
+            //
+            // The one branch in this driver that decides between USBTMC and an
+            // mChannels entry, and it is a property of the *address* rather
+            // than a mode a caller sets: a rig says what it has once, in its
+            // instrument table, and a script capturing a transient is
+            // identical either way.
+            //
+            // An injected transport wins over a Simulated address, deliberately
+            // -- see useTransport(). That is how this driver's own tests assert
+            // the SCPI it sends without a bench.
+            //
+            [[nodiscard]]
+            auto isSimulated() const -> bool
+            {
+                return !mSession && std::holds_alternative<Simulated>( mAddress);
+            }
+
+            //
+            // Hand this driver a transport to talk through, instead of one
+            // opened from its address.
+            //
+            // Two callers, and neither is a script: a test hands in a fake and
+            // asserts the command strings, and a rig reaching this scope over
+            // a bus hal::io::openTransport() does not implement hands in its
+            // own hal::io::ITransport. Replaces any session already open --
+            // two transports to one instrument is not a state this models --
+            // and sends nothing, so handing in a fake cannot throw. The
+            // once-per-session exchange belongs to the first use; see
+            // session().
+            //
+            auto useTransport( std::unique_ptr<io::ITransport> transport) -> void
+            {
+                mSession  = std::make_unique<io::ScpiSession>( std::move( transport));
+                mPrepared = false;
+            }
+
+            //
+            // The live SCPI session, opened on first use.
+            //
+            // Lazily, which is the only thing that can work here: the rig's
+            // instruments are globals constructed before main(), so a
+            // constructor that opened a session would make every binary that
+            // links the rig -- every unit test, --replay, --skeleton, --help --
+            // reach for the bench at static-initialisation time. It is also
+            // exactly when a detached run does not need one.
+            //
+            // Public, because a bring-up session on a desk wants it: a
+            // diagnostic can send this scope a command this driver has no
+            // accessor for -- :AUToscale, :DISPlay:DATA?, the waveform
+            // generator -- without that becoming a reason to widen the driver.
+            //
+            [[nodiscard]]
+            auto session() -> io::ScpiSession &;
+
+            //
+            // *IDN? -- "KEYSIGHT TECHNOLOGIES,DSO-X 1202G,CN12345678,01.20..."
+            // off the real instrument, opening the session if it is not already
+            // open. What a run's traceability header should carry about an
+            // instrument is what the instrument says it is, not what the rig
+            // table hoped it was.
+            //
+            [[nodiscard]]
+            auto identity() -> std::string;
+
+            //
+            // Drop the session. The next command opens a new one.
+            //
+            // Not called by safe(), and not called at the end of a run: see
+            // safe() for why a failed run keeps its session.
+            //
+            auto closeSession() -> void
+            {
+                mSession.reset();
+                mPrepared = false;
             }
 
             [[nodiscard]]
@@ -1203,14 +1299,10 @@ namespace hal::keysight_dsox1202g
             // for an event that is no longer coming, and the next script's
             // Await would be answered by it.
             //
-            // On real hardware this is where :STOP goes -- an armed scope left
-            // running is also a scope that will happily trigger on the next
-            // script's stimulus.
+            // :STOP goes here for an attached scope, and only for one whose
+            // session is already open -- see the definition.
             //
-            auto safe() -> void
-            {
-                mArmed = false;
-            }
+            auto safe() -> void;
 
             // Switches the instrument's current measurement mode/channel --
             // called by Channel's builder methods, never by a script directly.
@@ -1227,47 +1319,21 @@ namespace hal::keysight_dsox1202g
             // --- What the ADL customization points below actually call ---
 
             //
-            // Four configure methods, one per subsystem, and each one a run of
-            // ifs rather than a run of value_or. An unset field means "leave
+            // Four configure methods, one per subsystem, and each one sends
+            // only the fields the Setup named -- an unset field means "leave
             // what is already configured", so a Setup naming only the trigger
             // level must not reset the slope to some default the builder never
-            // chose.
+            // chose. Each also records what it sent, which is what the settings
+            // readback below answers and what a describeConfig renders.
             //
-            auto configureTrigger( const TriggerConfig & config) -> void
-            {
-                if( config.EdgeSource) { mTriggerSource   = config.EdgeSource; }
-                if( config.Slope)      { mTriggerSlope    = config.Slope;      }
-                if( config.Level)      { mTriggerLevel    = config.Level;      }
-                if( config.Sweep)      { mTriggerSweep    = config.Sweep;      }
-                if( config.Coupling)   { mTriggerCoupling = config.Coupling;   }
-                if( config.Reject)     { mTriggerReject   = config.Reject;     }
-                if( config.Holdoff)    { mTriggerHoldoff  = config.Holdoff;    }
-            }
-
-            auto configureTimebase( const TimebaseConfig & config) -> void
-            {
-                if( config.TimePerDivision) { mTimePerDivision   = config.TimePerDivision; }
-                if( config.Position)        { mTimebasePosition  = config.Position;        }
-                if( config.Reference)       { mTimebaseReference = config.Reference;       }
-            }
-
-            auto configureAcquisition( const AcquisitionConfig & config) -> void
-            {
-                if( config.Type)         { mAcquisitionType = config.Type;         }
-                if( config.AverageCount) { mAverageCount    = config.AverageCount; }
-            }
-
-            auto configureChannel( const ChannelConfig & config) -> void
-            {
-                auto & data = atChannel( config.Channel);
-
-                if( config.InputCoupling)    { data.InputCoupling    = config.InputCoupling;    }
-                if( config.VoltsPerDivision) { data.VoltsPerDivision = config.VoltsPerDivision; }
-                if( config.VerticalOffset)   { data.VerticalOffset   = config.VerticalOffset;   }
-                if( config.BandwidthLimit)   { data.BandwidthLimit   = config.BandwidthLimit;   }
-                if( config.ProbeAttenuation) { data.ProbeAttenuation = config.ProbeAttenuation; }
-                if( config.Display)          { data.Display          = config.Display;          }
-            }
+            // Defined in src/keysight_dsox1202g.cpp, with the SCPI. That is
+            // where every command this driver puts on the wire lives, in the
+            // order the instrument sees it.
+            //
+            auto configureTrigger( const TriggerConfig & config) -> void;
+            auto configureTimebase( const TimebaseConfig & config) -> void;
+            auto configureAcquisition( const AcquisitionConfig & config) -> void;
+            auto configureChannel( const ChannelConfig & config) -> void;
 
             //
             // Arm: on real hardware this is the guide's own single-shot
@@ -1287,14 +1353,10 @@ namespace hal::keysight_dsox1202g
             // until the acquisition completes, so a single-shot DUT that has
             // not been triggered yet can never be enabled.
             //
-            // Simulated here, so what survives is the state that ordering
-            // produces: armed, with no completed acquisition behind it.
+            // Simulated, what survives is the state that ordering produces:
+            // armed, with no completed acquisition behind it.
             //
-            auto armSingle( const SingleConfig &) -> void
-            {
-                mArmed     = true;
-                mCompleted = false;
-            }
+            auto armSingle( const SingleConfig & config) -> void;
 
             //
             // Await: poll ":OPERegister:CONDition?" and watch the RUN bit
@@ -1317,18 +1379,7 @@ namespace hal::keysight_dsox1202g
             // a script bug the run itself is capable of reporting.
             //
             [[nodiscard]]
-            auto awaitAcquisition( const SingleConfig &) -> bool
-            {
-                if( !mArmed)
-                {
-                    return false;
-                }
-
-                mArmed     = false;
-                mCompleted = mCaptureCompletes;
-
-                return mCompleted;
-            }
+            auto awaitAcquisition( const SingleConfig & config) -> bool;
 
             //
             // Fetch: on real hardware, :WAVeform:SOURce CHANnel<N>, then
@@ -1349,10 +1400,7 @@ namespace hal::keysight_dsox1202g
             // answers false rather than throwing.
             //
             [[nodiscard]]
-            auto fetchWaveform( const WaveformConfig & config) -> core::Waveform
-            {
-                return atChannel( config.Channel).Trace;
-            }
+            auto fetchWaveform( const WaveformConfig & config) -> core::Waveform;
 
             // --- Test/simulation hooks -- real hardware has no such setters ---
             //
@@ -1547,10 +1595,22 @@ namespace hal::keysight_dsox1202g
             // test for, which is exactly the ISINVALID() arrangement this
             // replaces.
             //
+            // The live path is one line, and everything about it that is
+            // instrument-specific -- which :MEASure command, which thresholds,
+            // what +9.9E+37 means -- is in readMeasurement() in the .cpp. What
+            // stays here is the part that genuinely depends on QuantityT: which
+            // of this class's simulated fields to answer from, and what type to
+            // wrap the number in.
+            //
             template<core::quantities::QuantityType QuantityT>
             [[nodiscard]]
-            auto rawMeasure( const core::MeasureSetup<QuantityT> & ) -> QuantityT
+            auto rawMeasure( const core::MeasureSetup<QuantityT> & setup) -> QuantityT
             {
+                if( !isSimulated())
+                {
+                    return QuantityT{ readMeasurement( mMode, mChannel, setup.LowThreshold, setup.HighThreshold) };
+                }
+
                 const auto & data = atChannel( mChannel);
 
                 if( data.Unmeasurable.at( static_cast<std::size_t>( mMode)))
@@ -1596,6 +1656,36 @@ namespace hal::keysight_dsox1202g
             }
 
         private:
+            //
+            // The one reading path that talks, and a plain function over Mode
+            // rather than a template: which :MEASure command to send, and what
+            // to make of the answer, depend on the measurement and not on the
+            // C++ type the number is about to be wrapped in. Same split
+            // hal::keysight_edu34450a::EDU34450A::read() draws, and for the
+            // same reason -- it puts everything that goes on the wire in one
+            // file a bench engineer can check against the manual.
+            //
+            [[nodiscard]]
+            auto readMeasurement( Mode mode, unsigned channel,
+                                  std::optional<double> lowThreshold,
+                                  std::optional<double> highThreshold) -> double;
+
+            //
+            // *IDN?, and a refusal if the answer is not one of this model's
+            // spellings -- see the definition for which are accepted and why a
+            // hostname-shaped mistake is the failure this catches.
+            //
+            auto verifyIdentity() -> std::string;
+
+            //
+            // The session's own once-per-connection preparation, and the flag
+            // that says it has happened. Not marked prepared until it has
+            // succeeded, so a scope that failed its identity check is asked
+            // again on the next command rather than treated as verified.
+            //
+            std::unique_ptr<io::ScpiSession> mSession;
+            bool                             mPrepared{ false };
+
             //
             // How many measurements a channel can be made to report as
             // unmeasurable -- derived from Mode's own enumerators by reflection

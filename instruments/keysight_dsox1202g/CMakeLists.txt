@@ -5,15 +5,20 @@
 # CMakeLists.txt and framework/hal/CMakeLists.txt) -- so the whole directory can be
 # zipped, versioned and dropped into another rig's instruments/ as it stands.
 #
-# INTERFACE, not STATIC: the driver is header-only, as every driver in this tree
-# that does not talk to hardware is. That is not an accident of these particular
-# models -- an instrument driver is a type whose Port-returning members are
-# consumed as types by the call site (see core/driver/port.hpp), so its
-# definitions have to be visible to whoever measures through it. This one
-# becomes STATIC the day it grows the .cpp that holds its SCPI, exactly as
-# instruments/keysight_edu34450a already has, and nothing outside this file
-# needs to know.
-add_library(hal_keysight_dsox1202g INTERFACE)
+# STATIC, and the second driver here that is -- which is what this file said
+# would happen the day it grew a .cpp, and it has.
+#
+# The split is not arbitrary. An instrument driver is a type whose Port-
+# returning members are consumed as types by the call site (see
+# core/driver/port.hpp), so the builders, the channel view and the ports have to
+# stay visible in the header. What went into src/ is everything that does not
+# depend on which C++ quantity a reading is about to be wrapped in: the SCPI
+# strings, the arm-and-poll sequence, the waveform block parser. See that file's
+# own comment, and instruments/keysight_edu34450a, which drew the same line
+# first.
+add_library(hal_keysight_dsox1202g STATIC
+    src/keysight_dsox1202g.cpp
+)
 
 # include/hal/keysight_dsox1202g.hpp, not include/keysight_dsox1202g.hpp: this driver keeps its
 # "hal/keysight_dsox1202g.hpp" spelling at every call site. It *is* a hal driver -- it
@@ -26,7 +31,9 @@ add_library(hal_keysight_dsox1202g INTERFACE)
 # carries the manufacturer as well as the model: a model number is not unique
 # across vendors, so a bare model name is a collision waiting for the second
 # vendor to ship one.
-target_include_directories(hal_keysight_dsox1202g INTERFACE
+# PUBLIC rather than INTERFACE now that this target has a translation unit of
+# its own: the .cpp includes its own header the same way a consumer does.
+target_include_directories(hal_keysight_dsox1202g PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
@@ -37,7 +44,7 @@ target_include_directories(hal_keysight_dsox1202g INTERFACE
 # the explicit check that rejects a driver reaching for hal_rig. (The check is
 # explicit because the cycle it closes is one CMake tolerates silently, which is
 # not what you would guess.)
-target_link_libraries(hal_keysight_dsox1202g INTERFACE Thorium::hal)
+target_link_libraries(hal_keysight_dsox1202g PUBLIC Thorium::hal)
 
 add_library(Thorium::hal_keysight_dsox1202g ALIAS hal_keysight_dsox1202g)
 
