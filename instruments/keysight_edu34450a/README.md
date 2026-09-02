@@ -50,7 +50,7 @@ tests assert they stay distinct.
 |---|---|
 | temperature | `core` does have a `Temperature`, but this is a 2-wire read of a 5 kΩ thermistor in the meter's own front terminals, auto-ranging only. It cannot travel through the matrix to a DUT pin, so the port would be one nothing on this rig could route. |
 | continuity, diode test | Threshold answers rather than measurements — a fixed 10 Ω threshold with a beeper, and a forward-voltage check on a fixed 1 V range, both fast-mode only. `resistance()` with an `LT( 10_Ohm)` criterion says the same thing in the vocabulary the report is already written in. |
-| secondary display | A whole parallel SCPI tree (`SEC:FUNC`, `CONF:SEC:…`, `MEAS:SEC:…?`) giving two readings from one acquisition — genuinely useful, and a shape `core::Port` does not have. A port is one quantity; two readings keying into one session slot is a design question, not a driver detail. |
+| secondary display | A whole parallel SCPI tree (`SEC:FUNC`, `CONF:SEC:…`, `MEAS:SEC:…?`) giving two readings from one acquisition — genuinely useful, and a shape `core::Port` does not have: a port is one quantity, and this is two out of one round trip. The *session* half of that has since stopped being a problem — a slot is a name and a quantity, so a voltage and a current at one pin no longer collide (see the root README) — which leaves the port shape as the whole of it, plus a qualifier for the same-quantity pairings this meter allows (VDC alongside VAC). Still a design question rather than a driver detail. |
 
 ## Capacitance needs a dead node
 

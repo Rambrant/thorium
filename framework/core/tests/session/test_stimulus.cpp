@@ -107,6 +107,13 @@ namespace
             bank.active().fetch( key, "Dmm1", core::quantityKindOf<Voltage>(),
                                  []{ return core::QuantityVariant{ Voltage{ 0.0 } }; })).value();
     }
+
+    auto currentAt( core::SessionBank & bank, const std::string & key) -> double
+    {
+        return core::asQuantity<Current>(
+            bank.active().fetch( key, "Dmm1", core::quantityKindOf<Current>(),
+                                 []{ return core::QuantityVariant{ Current{ 0.0 } }; })).value();
+    }
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -170,6 +177,36 @@ TEST( CoreStimulus, AListIsConsumedInOrderAndThenRunsOut)
     // A script reading more times than the author answered for has diverged
     // from what was expected -- the same hard error every other seam gives.
     EXPECT_THROW( (void) voltageAt( bank, "Output5V"), std::runtime_error);
+}
+
+//
+// A line naming two quantities is two answers about one pin, not a sequence of
+// two -- so each is sticky and neither depends on the script asking for it
+// first. The unit is what says which is which, and it was always in the file.
+//
+TEST( CoreStimulus, ALineCanAnswerForMoreThanOneQuantityAtOnePoint)
+{
+    auto bank = armed( "Vin = 12.0 V, 0.85 A\n");
+
+    EXPECT_DOUBLE_EQ( currentAt( bank, "Vin"), 0.85);
+    EXPECT_DOUBLE_EQ( voltageAt( bank, "Vin"), 12.0);
+    EXPECT_DOUBLE_EQ( currentAt( bank, "Vin"), 0.85);
+}
+
+//
+// And a list still means a sequence within each quantity, so the two rules
+// compose rather than one displacing the other.
+//
+TEST( CoreStimulus, EachQuantityOnALineKeepsItsOwnSequence)
+{
+    auto bank = armed( "Vin = 12.0 V, 0.85 A, 11.8 V, 0.91 A\n");
+
+    EXPECT_DOUBLE_EQ( voltageAt( bank, "Vin"), 12.0);
+    EXPECT_DOUBLE_EQ( currentAt( bank, "Vin"), 0.85);
+    EXPECT_DOUBLE_EQ( voltageAt( bank, "Vin"), 11.8);
+    EXPECT_DOUBLE_EQ( currentAt( bank, "Vin"), 0.91);
+
+    EXPECT_THROW( (void) voltageAt( bank, "Vin"), std::runtime_error);
 }
 
 // ---------------------------------------------------------------------------

@@ -409,14 +409,22 @@ namespace core
                 // always has, so every existing injection and every existing
                 // recording is unaffected.
                 //
-                // What this deliberately does NOT fix: the same collision
-                // between two *quantities* at one point --
-                // Measure( Dmm1.voltage(), at( p)) and Measure( Dmm1.current(),
-                // at( p)) still share the key "p". Folding the QuantityKind
-                // into the key would fix it and would rename every key in
-                // every existing recording, which is a migration rather than a
-                // change. A driver that needs the distinction today can
-                // qualify its ports, which is what the scope does.
+                // What this does NOT do is separate two *quantities* at one
+                // point -- Measure( Dmm1.voltage(), at( p)) and
+                // Measure( Dmm1.current(), at( p)) both key as "p" here, and
+                // still do. That is deliberate and is not the same collision:
+                // a session slot is a name *and* a quantity kind, and the kind
+                // travels beside this key to ISession::fetch already, so
+                // nothing has to be spelled into the key to keep the two
+                // apart. See core::ScriptedSession's private section.
+                //
+                // Which leaves this mechanism with the job it is actually for,
+                // and the two are orthogonal rather than redundant: a
+                // qualifier separates several answers of the *same* kind --
+                // the scope's Vbase and Vtop are both voltages, its RiseTime
+                // and FallTime both times, and a three-phase source's A, B and
+                // C are three voltages -- and no amount of keying by kind
+                // would tell any of those pairs apart.
                 //
                 const auto qualifier = port.qualifier();
 
@@ -642,11 +650,28 @@ namespace core
             // move-only and must be moved in, and a caller wanting to keep its
             // own container can pass a view of it instead.
             //
+            // A range of concrete quantities knows its kind at compile time, so
+            // the sequence is programmed against that kind's slot and no longer
+            // collides with another quantity injected at the same point (see
+            // core::ScriptedSession's private section). A range whose elements
+            // are already erased QuantityVariants does not -- the constraint
+            // below admits those too -- and it keeps the kind-agnostic slot,
+            // which is exactly what it had before.
+            //
             template<std::ranges::input_range R>
                 requires std::constructible_from<QuantityVariant, std::ranges::range_reference_t<R>>
             auto inject( std::string_view pointName, R values) -> void
             {
-                inject( pointName, sourceOf( std::move( values)));
+                using Element = std::ranges::range_value_t<R>;
+
+                if constexpr( quantities::QuantityType<Element>)
+                {
+                    mSessions.inject( pointName, quantityKindOf<Element>(), sourceOf( std::move( values)));
+                }
+                else
+                {
+                    inject( pointName, sourceOf( std::move( values)));
+                }
             }
 
             //

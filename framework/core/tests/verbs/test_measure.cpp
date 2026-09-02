@@ -197,7 +197,16 @@ namespace mock
 
             [[nodiscard]] auto voltage() -> core::Port<Voltage, Instrument> { return core::Port<Voltage, Instrument>{ *this }; }
 
+            //
+            // A second quantity off the same instrument, carrying no qualifier
+            // -- which is the point of it. This is the DMM shape: two answers
+            // about one pin, told apart by what is being measured and by
+            // nothing else in the key.
+            //
+            [[nodiscard]] auto current() -> core::Port<Current, Instrument> { return core::Port<Current, Instrument>{ *this }; }
+
             auto setSimulatedVoltage( Voltage v) -> void { mVoltage = v; }
+            auto setSimulatedCurrent( Current i) -> void { mCurrent = i; }
 
             //
             // Makes this instrument answer the way a real one does when it
@@ -216,12 +225,20 @@ namespace mock
                     throw core::UnmeasurableReading( *mFault);
                 }
 
-                return mVoltage;
+                if constexpr( std::same_as<Q, Current>)
+                {
+                    return mCurrent;
+                }
+                else
+                {
+                    return mVoltage;
+                }
             }
 
         private:
             InstrumentId               mId;
             Voltage                    mVoltage{};
+            Current                    mCurrent{};
             std::optional<std::string> mFault;
     };
 } // namespace mock
@@ -286,6 +303,36 @@ TEST_F( MeasureEngineFixture, InjectBypassesTheFabricEntirely)
     EXPECT_DOUBLE_EQ( value.value(), 5.02);
     EXPECT_TRUE( fabric.lastConnected().empty());
     EXPECT_TRUE( fabric.lastDisconnected().empty());
+}
+
+//
+// The DMM case, end to end and in the spelling a script actually uses. Both
+// measurements key as "Output5V" -- neither port carries a qualifier -- and
+// they no longer share a slot, so the script is free to ask for them in either
+// order and each still gets its own values. See core::ScriptedSession's
+// private section, and core::MeasureEngine's own comment on why the qualifier
+// is not what solves this one.
+//
+TEST_F( MeasureEngineFixture, TwoQuantitiesAtOnePointDoNotShareASlot)
+{
+    Measure.inject( "Output5V", 5.02_V);
+    Measure.inject( "Output5V", 0.85_A);
+
+    EXPECT_DOUBLE_EQ( Measure( dmm1.current(), at( Output5V)).value(), 0.85);
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.02);
+}
+
+TEST_F( MeasureEngineFixture, EachQuantityAtOnePointKeepsItsOwnSequence)
+{
+    Measure.inject( "Output5V", { 5.02_V, 4.90_V });
+    Measure.inject( "Output5V", { 0.85_A, 0.91_A });
+
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 5.02);
+    EXPECT_DOUBLE_EQ( Measure( dmm1.current(), at( Output5V)).value(), 0.85);
+    EXPECT_DOUBLE_EQ( Measure( dmm1.voltage(), at( Output5V)).value(), 4.90);
+    EXPECT_DOUBLE_EQ( Measure( dmm1.current(), at( Output5V)).value(), 0.91);
+
+    EXPECT_THROW( (void)Measure( dmm1.voltage(), at( Output5V)), std::runtime_error);
 }
 
 //

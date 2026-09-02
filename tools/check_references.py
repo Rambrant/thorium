@@ -19,10 +19,9 @@ edit that does this, and exactly the kind nobody re-greps after.
 
 Run from the repository root:
 
-    python3 docs/api/check_references.py
+    python3 tools/check_references.py
 
-Exits non-zero on anything unresolved, so it can gate a docs build or a CI job.
-docs/api/build.sh runs it ahead of Doxygen for that reason.
+Exits non-zero on anything unresolved, so it can gate a CI job.
 
 ---------------------------------------------------------------------------
 The allowlist, and why there is one rather than a cleverer rule
@@ -56,9 +55,9 @@ It does not parse comments. A path-shaped token anywhere in a scanned file is
 checked, code and prose alike, which costs nothing here because an #include
 resolves the same way a comment reference does.
 
-It has no dependencies beyond the standard library and knows nothing about
-Doxygen, so if the generated-reference experiment in this directory is ever
-dropped (see README.md beside this file), moving this one file to tools/ is
+It has no dependencies beyond the standard library. It once lived beside a
+generated-reference (Doxygen) experiment under docs/ and was written to
+outlive it; when that experiment was dropped, moving this one file here was
 the whole of the migration.
 """
 import os
@@ -75,10 +74,9 @@ TARGET_SUFFIXES  = ( 'hpp', 'cpp', 'inc', 'cmake', 'sh', 'md')
 
 #
 # Generated output, vendored sources and build trees. Skipped as directories
-# rather than filtered afterwards, so a 1600-file Doxygen html/ costs nothing.
+# rather than filtered afterwards, so a large generated tree costs nothing.
 #
-SKIPPED_DIRECTORIES = { '.git', '.idea', 'third_party', '__pycache__',
-                        'html', 'single', 'shots', 'brand_assets'}
+SKIPPED_DIRECTORIES = { '.git', '.idea', 'third_party', '__pycache__'}
 
 SKIPPED_PREFIXES = ( 'build', 'cmake-build')
 
@@ -191,7 +189,7 @@ def unresolved( files, existing):
 
 
 def main():
-    root = os.path.dirname( os.path.dirname( os.path.dirname( os.path.abspath( __file__))))
+    root = os.path.dirname( os.path.dirname( os.path.abspath( __file__)))
 
     files    = repository_files( root)
     existing = set( files)
@@ -209,7 +207,7 @@ def main():
 
     for path, reference in withered:
         print( f'{path}: allowlisted {reference} now resolves -- drop its entry in '
-               f'docs/api/check_references.py')
+               f'tools/check_references.py')
 
     if unexpected or withered:
         print()

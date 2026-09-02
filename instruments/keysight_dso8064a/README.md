@@ -123,7 +123,11 @@ of a negative transient measured against the rail it departed from.
 Each reading keys its session slot by which measurement it is —
 `"Output5V.Vbase"` rather than a second `"Output5V"` — via
 `core::Port::qualifiedBy`. Without that, two of the fifteen measurements taken at
-one pin would share one injection slot.
+one pin would share one injection slot. A slot is a name *and* a quantity, so a
+scope measuring a voltage where a DMM measures a current would already be
+separate; that is not what saves these. `vbase()`, `vtop()`, `vmin()` and
+`vmax()` are four voltages and `riseTime()`/`fallTime()` two times, so the
+quantity says nothing about which is which and the qualifier is the whole of it.
 
 ## Readings the instrument refuses to make
 

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <concepts>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -476,6 +477,22 @@ namespace core
                 }
 
                 //
+                // Whether this map holds a slot for the name at all -- which is
+                // a different question from whether that slot has anything left
+                // to give, and deliberately so. It exists because the quantity
+                // seam keeps more than one of these maps (see ScriptedSession's
+                // private section) and has to choose between them without
+                // consuming an answer from either. An exhausted slot answers
+                // true: it is still this map's slot, and next() is what says so
+                // in the words below.
+                //
+                [[nodiscard]]
+                auto has( const std::string_view name) const -> bool
+                {
+                    return mSources.contains( std::string( name));
+                }
+
+                //
                 // The next answer for this name, or a std::runtime_error saying
                 // which of the two things went wrong.
                 //
@@ -486,16 +503,23 @@ namespace core
                 // failing on. A source that should never run out simply never
                 // returns nullopt -- see ValueSource below.
                 //
+                // qualification is appended to the name in both messages and is
+                // used for nothing else -- " as Current", so that a seam keyed
+                // by more than the name can say which slot it went looking in.
+                // Empty for the three seams that key by name alone, which is
+                // why their diagnoses read exactly as they always have.
+                //
                 [[nodiscard]]
-                auto next( const std::string_view name) -> T
+                auto next( const std::string_view name, const std::string_view qualification = {}) -> T
                 {
                     const auto key   = std::string( name);
                     const auto entry = mSources.find( key);
+                    const auto subject = "'" + key + "'" + std::string( qualification);
 
                     if( entry == mSources.end())
                     {
                         throw std::runtime_error(
-                            "ScriptedSession: nothing programmed for '" + key + "' -- " +
+                            "ScriptedSession: nothing programmed for " + subject + " -- " +
                             std::string( mWords.Program) + " it, or load a recording that covers it");
                     }
 
@@ -504,8 +528,8 @@ namespace core
                     if( !value)
                     {
                         throw std::runtime_error(
-                            "ScriptedSession: no programmed " + std::string( mWords.Noun) + " left for '" + key +
-                            "' -- either " + std::string( mWords.Program) +
+                            "ScriptedSession: no programmed " + std::string( mWords.Noun) + " left for " + subject +
+                            " -- either " + std::string( mWords.Program) +
                             " more, load a longer recording, or the script is " + std::string( mWords.Action) +
                             " it more times than expected");
                     }
@@ -680,10 +704,19 @@ namespace core
     {
         public:
             //
-            // Hand-authored programming for script unit tests. Both overloads
-            // replace whatever was previously programmed for this name.
+            // Hand-authored programming for script unit tests. Each overload
+            // replaces whatever was previously programmed for the slot it
+            // fills -- see this class's private section on what a slot is.
+            //
+            // The first two name a quantity kind, so they fill the slot for
+            // that kind at that name and two quantities measured at one point
+            // no longer collide. The third cannot: a ValueSource is erased and
+            // there is no way to ask it what it will yield without consuming
+            // one, so it fills the kind-agnostic slot and behaves exactly as
+            // it always has.
             //
             auto program( std::string_view name, QuantityVariant value) -> void;
+            auto program( std::string_view name, QuantityKind kind, ValueSource source) -> void;
             auto program( std::string_view name, ValueSource source) -> void;
 
             //
@@ -775,7 +808,46 @@ namespace core
             // a serial read then asked for, which is a type confusion to
             // diagnose at fetch time rather than the plain absence it is.
             //
-            detail::ObservationSlots<QuantityVariant>  mSources{     { "value",   "program()",     "measuring" } };
+            // The quantity seam then keeps one map *per kind* besides, and that
+            // is what stops two quantities measured at one point from sharing a
+            // slot: Measure( Dmm1.voltage(), at( p)) and Measure( Dmm1.current(),
+            // at( p)) both key as "p", so before this a test injecting both got
+            // them in whichever order the script happened to ask, and the
+            // recording of one run replayed against a script that had since
+            // swapped the two lines failed on a unit rather than on the divergence.
+            //
+            // Keyed by kind rather than by folding the kind into the key
+            // *string*, which is the whole reason this is not a migration: a
+            // recording already carries the kind in its own column beside the
+            // value (see core::RecordingWriter in core/src/session/recording.cpp),
+            // a stimulus line already names it in the value's unit, and
+            // MeasureEngine::inject's typed spellings know it statically. Every
+            // existing recording, stimulus file and injection therefore lands
+            // in the right slot without a character of any of them changing.
+            //
+            // std::map rather than unordered: the key is a small enum, there
+            // are a dozen of them, and the ordering is what makes fetch's
+            // "programmed as X but fetched as Y" hunt below report the same
+            // kind twice for the same file.
+            //
+            // mSources stays as the kind-agnostic slot rather than being
+            // replaced, and it is not vestigial: program( name, ValueSource)
+            // is a real seam -- a caller's own coroutine, which cannot be asked
+            // what it will yield -- and it has to key by something. A fetch
+            // tries the kind's slot first and falls back here, so a session
+            // holding both is unambiguous and one holding only this one behaves
+            // as it did before any of this.
+            //
+            //
+            // Named, unlike the other three, because the reading seam is the
+            // one with more than one map to give the words to -- a per-kind
+            // slot map is built on demand and has to explain itself in exactly
+            // the same words as the kind-agnostic one beside it.
+            //
+            static constexpr detail::SlotWords  kReadingWords{ "value", "program()", "measuring" };
+
+            detail::ObservationSlots<QuantityVariant>  mSources{ kReadingWords };
+            std::map<QuantityKind, detail::ObservationSlots<QuantityVariant>>  mKindSources;
             detail::ObservationSlots<Bytes>            mDataSources{ { "payload", "programData()", "reading"   } };
             detail::ObservationSlots<bool>             mFlagSources{ { "flag",    "programFlag()", "awaiting"  } };
             detail::ObservationSlots<Waveform>         mTraceSources{{ "trace",   "programTrace()","capturing" } };
@@ -927,6 +999,19 @@ namespace core
             auto inject( const std::string_view pointName, QuantityVariant value) -> void
             {
                 mScripted.program( pointName, std::move( value));
+                mSwitchable.use( mScripted);
+            }
+
+            //
+            // The same, for a sequence whose quantity the caller does know --
+            // which is every spelling of MeasureEngine::inject but the one
+            // taking a bare ValueSource. Keeping the kind means two quantities
+            // injected at one point get a slot each instead of sharing one; see
+            // ScriptedSession's private section.
+            //
+            auto inject( const std::string_view pointName, const QuantityKind kind, ValueSource source) -> void
+            {
+                mScripted.program( pointName, kind, std::move( source));
                 mSwitchable.use( mScripted);
             }
 

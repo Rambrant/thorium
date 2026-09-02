@@ -4,6 +4,7 @@
 #include <cctype>
 #include <charconv>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <variant>
@@ -362,6 +363,54 @@ namespace core
             many( std::move( sequence));
         }
 
+        //
+        // The reading seam's own version of programAs, because a reading is
+        // the one alternative that carries a quantity kind and a key is only a
+        // slot together with one -- "Vin = 12.0V, 0.85A" is a voltage and a
+        // current at one pin, not a two-value sequence, and the script asking
+        // for them in the other order is not a divergence to fail on. See
+        // core::ScriptedSession's private section.
+        //
+        // Grouped in encounter order so each kind's sequence is still the order
+        // the line wrote it in, and the one/many rule of programAs applies per
+        // kind rather than to the line as a whole: "Vin = 12.0V, 0.85A" is two
+        // sticky values, one per quantity, exactly as two lines naming the same
+        // key would have been if a key could carry a kind.
+        //
+        auto programReadings( SessionBank & bank, const std::string & key, const std::vector<StimulusValue> & values)
+            -> void
+        {
+            std::vector<QuantityKind>                                 order;
+            std::map<QuantityKind, std::vector<QuantityVariant>>      byKind;
+
+            for( const auto & value : values)
+            {
+                const auto & reading = std::get<QuantityVariant>( value);
+                const auto   kind    = static_cast<QuantityKind>( reading.index());
+
+                if( byKind[ kind].empty())
+                {
+                    order.push_back( kind);
+                }
+
+                byKind[ kind].push_back( reading);
+            }
+
+            for( const auto kind : order)
+            {
+                auto & sequence = byKind[ kind];
+
+                if( sequence.size() == 1)
+                {
+                    bank.inject( key, std::move( sequence.front()));
+                }
+                else
+                {
+                    bank.inject( key, kind, sourceOf( std::move( sequence)));
+                }
+            }
+        }
+
         auto program( SessionBank & bank, const std::string & key, const std::vector<StimulusValue> & values) -> void
         {
             //
@@ -384,9 +433,7 @@ namespace core
             switch( shape)
             {
                 case 0:
-                    programAs<QuantityVariant>( values,
-                        [&]( QuantityVariant v)              { bank.inject( key, std::move( v)); },
-                        [&]( std::vector<QuantityVariant> v) { bank.inject( key, sourceOf( std::move( v))); });
+                    programReadings( bank, key, values);
                     break;
 
                 case 1:

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <utility>
@@ -14,15 +15,34 @@ namespace core
 {
     namespace
     {
+        [[nodiscard]]
+        auto kindMismatch( const std::string_view name, const QuantityKind programmed, const QuantityKind expected)
+            -> std::runtime_error
+        {
+            return std::runtime_error(
+                "ScriptedSession: point '" + std::string( name) + "' was programmed as " +
+                std::string( to_string( programmed)) +
+                " but was fetched as " + std::string( to_string( expected)));
+        }
+
         auto checkKind( const std::string_view name, const QuantityVariant & value, const QuantityKind expected) -> void
         {
             if( static_cast<QuantityKind>( value.index()) != expected)
             {
-                throw std::runtime_error(
-                    "ScriptedSession: point '" + std::string( name) + "' was programmed as " +
-                    std::string( to_string( static_cast<QuantityKind>( value.index()))) +
-                    " but was fetched as " + std::string( to_string( expected)));
+                throw kindMismatch( name, static_cast<QuantityKind>( value.index()), expected);
             }
+        }
+
+        //
+        // " as Current", for the slot maps to append to a name they are
+        // diagnosing -- see detail::ObservationSlots::next in
+        // core/session/session.hpp on why the qualification is passed rather
+        // than baked into the key.
+        //
+        [[nodiscard]]
+        auto qualificationOf( const QuantityKind kind) -> std::string
+        {
+            return " as " + std::string( to_string( kind));
         }
     } // namespace
 
@@ -48,7 +68,22 @@ namespace core
 
     auto ScriptedSession::program( const std::string_view name, QuantityVariant value) -> void
     {
-        program( name, constantSource( std::move( value)));
+        //
+        // The kind comes off the value rather than being asked for. A variant
+        // *is* its kind (the alternative index), so a caller with one has
+        // already said which quantity this point answers with, and making them
+        // repeat it would be a second fact to keep in step with the first --
+        // the shape core::RecordedValue's own comment gives up an example of.
+        //
+        const auto kind = static_cast<QuantityKind>( value.index());
+
+        program( name, kind, constantSource( std::move( value)));
+    }
+
+    auto ScriptedSession::program( const std::string_view name, const QuantityKind kind, ValueSource source) -> void
+    {
+        mKindSources.try_emplace( kind, kReadingWords)
+                    .first->second.program( name, std::move( source));
     }
 
     auto ScriptedSession::program( const std::string_view name, ValueSource source) -> void
@@ -111,7 +146,19 @@ namespace core
         // per-point sequence only exists once the whole file has been read --
         // there is nothing to hand to sourceOf() until then.
         //
-        std::unordered_map<std::string, std::vector<QuantityVariant>>  samples;
+        // Per point *and per quantity kind* for the readings, because the point
+        // name alone is not a slot: a recording of a run that measured both the
+        // voltage and the current at one pin has two interleaved sequences
+        // under one name, and queueing them together makes a replay depend on
+        // the script still measuring them in the order the run did. The kind is
+        // already a column of every recorded row (see core::RecordingWriter),
+        // so this costs the file nothing -- every recording ever written
+        // separates correctly without being rewritten.
+        //
+        // The other three seams have no kind to separate by and stay keyed by
+        // name, exactly as they were.
+        //
+        std::map<QuantityKind, std::unordered_map<std::string, std::vector<QuantityVariant>>>  samples;
         std::unordered_map<std::string, std::vector<Bytes>>            payloads;
         std::unordered_map<std::string, std::vector<bool>>             flags;
         std::unordered_map<std::string, std::vector<Waveform>>         traces;
@@ -171,7 +218,9 @@ namespace core
             }
             else
             {
-                samples[ sample.mPointName].push_back( std::get<QuantityVariant>( sample.mValue));
+                const auto & reading = std::get<QuantityVariant>( sample.mValue);
+
+                samples[ static_cast<QuantityKind>( reading.index())][ sample.mPointName].push_back( reading);
             }
         }
 
@@ -197,9 +246,12 @@ namespace core
 
         ScriptedSession session;
 
-        for( auto & [ pointName, values] : samples)
+        for( auto & [ kind, byPoint] : samples)
         {
-            session.program( pointName, sourceOf( std::move( values)));
+            for( auto & [ pointName, values] : byPoint)
+            {
+                session.program( pointName, kind, sourceOf( std::move( values)));
+            }
         }
 
         for( auto & [ pointName, values] : payloads)
@@ -227,13 +279,59 @@ namespace core
         const std::function<QuantityVariant()> &) -> QuantityVariant
     {
         //
+        // The slot for this kind at this name first, and the kind-agnostic one
+        // behind it -- see this class's private section on why there are two.
+        // has() rather than a try-and-catch, because "this map has no slot for
+        // that name" is the ordinary case on the way to the fallback and not a
+        // failure of anything.
+        //
+        if( const auto slots = mKindSources.find( kind);
+            slots != mKindSources.end() && slots->second.has( name))
+        {
+            //
+            // Exhaustion is still the slot map's to diagnose, and it now says
+            // which of a point's quantities ran out rather than just the point.
+            //
+            auto value = slots->second.next( name, qualificationOf( kind));
+
+            //
+            // Still checked, even though this slot was filled under this very
+            // kind: program( name, kind, source) takes the kind as a parameter
+            // beside a source that has not run yet, so a caller can program a
+            // Voltage sequence as Current and only the value can say so.
+            //
+            checkKind( name, value, kind);
+
+            return value;
+        }
+
+        //
         // Absence and exhaustion are both diagnosed by the slot map, in the
         // words this seam was given -- see detail::ObservationSlots in
         // core/session/session.hpp. What is left here is the one thing that is genuinely
         // this seam's own: a value programmed in one unit and fetched as
         // another.
         //
-        auto value = mSources.next( name);
+        // Which now has a second half. A point can be genuinely absent, or it
+        // can be present under a different quantity -- injected as a Voltage
+        // and measured as a Current -- and no single slot map can tell those
+        // apart, because the fact is spread across all of them. Reported here,
+        // in checkKind's own words, so that the diagnosis a caller gets does
+        // not depend on whether the value that disagrees with them happened to
+        // be programmed with its kind or without it.
+        //
+        if( !mSources.has( name))
+        {
+            for( const auto & [ programmed, slots] : mKindSources)
+            {
+                if( slots.has( name))
+                {
+                    throw kindMismatch( name, programmed, kind);
+                }
+            }
+        }
+
+        auto value = mSources.next( name, qualificationOf( kind));
 
         checkKind( name, value, kind);
 

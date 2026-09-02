@@ -141,6 +141,151 @@ TEST( CoreSession, ScriptedSessionProgrammingAPointAgainReplacesItsSource)
         std::runtime_error);
 }
 
+//
+// Two quantities at one point. Measure( Dmm1.voltage(), at( p)) and
+// Measure( Dmm1.current(), at( p)) both key as "p", so these cover the thing
+// that used to make them one slot: the answers, their order, and what happens
+// when a point genuinely has nothing for the quantity being asked for.
+//
+TEST( CoreSession, ScriptedSessionKeepsTwoQuantitiesAtOnePointApart)
+{
+    core::ScriptedSession session;
+    session.program( "Vin", Voltage{ 12.0 });
+    session.program( "Vin", Current{ 0.85 });
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 12.0);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Current>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 0.85);
+}
+
+//
+// The half of it that a shared slot could never give: the script is free to
+// measure them in the other order, because two quantities at one point are two
+// questions and not a sequence.
+//
+TEST( CoreSession, ScriptedSessionTwoQuantitiesAtOnePointAreOrderIndependent)
+{
+    core::ScriptedSession session;
+    session.program( "Vin", core::QuantityKind::Voltage, core::sourceOf( std::vector{ Voltage{ 12.0 }, Voltage{ 11.8 } }));
+    session.program( "Vin", core::QuantityKind::Current, core::sourceOf( std::vector{ Current{ 0.85 }, Current{ 0.91 } }));
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Current>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 0.85);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 12.0);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 11.8);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Current>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 0.91);
+}
+
+//
+// Each quantity exhausts on its own. Sharing a slot made "the script measured
+// this point once too often" a question about the point; it is a question
+// about one of the point's quantities.
+//
+TEST( CoreSession, ScriptedSessionOneQuantityRunningOutLeavesTheOtherAlone)
+{
+    core::ScriptedSession session;
+    session.program( "Vin", core::QuantityKind::Voltage, core::sourceOf( std::vector{ Voltage{ 12.0 } }));
+    session.program( "Vin", Current{ 0.85 });
+
+    (void)session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+
+    EXPECT_THROW(
+        (void)session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0)),
+        std::runtime_error);
+    EXPECT_NO_THROW(
+        (void)session.fetch( "Vin", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0)));
+}
+
+//
+// And says which one ran out, which is the whole reason the slot maps take a
+// qualification to append -- "for 'Vin'" would send a reader to a line of the
+// script that is measuring something else at the same pin.
+//
+TEST( CoreSession, ScriptedSessionExhaustionNamesTheQuantityThatRanOut)
+{
+    core::ScriptedSession session;
+    session.program( "Vin", core::QuantityKind::Voltage, core::sourceOf( std::vector{ Voltage{ 12.0 } }));
+
+    (void)session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+
+    try
+    {
+        (void)session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0));
+        FAIL() << "Expected std::runtime_error";
+    }
+    catch( const std::runtime_error & e)
+    {
+        const std::string message( e.what());
+        EXPECT_TRUE( message.find( "'Vin' as Voltage") != std::string::npos) << "Error message: " << message;
+        EXPECT_TRUE( message.find( "no programmed value left") != std::string::npos) << "Error message: " << message;
+    }
+}
+
+//
+// A point programmed as one quantity and measured as another still gets
+// checkKind's diagnosis rather than a bare "nothing programmed", even though
+// the value now sits in a slot the fetch never looks in. That fact is spread
+// across the slot maps and so is ScriptedSession::fetch's own to report -- see
+// its comment.
+//
+TEST( CoreSession, ScriptedSessionStillDiagnosesAPointProgrammedAsAnotherQuantity)
+{
+    core::ScriptedSession session;
+    session.program( "Vin", Voltage{ 12.0 });
+
+    try
+    {
+        (void)session.fetch( "Vin", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0));
+        FAIL() << "Expected std::runtime_error";
+    }
+    catch( const std::runtime_error & e)
+    {
+        const std::string message( e.what());
+        EXPECT_TRUE( message.find( "was programmed as Voltage") != std::string::npos) << "Error message: " << message;
+        EXPECT_TRUE( message.find( "fetched as Current")        != std::string::npos) << "Error message: " << message;
+    }
+}
+
+//
+// Replacement is per quantity now. Programming the voltage at a point again
+// must not discard the current programmed alongside it -- which is the same
+// argument ScriptedSessionProgrammingAPointAgainReplacesItsSource makes, one
+// slot down.
+//
+TEST( CoreSession, ScriptedSessionProgrammingOneQuantityAgainLeavesTheOther)
+{
+    core::ScriptedSession session;
+    session.program( "Vin", core::QuantityKind::Voltage, core::sourceOf( std::vector{ Voltage{ 1.0 }, Voltage{ 2.0 } }));
+    session.program( "Vin", core::QuantityKind::Current, core::sourceOf( std::vector{ Current{ 0.5 } }));
+    session.program( "Vin", core::QuantityKind::Voltage, core::sourceOf( std::vector{ Voltage{ 9.0 } }));
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 9.0);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Current>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 0.5);
+}
+
+//
+// The kind-agnostic slot is a fallback, not a peer: a caller's own coroutine
+// cannot say what it will yield, so it answers whatever quantity is asked for
+// -- but only where that quantity has no slot of its own.
+//
+TEST( CoreSession, ScriptedSessionAKindlessSourceAnswersWhateverHasNoSlotOfItsOwn)
+{
+    core::ScriptedSession session;
+    session.program( "Vin", core::QuantityKind::Voltage, core::sourceOf( std::vector{ Voltage{ 12.0 } }));
+    session.program( "Vin", []() -> std::optional<core::QuantityVariant> { return Current{ 0.85 }; });
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 12.0);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Current>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 0.85);
+}
+
 TEST( CoreSession, SwitchableSessionDefaultsToTheConstructedSession)
 {
     core::LiveSession       live;
@@ -363,6 +508,43 @@ TEST( CoreSession, ScriptedSessionLoadFromFilePreservesMultiplePoints)
         session.fetch( "PointB", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 2.0);
     EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
         session.fetch( "PointA", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 3.0);
+
+    std::remove( path.string().c_str());
+}
+
+//
+// The point of keying a replay by kind as well as by name, written as the file
+// it is about: a run that measured both the voltage and the current at one pin
+// interleaves them under one point name, and the kind is already the column
+// after the instrument -- so this file, which no version of the framework has
+// ever written differently, separates into two sequences with nothing in it
+// changing.
+//
+// The script replaying it then measures them in the other order and still gets
+// each pin's own values. Before this, it took whichever row came next.
+//
+TEST( CoreSession, ScriptedSessionLoadFromFileSeparatesTwoQuantitiesAtOnePoint)
+{
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_two_quantities.tsv";
+
+    {
+        std::ofstream out( path);
+        out << "0\t1000\tSomeTest\tVin\tDmm1\tVoltage\t12.0\n";
+        out << "1\t1001\tSomeTest\tVin\tDmm1\tCurrent\t0.85\n";
+        out << "2\t1002\tSomeTest\tVin\tDmm1\tVoltage\t11.8\n";
+        out << "3\t1003\tSomeTest\tVin\tDmm1\tCurrent\t0.91\n";
+    }
+
+    auto session = core::ScriptedSession::loadFromFile( path.string());
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Current>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 0.85);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Current>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Current, liveVoltage( 0.0))).value(), 0.91);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 12.0);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "Vin", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 11.8);
 
     std::remove( path.string().c_str());
 }

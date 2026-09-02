@@ -114,13 +114,14 @@ Being honest about the edges matters more than the table above:
   compile-time question — a real third answer, reported with the instrument's
   own reason and read back as NaN unless the script says otherwise. See
   §3, "When an instrument cannot make the measurement".
-- **Two *quantities* measured at one DUT point share a session slot.**
-  `Measure( Dmm1.voltage(), at( p))` and `Measure( Dmm1.current(), at( p))` both
-  key as `"p"`, so a test injecting both gets them in whichever order the script
-  asks. A driver that gives several answers about one pin can key them apart by
-  qualifying its ports (`core::Port::qualifiedBy` — the oscilloscope does), but
-  the general case would need the `QuantityKind` folded into the key, which
-  would rename every key in every existing recording.
+- **Several answers of the *same* quantity at one point share a session slot
+  unless the driver says otherwise.** A scope's `Vbase` and `Vtop` are both
+  voltages, and a three-phase source's A, B and C are three voltages, so
+  nothing about the reading itself tells them apart — the driver has to, by
+  qualifying its ports (`core::Port::qualifiedBy`), and one that forgets gets
+  one slot for several measurements. (Two *different* quantities at one point —
+  `Measure( Dmm1.voltage(), at( p))` and `Measure( Dmm1.current(), at( p))` —
+  are separated automatically; see §"A slot is a name and a quantity".)
 - **A script that checks nothing.** Nothing statically says whether a script
   body reaches a `Verify`, so "this test verified something" cannot be a compile
   error. It is a runtime rule instead, and a strict one: the verdict is derived
@@ -208,12 +209,11 @@ acceptance/      THIS DEPLOYMENT'S      -- black-box tests over the built
                  BINARY, TESTED            run_scripts, asserting on facts
                                            from all three of the above
 
-tools/           run-tests.sh (the tester's picker)
+tools/           run-tests.sh (the tester's picker), and check_references.py
+                 -- which gates every file path named in a comment on that
+                 file still being there
 cmake/           build helpers -- generated criteria tables, the test-target
                  helper, the install-time manifest, the installed package
-docs/            the slide deck, and the generated reference -- which also
-                 carries the check that every path named in a comment names
-                 a file that is there
 ```
 
 `core/` and `hal/` share three of those folder names -- `verbs/`, `topology/`
@@ -264,13 +264,6 @@ that cannot be recovered from the code.
 | [`rig`](rig/README.md) | This bench's instruments, their wiring, the four tables a rig supplies, and the integration tests that need more than one instrument |
 | [`dut`](dut/README.md) | This device's test points and criteria variants |
 | [`suite`](suite/README.md) | Test scripts, the catalog, and the setup/teardown hooks |
-
-**Other**
-
-| | |
-|---|---|
-| [`docs`](docs/README.md) | The slide deck, as `.pptx` and a self-contained `.html` |
-| [`docs/api`](docs/api/README.md) | The generated reference, and `check_references.py` — which gates it on every cross-reference in the tree still resolving |
 
 `framework/core`, `framework/runner`, `tools/` and `dsl/` have no README of their own — their
 rationale lives in the header and `CMakeLists.txt` comments, and for `framework/core`
@@ -1560,6 +1553,41 @@ Could not read the stimulus file: stimulus line 2: 'Volts' is not a unit symbol
   -- in 'Output3V3 = 3.3 Volts'
 ```
 
+### A slot is a name and a quantity
+
+A key is half of what identifies a reading. The other half is the quantity, and
+the two together are the slot — so a DMM giving two answers about one pin does
+not need the driver's help to keep them apart:
+
+```
+Vin = 12.0 V, 0.85 A        # a voltage and a current at one pin, not a sequence
+```
+
+Both `Measure( Dmm1.voltage(), at( Vin))` and `Measure( Dmm1.current(), at( Vin))`
+key as `"Vin"`, and each gets its own value whichever order the script asks in.
+A list still means a sequence *within* a quantity, and each runs out on its own,
+naming which one did: `no programmed value left for 'Vin' as Voltage`.
+
+This costs the file formats nothing, which is why it is not a migration. A
+recording has carried the quantity in its own column since the format existed:
+
+```
+0	1787494495696	SupplyRail	Vin	Dmm1	Voltage	12.0
+1	1787494495702	SupplyRail	Vin	Dmm1	Current	0.85
+```
+
+— so every recording ever written separates correctly without a character of it
+changing, a stimulus line already names its quantity in the value's unit, and
+`Measure.inject( "Vin", { 12.0_V, 11.8_V })` knows it from the type. The one
+spelling that cannot say is a caller's own coroutine (`core::ValueSource`),
+which has to be run to find out what it yields; that keeps a kind-agnostic slot
+and answers whatever has none of its own.
+
+What this does *not* separate is several answers of the same quantity — the
+scope's `Vbase` and `Vtop`, an AC source's three phase voltages. Those are what
+`core::Port::qualifiedBy` is for, and the two mechanisms are orthogonal: the
+qualifier says *which* of several same-kind answers, the quantity says *what*.
+
 ### None of these three touch the rig
 
 `--replay`, `--inject` and `--skeleton` all **detach the bench**: no `Apply`,
@@ -1812,6 +1840,13 @@ log formats to look at. Every invocation is printed as it runs, so
   what went wrong with them. That is deliberate: the *why* is the part that cannot
   be recovered from the code, and it is what stops a later reader "tidying" a
   load-bearing choice away.
+- **A comment that names a file is a link, and it has to resolve.** The tree
+  documents itself by cross-reference -- "see `core/verbs/measure.hpp`" -- so a
+  path that no longer names a real file is a broken link, not a typo. Nothing in
+  the build catches it: one directory reshuffle broke 83 of them across 50 files
+  while the code still compiled and the tests still passed. `python3
+  tools/check_references.py`, run from the repository root, exits non-zero on any
+  that do not resolve.
 - **Content is data, mechanism is code.** `.inc` files are flat, macro-driven
   tables meant to be readable by a test engineer — close to what a spec
   spreadsheet looks like. The machinery that interprets them lives in `framework/`.
