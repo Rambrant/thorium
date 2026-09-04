@@ -81,6 +81,20 @@ have one at all and is cabled straight through. None of the three has a
 `SOURCE_WIRING` row yet -- this DUT has no point for a 6 V or a 30 V rail, and
 inventing one would be inventing a DUT fact.
 
+`Wfg1` is a third box of that shape and answers the question the other way,
+which is what makes it worth reading next to them: a
+`hal::keysight_33522b::Wfg33522B` has two independent 30 MHz outputs behind one
+address, and it gets **one** row rather than two. The test is whether an
+endpoint is separately wired and separately rated. An EDU36311A's outputs are --
+different ratings, different DUT rails, different isolation -- so they are three
+rows. A 33522B's two channels are identical and hard-cabled here, so the
+endpoint is chosen at the call site instead (`Wfg1.channel<2>().square()...`),
+the way `Osc1`'s inputs are. One box, one id, one address, and `channel<3>()`
+does not compile. It has no `wiring.inc` rows and no `SOURCE_WIRING` row: there
+are no relays in this rack to switch its outputs with, and nothing on this DUT
+is a stimulus point yet. See `instruments/keysight_33522b/README.md`, and
+`instrument.inc`'s own comment on the one-row-two-outputs decision.
+
 `Dmm1` and `Dmm2` are two *different* models, which is the easiest thing in this
 table to skim past. They were two L4411A instances --
 two wiring facts sharing one C++ type, the way `DcP1`..`DcP4` still are -- and

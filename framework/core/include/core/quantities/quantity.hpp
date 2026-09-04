@@ -689,6 +689,17 @@ namespace core
         constexpr quantities::Frequency operator""_kHz( unsigned long long v ) { return operator""_kHz( static_cast<long double>( v)); }
 
         //
+        // Megahertz, which arrived with the first instrument on this bench
+        // whose settings are routinely written there -- a 30 MHz waveform
+        // generator (hal::keysight_33522b::Wfg33522B). Without it the only
+        // spellings for its top end were 30000.0_kHz and Frequency{ 30.0e6 },
+        // and neither is a number anyone would check against a datasheet. The
+        // same argument the capacitance suffixes below are made from.
+        //
+        constexpr quantities::Frequency operator""_MHz( long double v ) { return quantities::Frequency{ static_cast<double>(v) * 1'000'000.0 }; }
+        constexpr quantities::Frequency operator""_MHz( unsigned long long v ) { return operator""_MHz( static_cast<long double>( v)); }
+
+        //
         // Five scales, where every other unit here has two or three, and for
         // the reason F_Type declares the widest prefix span: a capacitance is
         // written in whichever of these the part is sold in, and the plain

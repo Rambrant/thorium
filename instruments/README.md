@@ -26,6 +26,12 @@ instruments/
         include/hal/keysight_edu36311a.hpp
         src/keysight_edu36311a.cpp   #   the SCPI: the Apply ordering, readback, safing
         tests/test_keysight_edu36311a.cpp
+    keysight_33522b/            # two-channel 30 MHz waveform generator -- Wfg1, talks to real hardware
+        CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
+        README.md
+        include/hal/keysight_33522b.hpp
+        src/keysight_33522b.cpp      #   the SCPI: the Apply ordering, why not APPLy, safing
+        tests/test_keysight_33522b.cpp
     keysight_34980a/            # switch/measure MAINFRAME -- not an instrument at all
         CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
         README.md
@@ -35,6 +41,15 @@ instruments/
     keysight_ac6834b/           # three-phase AC source
     racal1260/                  # matrix-routed RS232 port
 ```
+
+**One of these names a model where the badge names a series, and that is the
+rule rather than an exception.** `keysight_33522b` drives a 33522B and refuses
+the other seven members of the 33500B Series on `*IDN?`, even though all eight
+speak the same commands from the same manual — they differ in channel count
+(one or two), bandwidth (20 or 30 MHz) and arb capability, which are exactly the
+three things a driver states as facts. A `keysight_33500b` would have had to
+believe one member's numbers about all of them. That directory's own README has
+the table.
 
 **One of these is not an instrument, and that is not a filing mistake.**
 `keysight_34980a` is a switch/measure *mainframe* -- eight slots of switching
@@ -64,17 +79,17 @@ discrete resolutions), and this bench now has one meter. `keysight_edu34450a`'s
 README keeps the argument for why one class covering both would have had to lie
 about one of them, which is the thing to read before adding a second meter back.
 
-**Two of the six are simulated; four talk.** `EDU34450A`, `DSOX1202G`,
-`EDU36311A` and the `34980A` mainframe open a SCPI session over their address
-and drive or read the hardware (`hal/io/`, see `framework/hal/README.md`);
-`Ac6834B` and `Racal1260` answer from their own simulation hooks whatever their
-rig row says, exactly as every driver here used to. Both are kept deliberately
-without hardware behind them, because a shipped test group depends on each —
-see `rig/instrument.inc`. That asymmetry is the current state of the work rather
-than a design; what doing it again involves is in **A driver with a transport**
-below.
+**Two of the seven are simulated; five talk.** `EDU34450A`, `DSOX1202G`,
+`EDU36311A`, `Wfg33522B` and the `34980A` mainframe open a SCPI session over
+their address and drive or read the hardware (`hal/io/`, see
+`framework/hal/README.md`); `Ac6834B` and `Racal1260` answer from their own
+simulation hooks whatever their rig row says, exactly as every driver here used
+to. Both are kept deliberately without hardware behind them, because a shipped
+test group depends on each -- see `rig/instrument.inc`. That asymmetry is the
+current state of the work rather than a design; what doing it again involves is
+in **A driver with a transport** below.
 
-The four that talk are worth reading in that order. The meter is the smallest
+The five that talk are worth reading in that order. The meter is the smallest
 case -- configure, read one number, check the queue. The scope adds the three
 things a DMM never needs: a sequence that has to be *waited on* (arm, then poll
 two registers), a record transferred rather than a reading, and a measurement
@@ -82,9 +97,16 @@ whose answer may be "I could not". The supply is the first one that *drives*
 rather than observes, and what that adds is a third kind of care again: the
 order of four commands is the safety argument, `*OPC?` earns its place because
 a source's commands complete after they return, and `safe()` finally has
-something it genuinely has to say on the wire. The mainframe is the odd one out
-and the most instructive for it: it has no readings and no outputs at all, so
-what it demonstrates is the *other* half of a bench -- that a wrong command to a
+something it genuinely has to say on the wire. The waveform generator is the
+second source and sharpens exactly that point, because it is the first
+instrument here that answers a bad instruction by *carrying on* -- an
+out-of-range frequency is clamped rather than refused and the output keeps
+running at the wrong one -- so its ordering argument and its up-front limit
+checks are both aimed at a failure nothing downstream would notice. It is also
+the one driver here with no `core::Port` at all, which is what a box that
+sources and measures nothing looks like. The mainframe is the odd one out and
+the most instructive for it: it has no readings and no outputs at all, so what
+it demonstrates is the *other* half of a bench -- that a wrong command to a
 matrix is not a wrong reading but a reading of a different node, which nothing
 downstream can notice.
 
@@ -118,6 +140,16 @@ starts being about one vendor's own catalogue: Keysight also ships an `E36311A`,
 which speaks the same SCPI and has different ranges and a negative rail. The
 model number is not enough there either, which is why that driver refuses an
 E36311A on `*IDN?` rather than tolerating it.
+
+`keysight_33522b` is the same rule one step further, and the step is worth
+noticing because it changes what the name has to *narrow*. There the ambiguity
+is not another model with a confusable number -- it is that the number on the
+badge, "33500B", names a **series of eight**, all speaking one command set out
+of one manual and differing in channel count, bandwidth and arb capability. So
+the token names the member on the bench rather than the family it belongs to,
+and that driver refuses the other seven on `*IDN?` for the reason the EDU36311A
+refuses its sibling: a driver that accepted them would be stating facts about a
+box it is not talking to.
 
 **Everything a driver declares goes in its own namespace, nested inside `hal`.**
 This is the rule to follow when adding one, and the reason is what happens
@@ -369,8 +401,10 @@ switched off within a week.
 
 The number is written as a **literal**, never as `THORIUM_HAL_API_VERSION`
 itself — which would assert that this `hal` is compatible with this `hal`, and
-pass everywhere. Two are at 2 (they use
-`hal::ConfigBuilder`), and `keysight_edu34450a` is at 3 (it uses `hal/io/`).
+pass everywhere. Two are at 2 (they use `hal::ConfigBuilder`), and the five that
+open a session -- `keysight_edu34450a`, `keysight_dsox1202g`,
+`keysight_edu36311a`, `keysight_33522b` and `keysight_34980a` -- are at 3 (they
+use `hal/io/`).
 
 One thing the gate cannot do, worth knowing before trusting it: nothing derives
 those two numbers from the API they describe, or checks them against it. They

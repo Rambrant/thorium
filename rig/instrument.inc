@@ -41,7 +41,8 @@
 // the Infiniium this rig was written against before the scope that actually
 // turned up.
 //
-// What is left is six rows and four boxes:
+// What is left -- with the waveform generator that arrived on 2026-09-04 --
+// is seven rows and five boxes:
 //
 //     Dmm1   the 5.5-digit Keysight EDU34450A. The bench's only meter now,
 //            which is a real narrowing rather than a tidy-up: this table used
@@ -56,6 +57,9 @@
 //     DcP7   its second 30 V / 1 A output.
 //
 //     AcP1   a Keysight Ac6834B three-phase AC source.
+//
+//     Wfg1   a Keysight (Agilent) 33522B waveform generator -- both of its
+//            channels, see below.
 //
 //     Ser1   an RS232 port that talks to the DUT's debug console.
 //
@@ -132,6 +136,46 @@
 // test -- which is the right failure and a clear one. It is not something this
 // code can fix. Powering that DUT as specified needs a supply this bench does
 // not have.
+//
+// -- Wfg1 is two outputs and one row, which is the other answer ------------
+//
+// A 33522B has two independent front-panel channels, so it is a "one box,
+// several endpoints" instrument exactly as DcP5..DcP7 are -- and it gets ONE
+// row where they get three. The two shapes are both right, and which one an
+// instrument wants is decided by the same question each time: is an endpoint
+// separately wired and separately rated, or is it not?
+//
+// The EDU36311A's three outputs are. They differ in what they can source
+// (6 V / 5 A against two of 30 V / 1 A), each feeds a different DUT rail down
+// its own lead, and each would have its own isolation relay if this rack had
+// any. Three things a rig has to write down separately are three rows.
+//
+// The 33522B's two channels are not. They are identical, they are hard-cabled
+// here, and they are the sort of thing a script uses together -- a stimulus
+// and its inverse, a clock and the signal it gates. So the endpoint is chosen
+// at the call site instead:
+//
+//     Apply( Wfg1.channel<2>().square().frequency( 10_kHz).amplitude( 3.3_V));
+//
+// which is the scope's arrangement (Osc1.channel<1>()) rather than the
+// supply's, and for the same reason: one instrument, one address, one id, and
+// a channel number that is a compile-time argument rather than part of the
+// type. channel<3>() does not compile.
+//
+// One consequence worth knowing before writing a script against it: safing is
+// per *box*, so hal::safeRig() takes both channels down together. That is the
+// right granularity for a failed run and the wrong one for a script that wants
+// one channel left running -- which is what Remove( Wfg1.channel<1>()...) is
+// for, and it is per channel.
+//
+// Wfg1 has no rows in rig/wiring.inc and no SOURCE_WIRING row, and neither is
+// an oversight. There are no relays in this rack at all (Thomas, 2026-09-04),
+// so its outputs are cabled straight through and there is nothing for
+// Connect/Disconnect to close -- its driver declares no connectDriver at all,
+// so Connect( Wfg1.channel<1>().sine()) is a compile error rather than a call
+// that switches nothing. And no point on this DUT is a function-generator
+// stimulus point yet, so there is no pin for a SOURCE_WIRING row to name; that
+// is the honest-spare position DcP5 is already in.
 //
 // -- The third column, and what it now means -------------------------------
 //
@@ -264,5 +308,6 @@ INSTRUMENTS
     INSTRUMENT( keysight_edu36311a::RelayOutput2,  DcP6, Simulated{})        // 30 V / 1 A -> dut::BackupSupply,  isolation relay on Spst1/6
     INSTRUMENT( keysight_edu36311a::RelayOutput3,  DcP7, Simulated{})        // 30 V / 1 A -> dut::BatterySupply, isolation relay on Spst1/7
     INSTRUMENT( keysight_ac6834b::Ac6834B,         AcP1, Gpib( 0, 5))        // simulated: kept for the Transient group, see this file's own comment
+    INSTRUMENT( keysight_33522b::Wfg33522B,        Wfg1, Simulated{})        // TODO(bench): Lan( "<host>"), Usb( "<serial>") or Gpib( ...) -- this driver connects
     INSTRUMENT( racal1260::Racal1260,              Ser1, Serial( "/dev/ttyUSB0"))
 END_INSTRUMENTS
