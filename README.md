@@ -108,13 +108,16 @@ Being honest about the edges matters more than the table above:
   running most of it produces a report that has to be read twice to be trusted.
   `tools/run-tests.sh` validates ids against the catalog before it gets that
   far, but a hand-typed flag has no such help.
-- **Instrument I/O.** Real instruments are absent, mis-addressed or lying. That
-  is what the runtime is for — and it is no longer hypothetical for three of the
-  eight drivers. `hal::keysight_edu34450a::EDU34450A`,
+- **Bench I/O.** Real hardware is absent, mis-addressed or lying. That
+  is what the runtime is for — and it is no longer hypothetical for four of the
+  nine drivers. `hal::keysight_edu34450a::EDU34450A`,
   `hal::keysight_dsox1202g::DSOX1202G` and
-  `hal::keysight_edu36311a::EDU36311A` open a SCPI session over
-  the address their rig row declares (see `framework/hal/README.md` on `hal/io/`),
-  which makes three failures runtime facts rather than possibilities: the box is
+  `hal::keysight_edu36311a::EDU36311A` open a SCPI session over the address
+  their rig row declares, and `hal::keysight_34980a::Chassis` over the address
+  it is constructed with — it is a switching mainframe rather than an
+  instrument, so no rig row names it yet (see `framework/hal/README.md` on
+  `hal/io/`). Which makes three failures runtime facts rather than
+  possibilities: the box is
   unreachable (`hal::io::TransportError`), the box rejects what the driver sent
   (`hal::io::ScpiFault`, naming the command and the instrument's own words), or
   the box at that address is a different instrument (refused on `*IDN?`, before
@@ -272,13 +275,11 @@ that cannot be recovered from the code.
 | | |
 |---|---|
 | [`instruments/keysight_edu34450a`](instruments/keysight_edu34450a/README.md) | DMM, 5½-digit — `Dmm1` on both deployments; **talks to real hardware**, so also the SCPI it sends and how to bring a meter up |
-| [`instruments/keysight_l4411a`](instruments/keysight_l4411a/README.md) | DMM, 6½-digit — `Dmm2`, including the 4-wire sense path |
 | [`instruments/keysight_dsox1202g`](instruments/keysight_dsox1202g/README.md) | Oscilloscope, 2-channel — `Osc1`; **talks to real hardware**, including the arm-and-poll sequence and waveform transfer |
-| [`instruments/keysight_dso8064a`](instruments/keysight_dso8064a/README.md) | Oscilloscope, 4-channel — in the tree, on no bench: the driver `Osc1` used to be |
-| [`instruments/keysight_n6701a`](instruments/keysight_n6701a/README.md) | DC supply — `DcP1`..`DcP4`, and the direct-vs-relay isolation split |
 | [`instruments/keysight_edu36311a`](instruments/keysight_edu36311a/README.md) | DC supply, triple output — `DcP5`..`DcP7`; **talks to real hardware**, and the first source that does |
 | [`instruments/keysight_ac6834b`](instruments/keysight_ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
 | [`instruments/racal1260`](instruments/racal1260/README.md) | RS232 port — `Ser1`, routed to a DUT interface through the matrix |
+| [`instruments/keysight_34980a`](instruments/keysight_34980a/README.md) | Switch/measure **mainframe** — not an instrument at all; the first switch-device driver, and where this rack's switching is heading |
 
 **This deployment's content**
 
@@ -377,18 +378,18 @@ instrument; trailing arguments are the driver's constructor arguments.
 
 ```cpp
 INSTRUMENTS
-    INSTRUMENT( keysight_l4411a::L4411A, Dmm3, Lan( "bench-dmm3"))  // a third DMM
-    INSTRUMENT( keysight_n6701a::Relay,  DcP8, Gpib( 0, 14), 4)     // slot 4, relay-isolated
+    INSTRUMENT( keysight_edu34450a::EDU34450A,    Dmm3, Lan( "bench-dmm3"))  // a third DMM
+    INSTRUMENT( keysight_edu36311a::RelayOutput2, DcP8, Lan( "bench-dcp8"))  // relay-isolated
 END_INSTRUMENTS
 ```
 
 The address is mandatory, and which bus kinds a row may use is fixed by its
-driver — `Gpib(...)` on an L4411A is a compile error, because an LXI box has no
-GPIB connector (see `hal/driver/address.hpp`).
+driver — `Gpib(...)` on an EDU34450A is a compile error, because a LAN-and-USB
+box has no GPIB connector (see `hal/driver/address.hpp`).
 
 The type column's namespace qualifier is not decoration: a driver package, its
-header and its namespace all carry one name, so `keysight_l4411a` is what tells
-the build to include `hal/keysight_l4411a.hpp`
+header and its namespace all carry one name, so `keysight_edu34450a` is what
+tells the build to include `hal/keysight_edu34450a.hpp`
 (`cmake/InstrumentDrivers.cmake`). An unqualified type, or one naming a driver
 this build has no package for, fails at configure time saying which row and
 why.
@@ -840,7 +841,7 @@ It is a **transducer**: a named value, declared beside the point it belongs to.
 
 3. **Read it, then derive**, in the script:
    ```cpp
-   // Dmm2, not Dmm1: NPLC is the 6.5-digit L4411A's precision axis. Dmm1 is an
+   // NPLC is a 6.5-digit meter's precision axis. Dmm1 is an
    // EDU34450A, which has no NPLC command -- see that driver's own README.
    const auto sense   = Measure( Dmm2.voltage().range( 2_V).nplc( 10), at( dut::CoolantSense));
    const auto coolant = dut::CoolantSensor( sense);        // a Temperature, not a double
@@ -1848,7 +1849,7 @@ ctest --test-dir build/debug -N                      # count and name them, run 
 |---|---|
 | `core_tests` | units, predicates, criteria, sessions, journal, all three log sinks |
 | `hal_tests` | hal's own generic mechanism — switching fabric, wiring, VPC locations, adapter macros, addresses |
-| `<model>_tests` | one per driver directory, each linking its own driver alone (`keysight_l4411a_tests`, `keysight_dsox1202g_tests`, …) |
+| `<model>_tests` | one per driver directory, each linking its own driver alone (`keysight_edu34450a_tests`, `keysight_dsox1202g_tests`, …) |
 | `rig_tests` | the integration tests that need this rig — several instruments at once, safing, `describeConfig` reaching the journal |
 | `dut_tests` | the DUT profile — including the wiring-coverage build check |
 | `scripts_tests` | the test scripts, injected; plus the variant parity build check |

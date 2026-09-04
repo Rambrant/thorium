@@ -123,7 +123,7 @@ namespace hal::racal1260
     // No location here, unlike the settings: which DUT interface this port is
     // routed to is chosen per Connect call (see connectDriver below), not
     // stored on the config. That is the difference between this instrument and
-    // hal::keysight_n6701a::N6701A, whose output is cabled to one pin and so has nothing to
+    // hal::keysight_edu36311a::EDU36311A, whose output is cabled to one pin and so has nothing to
     // choose -- a switched port can reach any interface the fabric wires up,
     // and which one it reached is a fact about a moment in the script rather
     // than about the instrument.
@@ -223,12 +223,12 @@ namespace hal::racal1260
     //
     // Deliberately named after a model at all, placeholder or not, rather than
     // hal::Rs232Port. That was the retired hal::Dmm/hal::Oscilloscope mistake
-    // (see hal::keysight_l4411a::L4411A and hal::keysight_dso8064a::DSO8064A on how it went): a serial driver's
+    // (see hal::keysight_edu34450a::EDU34450A and hal::keysight_dsox1202g::DSOX1202G on how it went): a serial driver's
     // command set, its framing limits and its idea of a timeout are as
     // model-specific as any SCPI dialect, and a generic name promises an
     // interchangeability no real driver has.
     //
-    // Routed, not cabled -- the opposite of hal::keysight_n6701a::N6701A, and the reason this
+    // Routed, not cabled -- the opposite of hal::keysight_edu36311a::EDU36311A, and the reason this
     // driver has a connectDriver taking a destination at all. A console is a
     // signal-level interface: the fabric carries it perfectly well, there is no
     // load current to keep off the relays, and one port being switchable
@@ -288,7 +288,7 @@ namespace hal::racal1260
             // The one builder. Named for the electrical standard rather than
             // for the port number, because this class is one port -- a chassis
             // with several is several instances, exactly the way DcP1..DcP4 are
-            // four hal::keysight_n6701a::N6701A instances (see rig/instrument.inc).
+            // four hal::keysight_edu36311a::EDU36311A instances (see rig/instrument.inc).
             //
             [[nodiscard]]
             auto rs232() -> Rs232Builder
@@ -302,12 +302,12 @@ namespace hal::racal1260
             // and reads no state.
             //
             // A serial port is not passive the way a DMM is, which is why this
-            // has a body where hal::keysight_l4411a::L4411A's is empty: its transmit line is an
+            // has a body where hal::keysight_edu34450a::EDU34450A's is empty: its transmit line is an
             // output, driven to a defined level, and on a real port it stays
             // driven after the last byte has gone. Safing therefore discards
             // anything still queued rather than letting a half-written command
             // finish arriving at a DUT nobody is supervising any more -- the
-            // same reasoning as hal::keysight_n6701a::N6701A zeroing its setpoint rather than
+            // same reasoning as hal::keysight_edu36311a::EDU36311A zeroing its setpoint rather than
             // merely disabling its output.
             //
             // The framing is deliberately left alone. With nothing queued and
@@ -439,7 +439,7 @@ namespace hal::racal1260
     // removeDriver. A serial port has no output to energise -- there is nothing
     // an Apply( Ser1.rs232()) could mean -- so Apply on this instrument is "no
     // matching function" at compile time, exactly the way Connect( DcP1.dc())
-    // is on a supply with no isolation relay (see hal::keysight_n6701a::SwitchableIsolation).
+    // is on a supply with no isolation relay (see hal::keysight_edu36311a::SwitchableIsolation).
     // The absence is the design.
     //
     inline auto setupDriver( const Rs232Config & config) -> void
@@ -492,7 +492,7 @@ namespace hal::racal1260
     // ADL targets for core::ConnectEngine/DisconnectEngine's bundle overloads.
     //
     // This is the routed connectDriver the other drivers in this repo do not
-    // have: hal::keysight_n6701a::N6701A and hal::keysight_ac6834b::Ac6834B close their own fixed channels and
+    // have: hal::keysight_edu36311a::EDU36311A and hal::keysight_ac6834b::Ac6834B close their own fixed channels and
     // never consult the connector side at all, because their outputs are cabled
     // to a known pin. Here both halves matter -- the port's own fixed channels
     // and the channels the DUT interface's lines are wired to -- and the route
@@ -518,7 +518,7 @@ namespace hal::racal1260
     // every line of the destination interface is wired to.
     //
     // findAll rather than find on the instrument side, for the same reason
-    // hal::keysight_n6701a::N6701A's connectDriver uses it: a serial port is at least two wires
+    // hal::keysight_edu36311a::EDU36311A's connectDriver uses it: a serial port is at least two wires
     // at the instrument end too, so it has more than one WIRE_INSTRUMENT row
     // (see rig/wiring.inc), and they close and open as a unit.
     //

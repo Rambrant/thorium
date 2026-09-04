@@ -76,7 +76,7 @@ namespace core
     // the surrounding rationale.
     //
     // Structurally symmetric with the sourcing side's builder configs (see
-    // hal/keysight_n6701a.hpp / hal/keysight_ac6834b.hpp) -- both are plain aggregates of
+    // hal/keysight_edu36311a.hpp / hal/keysight_ac6834b.hpp) -- both are plain aggregates of
     // typed, optional parameters carried by a fluent builder chain, so
     // "how do I set X here" reads the same way whether X is being sourced
     // or sensed.
@@ -142,8 +142,8 @@ namespace core
     // Generic over InstrumentT: this header has no idea what a real
     // instrument looks like, only that it has a templated rawMeasure<Q>()
     // (with or without a MeasureSetup argument, dispatched at compile time)
-    // and an id() -- hal::keysight_l4411a::L4411A/hal::keysight_dsox1202g::DSOX1202G/etc (see hal/driver/instrument.hpp,
-    // hal/keysight_l4411a.hpp, hal/keysight_dsox1202g.hpp) are simply concrete instrument types
+    // and an id() -- hal::keysight_edu34450a::EDU34450A/hal::keysight_dsox1202g::DSOX1202G/etc (see hal/driver/instrument.hpp,
+    // hal/keysight_edu34450a.hpp, hal/keysight_dsox1202g.hpp) are simply concrete instrument types
     // that happen to satisfy this shape, not something this type depends on.
     //
     // Whether a reading needs its sense leads routed alongside the force path.
@@ -319,7 +319,7 @@ namespace core
             // (there is no argument: a reading either wants its sense path or
             // it doesn't, and not calling this at all is how "doesn't" is
             // spelled), so an instrument's 4-wire builder method -- e.g.
-            // hal::keysight_l4411a::L4411A::fourWireResistance() -- chains it on
+            // hal::keysight_edu34450a::EDU34450A::fourWireResistance() -- chains it on
             // unconditionally, the same way riseTime()/fallTime() chain
             // lowThreshold()/highThreshold().
             //

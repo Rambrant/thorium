@@ -30,7 +30,7 @@ reach the instrument.
 
 This is `Dmm1` on the bench rig (see `rig/instrument.inc`) and the one
 instrument on the dev bench (`dev/rig/instrument.inc`). `Dmm2` is a
-`hal::keysight_l4411a::L4411A`, and the two being different C++ types is the
+a 6.5-digit L4411A, and the two being different C++ types is the
 point — see [Why not just another L4411A](#why-not-just-another-l4411a).
 
 ## What it measures
@@ -303,7 +303,7 @@ Slow, Medium and Fast:
 | `Resolution::Fast` | 4½ | up to 110 | 0 dB |
 
 So it is instrument state, set with `setResolution()` and left where it was put,
-the way `hal::keysight_dso8064a::DSO8064A::setMode()` already is. Fast mode has
+the way the retired Infiniium driver's `setMode()` already is. Fast mode has
 no line-frequency rejection at all — right for sequencing many pins, wrong for a
 rail tolerance check. The driver defaults to `Slow`, which is both what the
 instrument resets to and what its accuracy specifications are quoted at.

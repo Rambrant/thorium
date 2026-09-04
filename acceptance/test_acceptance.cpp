@@ -1712,7 +1712,7 @@ TEST_F( AcceptanceHooks, TheShippedHooksBracketTheRunWithAnOrderedPowerCycle)
 
     const auto closeAc1    = positionOf( "Connect AcP1");
     const auto applyAc1    = positionOf( "Apply AcP1");
-    const auto applyDc1    = positionOf( "Apply DcP1");
+    const auto applyDc1    = positionOf( "Apply DcP6");
     const auto firstVerify = positionOf( "Verify FS_Fuse_01");
     const auto lastVerify  = log.rfind( "Verify ");
 
@@ -1727,11 +1727,11 @@ TEST_F( AcceptanceHooks, TheShippedHooksBracketTheRunWithAnOrderedPowerCycle)
     // First-occurrence lookups would find *that* Remove and assert the
     // run-level teardown's ordering against an event belonging to a group.
     //
-    // DcP1 is the anchor because nothing but the teardown ever removes it, so
+    // DcP6 is the anchor because nothing but the teardown ever removes it, so
     // its last occurrence is unambiguously the start of the power-down. Every
     // later event is then searched for from there.
     //
-    const auto removeDc1   = log.rfind( "Remove DcP1");
+    const auto removeDc1   = log.rfind( "Remove DcP6");
     const auto removeAc1   = log.find( "Remove AcP1", removeDc1);
     const auto openAc1     = log.find( "Disconnect AcP1", removeAc1);
     const auto safed       = positionOf( "Safe rig");
@@ -1779,9 +1779,8 @@ TEST_F( AcceptanceHooks, AFailedPowerUpIsStillPoweredBackDown)
         "0\t0\t<run>\tAcP1.A.Voltage\tAcP1\tVoltage\t100.0\n"    // outside 115 V +/-2 V
         "1\t0\t<run>\tAcP1.B.Voltage\tAcP1\tVoltage\t115.0\n"
         "2\t0\t<run>\tAcP1.C.Voltage\tAcP1\tVoltage\t115.0\n"
-        "3\t0\t<run>\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
-        "4\t0\t<run>\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
-        "5\t0\t<run>\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n");
+        "3\t0\t<run>\tDcP6.Voltage\tDcP6\tVoltage\t28.0\n"
+        "4\t0\t<run>\tDcP7.Voltage\tDcP7\tVoltage\t24.0\n");
 
     EXPECT_EQ( run( { "--replay=bad-setup.tsv", "--quiet" }), 1);
 
@@ -1797,11 +1796,10 @@ TEST_F( AcceptanceHooks, AFailedPowerUpIsStillPoweredBackDown)
     EXPECT_FALSE( containsText( sarif, log, "Verify FS_Supply_5V0"));
 
     // ...and the rig was still taken down, every source and both relay paths.
-    EXPECT_TRUE( containsText( sarif, log, "Remove DcP1"));
-    EXPECT_TRUE( containsText( sarif, log, "Remove DcP2"));
-    EXPECT_TRUE( containsText( sarif, log, "Remove DcP3"));
+    EXPECT_TRUE( containsText( sarif, log, "Remove DcP6"));
+    EXPECT_TRUE( containsText( sarif, log, "Remove DcP7"));
     EXPECT_TRUE( containsText( sarif, log, "Remove AcP1"));
-    EXPECT_TRUE( containsText( sarif, log, "Disconnect DcP3"));
+    EXPECT_TRUE( containsText( sarif, log, "Disconnect DcP7"));
     EXPECT_TRUE( containsText( sarif, log, "Disconnect AcP1"));
 
     // Once, not twice -- the count is the assertion that the hook does not also
@@ -1824,7 +1822,7 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
 
     const auto tsv = readFile( mDir / "readings.tsv");
 
-    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Vout\tDmm2\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Vout\tDmm1\tVoltage"));
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output5V\tDmm1\tVoltage"));
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "Output3V3\tDmm1\tVoltage"));
 
@@ -1837,7 +1835,7 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     // Keyed by instrument rather than by point, because these are instrument
     // readbacks with no route -- see core::MeasureEngine's point-free overload.
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "AcP1.A.Voltage\tAcP1\tVoltage"));
-    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "DcP3.Voltage\tDcP3\tVoltage"));
+    EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "DcP7.Voltage\tDcP7\tVoltage"));
 
     //
     // And the console reply, in the same file and the same stream. A payload
@@ -1876,7 +1874,7 @@ TEST_F( AcceptanceRecording, RecordWritesEveryReadingTheRunTook)
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "BatterySupply.Residual\tDmm1\tVoltage"));
     EXPECT_TRUE( containsText( mDir / "readings.tsv", tsv, "BatterySupply.Bulk\tDmm1\tCapacitance"));
 
-    EXPECT_EQ( recordedRows( tsv), 15u);   // six from setup, nine from the scripts
+    EXPECT_EQ( recordedRows( tsv), 14u);   // five from setup, nine from the scripts
 }
 
 //
@@ -1908,10 +1906,9 @@ TEST_F( AcceptanceRecording, AReplayedRunTakesItsReadingsFromTheFileNotTheRig)
         "0\t0\t<run>\tAcP1.A.Voltage\tAcP1\tVoltage\t115.0\n"
         "1\t0\t<run>\tAcP1.B.Voltage\tAcP1\tVoltage\t115.0\n"
         "2\t0\t<run>\tAcP1.C.Voltage\tAcP1\tVoltage\t115.0\n"
-        "3\t0\t<run>\tDcP1.Voltage\tDcP1\tVoltage\t28.0\n"
-        "4\t0\t<run>\tDcP2.Voltage\tDcP2\tVoltage\t28.0\n"
-        "5\t0\t<run>\tDcP3.Voltage\tDcP3\tVoltage\t24.0\n"
-        "6\t0\tFuseRegister\tVout\tDmm2\tVoltage\t12.0\n"
+        "3\t0\t<run>\tDcP6.Voltage\tDcP6\tVoltage\t28.0\n"
+        "4\t0\t<run>\tDcP7.Voltage\tDcP7\tVoltage\t24.0\n"
+        "5\t0\tFuseRegister\tVout\tDmm1\tVoltage\t12.0\n"
         "7\t0\tSupplyRail\tOutput5V\tDmm1\tVoltage\t5.0\n"
         "8\t0\tSupplyRail\tOutput3V3\tDmm1\tVoltage\t3.3\n"
         //
@@ -2073,11 +2070,12 @@ TEST_F( AcceptanceRecording, EachRepeatPassIsRecorded)
 
     // Nine observations per pass -- three voltages from the meters, the console
     // reply, the scope's baseline, capture flag and minimum, and the battery
-    // rail's residual and bulk capacitance -- over three passes, plus the six
+    // rail's residual and bulk capacitance -- over three passes, plus the five
     // the setup took, once, because the hooks bracket the whole selection
-    // rather than each pass (see AcceptanceHooks above). Six rather than four
-    // since rigPowerOn() reads AcP1 once per phase.
-    EXPECT_EQ( recordedRows( tsv), 33u);
+    // rather than each pass (see AcceptanceHooks above). Five rather than three
+    // since rigPowerOn() reads AcP1 once per phase, and five rather than six
+    // since this bench lost a DC rail with the N6701A (see rig/instrument.inc).
+    EXPECT_EQ( recordedRows( tsv), 32u);
 }
 
 //
@@ -2155,7 +2153,7 @@ TEST_F( AcceptanceSkeleton, TheSkeletonListsEveryReadingTheScriptsAskFor)
 //
 // The reason the mode overrides the RUN_SETUP verdict. rigPowerOn() reads
 // back and concludes the rig is dead when they answer zero -- and stopping
-// there would write a skeleton holding RUN_SETUP's six readings and none of
+// there would write a skeleton holding RUN_SETUP's five readings and none of
 // ones the tests take, which is the opposite of what was asked for.
 //
 TEST_F( AcceptanceSkeleton, AFailingSetupDoesNotTruncateTheSkeleton)
@@ -2164,14 +2162,14 @@ TEST_F( AcceptanceSkeleton, AFailingSetupDoesNotTruncateTheSkeleton)
 
     const auto tsv = readFile( mDir / "skeleton.tsv");
 
-    // Fifteen reads: six from the hook, nine from the four scripts.
+    // Fourteen reads: five from the hook, nine from the four scripts.
     //
     // Nine and not eight: a skeleton's placeholders are all zero, so
     // bulkCapacitanceScript's residual reads 0 V, passes FS_BulkCap_Rail_Dead,
     // and the capacitance reading behind it is reached. A script whose later
     // reads sit behind a check is exactly the "first draft, not a complete
     // file" case this format's own header warns about.
-    EXPECT_EQ( std::ranges::count( tsv, '\n') - std::ranges::count( tsv, '#'), 15);
+    EXPECT_EQ( std::ranges::count( tsv, '\n') - std::ranges::count( tsv, '#'), 14);
 }
 
 //
@@ -2242,9 +2240,8 @@ namespace
         "AcP1.A.Voltage   = 115 V\n"
         "AcP1.B.Voltage   = 115 V\n"
         "AcP1.C.Voltage   = 115 V\n"
-        "DcP1.Voltage     = 28 V\n"
-        "DcP2.Voltage     = 28 V\n"
-        "DcP3.Voltage     = 24 V\n"
+        "DcP6.Voltage     = 28 V\n"
+        "DcP7.Voltage     = 24 V\n"
         "Vout             = 12 V\n"
         "Output5V         = 5.01 V\n"
         "Output3V3        = 3.29 V\n"

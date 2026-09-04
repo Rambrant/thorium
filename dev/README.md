@@ -198,7 +198,8 @@ reaches for the rig's names.
 
 **A driver package's tests name this bench's instrument ids.**
 `instruments/keysight_dsox1202g/tests` constructs its driver with `InstrumentId::Osc1`,
-`ac6834b` with `::AcP1`, `racal1260` with `::Ser1`, `n6701a` with `::DcP1..3`. None
+`ac6834b` with `::AcP1`, `racal1260` with `::Ser1`, `keysight_edu36311a` with
+`::DcP5..7`. None
 of those enumerators exists on a bench that has no scope, no AC source and no
 serial port, so those three packages' tests do not compile against this
 deployment — which contradicts `instruments/README.md`'s claim that each
@@ -206,7 +207,7 @@ directory is independently packageable.
 
 Worked around rather than fixed: `THORIUM_INSTRUMENT_PACKAGES` lets a deployment
 build only the packages it has an instrument for, and this one builds
-`keysight_edu34450a` alone. That package and `keysight_l4411a` are both fixed
+`keysight_edu34450a` alone. That package is fixed
 properly, as the pattern for the rest — each takes the ids it needs from
 `core::meta::values<hal::InstrumentId>` and skips the two-instrument test where
 there is only one. The other four want the same treatment, and that is a

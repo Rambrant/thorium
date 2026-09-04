@@ -8,7 +8,7 @@
 // rig/tests/.
 //
 // The suite is named for the driver rather than for the generic mechanism it
-// exercises. instruments/keysight_l4411a/tests is still under the historical
+// exercises. instruments/keysight_edu34450a/tests is still under the historical
 // HalInstrument name, deliberately, so that its move out of framework/hal stayed
 // provably behaviour-preserving; this file has no such history to preserve.
 //
@@ -81,7 +81,7 @@ TEST( Edu34450A, ExposesBothVoltageAndCurrentPorts)
 //
 // Two ids taken from whatever the linking deployment declares, rather than the
 // literal Dmm1/Dmm2 this would otherwise be written with -- see the same test
-// in instruments/keysight_l4411a/tests for the bench dependency that shape
+// in instruments/keysight_edu34450a/tests for the bench dependency that shape
 // removes. What is under test is that the driver carries the id it was given
 // through to its ports, which needs two distinct ids and does not care which
 // two.

@@ -50,7 +50,7 @@ namespace hal
     // one-line diagnostic naming the instrument's type, rather than the
     // no-member-named-safe error the call below would produce on its own.
     // See hal::SafeableInstrument in hal/driver/instrument.hpp, and
-    // hal::keysight_l4411a::L4411A::safe() for why every driver must have one rather than
+    // hal::keysight_edu34450a::EDU34450A::safe() for why every driver must have one rather than
     // only the sources that need a real body.
     //
     auto safeRig() -> void
@@ -107,7 +107,7 @@ namespace hal
         // order this reflects the global namespace's declarations in; the
         // fabric is opened once, below, after all of them. The passive
         // instruments' safe() calls are empty bodies that fold away
-        // entirely (see hal::keysight_l4411a::L4411A::safe()), so what actually reaches the
+        // entirely (see hal::keysight_edu34450a::EDU34450A::safe()), so what actually reaches the
         // hardware is exactly "every output off, then every relay open"
         // regardless of that order or what is added later.
         //

@@ -28,7 +28,7 @@
 // per distinct driver, generated at configure time from the table's own type
 // column (see cmake/InstrumentDrivers.cmake). Nobody writes this list: the
 // table already says which driver each row is, and the qualifier that says it
-// (keysight_n6701a in keysight_n6701a::Direct) is the driver's package,
+// (keysight_edu36311a in keysight_edu36311a::RelayOutput2) is the driver's package,
 // header and namespace name all at once.
 //
 // A generated file rather than the top of instrument.inc, because the
@@ -84,13 +84,13 @@
 // an address with more than one field be one macro argument at all.
 //
 // Anything after address is handed to the driver's constructor untouched --
-// hal::keysight_n6701a::N6701A's mainframe slot is the only such argument on
+// hal::keysight_edu36311a::EDU36311A's mainframe slot is the only such argument on
 // this repo's bench rig. That slot is deliberately NOT folded into the
 // address, even though "GPIB 14, slot 3" is how you would say aloud where
 // DcP3 is: one address is one box on the bus (DcP1..DcP4 share a mainframe
 // and so share an address), the slot picks an endpoint inside it, and an
 // optional slot field on a generic address type could be omitted on an
-// N6701A or supplied to a DMM without anything objecting. A constructor
+// EDU36311A or supplied to a DMM without anything objecting. A constructor
 // parameter the driver itself declares cannot be either.
 //
 #define INSTRUMENTS

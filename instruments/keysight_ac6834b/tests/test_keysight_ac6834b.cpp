@@ -1,7 +1,7 @@
 //
 // hal::keysight_ac6834b::Ac6834B's own tests, split out of rig/tests/test_source_instruments.cpp
 // when this driver moved into its own directory -- the N6701A half went to
-// instruments/keysight_n6701a/tests/ at the same time, and that file's own comment
+// instruments/keysight_edu36311a/tests/ at the same time, and that file's own comment
 // explains the shared fixture the two used to hold in common.
 //
 // Fixture and suite names are unchanged for the same reason given there: TEST_F

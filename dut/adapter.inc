@@ -11,11 +11,11 @@
 // knows about.
 //
 // A handful of these points are also where a fixed-wired source instrument
-// (hal::keysight_n6701a::N6701A/hal::DcP1..DcP4, hal::keysight_ac6834b::Ac6834B/hal::AcP1) permanently lands --
+// (hal::keysight_edu36311a::EDU36311A/hal::DcP5..DcP7, hal::keysight_ac6834b::Ac6834B/hal::AcP1) permanently lands --
 // Output5V and BackupSupply look like DC rails, AcInput_A/B/C/N look like a
 // three-phase-plus-neutral AC input, for instance. hal:: itself has no idea
-// any of that -- DcP1's fixed channel (rig/wiring.inc) is a bare
-// SwitchElementId with no notion of "Output5V" attached (see hal::keysight_n6701a::N6701A's
+// any of that -- DcP6's fixed channel (rig/wiring.inc) is a bare
+// SwitchElementId with no notion of "Output5V" attached (see hal::keysight_edu36311a::EDU36311A's
 // own comment on why) -- so if that association matters to a reader here,
 // it belongs as a comment on the specific POINT() below, once it's known
 // which DcP/AcP instance is actually cabled to which pin on this rig. Not
@@ -37,8 +37,8 @@ ADAPTER( "Device X on standard adapter")
     POINT( ClkProbe,        A, 1, 2, "Config clock probe")
     POINT( Vout,            A, 1, 4, "12V rail probe")
     //
-    // The three DC rails this bench drives into the DUT, rather than pins
-    // the DUT presents -- DcP1/DcP2/DcP3 are cabled straight onto them (see
+    // The DC rails this bench drives into the DUT, rather than pins the DUT
+    // presents -- DcP6 and DcP7 are cabled straight onto them (see
     // SOURCE_WIRING in rig/wiring.inc for which is which, and
     // suite/scripts/rig_power_on.cpp for the sequence that brings them up).
     // Still ordinary measurable points: each also has a mux tap, and reading
@@ -46,8 +46,35 @@ ADAPTER( "Device X on standard adapter")
     // readback, which cannot see cable drop or a bad contact.
     //
     SOURCE_POINT( BackupSupply,    A, 1, 5, "28Vdc backup supply")
-    SOURCE_POINT( BackupSupply_2,  A, 1, 7, "28Vdc secondary backup supply")
     SOURCE_POINT( BatterySupply,   A, 1, 8, "24Vdc secondary backup supply")
+
+    //
+    // And the third of those rails, which this bench can no longer drive.
+    //
+    // A plain POINT rather than a SOURCE_POINT, and the difference is forced
+    // rather than chosen: dut/tests/test_wiring_coverage.cpp static_asserts
+    // hal::isSourceWired() for every SOURCE_POINT, so a source point with no
+    // WIRE_SOURCE row behind it does not compile. Which is the check behaving
+    // exactly as intended -- SOURCE_POINT is a claim that something is cabled
+    // on, and nothing is.
+    //
+    // What happened: this rig's DC supplies used to be four channels of an
+    // EDU36311A modular mainframe, and are now the three outputs of one
+    // EDU36311A (see rig/instrument.inc on the cull). Two of those outputs can
+    // reach a 24-28 V rail; the third is 6 V. So the bench has two rails to
+    // give and the DUT has three points that want one, and this is the one
+    // that went without -- the *secondary* backup, which is the most
+    // droppable of the three and the only one no shipped test drives.
+    //
+    // It keeps its pin, its description and its mux tap, so it is still
+    // measurable and a script can still check what the DUT does or does not
+    // present there. What it has lost is anything driving it, and
+    // core::PointKind records that difference rather than restricting anything
+    // (see its own comment). It becomes a SOURCE_POINT again the day a supply
+    // is cabled onto it -- one row here and one in SOURCE_WIRING, together,
+    // because each is checked against the other.
+    //
+    POINT( BackupSupply_2,  A, 1, 7, "28Vdc secondary backup supply, not driven by this bench")
 
     //
     // The one multi-wire interface on this adapter: four pins that are one

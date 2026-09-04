@@ -191,10 +191,10 @@ TEST( HalInstrumentWiring, FindAllIgnoresRoleAndReturnsForceAndSenseTogether)
     hal::SwitchElementId  force{ hal::SwitchDeviceId::Matrix1, 300 };
     hal::SwitchElementId  sense{ hal::SwitchDeviceId::Matrix1, 1300 };
 
-    wiring.addWire( hal::InstrumentId::DcP3, force);
-    wiring.addWire( hal::InstrumentId::DcP3, sense, hal::WireRole::Sense);
+    wiring.addWire( hal::InstrumentId::DcP7, force);
+    wiring.addWire( hal::InstrumentId::DcP7, sense, hal::WireRole::Sense);
 
-    EXPECT_EQ( wiring.findAll( hal::InstrumentId::DcP3), (hal::Path{ force, sense }));
+    EXPECT_EQ( wiring.findAll( hal::InstrumentId::DcP7), (hal::Path{ force, sense }));
 }
 
 TEST( HalInstrumentWiring, WireInstrumentSenseMacroTagsTheEntryAsSense)
@@ -279,9 +279,9 @@ TEST( HalSourceWiring, FindReturnsTheInstrumentCabledOntoAPin)
     hal::SourceWiring wiring;
     hal::VpcLocation  backupSupply{ hal::VpcRack::A, 1, 5 };
 
-    wiring.addLanding( hal::InstrumentId::DcP2, backupSupply);
+    wiring.addLanding( hal::InstrumentId::DcP6, backupSupply);
 
-    EXPECT_EQ( wiring.find( backupSupply), hal::InstrumentId::DcP2);
+    EXPECT_EQ( wiring.find( backupSupply), hal::InstrumentId::DcP6);
 }
 
 TEST( HalSourceWiring, FindThrowsForAPinNoSourceLandsOn)
@@ -318,7 +318,7 @@ TEST( HalSourceWiring, FindAllIsEmptyRatherThanThrowingForARoutedInstrument)
     // routed instrument on a rig lands nowhere, so "nowhere" is the ordinary
     // answer here, not an error.
     hal::SourceWiring wiring;
-    wiring.addLanding( hal::InstrumentId::DcP2, ( hal::VpcLocation{ hal::VpcRack::A, 1, 5 }));
+    wiring.addLanding( hal::InstrumentId::DcP6, ( hal::VpcLocation{ hal::VpcRack::A, 1, 5 }));
 
     EXPECT_TRUE( wiring.findAll( hal::InstrumentId::Dmm1).empty());
 }
@@ -332,12 +332,12 @@ TEST( HalSourceWiring, WireSourceMacroBuildsALandingEntry)
     // END_SOURCE_WIRING also promotes to a compile-time array), not a
     // SourceWiring directly -- addLanding() is the one-line bridge back.
     std::vector<SourceWiringEntry> entries;
-    WIRE_SOURCE( DcP1, A, 1, 3);
+    WIRE_SOURCE( DcP5, A, 1, 3);
 
     ASSERT_EQ( entries.size(), 1u);
 
     hal::SourceWiring w;
     for( const auto & entry : entries) w.addLanding( entry.instrument, entry.location);
 
-    EXPECT_EQ( w.find( ( hal::VpcLocation{ hal::VpcRack::A, 1, 3 })), hal::InstrumentId::DcP1);
+    EXPECT_EQ( w.find( ( hal::VpcLocation{ hal::VpcRack::A, 1, 3 })), hal::InstrumentId::DcP5);
 }

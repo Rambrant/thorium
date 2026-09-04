@@ -20,7 +20,7 @@ auto fuseRegisterScript() -> void
     // Ad-hoc check (no CRIT constant declared up front) against a measured
     // quantity.
     //
-    const auto voltage = Measure( Dmm2.voltage(), at( dut::Vout));
+    const auto voltage = Measure( Dmm1.voltage(), at( dut::Vout));
 
     Verify( "Supply voltage at Vout", EQ( 12.0_V).epsilon( 0.05_V), voltage);
 }

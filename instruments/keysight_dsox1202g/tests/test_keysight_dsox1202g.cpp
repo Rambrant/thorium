@@ -2,7 +2,7 @@
 // hal::keysight_dsox1202g::DSOX1202G's own tests.
 //
 // Written against the scope on the bench rather than ported wholesale from
-// instruments/keysight_dso8064a/tests, and the differences between the two
+// instruments/keysight_dsox1202g/tests, and the differences between the two
 // files are the point: where a test here reads differently from its Infiniium
 // counterpart, it is because the instrument does something different, and the
 // test says which. Two channels rather than four, one reason for an

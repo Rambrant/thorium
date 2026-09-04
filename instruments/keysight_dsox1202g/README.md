@@ -12,8 +12,9 @@ Reachable over `Usb`, and nothing else — see **One connector** below.
 Modelled against the *Keysight InfiniiVision 1000 X-Series Oscilloscopes
 Programmer's Guide*, version 01.01.0000 (February 2017).
 
-**This is `Osc1`.** It replaced `hal::keysight_dso8064a::DSO8064A`, which is
-still in this tree and on no bench: that driver was written against a legacy ATE
+**This is `Osc1`.** It replaced a four-channel Infiniium DSO8064A whose driver
+has since been deleted along with the rest of the hardware this bench does not
+have (see `rig/instrument.inc`): that driver was written against a legacy ATE
 script, before anyone knew what scope this rig would actually have. This one was
 written against the box on the desk. The two are not interchangeable, and the
 section that matters most here is **What a ported script has to re-decide**.

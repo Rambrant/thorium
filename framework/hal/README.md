@@ -144,13 +144,23 @@ call site -- moving a driver out changed its build location and nothing else.
 | Driver | Directory |
 |---|---|
 | `hal::keysight_edu34450a::EDU34450A` | `instruments/keysight_edu34450a/` |
-| `hal::keysight_l4411a::L4411A` | `instruments/keysight_l4411a/` |
 | `hal::keysight_dsox1202g::DSOX1202G` | `instruments/keysight_dsox1202g/` |
-| `hal::keysight_dso8064a::DSO8064A` | `instruments/keysight_dso8064a/` (in the tree, not on the bench) |
-| `hal::keysight_n6701a::N6701A` | `instruments/keysight_n6701a/` |
 | `hal::keysight_edu36311a::EDU36311A` | `instruments/keysight_edu36311a/` |
 | `hal::keysight_ac6834b::Ac6834B` | `instruments/keysight_ac6834b/` |
 | `hal::racal1260::Racal1260` | `instruments/racal1260/` |
+| `hal::keysight_34980a::Chassis` | `instruments/keysight_34980a/` (a switching mainframe, not an instrument -- see below) |
+
+One row there is not an instrument at all. `hal::keysight_34980a::Chassis` is a
+34980A switch/measure *mainframe*: it measures nothing, sources nothing, carries
+no `hal::InstrumentId`, and does not inherit `hal::InstrumentTag`, so
+`hal::safeRig()` never sees it. It lives under `instruments/` because
+`hal/fabric/switch_device.hpp` named that directory as the destination for
+switch-card drivers before there were any. Two consequences worth knowing here
+rather than in that package's README: no `INSTRUMENT()` row names it, so it
+contributes no code to a rig binary; and nothing in `hal::SwitchFabric` calls it
+yet, because the fabric has no transport seam -- its `close()`/`open()`
+increment a use count. That seam is the change that would make a failed run's
+safing reach the switching.
 
 A rig's own instrument list, wiring data, and concrete instrument
 identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP7`/`AcP1`/`Ser1`/`fabric`
@@ -266,7 +276,7 @@ sources through, the same way `measure.hpp`/`measure.cpp` do for `Measure`:
 take no rig types at all, since routing moved out from under them into
 `route.hpp`/`route.cpp` (`Connect`/`Disconnect`). Where `Measure` takes a
 `core::Port`, `Apply` and `Remove` each take a *builder* --
-`N6701ABuilder<Loc>` or `Ac6834BBuilder` -- built up fluently from an
+`DcBuilder<Output, Isolation>` or `Ac6834BBuilder` -- built up fluently from an
 instrument's `.dc(at(...))` or `.ac()` method:
 
 ```cpp
@@ -278,7 +288,7 @@ Apply(  AcP1.ac().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 3_A));
 
 Neither takes an `at(...)`: a source instrument here is fixed-wired straight to
 its VPC pin (or four, for `AcP1`), so there is no point left to choose -- see
-`hal::keysight_n6701a::N6701A`'s own comment on why a real power rail is cabled rather than
+`hal::keysight_edu36311a::EDU36311A`'s own comment on why a real power rail is cabled rather than
 routed. Where a relay does exist in the path, `Connect` closes it before the
 output comes up and `Disconnect` opens it after the output goes down, so the
 contacts never move under load -- see `core/verbs/source.hpp`. A sequence that gets
@@ -294,12 +304,12 @@ nothing at all, and the machine log says so per instruction rather than
 omitting it or claiming otherwise.
 
 Dispatch to the actual instrument (`applyDriver`/`removeDriver`, defined
-alongside each builder in `n6701a.hpp`/`ac6834b.hpp`) happens via ADL on
+alongside each builder in `keysight_edu36311a.hpp`/`keysight_ac6834b.hpp`) happens via ADL on
 the builder's `.config()` type, the same trick `core::MeasureEngine` uses
 for `to_string(instrumentId)` -- `core/verbs/source.hpp` itself has no dependency
 on `hal::` at all.
 
-## Instrument identity (DcP1..DcP7/AcP1) vs. instrument class (N6701A/EDU36311A/Ac6834B)
+## Instrument identity (DcP5..DcP7/AcP1) vs. instrument class (EDU36311A/Ac6834B)
 
 `InstrumentId`'s enumerators are rig data, not hal data -- generated from
 `THORIUM_INSTRUMENT_TABLE` (`rig/instrument.inc` in this repo's case), not
@@ -307,42 +317,51 @@ listed in `instrument.hpp` itself; see this directory's `CMakeLists.txt`.
 Two different naming axes, on purpose, for whatever names a rig actually
 picks:
 
-- **`InstrumentId`/the global names** (`DcP1`, `DcP2`, ..., `AcP1`) name the
-  *role* this rig uses the instrument for ("DC power, channel N"), the same
-  way `Dmm1`/`Dmm2` don't encode which literal DMM model is plugged in.
-  A script never needs to know or care that `DcP1` happens to be an N6701A
-  channel underneath.
-- **The C++ class** (`hal::keysight_n6701a::N6701A`, `hal::keysight_ac6834b::Ac6834B`) is named after the
-  physical instrument model. A real power-supply driver's SCPI dialect and
-  channel-addressing scheme is inherently tied to its exact model, so
-  naming the class after the model documents that non-portability rather
-  than hiding it -- the same reasoning that named `hal::keysight_edu34450a::EDU34450A` (Dmm1's
-  concrete type), `hal::keysight_l4411a::L4411A` (Dmm2's) and
-  `hal::keysight_dsox1202g::DSOX1202G` (Osc1's) after their real models, once
-  each was known, retiring the old generic `hal::Dmm`/`hal::Oscilloscope`
-  placeholders that stood in for "roughly any DMM/scope" before that. `Osc1` has
-  since been through that once more, which is the same argument arriving a
-  second time: it was a `hal::keysight_dso8064a::DSO8064A` while the model was a
-  reconstruction from a legacy script, and naming the class after the model is
-  what made swapping in the scope that actually turned up a compile-time event
-  rather than a set of readings that quietly meant something else. `Dmm1`
-  and `Dmm2` being two *different* models is what that first bullet claims,
-  actually happening: the ids say what the rig uses each meter for, and the
-  classes say what each meter is.
+- **`InstrumentId`/the global names** (`DcP5`, `DcP6`, `DcP7`, `AcP1`) name the
+  *role* this rig uses the instrument for ("DC power, rail N"), the same way
+  `Dmm1` doesn't encode which literal DMM model is plugged in. A script never
+  needs to know or care that `DcP6` happens to be one output of an EDU36311A
+  underneath.
+- **The C++ class** (`hal::keysight_edu36311a::EDU36311A`,
+  `hal::keysight_ac6834b::Ac6834B`) is named after the physical instrument
+  model. A real power-supply driver's SCPI dialect and channel-addressing
+  scheme is inherently tied to its exact model, so naming the class after the
+  model documents that non-portability rather than hiding it -- the same
+  reasoning that named `hal::keysight_edu34450a::EDU34450A` (Dmm1's concrete
+  type) and `hal::keysight_dsox1202g::DSOX1202G` (Osc1's) after their real
+  models, once each was known, retiring the old generic
+  `hal::Dmm`/`hal::Oscilloscope` placeholders that stood in for "roughly any
+  DMM/scope" before that.
 
-`DcP1`..`DcP4` are four separate `hal::keysight_n6701a::N6701A` instances, one per module
-slot of a single physical N6701A mainframe (it takes up to 4 independent
-DC power modules) -- not four different mainframes. Each instance's
-constructor takes that module's slot number (`hal::keysight_n6701a::N6701A`'s `mChannel`,
-1-4): a fact a real driver will eventually need to build the right SCPI
-channel list (e.g. `VOLT 24,(@2)`), kept on the class now even though
-nothing reads it yet, so the "one shared box, several independently
-addressed channels" pattern exists before the first real driver needs it.
-This is a different axis from `InstrumentWiring`'s matrix channel -- that's
-which crosspoint a module's output leads land on in the switching fabric;
-`mChannel` is which slot the module occupies inside the mainframe. Neither
-table knows about the other, and neither is the mainframe's own address on
-the bus -- that is a third axis, and the section below is about it.
+`Osc1` has been through that twice, which is the argument arriving a second
+time and the best evidence for it: it was a four-channel Infiniium DSO8064A
+while the model was a reconstruction from a legacy script, and naming the class
+after the model is what made swapping in the two-channel InfiniiVision that
+actually turned up a compile-time event rather than a set of readings that
+quietly meant something else (its inputs are 1 MOhm only, and it has no LAN
+port, so rows and settings the old driver accepted stopped compiling). The
+Infiniium driver has since been deleted along with the rest of the hardware
+this bench does not have -- see `rig/instrument.inc`.
+
+`DcP5`..`DcP7` are three separate `hal::keysight_edu36311a::EDU36311A`
+instances, one per output of a single physical EDU36311A chassis -- not three
+different supplies. Which output an instance is lives in its *type*
+(`DirectOutput1`, `RelayOutput2`, `RelayOutput3`), because on that instrument
+the endpoint and its capability are one fact: output 1 is the 6 V / 5 A one and
+cannot be anything else.
+
+That is worth contrasting with the arrangement this bench used to have, because
+the two are the same shape resolved opposite ways. `DcP1`..`DcP4` were four
+channels of an N6701A modular mainframe, and *that* driver took the slot as a
+constructor argument -- rightly, since any module can be in any slot, so the
+slot says nothing about what the channel can source. A slot number and a rating
+handed in separately would be wrong here and right there.
+
+Either way it is a different axis from `InstrumentWiring`'s matrix channel --
+that's which relay a rail's output lead passes through in the switching fabric;
+the output is which terminal pair it comes out of. Neither table knows about
+the other, and neither is the chassis's own address on the bus -- that is a
+third axis, and the section below is about it.
 
 `DcP5`..`DcP7` are the same pattern with the endpoint in the other place, and
 the pair is worth comparing because it says what "one shared box" does and does
@@ -353,9 +372,10 @@ identical. But that driver takes its output as a *template* parameter
 because on that instrument the endpoint and its capability are one fact: output
 1 is the 6 V / 5 A one, outputs 2 and 3 are the 30 V / 1 A ones, and no
 rearrangement is possible. A slot number and a rating handed in separately
-would let a rig table write down an output the box does not have. The N6701A's
-slot is rightly an argument for the mirror-image reason -- any module can be in
-any slot, so the slot says nothing about what the channel can source.
+would let a rig table write down an output the box does not have. The N6701A
+mainframe this bench used to have took its slot as an argument for the
+mirror-image reason -- any module can be in any slot, so the slot says nothing
+about what the channel can source.
 
 Which is the same rule the address section below states, applied to a different
 column: template parameter when it changes what compiles, constructor argument
@@ -368,8 +388,8 @@ when it does not.
 `INSTRUMENT()` row:
 
 ```
-INSTRUMENT( L4411A,       Dmm1, Lan( "bench-dmm1"))
-INSTRUMENT( N6701ARelay,  DcP3, Gpib( 0, 14), 3)
+INSTRUMENT( EDU34450A,    Dmm1, Lan( "bench-dmm1"))
+INSTRUMENT( RelayOutput2, DcP6, Lan( "bench-dcp6"))
 ```
 
 This is the *control* side, and it is a different fact from everything in
@@ -401,17 +421,17 @@ bus's kind.
 
 **A constructor value, not a template parameter.** The rule this codebase
 follows is: template parameter when it changes what compiles, constructor
-argument when it does not. `hal::keysight_n6701a::N6701A`'s `Isolation` is a template parameter
+argument when it does not. `hal::keysight_edu36311a::EDU36311A`'s `Isolation` is a template parameter
 because `DirectWiring` genuinely removes `Connect`/`Disconnect` from the API.
 An address removes nothing -- a driver's interface is identical whichever
 number a technician set on the rear-panel switch -- and templating on it would
-multiply `N6701ADirect`/`N6701ARelay` (aliases that exist purely to keep
+multiply `DirectOutput1`/`RelayOutput2`/... (aliases that exist purely to keep
 `instrument.inc` readable) by one per bus kind.
 
 **The bus *kind* is still checked at compile time.** Each driver's constructor
 is constrained by `hal::ReachableOver` naming its own back panel, so
-`INSTRUMENT( L4411A, Dmm1, Gpib( 0, 14))` fails with "no matching constructor"
--- an L4411A is an LXI box and has no GPIB connector, so that row is not a
+`INSTRUMENT( EDU34450A, Dmm1, Gpib( 0, 14))` fails with "no matching constructor"
+-- an EDU34450A is a LAN-and-USB box and has no GPIB connector, so that row is not a
 misconfiguration to find on the bench, it is a sentence about hardware that
 does not exist. `hal::Simulated` satisfies every driver's constraint
 unconditionally, which is what driver tests construct with.
@@ -419,25 +439,30 @@ unconditionally, which is what driver tests construct with.
 | Driver | Reachable over |
 |---|---|
 | `hal::keysight_edu34450a::EDU34450A` | `Lan`, `Usb` |
-| `hal::keysight_l4411a::L4411A` | `Lan`, `Usb` |
 | `hal::keysight_dsox1202g::DSOX1202G` | `Usb` |
-| `hal::keysight_dso8064a::DSO8064A` | `Gpib`, `Lan`, `Usb` |
-| `hal::keysight_n6701a::N6701A` | `Gpib`, `Lan`, `Usb` |
 | `hal::keysight_edu36311a::EDU36311A` | `Lan`, `Usb` |
 | `hal::keysight_ac6834b::Ac6834B` | `Gpib`, `Serial` |
 | `hal::racal1260::Racal1260` | `Serial`, `Gpib` |
+| `hal::keysight_34980a::Chassis` | `Gpib`, `Lan`, `Usb` |
 
 `hal::keysight_edu36311a::EDU36311A` shares the EDU34450A's pair, and for the
 same reason: both are Smart Bench Essentials boxes with gigabit LAN and a rear
-USBTMC port and no GPIB option. That is worth noticing next to the
-`N6701A` row above it -- two DC supplies on this bench, and only one of them can
-be reached over GPIB.
+USBTMC port and no GPIB option -- so the two boxes on this bench that *can* be
+reached over GPIB are both ones with no transport to use it: the Ac6834B and the
+Racal1260.
 
 `hal::keysight_dsox1202g::DSOX1202G` is the only row with *one*, and that is the
 table's sharpest entry: the 1000 X-Series has a USB device port and no network
 connector, so `Lan( ... )` on `Osc1`'s row does not compile. The row above it
 accepted three buses, `Osc1` used to say `Lan`, and swapping the driver is what
 turned that into a build failure instead of a connection timeout.
+
+`hal::keysight_34980a::Chassis` is the only row with *three*, and it is the
+boring end of this table for a good reason: GPIB, LAN and USB are all standard
+on that mainframe, so its constraint rules out `hal::Serial` and nothing else.
+Written as a constraint anyway -- "this box has no serial port" is a fact worth
+failing to compile on, and the assertion in its tests is what stops the
+constraint being quietly widened to accept anything.
 
 `hal::racal1260::Racal1260` is the only row with two, and the reason is worth knowing: a
 matrix-routed RS232 port is either a port on the PC with its conductors cabled
@@ -457,12 +482,21 @@ path is not.
 
 ### What still has no address
 
-Three drivers read their address now -- `hal::keysight_edu34450a::EDU34450A`
-over LAN or USB, `hal::keysight_dsox1202g::DSOX1202G` over USB, and
-`hal::keysight_edu36311a::EDU36311A` over either (see the next section). The
-other four still carry theirs the way `hal::keysight_n6701a::N6701A` carried its
-mainframe slot before any driver needed it, so that the rig table can state the
-fact at all. Two gaps are worth knowing about:
+Four drivers read their address now -- `hal::keysight_edu34450a::EDU34450A`
+over LAN or USB, `hal::keysight_dsox1202g::DSOX1202G` over USB,
+`hal::keysight_edu36311a::EDU36311A` over either, and
+`hal::keysight_34980a::Chassis` over any of its three (see the next section).
+The other four still carry theirs the way `hal::keysight_edu36311a::EDU36311A` carried
+its mainframe slot before any driver needed it, so that the rig table can state
+the fact at all.
+
+The 34980A is the one whose address comes from nowhere in particular, and that
+is the interesting gap rather than an oversight: it is a switching device, so a
+rig would name it in `devices.inc` -- except that table's rows are *cards*, and
+a mainframe is not a card. Nothing in this repo constructs one yet. See that
+package's README on what the fabric has to grow for it to.
+
+Two other gaps are worth knowing about:
 
 - **The run journal.** An address is per-run inventory rather than per-`Apply`,
   so `describeConfig` was deliberately left alone; `hal::to_string(Address)`
@@ -675,12 +709,29 @@ is a compile error naming the card and the channels it does have. What the rig
 states is what only a bench knows: which cards are in the rack, where they are,
 and what to call them.
 
-Three spellings build a hop, all producing the same `hal::SwitchElementId`:
+Four spellings build a hop, all producing the same `hal::SwitchElementId`:
 `HOP( Mux1, 3)` for a card numbered flat, `CROSSPOINT( Matrix1, 0, 3, 0)` for a
 matrix's `<group><row><column>`, `BANK( RfMux1, 0, 1)` for a banked RF mux's
-`<bank><channel>`. Prefer the structured two wherever a card has one: the parts
-say at the call site what the digits mean, and the packed form of group 0 row 3
-column 00 is `0300`, which C++ reads as octal.
+`<bank><channel>`, and `ROW_COLUMN( device, 3, 15)` for a matrix numbered by a
+row and a column alone (a Keysight 34932A). Prefer the structured three wherever
+a card has one: the parts say at the call site what the digits mean, and the
+packed form of group 0 row 3 column 00 is `0300`, which C++ reads as octal.
+
+`ROW_COLUMN` is a fourth spelling rather than `CROSSPOINT` with a group of zero,
+and the reason is legibility rather than arithmetic: a group the card does not
+have is not a group whose value happens to be zero. The 1260-45A genuinely has
+four independent matrices selected by a group digit; a 34932A has two, selected
+by which half of the row axis you are on (rows 1-4 are Matrix 1, rows 5-8 are
+Matrix 2), which is a fact about the rows and not a separate coordinate. A card
+whose spec carries no such scheme rejects the spelling at compile time.
+
+The card table also holds the two 34980A plug-in modules this rig is migrating
+onto -- `Keysight34932A` and `Keysight34941A` -- ahead of any rig row naming
+them, because a channel space is a datasheet fact and needed no wiring
+decisions. They are tested at model level in
+`tests/fabric/test_switch_card_spec.cpp`, which is the split
+`rig/tests/test_switch_device.cpp` predicted and these two forced: with no
+declared device there is no `hal::SwitchDeviceId` to ask through.
 
 **`Card( n)` is not a GPIB secondary**, and the distinction is on the wire. The
 four Racal cards in this rig sit behind one Option 01T smart controller: the PC
@@ -732,7 +783,7 @@ over — which is why hop zero has to be distinguishable, and therefore why a
 `Path` being written **endpoint-first** is now a rule rather than a habit.
 
 **Naming.** This codebase keeps three words doing three jobs, and the split is
-load-bearing: **driver** is the code that speaks to hardware (`hal::keysight_l4411a::L4411A`),
+load-bearing: **driver** is the code that speaks to hardware (`hal::keysight_edu34450a::EDU34450A`),
 **instrument** is the hardware a script names (`Dmm1` and `Dmm2` are two
 instruments sharing one driver), and **switch device** is the plumbing only
 wiring names. Collapsing them all into "drivers" would make "two instruments,
@@ -745,7 +796,9 @@ One rename is coming, though, and it isn't this one. `SwitchFabric`'s uniform
 `close(id)`/`open(id)` won't survive real hardware -- a Racal 1260 matrix card
 answers `CLOSE 1.0300` through its chassis controller and an Agilent E1472A
 takes SCPI on its own address -- so each card model eventually wants its own
-driver package, built exactly the way `instruments/keysight_l4411a/` is.
+driver package, built exactly the way `instruments/keysight_34980a/` is --
+which is now a worked example rather than a plan, since that mainframe's driver
+has landed.
 `hal::SwitchDeviceModel` and its spec table are where that starts: the part
 number, the kind and the channel space are already stated per card, in one
 place, which is what a driver would be constructed from. At that point the

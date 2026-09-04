@@ -249,7 +249,7 @@ namespace hal::keysight_edu36311a::detail
         //
         // A config that named no voltage still programs one, and it is zero --
         // the same thing an Apply of a bare DcP6.dc() has always meant (see
-        // hal::keysight_n6701a::applyDriver, which does the value_or in the
+        // hal::keysight_edu36311a::applyDriver, which does the value_or in the
         // ADL target). Sent rather than skipped, so that "Apply with nothing
         // set" is a defined rail rather than whatever the output was last left
         // at.

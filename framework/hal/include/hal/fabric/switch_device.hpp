@@ -91,7 +91,18 @@ namespace hal
         Racal1260_35,   // LF multiplexer  -- 1 x 96 two-wire scanner, 50 MHz
         Racal1260_17,   // LF SPDT         -- 80 Form C relays, 60 MHz
         Racal1260_18,   // LF SPST         -- 152 Form A relays, 2 A
-        AgilentE1472A   // HF multiplexer  -- six 1 x 4 banks, 50 ohm, 1.3 GHz
+        AgilentE1472A,  // HF multiplexer  -- six 1 x 4 banks, 50 ohm, 1.3 GHz
+
+        //
+        // The two 34980A plug-in modules this rig is migrating onto (see
+        // rig/devices.inc, which records the mapping, and
+        // instruments/keysight_34980a/ for the mainframe that commands them).
+        // Declared here before any row names them, deliberately: a module is a
+        // channel space, and the channel space is the half of the migration
+        // that can be got right without knowing how the rack will be wired.
+        //
+        Keysight34932A, // LF matrix       -- dual 4 x 16 armature, +/-300 V, 1 A, 30 MHz
+        Keysight34941A  // HF multiplexer  -- quad 1 x 4, 50 ohm, 3 GHz, SMA
     };
 
     //
@@ -107,7 +118,7 @@ namespace hal
     // have, and it is recorded the same way for the same reason: their
     // mainframe slot is a separate column rather than a field on hal::Gpib,
     // because it is not part of how the PC reaches the box (see
-    // hal/driver/address.hpp, and hal::keysight_n6701a::N6701A's own comment on its slot argument).
+    // hal/driver/address.hpp, and hal::keysight_edu36311a::EDU36311A's own comment on its slot argument).
     // Writing a 1260 card number into hal::Gpib::secondary would read as a
     // 488 secondary address, which is a different thing the bus itself
     // understands, and would be wrong on the wire the day a driver believed
@@ -245,6 +256,20 @@ namespace hal
             bool          ( * HasChannel)( std::uint16_t);
             std::uint16_t ( * Crosspoint)( unsigned group, unsigned row, unsigned column);
             std::uint16_t ( * BankChannel)( unsigned bank, unsigned channel);
+
+            //
+            // The two-part matrix scheme, for a card whose crosspoint is a row
+            // and a column and nothing else.
+            //
+            // Its own field rather than Crosspoint with a group of zero,
+            // because a group this card does not have is not a group whose
+            // value happens to be zero: writing CROSSPOINT( Matrix1, 0, 3, 15)
+            // on a 34932A would read as "group 0", inviting the reader to
+            // wonder which of four groups that is, on a card that has none.
+            // Two schemes, two spellings, and a card carries whichever it
+            // actually numbers its channels by -- see hal::rowColumn.
+            //
+            std::uint16_t ( * RowColumn)( unsigned row, unsigned column);
         };
 
         //
@@ -317,6 +342,101 @@ namespace hal
         }
 
         //
+        // Keysight 34932A: two 4 x 16 armature matrices on one 34980A plug-in
+        // module, written <row><column> -- row a single digit, column two
+        // digits, so 315 is row 3 column 15 and the module's own manual
+        // suggests remembering the whole address as "srcc" (slot, row, column,
+        // column).
+        //
+        // The two matrices share one row axis rather than being selected
+        // separately: Matrix 1 is rows 1-4 and **Matrix 2 is rows 5-8**, which
+        // the manual settles twice over -- it documents closing Analog Bus
+        // relays 921 and 922 to "connect rows 5 and 6 respectively to the
+        // internal DMM", and its range example spans 304 to 615, crossing from
+        // one matrix into the other. So there is no matrix argument here, and
+        // a rig that wants one writes the row it means.
+        //
+        // Rows and columns are one-based, unlike every Racal card above whose
+        // channels start at zero. That is the card's numbering, not a
+        // preference -- 000 is not a crosspoint of this module, and a rig
+        // porting a 1260-45A row across cannot keep its zeroes.
+        //
+        // The four channels at the end are the Analog Bus relays, and they are
+        // Matrix 2's: on a matrix module in two-wire mode only Matrix 2 reaches
+        // the mainframe's Analog Buses, so they are numbered 921-924 (bank 2)
+        // rather than the 911-914 (bank 1) a multiplexer module's would be.
+        // They are ordinary closeable channels, hence their being here.
+        //
+        constexpr auto keysight34932AHasChannel( const std::uint16_t channel) -> bool
+        {
+            const auto row    = channel / 100;
+            const auto column = channel % 100;
+
+            if( row >= 1 && row <= 8 && column >= 1 && column <= 16)
+            {
+                return true;
+            }
+
+            return channel >= 921 && channel <= 924;
+        }
+
+        constexpr auto keysight34932ARowColumn( const unsigned row, const unsigned column) -> std::uint16_t
+        {
+            return static_cast<std::uint16_t>( row * 100 + column);
+        }
+
+        //
+        // Keysight 34941A: four independent 1 x 4 multiplexer banks on one
+        // 34980A plug-in module, 50 ohm SMA, written <bank><channel> -- bank a
+        // single digit 1-4, channel two digits 01-04, so 103 is bank 1
+        // channel 03 and the whole card is 101-104, 201-204, 301-304, 401-404.
+        //
+        // Same shape as the E1472A above and a decade apart in the arithmetic:
+        // that card packs <bank><channel> into two digits (bank * 10), this one
+        // into three (bank * 100). Which is exactly why the packing lives in
+        // the spec rather than in the macro.
+        //
+        // No Analog Bus relays at any number, and that is documented rather
+        // than merely absent: "The RF MUX modules do not connect to the analog
+        // buses. Instead, all signal connections are made through the visible
+        // connectors via external cables." So an RF path through this module is
+        // cabled to whatever it feeds, and cannot reach the internal DMM.
+        //
+        // Two things this predicate cannot state, both of which matter more on
+        // this card than on any other in the table:
+        //
+        //   only one channel per bank is ever closed. Closing one opens
+        //   whichever was closed before, in a sequence chosen to avoid
+        //   momentarily connecting the wrong input -- so a bank is a 1-of-4
+        //   selector with no "all open" state, and hal::SwitchFabric's
+        //   open/close model does not describe it. The same gap the E1472A
+        //   already has (see its own comment); this card makes it sharper,
+        //   because...
+        //
+        //   ...ROUTe:OPEN is refused outright on this module. There is no
+        //   command that opens an RF channel; you leave one by closing another
+        //   in the same bank. See instruments/keysight_34980a, whose open()
+        //   sends it anyway and lets the instrument refuse, and whose
+        //   closeExclusively() is what a bank actually wants.
+        //
+        // Front-panel labels are 11 through 44 -- bank and channel as one digit
+        // each -- which is *not* the SCPI channel number. Worth knowing before
+        // reading a number off the module and writing it into a rig table.
+        //
+        constexpr auto keysight34941AHasChannel( const std::uint16_t channel) -> bool
+        {
+            const auto bank      = channel / 100;
+            const auto inTheBank = channel % 100;
+
+            return bank >= 1 && bank <= 4 && inTheBank >= 1 && inTheBank <= 4;
+        }
+
+        constexpr auto keysight34941ABankChannel( const unsigned bank, const unsigned channel) -> std::uint16_t
+        {
+            return static_cast<std::uint16_t>( bank * 100 + channel);
+        }
+
+        //
         // Indexed by SwitchDeviceModel's own value, the same way
         // switchDevices below is indexed by SwitchDeviceId's -- so the order
         // here is the order there, and the static_assert under it says so.
@@ -325,23 +445,33 @@ namespace hal
         {
             { "Racal Instruments 1260-45A", SwitchDeviceKind::Matrix,
               "0000-3315, written <group><row><column> (group 0-3, row 0-3, column 00-15)",
-              racal1260_45HasChannel, racal1260_45Crosspoint, nullptr },
+              racal1260_45HasChannel, racal1260_45Crosspoint, nullptr, nullptr },
 
             { "Racal Instruments 1260-35",  SwitchDeviceKind::Mux,
               "0-95 two-wire (0-96 one-wire, 0-47 four-wire)",
-              racal1260_35HasChannel, nullptr, nullptr },
+              racal1260_35HasChannel, nullptr, nullptr, nullptr },
 
             { "Racal Instruments 1260-17",  SwitchDeviceKind::Spdt,
               "0-79",
-              racal1260_17HasChannel, nullptr, nullptr },
+              racal1260_17HasChannel, nullptr, nullptr, nullptr },
 
             { "Racal Instruments 1260-18",  SwitchDeviceKind::Spst,
               "0-151",
-              racal1260_18HasChannel, nullptr, nullptr },
+              racal1260_18HasChannel, nullptr, nullptr, nullptr },
 
             { "Agilent E1472A",             SwitchDeviceKind::RfMux,
               "00-03, 10-13, 20-23, 30-33, 40-43, 50-53, written <bank><channel>",
-              agilentE1472AHasChannel, nullptr, agilentE1472ABankChannel }
+              agilentE1472AHasChannel, nullptr, agilentE1472ABankChannel, nullptr },
+
+            { "Keysight 34932A",            SwitchDeviceKind::Matrix,
+              "101-816, written <row><column> (row 1-8, column 01-16; rows 5-8 are Matrix 2), "
+              "plus Matrix 2's Analog Bus relays 921-924",
+              keysight34932AHasChannel, nullptr, nullptr, keysight34932ARowColumn },
+
+            { "Keysight 34941A",            SwitchDeviceKind::RfMux,
+              "101-104, 201-204, 301-304, 401-404, written <bank><channel> "
+              "(bank 1-4, channel 01-04); no Analog Bus relays",
+              keysight34941AHasChannel, nullptr, keysight34941ABankChannel, nullptr }
         };
 
         static_assert( std::size( cardSpecs) == core::meta::values<SwitchDeviceModel>.size(),

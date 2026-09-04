@@ -84,7 +84,7 @@ auto transientTeardown() -> bool;
 // group for the same reason the Transient one is: they run only for a selection
 // that actually reaches it (see suite/test_catalog.inc).
 //
-// They share state -- what DcP3 was programmed to when the group was entered --
+// They share state -- what DcP7 was programmed to when the group was entered --
 // which is why both live in one file. See suite/scripts/capacitance_bracket.cpp.
 //
 [[nodiscard]]

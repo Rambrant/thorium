@@ -1,7 +1,7 @@
 #include "hal/keysight_ac6834b.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
-#include "hal/keysight_n6701a.hpp"
+#include "hal/keysight_edu36311a.hpp"
 #include "hal/verbs/safing.hpp"
 
 #include <gtest/gtest.h>
@@ -35,10 +35,10 @@ namespace
         hal::ConnectorWiring   connectorWiring;
 
         // Same instrument set and wiring as test_source_instruments.cpp's
-        // fixture: DcP1 direct-wired (Apply/Remove only), DcP3 relay-isolated
+        // fixture: DcP5 direct-wired (Apply/Remove only), DcP7 relay-isolated
         // (the one Connect/Disconnect can be called on at all).
-        hal::keysight_n6701a::Direct      dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
-        hal::keysight_n6701a::Relay       dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::keysight_edu36311a::DirectOutput1      dcP5{ hal::InstrumentId::DcP5, hal::Simulated{} };
+        hal::keysight_edu36311a::RelayOutput3       dcP7{ hal::InstrumentId::DcP7, hal::Simulated{} };
         hal::keysight_ac6834b::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ApplyEngine      apply{};
@@ -50,7 +50,7 @@ namespace
 
         DescribeFixture()
         {
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Spst1, 4 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP7, { hal::SwitchDeviceId::Spst1, 7 });
             instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 0 });
 
             // The journal is process-wide (see core/journal/journal.hpp on why), so
@@ -67,14 +67,15 @@ namespace
     };
 } // namespace
 
-TEST_F( DescribeFixture, DcConfigNamesTheInstrumentItsSettingsAndItsMainframeSlot)
+TEST_F( DescribeFixture, DcConfigNamesTheInstrumentItsSettingsAndWhichOutputItIs)
 {
-    const auto described = describeConfig( dcP1.dc().voltage( 24.0_V).currentLimit( 7.0_A).config());
+    const auto described = describeConfig( dcP5.dc().voltage( 5.0_V).currentLimit( 4.0_A).config());
 
-    EXPECT_EQ( described.Instrument, "DcP1");
+    EXPECT_EQ( described.Instrument, "DcP5");
 
-    // The slot is what distinguishes two DcP instances sharing this class.
-    EXPECT_EQ( described.Settings, "voltage=24 V, currentLimit=7 A, slot 1");
+    // Which output it is, and what that output can do -- the two things that
+    // distinguish three DcP instances sharing one chassis and one address.
+    EXPECT_EQ( described.Settings, "voltage=5 V, currentLimit=4 A, output 1 (6 V / 5 A)");
 }
 
 //
@@ -84,9 +85,9 @@ TEST_F( DescribeFixture, DcConfigNamesTheInstrumentItsSettingsAndItsMainframeSlo
 //
 TEST_F( DescribeFixture, UnsetSettingsAreOmittedRatherThanReportedAsZero)
 {
-    const auto described = describeConfig( dcP1.dc().voltage( 24.0_V).config());
+    const auto described = describeConfig( dcP5.dc().voltage( 5.0_V).config());
 
-    EXPECT_EQ( described.Settings, "voltage=24 V, slot 1");
+    EXPECT_EQ( described.Settings, "voltage=5 V, output 1 (6 V / 5 A)");
     EXPECT_EQ( described.Settings.find( "currentLimit"), std::string::npos);
 }
 
@@ -100,16 +101,16 @@ TEST_F( DescribeFixture, AcConfigStatesItsConnectionModeAndSettings)
 
 TEST_F( DescribeFixture, ApplyPostsWhatWasAppliedToTheJournal)
 {
-    apply( dcP1.dc().voltage( 24.0_V).currentLimit( 7.0_A));
+    apply( dcP5.dc().voltage( 5.0_V).currentLimit( 4.0_A));
 
     ASSERT_EQ( sink.Events.size(), 1u);
 
     const auto & event = sink.Events[ 0];
 
     EXPECT_EQ( event.Method,     core::Verb::Apply);
-    EXPECT_EQ( event.Subject,    "DcP1");
-    EXPECT_EQ( event.Instrument, "DcP1");
-    EXPECT_EQ( event.Value,      "voltage=24 V, currentLimit=7 A, slot 1");
+    EXPECT_EQ( event.Subject,    "DcP5");
+    EXPECT_EQ( event.Instrument, "DcP5");
+    EXPECT_EQ( event.Value,      "voltage=5 V, currentLimit=4 A, output 1 (6 V / 5 A)");
 
     // Not a check -- an Apply has no pass/fail notion, and a sink that
     // rendered one would show it as a passing result in a report.
@@ -124,9 +125,9 @@ TEST_F( DescribeFixture, ApplyPostsWhatWasAppliedToTheJournal)
 //
 TEST_F( DescribeFixture, RoutingAndRemovalPostTheInstrumentWithoutSettings)
 {
-    remove(     dcP1.dc().voltage( 24.0_V));
-    connect(    dcP3.dc());
-    disconnect( dcP3.dc());
+    remove(     dcP5.dc().voltage( 5.0_V));
+    connect(    dcP7.dc());
+    disconnect( dcP7.dc());
 
     ASSERT_EQ( sink.Events.size(), 3u);
 

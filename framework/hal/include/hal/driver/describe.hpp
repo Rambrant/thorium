@@ -16,7 +16,7 @@ namespace hal
     //
     // Shared helpers for the describeConfig() overloads each source instrument
     // provides for the run journal (see core/driver/describe.hpp's own comment on that
-    // customization point, and hal/keysight_n6701a.hpp / hal/keysight_ac6834b.hpp for the
+    // customization point, and hal/keysight_edu36311a.hpp / hal/keysight_ac6834b.hpp for the
     // overloads themselves).
     //
     // These exist because every such overload has the same two problems --

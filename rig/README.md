@@ -30,7 +30,7 @@ address, ...)` per instrument, naming its C++ driver type, the global it's
 addressed by (id doubles as both the global's name and its
 `hal::InstrumentId` -- there is no rig where those differ, so there's no
 separate parameter for it), how the PC reaches it, and any constructor
-arguments (e.g. `hal::keysight_n6701a::N6701A`'s slot number). Included from two different
+arguments (a driver may declare one; none on this bench does any more). Included from two different
 places, each with `INSTRUMENT` defined for its own purpose:
 
 - `hal/topology/active_instruments.hpp` declares each id as an actual global
@@ -43,7 +43,7 @@ from.
 
 CMake reads it a third time, at configure time rather than through the
 preprocessor: `cmake/InstrumentDrivers.cmake` takes the namespace qualifier off
-each row's type column (`keysight_n6701a` in `keysight_n6701a::Direct`) and
+each row's type column (`keysight_edu36311a` in `keysight_edu36311a::RelayOutput2`) and
 generates the `#include` list `active_instruments.hpp` opens before it expands
 the table. A driver package, its header and its namespace all carry one name,
 so the qualifier that tells a *reader* which driver a row is also tells the
@@ -56,9 +56,9 @@ The `address` column is the control side -- `Gpib(0, 14)`,
 `wiring.inc` describes below. See `hal/driver/address.hpp` for the types, and note
 two things about the column: it is mandatory (a row that omits it fails to
 preprocess, in *both* readers), and which bus kinds a given row may use is
-fixed by its driver rather than by this file, so `Gpib(...)` on an L4411A --
-an LXI box with no GPIB connector -- is a compile error rather than a run
-that dies on its first reading.
+fixed by its driver rather than by this file, so `Gpib(...)` on an EDU34450A
+-- a LAN-and-USB box with no GPIB connector -- is a compile error rather than a
+run that dies on its first reading.
 
 `DcP1`..`DcP4` all carry the same address on purpose: four modules behind one
 mainframe interface is one address and four slots, and the slot stays a
@@ -82,7 +82,7 @@ have one at all and is cabled straight through. None of the three has a
 inventing one would be inventing a DUT fact.
 
 `Dmm1` and `Dmm2` are two *different* models, which is the easiest thing in this
-table to skim past. They were two `hal::keysight_l4411a::L4411A` instances --
+table to skim past. They were two L4411A instances --
 two wiring facts sharing one C++ type, the way `DcP1`..`DcP4` still are -- and
 `Dmm1` is now a 5.5-digit `hal::keysight_edu34450a::EDU34450A` against the
 L4411A's 6.5. A script measuring a rail cannot tell them apart; a criterion
@@ -91,7 +91,7 @@ the EDU34450A has no command for. See
 `instruments/keysight_edu34450a/README.md`.
 
 `Osc1` is the other row whose model has changed, and it changed further than the
-meter did. It was a four-channel `hal::keysight_dso8064a::DSO8064A` reconstructed
+meter did. It was a four-channel Infiniium DSO8064A reconstructed
 from a legacy ATE script; it is now the `hal::keysight_dsox1202g::DSOX1202G`
 actually on the bench, which has two channels, 1 MOhm inputs and no LAN
 connector — so the row's address column could not stay `Lan("bench-osc1")` even
@@ -165,6 +165,24 @@ Three things this file buys beyond the addresses, all of which were real holes:
   naming the card and its channels. Every channel in `wiring.inc` used to be
   unchecked in exactly the way a card name was.
 
+**Where this rack is going.** The five card rows above are staying, and they are
+also on their way out: the decision taken 2026-09-02 is that this rig's
+switching becomes a single Keysight 34980A -- four **34932A** dual 4x16 armature
+matrices in slots 1-4 and one **34941A** quad 1x4 50 Ω RF multiplexer in slot 5.
+Both models and their channel spaces are in generic `hal` already, and the
+mainframe is `instruments/keysight_34980a/`.
+
+The rows have not moved because that module set is not a five-for-five swap, and
+`rig/devices.inc` sets out what it does and does not replace. In short: the
+crossbar, the DUT fan-in and the HF path all land better than they sit today
+(matrix columns are a real crossbar, so the one-shared-mux-common limitation
+below simply goes away). What has no home is the **power path** -- every 34932A
+channel is rated 1 A against the 1260-18's 2 A, so `AcP1`'s 3 A phases cannot be
+switched at all and `DcP6`/`DcP7` sit exactly on the limit -- and the **console
+changeover**, since a matrix crosspoint is make-only and there is no Form C.
+Both are decisions about hardware rather than code, so the wiring re-plan waits
+on them.
+
 **`Card( n)` is not a GPIB secondary.** The four Racal cards sit behind one
 Option 01T smart controller: the PC opens the controller's single GPIB address
 and writes `CLOSE 3.0115`, where the leading `3` is the card's own SW1 address.
@@ -218,7 +236,8 @@ it connects it.
 Channels are written the way each card's manual numbers them:
 `HOP( Mux1, 3)` flat, `CROSSPOINT( Matrix1, 0, 3, 0)` for the 1260-45's
 `<group><row><column>`, `BANK( RfMux1, 0, 1)` for the E1472A's
-`<bank><channel>`.
+`<bank><channel>`, and `ROW_COLUMN( device, 3, 15)` for a 34932A's plain
+row/column.
 
 ## What is *not* here
 

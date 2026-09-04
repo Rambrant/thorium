@@ -41,7 +41,7 @@
 // all like that.
 //
 // And no channel argument, which is where this differs from
-// hal::keysight_n6701a::N6701A: an EDU36311A's three outputs are three types,
+// hal::keysight_edu36311a::EDU36311A: an EDU36311A's three outputs are three types,
 // not one type with a slot number (see the header on Output1).
 //
 namespace

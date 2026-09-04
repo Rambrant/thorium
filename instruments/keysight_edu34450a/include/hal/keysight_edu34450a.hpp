@@ -78,7 +78,7 @@ namespace hal::keysight_edu34450a
     //
     // -- Why this is not simply another L4411A --------------------------------
     //
-    // Dmm1 and Dmm2 used to be two hal::keysight_l4411a::L4411A instances, and
+    // Dmm1 and Dmm2 used to be two L4411A instances, and
     // Dmm2 still is (see rig/instrument.inc). The two meters are close enough
     // that a script measuring a rail cannot tell them apart, and far enough
     // apart that one C++ type would have had to lie about one of them:
@@ -526,7 +526,7 @@ namespace hal::keysight_edu34450a
             // silently get a resolution the meter chose, and a reader of that
             // script would believe the rig had integrated for ten cycles.
             //
-            // So a setter, in the shape hal::keysight_dso8064a::DSO8064A's
+            // So a setter, in the shape hal::keysight_dsox1202g::DSOX1202G's
             // setMode() already uses for the same reason -- one front-panel
             // knob, set before a reading and left where it was put. A script
             // that wants a rail measured properly sets Slow once and reads;
@@ -562,8 +562,8 @@ namespace hal::keysight_edu34450a
             //
             // Written out as an explicit empty body rather than left off and
             // detected as absent, on purpose -- see
-            // hal::keysight_l4411a::L4411A::safe(), which carries the full
-            // argument for why safing is mandatory rather than opt-in, and
+            // hal::racal1260::Racal1260::safe(), the other passive driver on this
+            // bench, for the same deliberately-empty body -- and
             // hal::SafeableInstrument in hal/driver/instrument.hpp.
             //
             // Still empty now that there is a socket to close, and that is a

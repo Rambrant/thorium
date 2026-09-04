@@ -26,7 +26,7 @@
 //
 // So core::requiresDeadNode names Capacitance alongside Current and Resistance
 // (see core/verbs/interlock.hpp), and dut::BatterySupply is a SOURCE_POINT with
-// DcP3 cabled onto it (rig/wiring.inc). Written without the Remove below, the
+// DcP7 cabled onto it (rig/wiring.inc). Written without the Remove below, the
 // Measure throws core::InterlockViolation before a single relay closes, naming
 // the pin, the rail and the way out. That is not a check this script performs;
 // it is the check that made this script have to be written this way.
@@ -49,7 +49,7 @@
 //
 // -- Putting the rail back is not this script's job -------------------------
 //
-// DcP3 stays off and disconnected when this returns. The group's TEARDOWN puts
+// DcP7 stays off and disconnected when this returns. The group's TEARDOWN puts
 // it back -- see suite/scripts/capacitance_bracket.cpp, and suite/test_catalog.inc
 // where the Capacitance group declares the pair. A restore written at the end
 // of a script only runs on the path where the script reaches its end.
@@ -66,14 +66,16 @@ auto bulkCapacitanceScript() -> void
     //
     // The Disconnect is not merely tidiness here, and it is the one thing this
     // script does that acDropoutScript does not do for the same reason: it
-    // takes DcP3's output impedance off the node. What is being measured is
+    // takes DcP7's output impedance off the node. What is being measured is
     // what the *DUT* presents at that pin, and a supply left cabled on -- even
-    // with its output off -- is part of the node the meter charges. DcP3 can do
-    // this because it is a hal::keysight_n6701a::Relay; the same two lines on
-    // DcP1 would not compile (see hal::keysight_n6701a::SwitchableIsolation).
+    // with its output off -- is part of the node the meter charges. DcP7 can do
+    // this because it is a hal::keysight_edu36311a::RelayOutput3; the same two lines on
+    // DcP5 would not compile (see hal::keysight_edu36311a::SwitchableIsolation)
+    // -- which is exactly why the battery rail is on DcP7 and not on the one
+    // hard-wired output this supply has.
     //
-    Remove(     DcP3.dc());
-    Disconnect( DcP3.dc());
+    Remove(     DcP7.dc());
+    Disconnect( DcP7.dc());
 
     //
     // A plain voltage tap, which stays permitted at a live rail precisely
@@ -81,7 +83,7 @@ auto bulkCapacitanceScript() -> void
     // the Remove above actually took effect, and is therefore able to report
     // that it did not.
     //
-    // Measured at the pin rather than as DcP3.measuredVoltage(), and the
+    // Measured at the pin rather than as DcP7.measuredVoltage(), and the
     // difference is the whole check: the supply's own readback says what the
     // supply is delivering, which with its output off and its relay open is
     // zero no matter what charge is sitting on the DUT's capacitor. What holds

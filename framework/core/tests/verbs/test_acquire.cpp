@@ -16,7 +16,7 @@ using namespace core::quantities;
 // A minimal armable instrument, satisfying exactly what core::ArmEngine and
 // core::AwaitEngine need and nothing more: a builder with a config(), an ADL
 // armDriver/awaitDriver pair over that config, and a describeConfig for the
-// log. hal::keysight_dso8064a::DSO8064A is one concrete type that happens to satisfy the same
+// log. hal::keysight_dsox1202g::DSOX1202G is one concrete type that happens to satisfy the same
 // shape; core knows nothing about it.
 //
 // Deliberately not a scope. The verbs are generic -- "arm a capture, let the

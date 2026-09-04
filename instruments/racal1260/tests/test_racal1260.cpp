@@ -220,7 +220,7 @@ TEST_F( Racal1260Fixture, OneAndAHalfStopBitsIsExpressible)
 // A serial port has no output to energise, so there is nothing an
 // Apply( Ser1.rs232()) could mean -- and the absence of applyDriver is what
 // makes writing one a compile error rather than a call that silently does
-// nothing. The same guarantee hal::keysight_n6701a::SwitchableIsolation gives Connect on a
+// nothing. The same guarantee hal::keysight_edu36311a::SwitchableIsolation gives Connect on a
 // relay-less supply.
 //
 TEST_F( Racal1260Fixture, ThereIsNoApplyForAPortWithNoOutput)

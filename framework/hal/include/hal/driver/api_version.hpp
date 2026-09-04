@@ -64,16 +64,21 @@
 //        (Gpib/Lan/Serial/Usb/Simulated, ReachableOver), hal/driver/instrument.hpp
 //        (InstrumentId, InstrumentTag), hal/topology/wiring.hpp, hal/fabric/switch_device.hpp,
 //        hal/fabric/switch_fabric.hpp, hal/topology/bundle.hpp, hal/driver/describe.hpp, and the
-//        core/ API those reach. hal::keysight_l4411a::L4411A is still at 1 -- it has no fluent
-//        config chain and so nothing that 2 added.
+//        core/ API those reach. No driver in this tree asks for 1 any more --
+//        the one that did, a Keysight L4411A with no fluent config chain and so
+//        nothing that 2 added, was deleted with the rest of the hardware this
+//        bench does not have (see rig/instrument.inc). OLDEST_SUPPORTED stays
+//        at 1 regardless: it is a promise about what this hal still serves, not
+//        a census of what is currently in the tree.
 //
 //     2  Adds hal/driver/builder.hpp: hal::ConfigBuilder, the base a driver's
 //        fluent config chain is written on. Purely additive -- a driver at 1
 //        writes its setters out by hand and compiles here unchanged, which is
 //        why OLDEST_SUPPORTED stays at 1 -- but a driver that *uses* the base
-//        needs a hal that has it, so hal::keysight_n6701a::N6701A,
-//        hal::keysight_ac6834b::Ac6834B, hal::racal1260::Racal1260 and
-//        hal::keysight_dso8064a::DSO8064A ask for 2.
+//        needs a hal that has it, so hal::keysight_ac6834b::Ac6834B and
+//        hal::racal1260::Racal1260 ask for 2. Two more did -- an N6701A and a
+//        DSO8064A -- and were deleted with the hardware this bench does not
+//        have (see rig/instrument.inc).
 //
 //     3  Adds hal/io/: hal::io::ITransport, hal::io::openTransport() and
 //        hal::io::ScpiSession -- how a driver reaches real hardware, where
@@ -91,17 +96,35 @@
 //        the driver does, and it is the diff that says a driver started
 //        talking.
 //
+//     4  Adds two 34980A plug-in module models to hal/fabric/switch_device.hpp
+//        (hal::SwitchDeviceModel::Keysight34932A/Keysight34941A and their
+//        channel spaces), a RowColumn scheme on hal::detail::SwitchCardSpec,
+//        and hal::rowColumn() beside hal::crosspoint()/hal::bank() in
+//        hal/fabric/switch_fabric.hpp. Purely additive, so OLDEST_SUPPORTED
+//        stays at 1.
+//
+//        **Nothing asks for 4**, and that is worth saying rather than leaving
+//        a reader to search: no driver uses any of it -- the module models are
+//        read by a rig's devices.inc and the spelling by its wiring.inc, and
+//        neither file is versioned by this gate, which exists for the
+//        zip-distributed driver packages under instruments/. The number moves
+//        anyway because these headers are on the list under 1 above: a driver
+//        may legitimately call hal::hasChannel or hal::rowColumn, and one that
+//        did while declaring 3 would be silently incompatible with a hal that
+//        predates them -- which is the exact failure the gate is for. A version
+//        with no consumer is cheaper than a gate that has stopped being true.
+//
 // A driver asks for the oldest version that has everything it uses, written as
 // a literal -- never the macro itself, which would assert that this hal is
 // compatible with this hal and pass everywhere. For most new drivers that is
 // simply THORIUM_HAL_API_VERSION's current value, because a driver written
 // today tends to use what was most recently added; a driver that deliberately
-// uses less asks for less, and hal::keysight_l4411a::L4411A at 1 is the worked
-// example above. Asking for more than you use costs something real: it refuses
+// uses less asks for less, and the L4411A at 1 was the worked
+// example above until it was deleted. Asking for more than you use costs something real: it refuses
 // a hal that would have served the driver perfectly, which is the nuisance the
 // two-number scheme exists to avoid.
 //
-#define THORIUM_HAL_API_VERSION           3
+#define THORIUM_HAL_API_VERSION           4
 #define THORIUM_HAL_API_OLDEST_SUPPORTED  1
 
 namespace hal

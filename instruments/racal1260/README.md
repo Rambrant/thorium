@@ -44,7 +44,7 @@ same physical port, which is when that distinction is easiest to lose.
 energise, so there is nothing `Apply( Ser1.rs232())` could mean — and with no
 `applyDriver` to find, writing one is "no matching function" at compile time
 rather than a call that silently does nothing. Same guarantee
-`hal::keysight_n6701a::SwitchableIsolation` gives `Connect` on a relay-less supply.
+`hal::keysight_edu36311a::SwitchableIsolation` gives `Connect` on a relay-less supply.
 
 ## A dialogue
 
@@ -124,7 +124,7 @@ dut/adapter.inc             a BUNDLE for the interface it talks to
 ```
 
 Both halves of the route are rig data and live nowhere in this directory. Note
-that this driver needs `WIRE_CONNECTOR` rows where `hal::keysight_n6701a::N6701A` and
+that this driver needs `WIRE_CONNECTOR` rows where `hal::keysight_edu36311a::EDU36311A` and
 `hal::keysight_ac6834b::Ac6834B` need `WIRE_SOURCE` ones: their outputs are cabled to a known pin,
 where a console is switched onto the DUT and off again.
 

@@ -35,8 +35,9 @@
 // rig built around *buses* -- somewhere the two halves meet -- and this rig
 // has one LF bus and one HF bus:
 //
-//   the LF measurement bus is column 00 of Matrix1's group 0. Dmm1, Dmm2 and
-//   Osc1's channel 2 sit on rows 0, 1 and 2; Mux1's common sits on row 3. So
+//   the LF measurement bus is column 00 of Matrix1's group 0. Dmm1 and Osc1's
+//   channel 2 sit on rows 0 and 2 (row 1 was Dmm2's, and is free); Mux1's
+//   common sits on row 3. So
 //   an instrument's path is its own crosspoint onto that column, a pin's path
 //   is its mux channel plus the crosspoint that puts the mux common on the
 //   same column, and a reading closes both ends of one bus. The shared
@@ -69,39 +70,40 @@
 //
 INSTRUMENT_WIRING
     //
-    // The three measuring instruments, one crosspoint each onto the LF
+    // The two measuring instruments, one crosspoint each onto the LF
     // measurement bus -- group 0, column 00, one row apiece.
     //
+    // Row 1 is deliberately left empty rather than closed up. It was Dmm2, the
+    // second 6.5-digit meter this bench no longer has (see rig/instrument.inc
+    // on the cull), and renumbering Osc1 down onto its crosspoint would be
+    // rewriting a cable that nobody moved. A free row on the measurement bus is
+    // where a second meter goes back.
+    //
     WIRE_INSTRUMENT( Dmm1, CROSSPOINT( Matrix1, 0, 0, 0))
-    WIRE_INSTRUMENT( Dmm2, CROSSPOINT( Matrix1, 0, 1, 0))
     WIRE_INSTRUMENT( Osc1, CROSSPOINT( Matrix1, 0, 2, 0))
 
-    // DcP1/DcP2 have no entry here at all -- they're hal::keysight_n6701a::Direct,
-    // wired straight through with no isolation relay, nothing for
-    // Connect/Disconnect to close or open (see hal::keysight_n6701a::N6701A's own comment
-    // on DirectWiring). Only DcP3/DcP4 (hal::keysight_n6701a::Relay) have a real
-    // fixed channel.
+    // DcP6/DcP7 are the EDU36311A's two 30 V / 1 A outputs, each with an
+    // isolation relay in its output lead. On Spst1 rather than the matrix, and
+    // that is the point of having a relay card at all: this carries whatever
+    // the rail carries. A 1260-18 relay is rated 2 A; the matrix is a signal
+    // path and its load has no business there.
     //
-    // On Spst1 rather than the matrix, and that is the point of having a
-    // relay card at all: this is the isolation relay in a supply's output
-    // lead, carrying whatever the rail carries. A 1260-18 relay is rated 2 A;
-    // the matrix is a signal path and its load has no business there.
-    WIRE_INSTRUMENT( DcP3, HOP( Spst1, 4))
-    WIRE_INSTRUMENT( DcP4, HOP( Spst1, 5))
-
-    // DcP6/DcP7 are the EDU36311A's two 30 V / 1 A outputs, and they get
-    // relays here for the same reason DcP3/DcP4 do. DcP5 -- the same box's
-    // 6 V / 5 A output -- has no entry, and that one is arithmetic rather
-    // than history: a 1260-18 relay is rated 2 A, so a 5 A rail cannot pass
-    // through this card at all. It is cabled straight through and its row in
-    // rig/instrument.inc says DirectOutput1, which is what makes
-    // Connect( DcP5.dc()) a compile error rather than a relay carrying two
-    // and a half times its rating (see
+    // DcP5 -- the same box's 6 V / 5 A output -- has no entry, and that is
+    // arithmetic rather than history: a 1260-18 relay is rated 2 A, so a 5 A
+    // rail cannot pass through this card at all. It is cabled straight through
+    // and its row in rig/instrument.inc says DirectOutput1, which is what
+    // makes Connect( DcP5.dc()) a compile error rather than a relay carrying
+    // two and a half times its rating (see
     // hal::keysight_edu36311a::SwitchableIsolation).
     //
-    // Both are inside the 0-15 power block this card's comment in
-    // rig/devices.inc sets aside, which had six of its sixteen channels
-    // spoken for (AcP1's four, DcP3, DcP4) and now has eight.
+    // Channels 4 and 5 are free where DcP3 and DcP4 used to be -- the two
+    // relay-isolated channels of the N6701A mainframe this bench no longer has
+    // (see rig/instrument.inc). Left as holes for the same reason Matrix1's
+    // row 1 is: a relay nobody moved should not be renumbered.
+    //
+    // Both rows below are inside the 0-15 power block this card's comment in
+    // rig/devices.inc sets aside, which now has six of its sixteen channels
+    // spoken for -- AcP1's four and these two.
     WIRE_INSTRUMENT( DcP6, HOP( Spst1, 6))
     WIRE_INSTRUMENT( DcP7, HOP( Spst1, 7))
 
@@ -114,7 +116,7 @@ INSTRUMENT_WIRING
     // InstrumentId, not one four-element Path -- see findAll()'s own
     // comment for why that distinction matters.
     //
-    // Four relays on the power card, for the same reason DcP3/DcP4 are:
+    // Four relays on the power card, for the same reason DcP6/DcP7 are:
     // three-phase mains is the last thing that should reach a matrix.
     WIRE_INSTRUMENT( AcP1, HOP( Spst1, 0)) // phase A
     WIRE_INSTRUMENT( AcP1, HOP( Spst1, 1)) // phase B
@@ -233,11 +235,15 @@ END_CONNECTOR_WIRING
 // TODO(bench): assignments below are taken from what this repo already says,
 // not read off a rig -- there is no physical bench yet. Each row matches the
 // pairing suite/scripts/rig_power_on.cpp states in its own comments and
-// corroborates with the voltage it applies: DcP1 and DcP2 are brought up at
-// 28 V against points described as "28Vdc backup supply" and "28Vdc
-// secondary backup supply", DcP3 at 24 V against "24Vdc secondary backup
-// supply", and AcP1 as a three-phase source against the four AcInput lines.
-// Re-check when a real rig and DUT exist.
+// corroborates with the voltage it applies: DcP6 is brought up at 28 V against
+// a point described as "28Vdc backup supply", DcP7 at 24 V against "24Vdc
+// secondary backup supply", and AcP1 as a three-phase source against the four
+// AcInput lines. Re-check when a real rig and DUT exist.
+//
+// The *currents* are a separate and sharper problem, and it is not a wiring
+// one: these two rails were provisioned at 7 A and 4 A when an N6701A fed
+// them, and an EDU36311A's 30 V outputs are 1 A each. See rig/instrument.inc's
+// own TODO on what that means for a DUT that draws more.
 //
 // A landing pin is NOT thereby unreachable: all seven below also keep their
 // WIRE_CONNECTOR rows above. A rail is cabled so the *fabric* never carries
@@ -249,29 +255,25 @@ END_CONNECTOR_WIRING
 //
 // Note the division of labour between this table and the Spst1 rows above:
 // this says where a supply's output *lands*, those say which relay is in the
-// lead on the way there. DcP3 has both -- a relay and a landing pin -- and
-// DcP1/DcP2 have only a landing, being cabled straight through.
+// lead on the way there. DcP6 and DcP7 have both -- a relay and a landing pin.
 //
-// DcP4 appears nowhere below, deliberately: this rig declares it (see
+// DcP5 appears nowhere below, deliberately: this rig declares it (see
 // rig/instrument.inc) but nothing drives it and no adapter point corresponds
-// to it -- a spare module in the mainframe. hal::SourceWiring::findAll()
-// returns empty for it rather than throwing, which is exactly that case.
+// to it -- a 6 V / 5 A output on a DUT whose lowest input rail is 24 V.
+// hal::SourceWiring::findAll() returns empty for it rather than throwing,
+// which is exactly that case. It is the spare DcP4 used to be.
 //
-// DcP5, DcP6 and DcP7 are absent for that same reason, and it is now the
-// commoner case rather than the odd one out: the EDU36311A's three outputs are
-// declared, two of them have isolation relays above, and none of the three
-// lands anywhere yet, because this DUT has no point for a 6 V or a 30 V rail
-// (see dut/adapter.inc's SOURCE_POINTs, which are the three 24-28 V ones the
-// N6701A modules feed). A row here would have to invent both the pin and the
-// adapter point beside it -- and the pairing is checked, so it would have to
-// invent a matching pair. What closes this gap is a DUT that wants those
-// rails, at which point each new output gets a WIRE_SOURCE row here and a
-// SOURCE_POINT there, together.
+// dut::BackupSupply_2 is the other half of that story, told from the pin's
+// side rather than the supply's. This bench has two outputs that can reach a
+// 24-28 V rail and the DUT has three such points, so one of them is now unfed
+// -- and the framework will not let a SOURCE_POINT be unfed (dut_tests asserts
+// hal::isSourceWired for every one of them), so it has become an ordinary
+// POINT in dut/adapter.inc. It keeps its mux tap and stays measurable; what it
+// no longer has is anything driving it. See that file's own comment.
 //
 SOURCE_WIRING
-    WIRE_SOURCE( DcP1, A, 1, 5)   // dut::BackupSupply,   28Vdc
-    WIRE_SOURCE( DcP2, A, 1, 7)   // dut::BackupSupply_2, 28Vdc
-    WIRE_SOURCE( DcP3, A, 1, 8)   // dut::BatterySupply,  24Vdc
+    WIRE_SOURCE( DcP6, A, 1, 5)   // dut::BackupSupply,   28Vdc (30 V / 1 A output)
+    WIRE_SOURCE( DcP7, A, 1, 8)   // dut::BatterySupply,  24Vdc (30 V / 1 A output)
     // AcP1 lands on four pins, one row each -- the connector-side counterpart
     // of its four WIRE_INSTRUMENT rows above, and grouped on the adapter side
     // as the dut::AcInput bundle.
@@ -285,13 +287,13 @@ END_SOURCE_WIRING
 // This rig's fourth table, and it is empty: nothing on this bench is cabled
 // straight onto a DUT pin for the purpose of *measuring* it.
 //
-// Which is not the same as saying nothing is cabled. Five instruments on this
-// rig are hard-wired to pins and every one of them is a source -- DcP1..DcP4
+// Which is not the same as saying nothing is cabled. Three instruments on this
+// rig are hard-wired to pins and every one of them is a source -- DcP6, DcP7
 // and AcP1, recorded in SOURCE_WIRING above, cabled because a rail's load
 // current has no business on signal relays. A tap row would say the opposite
 // thing about a measuring instrument: that its input reaches a pin without
 // passing through Matrix1 or Mux1 at all. This rig has a fabric precisely so
-// that its three meters do not need that -- Dmm1, Dmm2 and Osc1 each have one
+// that its two meters do not need that -- Dmm1 and Osc1 each have one
 // crosspoint onto the measurement bus, and every pin they can reach is a
 // WIRE_CONNECTOR row.
 //

@@ -499,7 +499,7 @@ namespace core
             // This is how current is actually read on a rig whose matrix
             // carries signals only: a supply's own readback measures its rail
             // at full load, where routing that current through signal relays
-            // would be neither possible nor safe (see hal::keysight_n6701a::N6701A's own comment
+            // would be neither possible nor safe (see hal::keysight_edu36311a::EDU36311A's own comment
             // on why its output is hard-wired in the first place).
             //
             // Still goes through the session seam, so injection and replay work

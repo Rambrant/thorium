@@ -29,14 +29,19 @@ namespace
         //
         static auto energiseEverything() -> void
         {
-            Apply( DcP1.dc().voltage(  24.0_V).currentLimit( 7.0_A));
-            Apply( DcP2.dc().voltage(   5.0_V).currentLimit( 2.0_A));
-            Apply( DcP3.dc().voltage(  12.0_V).currentLimit( 1.0_A));
+            //
+            // Within each output's own badge, which is not decoration on this
+            // bench: both DC rails are 30 V / 1 A outputs of one EDU36311A, so
+            // a limit past 1 A is refused before anything is remembered (see
+            // hal::keysight_edu36311a::RatingExceeded) and this fixture would
+            // throw rather than energise.
+            //
+            Apply( DcP6.dc().voltage( 24.0_V).currentLimit( 1.0_A));
+            Apply( DcP7.dc().voltage( 12.0_V).currentLimit( 0.5_A));
             Apply( AcP1.ac().phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
 
-            // Only the three that have a relay at all -- Connect( DcP1.dc())
-            // would not compile (see hal::keysight_n6701a::SwitchableIsolation).
-            Connect( DcP3.dc());
+            Connect( DcP6.dc());
+            Connect( DcP7.dc());
             Connect( AcP1.ac());
         }
     };
@@ -44,24 +49,24 @@ namespace
 
 //
 // Every source the teardown *names*, which is not every source the rig has:
-// DcP4 is declared in rig/instrument.inc and mentioned by neither hook, so
-// nothing here powers it up and nothing but hal::safeRig() takes it down. It is
-// deliberately not asserted on -- an expectation that it stays enabled would
+// DcP5 is declared in rig/instrument.inc and mentioned by neither hook -- the
+// EDU36311A's 6 V / 5 A output, which nothing on this DUT wants -- so nothing
+// here powers it up and nothing but hal::safeRig() takes it down. It is
+// deliberately not asserted on: an expectation that it stays enabled would
 // enshrine the gap, and one that it goes off would be testing safing from the
-// wrong file. See rigPowerOn()'s closing comment for when that should change.
+// wrong file. It is the spare DcP4 used to be.
 //
 TEST_F( RigPowerOffFixture, EverySourceItNamesEndsUpDisabled)
 {
     energiseEverything();
 
-    ASSERT_TRUE( DcP1.isEnabled());
+    ASSERT_TRUE( DcP6.isEnabled());
     ASSERT_TRUE( AcP1.isEnabled());
 
     EXPECT_TRUE( rigPowerOff());
 
-    EXPECT_FALSE( DcP1.isEnabled());
-    EXPECT_FALSE( DcP2.isEnabled());
-    EXPECT_FALSE( DcP3.isEnabled());
+    EXPECT_FALSE( DcP6.isEnabled());
+    EXPECT_FALSE( DcP7.isEnabled());
     EXPECT_FALSE( AcP1.isEnabled());
 }
 
@@ -72,18 +77,18 @@ TEST_F( RigPowerOffFixture, EverySourceItNamesEndsUpDisabled)
 //
 TEST_F( RigPowerOffFixture, EveryIsolationRelayItClosedEndsUpOpen)
 {
-    constexpr hal::SwitchElementId dcP3Path{ hal::SwitchDeviceId::Spst1, 4 };
+    constexpr hal::SwitchElementId dcP6Path{ hal::SwitchDeviceId::Spst1, 6 };
     constexpr hal::SwitchElementId acP1PhaseA{ hal::SwitchDeviceId::Spst1, 0 };
     constexpr hal::SwitchElementId acP1Neutral{ hal::SwitchDeviceId::Spst1, 3 };
 
     energiseEverything();
 
-    ASSERT_TRUE( hal::fabric.isClosed( dcP3Path));
+    ASSERT_TRUE( hal::fabric.isClosed( dcP6Path));
     ASSERT_TRUE( hal::fabric.isClosed( acP1Neutral));
 
     EXPECT_TRUE( rigPowerOff());
 
-    EXPECT_FALSE( hal::fabric.isClosed( dcP3Path));
+    EXPECT_FALSE( hal::fabric.isClosed( dcP6Path));
 
     // Both ends of AcP1's four fixed channels -- phases and the neutral/ground
     // return open together, which is the isolation the return is modelled for.
@@ -124,6 +129,6 @@ TEST_F( RigPowerOffFixture, PoweringDownAnAlreadyIdleRigIsHarmless)
     EXPECT_TRUE( rigPowerOff());
     EXPECT_TRUE( rigPowerOff());
 
-    EXPECT_FALSE( DcP1.isEnabled());
+    EXPECT_FALSE( DcP6.isEnabled());
     EXPECT_FALSE( AcP1.isEnabled());
 }

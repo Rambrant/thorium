@@ -14,16 +14,16 @@
 // state with each other.
 //
 // This also demonstrates the two shapes Connect/Disconnect can take side by
-// side: DcP3 is fixed-wired (hal::keysight_n6701a::N6701A::dc() takes no point at all --
-// see that header's own comment; DcP3 specifically has a real isolation
-// relay -- hal::keysight_n6701a::Relay -- unlike DcP1/DcP2, which have none at all),
+// side: DcP7 is fixed-wired (hal::keysight_edu36311a::EDU36311A::dc() takes no point at all --
+// see that header's own comment; DcP7 specifically has a real isolation
+// relay -- hal::keysight_edu36311a::RelayOutput3 -- unlike DcP5/DcP6, which have none at all),
 // Osc1 is routed (hal::keysight_dsox1202g::DSOX1202G's Port takes at(...) on every Measure()) --
 // both physically reach the same VPC pin (Output5V), but only Osc1's path
-// touches the mux; DcP3's connect() closes just its own fixed channel.
+// touches the mux; DcP7's connect() closes just its own fixed channel.
 //
-#include "hal/keysight_n6701a.hpp"
+#include "hal/keysight_edu36311a.hpp"
 #include "hal/keysight_dsox1202g.hpp"
-#include "hal/keysight_l4411a.hpp"
+#include "hal/keysight_edu34450a.hpp"
 #include "hal/verbs/measure.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
@@ -44,8 +44,8 @@ namespace
     constexpr hal::VpcLocation kResistancePoint{ hal::VpcRack::A, 1, 6 };
 
     // Output5V/ClockOut are only ever named on the Measure() side below --
-    // DcP3 reaches the same physical Output5V pin too, but as a fixed wire,
-    // not as an at(...) argument (see hal::keysight_n6701a::N6701A's own comment).
+    // DcP7 reaches the same physical Output5V pin too, but as a fixed wire,
+    // not as an at(...) argument (see hal::keysight_edu36311a::EDU36311A's own comment).
     constexpr core::AdapterPointTag<kOutput5V>        Output5V{ "Output5V", "5Vdc supply port" };
     constexpr core::AdapterPointTag<kClockOut>        ClockOut{ "ClockOut", "clock edge test point" };
     constexpr core::AdapterPointTag<kResistancePoint> ResistancePoint{ "ResistancePoint", "4-wire Kelvin test point" };
@@ -64,9 +64,9 @@ namespace
         //
         hal::TapWiring         tapWiring;
 
-        hal::keysight_n6701a::Relay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::keysight_edu36311a::RelayOutput3  dcP7{ hal::InstrumentId::DcP7, hal::Simulated{} };
         hal::keysight_dsox1202g::DSOX1202G osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
-        hal::keysight_l4411a::L4411A  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+        hal::keysight_edu34450a::EDU34450A  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};
@@ -76,12 +76,12 @@ namespace
 
         CallSyntaxFixture()
         {
-            // Same shape as the rig's real wiring.inc entries -- DcP3's one
+            // Same shape as the rig's real wiring.inc entries -- DcP7's one
             // fixed isolation relay on Spst1/4, Osc1 on its own crosspoint
             // onto the measurement bus -- just declared locally so this
             // fixture doesn't depend on (or pollute) the rig's real global
             // wiring tables.
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Spst1, 4 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP7, { hal::SwitchDeviceId::Spst1, 7 });
             instrumentWiring.addWire( hal::InstrumentId::Osc1, { hal::SwitchDeviceId::Matrix1, 200 });
             instrumentWiring.addWire( hal::InstrumentId::Dmm1, { hal::SwitchDeviceId::Matrix1, 0 });
 
@@ -101,21 +101,21 @@ namespace
 
 TEST_F( CallSyntaxFixture, SourceThenMeasureTheSamePhysicalRailTwoDifferentWays)
 {
-    // DcP3 drives Output5V's pin via its own fixed wire, no at(...)
+    // DcP7 drives Output5V's pin via its own fixed wire, no at(...)
     // involved; Osc1 reads the same physical pin back through the mux,
     // via at(Output5V) -- the two calls don't look symmetric any more,
     // and that asymmetry is the point: one of these instruments has a
     // routing decision to make, the other doesn't.
-    apply(   dcP3.dc().voltage( 5.0_V).currentLimit( 1.0_A));
-    connect( dcP3.dc());
+    apply(   dcP7.dc().voltage( 5.0_V).currentLimit( 1.0_A));
+    connect( dcP7.dc());
 
     osc1.setSimulatedVpp( 2, 5.0_V);
 
     const auto reading = Measure( osc1.channel<2>().vpp(), at( Output5V));
 
     EXPECT_DOUBLE_EQ( reading.value(), 5.0);
-    EXPECT_TRUE( dcP3.isEnabled());
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
+    EXPECT_TRUE( dcP7.isEnabled());
+    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 7 }));
 }
 
 TEST_F( CallSyntaxFixture, MeasureConnectsThenDisconnectsAroundEachReading)
@@ -150,48 +150,48 @@ TEST_F( CallSyntaxFixture, MeasureAcceptsTheChainedThresholdBuilderDirectlyAtThe
 
 TEST_F( CallSyntaxFixture, DisconnectAndRemoveTearDownIndependentlyOfMeasure)
 {
-    apply(   dcP3.dc().voltage( 5.0_V));
-    connect( dcP3.dc());
+    apply(   dcP7.dc().voltage( 5.0_V));
+    connect( dcP7.dc());
 
     osc1.setSimulatedVpp( 2, 5.0_V);
     (void)Measure( osc1.channel<2>().vpp(), at( Output5V));
 
     // Measure's own connect/disconnect around the reading is already done
     // by this point -- disconnect()/remove() here are only tearing down
-    // dcP3's still-open source path, which was never touched by Measure()
-    // in the first place (see the fixture comment on why dcP3 and osc1
+    // dcP7's still-open source path, which was never touched by Measure()
+    // in the first place (see the fixture comment on why dcP7 and osc1
     // don't share any fabric channel any more).
-    disconnect( dcP3.dc());
-    remove(     dcP3.dc());
+    disconnect( dcP7.dc());
+    remove(     dcP7.dc());
 
-    EXPECT_FALSE( dcP3.isEnabled());
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
+    EXPECT_FALSE( dcP7.isEnabled());
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 7 }));
 }
 
 TEST_F( CallSyntaxFixture, DcSourceAndScopeUseCompletelyDisjointFabricChannelsNow)
 {
-    // Before DcP3 became fixed-wired, DcP3 and Osc1 shared Mux1/3 (the
+    // Before DcP7 became fixed-wired, DcP7 and Osc1 shared Mux1/3 (the
     // same physical rail), so connecting/disconnecting one had to leave
     // the other's use of that shared mux channel alone -- see
     // hal::SwitchFabric's use-count-based connect()/disconnect(). Now that
-    // DcP3's own connect() never touches the mux at all, there's no
-    // overlap left to protect: DcP3's path is Spst1/4 alone; Osc1's
+    // DcP7's own connect() never touches the mux at all, there's no
+    // overlap left to protect: DcP7's path is Spst1/4 alone; Osc1's
     // Measure() path is Matrix1/200 plus Mux1/3. Disjoint sets, not shared
     // ones, even though both ultimately land on the same physical pin.
-    connect( dcP3.dc());
+    connect( dcP7.dc());
 
     osc1.setSimulatedVpp( 2, 5.0_V);
     (void)Measure( osc1.channel<2>().vpp(), at( Output5V));
 
-    // dcP3's own connect is still up, and Measure()'s internal connect/
+    // dcP7's own connect is still up, and Measure()'s internal connect/
     // disconnect around the reading never touched Spst1/4 at all.
-    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
+    EXPECT_TRUE(  fabric.isClosed( { hal::SwitchDeviceId::Spst1, 7 }));
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Matrix1, 200 }));
     EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Mux1,    3 }));
 
-    disconnect( dcP3.dc());
+    disconnect( dcP7.dc());
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 4 }));
+    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 7 }));
 }
 
 TEST_F( CallSyntaxFixture, TwoWireResistanceNeverTouchesTheSenseChannels)
@@ -279,13 +279,13 @@ TEST_F( CallSyntaxFixture, ReadingACabledRailAtItsPinGoesThroughTheFabricNotTheS
 {
     // The measurement the assertion above exists to keep possible, actually
     // taken: a DMM at the rail's pin, routed like any other reading, which is
-    // a different question from DcP3.measuredVoltage() -- that one never
+    // a different question from DcP7.measuredVoltage() -- that one never
     // leaves the instrument (see core::MeasureEngine's point-free overload).
     connectorWiring.addWire( kBackupSupply, { hal::SwitchDeviceId::Mux1, 6 });
 
     const auto reading = Measure( dmm1.voltage(), at( BackupSupply));
 
-    EXPECT_EQ( reading, 0.0_V);   // the L4411A stub reads zero; that it read at all is the point
+    EXPECT_EQ( reading, 0.0_V);   // the EDU34450A stub reads zero; that it read at all is the point
 
     // Both sides of the composed route released again -- connected just long
     // enough to take the reading, see core::MeasureEngine.

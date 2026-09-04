@@ -8,11 +8,6 @@ installation procedure.
 
 ```
 instruments/
-    keysight_l4411a/            # 6.5-digit system DMM
-        CMakeLists.txt
-        README.md
-        include/hal/keysight_l4411a.hpp
-        tests/test_keysight_l4411a.cpp
     keysight_edu34450a/         # 5.5-digit dual-display bench DMM -- talks to real hardware
         CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
         README.md
@@ -31,44 +26,55 @@ instruments/
         include/hal/keysight_edu36311a.hpp
         src/keysight_edu36311a.cpp   #   the SCPI: the Apply ordering, readback, safing
         tests/test_keysight_edu36311a.cpp
-    keysight_dso8064a/          # four-channel oscilloscope -- no longer on this bench
-    keysight_n6701a/            # one DC supply channel
+    keysight_34980a/            # switch/measure MAINFRAME -- not an instrument at all
+        CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
+        README.md
+        include/hal/keysight_34980a.hpp
+        src/keysight_34980a.cpp      #   the SCPI: ROUT:CLOS/OPEN, slot inspection
+        tests/test_keysight_34980a.cpp
     keysight_ac6834b/           # three-phase AC source
     racal1260/                  # matrix-routed RS232 port
 ```
 
-Two DMMs, and they are not the same model. `Dmm1` is the `EDU34450A`, `Dmm2` the
-`L4411A` -- 5.5 digits against 6.5, three discrete resolutions against NPLC. See
-`keysight_edu34450a/README.md` for why one class covering both would have had to
-lie about one of them.
+**One of these is not an instrument, and that is not a filing mistake.**
+`keysight_34980a` is a switch/measure *mainframe* -- eight slots of switching
+modules and an optional internal DMM. It measures nothing and sources nothing on
+its own, carries no `hal::InstrumentId`, and is not an `hal::InstrumentTag`, so
+`hal::safeRig()` never sees it. It is here because
+`hal/fabric/switch_device.hpp` named this directory as the destination for
+switch-card drivers before there were any ("each model becomes its own directory
+with its own header"), and because the box is a Janus: when its internal DMM
+gets a face, that face is an instrument driver in the *same* package, sharing
+the one session. See that directory's README, and `rig/devices.inc`, which
+records this rack's migration onto one.
 
-**Two scopes, and only one of them is plugged in.** `Osc1` is the `DSOX1202G`,
-the two-channel InfiniiVision on the bench; `keysight_dso8064a` is the Infiniium
-this rig was written against before the real instrument arrived. It is kept
-because it is a working, tested driver for a real model, not because anything
-here names it — see **Availability is not use** below, which is exactly this
-situation. Their differences are instructive rather than cosmetic (two channels
-against four, one reason for an unmeasurable reading against nineteen, no 50 ohm
-input), and `keysight_dsox1202g/README.md` lists them.
+**Three directories left this tree on 2026-09-02**, and the reason is worth
+recording because it is the counterweight to **Availability is not use** below.
+`keysight_l4411a` (a 6.5-digit DMM, `Dmm2`), `keysight_n6701a` (four channels of
+a modular DC mainframe, `DcP1`..`DcP4`) and `keysight_dso8064a` (the four-channel
+Infiniium this rig was written against before the scope that turned up) were all
+deleted. None of the three is on the bench and none had grown a transport. A
+driver kept for a model nobody has is a driver nobody checks against anything —
+and the two that were still *named* by `rig/instrument.inc` were worse than
+unused, because the rig table was describing hardware that does not exist.
 
-**Two DC supplies, and they are not the same shape either.** `DcP1`..`DcP4` are
-four `N6701A` module slots behind one mainframe address; `DcP5`..`DcP7` are the
-three outputs of one `EDU36311A` chassis. Both are "one box, several
-endpoints", and where they differ is where the endpoint lives: the mainframe
-takes its slot as a constructor argument, because any module can be in any
-slot, and the EDU36311A puts its output in the *type*, because output 1 is the
-6 V / 5 A one and cannot be anything else. See
-`keysight_edu36311a/README.md`.
+What that cost, stated once so it is not rediscovered: `Dmm2` was a *different
+resolution* from `Dmm1` on purpose (6.5 digits against 5.5, NPLC against three
+discrete resolutions), and this bench now has one meter. `keysight_edu34450a`'s
+README keeps the argument for why one class covering both would have had to lie
+about one of them, which is the thing to read before adding a second meter back.
 
-**Five of the eight are simulated; three talk.** `EDU34450A`, `DSOX1202G` and
-`EDU36311A` open a SCPI session over their address and drive or read the
-instrument (`hal/io/`, see `framework/hal/README.md`); the other five answer
-from their own simulation hooks whatever their rig row says, exactly as every
-driver here used to. That asymmetry is the current state of the work rather
+**Two of the six are simulated; four talk.** `EDU34450A`, `DSOX1202G`,
+`EDU36311A` and the `34980A` mainframe open a SCPI session over their address
+and drive or read the hardware (`hal/io/`, see `framework/hal/README.md`);
+`Ac6834B` and `Racal1260` answer from their own simulation hooks whatever their
+rig row says, exactly as every driver here used to. Both are kept deliberately
+without hardware behind them, because a shipped test group depends on each —
+see `rig/instrument.inc`. That asymmetry is the current state of the work rather
 than a design; what doing it again involves is in **A driver with a transport**
 below.
 
-The three that talk are worth reading in that order. The meter is the smallest
+The four that talk are worth reading in that order. The meter is the smallest
 case -- configure, read one number, check the queue. The scope adds the three
 things a DMM never needs: a sequence that has to be *waited on* (arm, then poll
 two registers), a record transferred rather than a reading, and a measurement
@@ -76,7 +82,11 @@ whose answer may be "I could not". The supply is the first one that *drives*
 rather than observes, and what that adds is a third kind of care again: the
 order of four commands is the safety argument, `*OPC?` earns its place because
 a source's commands complete after they return, and `safe()` finally has
-something it genuinely has to say on the wire.
+something it genuinely has to say on the wire. The mainframe is the odd one out
+and the most instructive for it: it has no readings and no outputs at all, so
+what it demonstrates is the *other* half of a bench -- that a wrong command to a
+matrix is not a wrong reading but a reading of a different node, which nothing
+downstream can notice.
 
 ## One name, in four places
 
@@ -85,10 +95,10 @@ target and its C++ namespace:
 
 | | |
 |---|---|
-| directory | `instruments/keysight_dso8064a/` |
-| header | `include/hal/keysight_dso8064a.hpp`, included as `"hal/keysight_dso8064a.hpp"` |
-| target | `hal_keysight_dso8064a`, aliased `Thorium::hal_keysight_dso8064a` |
-| namespace | `hal::keysight_dso8064a` |
+| directory | `instruments/keysight_dsox1202g/` |
+| header | `include/hal/keysight_dsox1202g.hpp`, included as `"hal/keysight_dsox1202g.hpp"` |
+| target | `hal_keysight_dsox1202g`, aliased `Thorium::hal_keysight_dsox1202g` |
+| namespace | `hal::keysight_dsox1202g` |
 
 Two rules produced that shape, and both come from a collision that actually
 happened rather than from a preference.
@@ -96,9 +106,11 @@ happened rather than from a preference.
 **The manufacturer is part of the name.** A model number is not unique across
 vendors — two of them may each ship a "1260" or a "4411" — so a bare model name
 is a collision waiting for the second vendor. The token names the company as it
-is today rather than the badge on the unit: the DSO8064A, L4411A and N6701A all
-shipped as Agilent products and are now Keysight, and one vendor appearing under
-two spellings would be worse than a name that is one acquisition out of date.
+is today rather than the badge on the unit: the 34980A and the Ac6834B both
+shipped as Agilent products and are now Keysight -- the 34980A's own
+programmer's reference still says Agilent on every page -- and one vendor
+appearing under two spellings would be worse than a name that is one
+acquisition out of date.
 `racal1260` already reads as Racal's, which is why it is not `racal_1260`.
 
 `keysight_edu36311a` is the case where this rule stops being about vendors and
@@ -111,17 +123,17 @@ E36311A on `*IDN?` rather than tolerating it.
 This is the rule to follow when adding one, and the reason is what happens
 without it. Every driver used to declare straight into `hal`, and the satellite
 types had to invent long unique names to stay out of each other's way —
-`DSO8064ATriggerBuilder`, `Racal1260Config`. Worse were the ones that did *not*,
+`DSOX1202GTriggerBuilder`, `Racal1260Config`. Worse were the ones that did *not*,
 because nothing had claimed the word yet: `Parity`, `StopBits`, `TriggerSlope`,
 `Bandwidth`, `ChannelInput`, `ProbeAdapter` and four more were sitting directly
 in `hal`, owned by whichever driver happened to declare them first. The second
 serial instrument or the second scope collides on all of them — and this tree
 now *has* a second scope, so that is no longer hypothetical: `keysight_dsox1202g`
-and `keysight_dso8064a` both declare a `Bandwidth`, a `TriggerSlope`, a
+and `keysight_dsox1202g` both declare a `Bandwidth`, a `TriggerSlope`, a
 `TimebaseReference` and six more, and they mean different sets of values.
 
 Inside its own namespace a driver's types say only what they are —
-`hal::keysight_dso8064a::TriggerBuilder`, `hal::racal1260::Parity` — and cannot
+`hal::keysight_dsox1202g::TriggerBuilder`, `hal::racal1260::Parity` — and cannot
 collide with another driver at all.
 
 Nested inside `hal` rather than beside it, which is what keeps a driver's bodies
@@ -213,7 +225,7 @@ for a second instrument, an `Apply` or `safeRig()` from either of the first two
 fails to build where it sits. See `rig/README.md`.
 
 The split of `test_source_instruments.cpp` is the one place where moving tests was
-not a verbatim lift. It held N6701A's and Ac6834B's tests behind a single shared
+not a verbatim lift. It held the N6701A's and Ac6834B's tests behind a single shared
 fixture; each driver now carries its own copy of the fixture, trimmed to the
 instruments it actually names, with the test bodies unchanged. Fixture and suite
 names were deliberately *not* improved at the same time — `TEST_F` takes its suite
@@ -222,7 +234,7 @@ before/after comparison that made the move verifiable.
 
 ## Adding a driver
 
-Copy `keysight_l4411a/` as the template for a simulated driver, or
+Copy `keysight_ac6834b/` as the template for a simulated driver, or
 `keysight_edu34450a/` for one that talks. The first is the smallest one and
 exercises every part of the arrangement: an `INTERFACE` header-only target, the
 `include/hal/<model>.hpp` layout that keeps the `"hal/<model>.hpp"` spelling and
@@ -230,12 +242,12 @@ exercises every part of the arrangement: an `INTERFACE` header-only target, the
 the export/install rules, and a test target linking the published API only.
 
 Constrain the constructor to the bus kinds the model's back panel actually has,
-the way `l4411a/` does:
+the way `ac6834b/` does:
 
 ```cpp
 template<typename AddressT>
     requires ReachableOver<AddressT, Lan, Usb>
-L4411A( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+Ac6834B( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 ```
 
 That list is a claim about hardware, so it belongs with the driver rather than
@@ -340,7 +352,7 @@ api_version.hpp:150: error: static assertion failed: This instrument driver was
 written against a NEWER hal API than the one it is being compiled against:
 update framework/hal, or install the driver package matching this hal. [...]
     note: in expansion of macro 'THORIUM_REQUIRE_HAL_API'
-    l4411a.hpp:23 | THORIUM_REQUIRE_HAL_API( 2);
+    ac6834b.hpp:23 | THORIUM_REQUIRE_HAL_API( 2);
 ```
 
 Two numbers live in `hal/driver/api_version.hpp`, and the second is what keeps the gate
@@ -357,7 +369,7 @@ switched off within a week.
 
 The number is written as a **literal**, never as `THORIUM_HAL_API_VERSION`
 itself — which would assert that this `hal` is compatible with this `hal`, and
-pass everywhere. `keysight_l4411a` is at 1, four are at 2 (they use
+pass everywhere. Two are at 2 (they use
 `hal::ConfigBuilder`), and `keysight_edu34450a` is at 3 (it uses `hal/io/`).
 
 One thing the gate cannot do, worth knowing before trusting it: nothing derives

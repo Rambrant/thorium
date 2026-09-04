@@ -111,6 +111,47 @@ namespace hal
         }
     }
 
+    //
+    // The matrix crosspoint written as a row and a column, for a card that
+    // numbers its crosspoints by those two and nothing else -- a Keysight
+    // 34932A's 315 is row 3, column 15.
+    //
+    // A third spelling rather than crosspoint() with a group of zero, because
+    // a group this card does not have is not a group whose value is zero: the
+    // four-argument form on a 34932A would read as "group 0" and leave a
+    // reader wondering which of four groups that is, on a card with none. The
+    // 1260-45A genuinely has four independent matrices selected by a group
+    // digit; the 34932A has two selected by which half of the row axis you
+    // are on (rows 1-4 are Matrix 1, rows 5-8 are Matrix 2), which is a fact
+    // about the rows rather than a separate coordinate.
+    //
+    // Only a card whose spec carries the scheme can be written this way, so
+    // ROW_COLUMN on a mux, or on the 1260-45A, is a compile error rather than
+    // arithmetic that happens to produce a number.
+    //
+    template<SwitchDeviceId Device, unsigned Row, unsigned Column>
+    [[nodiscard]]
+    constexpr auto rowColumn() -> SwitchElementId
+    {
+        static_assert( specOf( modelOf( Device)).RowColumn != nullptr,
+                       std::string( "this card has no plain row/column numbering -- ") +
+                       std::string( partOf( Device)) + " has " + std::string( channelsOf( Device)));
+
+        //
+        // Guarded so a card without the scheme fails on the assertion above
+        // and nothing else -- see crosspoint() for the null-function-pointer
+        // problem this avoids.
+        //
+        if constexpr( specOf( modelOf( Device)).RowColumn != nullptr)
+        {
+            return hop<Device, specOf( modelOf( Device)).RowColumn( Row, Column)>();
+        }
+        else
+        {
+            return SwitchElementId{ Device, 0 };
+        }
+    }
+
     template<SwitchDeviceId Device, unsigned Bank, unsigned Channel>
     [[nodiscard]]
     constexpr auto bank() -> SwitchElementId

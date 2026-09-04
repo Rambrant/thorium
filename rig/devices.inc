@@ -88,6 +88,113 @@
 //          park the card powers up into, and the DUT's clock probe is on
 //          channel 01. Banks 1-5 are spare.
 //
+// -- Where this rack is going: a 34980A ------------------------------------
+//
+// The five rows below are staying, and they are also on their way out. The
+// decision taken 2026-09-02 is that this rig's switching becomes a single
+// Keysight 34980A Multifunction Switch/Measure Unit -- which is what that box
+// is for: it is the modern one-chassis replacement for exactly this
+// arrangement, a VXI rack of LF cards plus a separate RF selector.
+//
+// The module set was named on 2026-09-02 and is not a guess:
+//
+//     slots 1-4   Keysight 34932A   dual 4 x 16 armature matrix,
+//                                   +/-300 V, 1 A, 30 MHz  (four of them)
+//     slot  5     Keysight 34941A   quad 1 x 4 RF multiplexer,
+//                                   50 ohm, 3 GHz, SMA
+//
+// Both are declared in generic hal (hal::SwitchDeviceModel::Keysight34932A and
+// ::Keysight34941A) with their real channel spaces, which is the half of the
+// migration that needed no wiring decisions. Their numbering is worth knowing
+// before reading any of it: a 34932A channel is <row><column> with the row one
+// digit and the column two (315 is row 3 column 15) and it is ONE-based, unlike
+// every Racal card in this table; the two matrices on one module share the row
+// axis, Matrix 1 being rows 1-4 and Matrix 2 rows 5-8. A 34941A channel is
+// <bank><channel>, bank 1-4 and channel 01-04, so 103 is bank 1 channel 03 --
+// the same shape as the E1472A's and a decade apart in the packing.
+//
+// -- What that module set does and does not replace -------------------------
+//
+// It is not a five-for-five swap, and the differences are the whole reason the
+// rows below have not moved yet. Two of this rack's five roles have a better
+// home on the new hardware, one has an equal one, and two have none at all:
+//
+//     Matrix1  the instrument crossbar. A 34932A carries it with room to
+//              spare and more bandwidth than the 1260-45A had (30 MHz against
+//              25).
+//
+//     Mux1     the DUT fan-in. This is the one that gets *better* rather than
+//              merely equivalent: a 1260-35's 96 channels all share one
+//              common, which is exactly why this rig has one measurement bus
+//              and why closing two mux channels shorts two DUT pins together
+//              (see rig/wiring.inc's own comment on both). Matrix columns are
+//              a real crossbar, so that constraint simply goes away.
+//
+//     RfMux1   the HF path. A 34941A is four banks against the E1472A's six
+//              and 3 GHz against 1.3, both fine for one clock probe.
+//
+//     Spst1    the isolation relay in each supply lead -- and this one has
+//              NOWHERE to go. A 1260-18 relay is rated 2 A; every channel of
+//              a 34932A is rated 1 A. So the new rack cannot switch a supply
+//              lead at all above 1 A, which includes AcP1's three phases (a
+//              rig power-on applies 3 A) and leaves DcP6/DcP7 sitting exactly
+//              on the limit with no margin. DcP5 was already unswitchable at
+//              5 A and stays so, by a wider margin.
+//
+//     Spdt1    the console changeover, and it has no Form C to go to. What
+//              that relay buys is a *parked* pin: the DUT's console line sits
+//              on a relay common with the bench's serial line on the
+//              normally-open contact and a parking network on the
+//              normally-closed one, so an unconnected console is three
+//              defined pins rather than three floating ones. A matrix
+//              crosspoint is make-only.
+//
+// Neither gap is a reason to keep the Racal rack, and neither is settled here
+// because neither is a code decision. What closes them, for the record:
+//
+//     the power path      a 34938A (20-channel 5 A Form A) would carry every
+//                         rail this rig has, DcP5 included. A 34937A is the
+//                         32-channel general-purpose alternative. Either is a
+//                         module to buy, and without one the switched rails
+//                         become hard-wired -- which is a change to
+//                         rig/instrument.inc's type column, not to wiring.
+//
+//     the console park    two crosspoints per line rather than one relay: the
+//                         DUT pin on a row, the bench serial line on one
+//                         column and the parking network on another, closing
+//                         exactly one of the two. A matrix can do this, and
+//                         ROUT:CLOS:EXCL makes the changeover atomic per
+//                         module (see instruments/keysight_34980a), so the
+//                         park survives -- at the cost of dedicating a module
+//                         to the console and of teaching hal::SwitchFabric an
+//                         exclusive close, which it has no notion of today.
+//
+// -- Why the rows below have not moved --------------------------------------
+//
+// Because the two gaps above are wiring decisions and a row here is half of a
+// wiring decision. Changing a row's model changes which channel numbers
+// rig/wiring.inc may legally write (hal::hasChannel is a compile-time check),
+// so devices.inc and wiring.inc migrate together or not at all -- and the
+// wiring cannot be re-planned until it is known whether the rails and the
+// console keep their relays.
+//
+// What has landed is everything that needed no such decision: the two module
+// models above, and the mainframe itself as instruments/keysight_34980a/. That
+// is deliberately a driver rather than a row here, because on a 34980A the
+// *chassis* is the thing that talks -- "ROUT:CLOS (@3010)" is a mainframe
+// command -- and a module only decides which channel numbers mean anything.
+// Which is the same division this rack already has, one protocol older: four
+// 1260 cards behind one Option 01T controller, with the card number riding
+// inside the command.
+//
+// One structural question that driver's arrival makes concrete, and this table
+// is where it will be answered: there is no row for a chassis, and no
+// hal::SwitchDeviceId for one. Five module rows in one 34980A would be five
+// rows repeating one address -- which is exactly the case rig/instrument.inc
+// has already predicted an answer for, about its own second shared box: "a
+// named constant above this table per chassis, not a slot field on the
+// address." That is the line to write here when the first module row does.
+//
 // -- Provisional ------------------------------------------------------------
 //
 // TODO(bench): the addresses, the card numbers and every channel in wiring.inc

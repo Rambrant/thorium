@@ -32,16 +32,18 @@ auto rigPowerOff() -> bool
     // -- see dut/adapter.inc), goes last.
     //
     // Within the DC group the order carries no claim yet, and this file should
-    // not pretend otherwise: which DcP instance is the battery rail, which are
-    // backups, and which feeds discrete-input signals is a DUT fact this
-    // deployment has not recorded -- dut/adapter.inc makes exactly the same
-    // hedge about which point each one lands on ("worth confirming against the
-    // schematic before asserting it"). When that mapping is confirmed, the
-    // order below is where it gets written down.
+    // not pretend otherwise: whether the battery rail has to go before or
+    // after the backup is a DUT fact this deployment has not recorded. When
+    // that is confirmed, the order below is where it gets written down.
     //
-    Remove( DcP1.dc());
-    Remove( DcP2.dc());
-    Remove( DcP3.dc());
+    // Two DC rails rather than three, since 2026-09-02: this rig's supplies
+    // are now the two usable outputs of one EDU36311A where they were four
+    // channels of an N6701A mainframe, and dut::BackupSupply_2 has nothing
+    // driving it any more (see rig/instrument.inc and dut/adapter.inc). There
+    // is nothing to take down for a rail nobody brought up.
+    //
+    Remove( DcP6.dc());
+    Remove( DcP7.dc());
     Remove( AcP1.ac());
 
     //
@@ -53,13 +55,23 @@ auto rigPowerOff() -> bool
     // which is precisely the argument for having them in one function rather
     // than spread across whichever scripts happened to use each supply.
     //
-    // Three of the five appear here, and that is enforced rather than
-    // remembered: DcP1/DcP2 are hal::keysight_n6701a::Direct -- wired straight through
-    // with no isolation relay -- so Disconnect( DcP1.dc()) is a compile error
-    // rather than a call that quietly does nothing (see hal::keysight_n6701a::SwitchableIsolation
-    // in hal/keysight_n6701a.hpp).
+    // Every source this hook took down appears here, which was not true
+    // before: while an N6701A fed the DC rails, DcP1/DcP2 were
+    // hal::keysight_edu36311a::DirectOutput1 -- wired straight through with no isolation
+    // relay -- so Disconnect( DcP1.dc()) was a compile error rather than a
+    // call that quietly did nothing. The EDU36311A outputs that replaced them
+    // are 1 A and fit inside a 1260-18 relay, so both are RelayOutput and both
+    // have something to open.
     //
-    Disconnect( DcP3.dc());
+    // Which is still enforced rather than remembered, and there is still an
+    // output on this bench it would refuse: DcP5, the 6 V / 5 A one, is
+    // DirectOutput because no relay in this rack carries 5 A, so
+    // Disconnect( DcP5.dc()) does not compile (see
+    // hal::keysight_edu36311a::SwitchableIsolation). It drives nothing here, so
+    // the question does not arise -- but the guarantee is the same one.
+    //
+    Disconnect( DcP6.dc());
+    Disconnect( DcP7.dc());
     Disconnect( AcP1.ac());
 
     //

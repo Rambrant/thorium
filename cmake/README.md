@@ -110,8 +110,8 @@ column have to be visible before it expands. This module generates them:
 table first names them.
 
 It works because a driver package, its header and its namespace all carry one
-name — `keysight_n6701a`, `hal/keysight_n6701a.hpp`, `hal::keysight_n6701a` —
-so the qualifier on a row's type column (`keysight_n6701a::Direct`) already
+name — `keysight_edu36311a`, `hal/keysight_edu36311a.hpp`, `hal::keysight_edu36311a` —
+so the qualifier on a row's type column (`keysight_edu36311a::RelayOutput2`) already
 names the header that row needs. Four `DcP` rows share one driver and collapse
 to one include.
 

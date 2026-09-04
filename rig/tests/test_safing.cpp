@@ -5,8 +5,9 @@
 #include "hal/keysight_dsox1202g.hpp"
 #include "hal/keysight_edu36311a.hpp"
 #include "hal/driver/instrument.hpp"
-#include "hal/keysight_l4411a.hpp"
-#include "hal/keysight_n6701a.hpp"
+#include "hal/keysight_edu34450a.hpp"
+#include "hal/keysight_edu36311a.hpp"
+#include "hal/racal1260.hpp"
 #include "hal/fabric/switch_fabric.hpp"
 
 #include <gtest/gtest.h>
@@ -28,11 +29,12 @@ namespace
     // the requirement is visible where the rest of the safing behaviour is
     // documented, rather than only inside safeRig()'s own reflection loop.
     //
-    static_assert( hal::SafeableInstrument< hal::keysight_n6701a::Direct> );
-    static_assert( hal::SafeableInstrument< hal::keysight_n6701a::Relay> );
+    static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput1> );
+    static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::RelayOutput3> );
     static_assert( hal::SafeableInstrument< hal::keysight_ac6834b::Ac6834B> );
-    static_assert( hal::SafeableInstrument< hal::keysight_l4411a::L4411A> );
+    static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::EDU34450A> );
     static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::DSOX1202G> );
+    static_assert( hal::SafeableInstrument< hal::racal1260::Racal1260> );
 
     //
     // The other compile-time half, specific to reflecting over InstrumentTag
@@ -42,18 +44,19 @@ namespace
     // hal/driver/instrument.hpp) -- a type satisfying SafeableInstrument without
     // also deriving from InstrumentTag would not fail any static_assert at
     // all, because safeRig()'s loop would simply never reach it; there is
-    // no case to fall into, the same silent-skip shape hal::keysight_l4411a::L4411A::safe()'s
+    // no case to fall into, the same silent-skip shape hal::keysight_edu34450a::EDU34450A::safe()'s
     // own comment warns an opt-in mechanism would have. These static_asserts
     // are what actually closes that gap: every real driver type is checked
     // against both requirements independently here, so a future driver
     // missing either one is caught at this line, not discovered only when
     // it silently never gets safed on the bench.
     //
-    static_assert( std::derived_from< hal::keysight_n6701a::Direct, hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::keysight_n6701a::Relay,  hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::keysight_ac6834b::Ac6834B,      hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::keysight_l4411a::L4411A,       hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::keysight_dsox1202g::DSOX1202G,    hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_edu36311a::DirectOutput1, hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_edu36311a::RelayOutput3,  hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_ac6834b::Ac6834B,         hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_edu34450a::EDU34450A,     hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_dsox1202g::DSOX1202G,     hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::racal1260::Racal1260,              hal::InstrumentTag> );
 
     //
     // The other direction, which is the half that actually demonstrates
@@ -70,7 +73,7 @@ namespace
         // whose author never wrote safe(). If hal::safeRig() had been
         // built as an opt-in customization point defaulting to a no-op,
         // this type would be silently accepted and never safed; see
-        // hal::keysight_l4411a::L4411A::safe() for why it isn't.
+        // hal::keysight_edu34450a::EDU34450A::safe() for why it isn't.
     };
 
     static_assert( !hal::SafeableInstrument< DriverThatForgotToSafe> );
@@ -95,19 +98,14 @@ namespace
 
         auto energiseEverything() const -> void
         {
-            DcP1.applyOutput( 24.0_V, 7.0_A);
-            DcP2.applyOutput( 5.0_V, 2.0_A);
-            DcP3.applyOutput( 12.0_V, 1.0_A);
-            DcP4.applyOutput( 48.0_V, 0.5_A);
-
             //
-            // The EDU36311A's three outputs, each within its own badge -- 6 V
-            // on the 6 V / 5 A one and 24 V on the two 30 V / 1 A ones. Not
-            // arbitrary numbers: that driver refuses a setpoint beyond an
+            // The EDU36311A's three outputs, each within its own badge -- 5 V
+            // on the 6 V / 5 A one and 24 V or less on the two 30 V / 1 A ones.
+            // Not arbitrary numbers: that driver refuses a setpoint beyond an
             // output's rating before anything is remembered (see
             // hal::keysight_edu36311a::RatingExceeded), so a fixture handing
-            // one 48 V the way DcP4 gets it above would throw rather than
-            // energise.
+            // one 48 V -- as this one did when an N6701A was on the bench --
+            // would throw rather than energise.
             //
             DcP5.applyOutput(  5.0_V, 4.0_A, std::nullopt);
             DcP6.applyOutput( 24.0_V, 0.5_A, std::nullopt);
@@ -124,30 +122,20 @@ namespace
 TEST_F( SafingFixture, SafeRigDisablesEveryDcSourceAndZeroesItsSetpoint)
 {
     energiseEverything();
-    ASSERT_TRUE( DcP1.isEnabled());
+    ASSERT_TRUE( DcP5.isEnabled());
 
     hal::safeRig();
 
-    // Both halves matter: the output is off, and the setpoint it would
-    // come back at is zero -- see hal::keysight_n6701a::N6701A::safe() on why safing
-    // clears the setpoint rather than only disabling the output.
-    EXPECT_FALSE( DcP1.isEnabled());
-    EXPECT_FALSE( DcP2.isEnabled());
-    EXPECT_FALSE( DcP3.isEnabled());
-    EXPECT_FALSE( DcP4.isEnabled());
-
-    EXPECT_DOUBLE_EQ( DcP1.outputVoltage().value(), 0.0);
-    EXPECT_DOUBLE_EQ( DcP2.outputVoltage().value(), 0.0);
-    EXPECT_DOUBLE_EQ( DcP3.outputVoltage().value(), 0.0);
-    EXPECT_DOUBLE_EQ( DcP4.outputVoltage().value(), 0.0);
-
     //
-    // And the second supply, which is a different driver and a different C++
-    // type reached by the same reflection -- which is the part of safeRig()
-    // this half actually tests. Its safe() makes the same two promises for the
-    // same reason (see hal::keysight_edu36311a::EDU36311A::safe()), and if this
-    // rig ever declares a source whose driver forgot the member, the build
-    // fails naming the type rather than the run leaving a rail live.
+    // Both halves matter: the output is off, and the setpoint it would come
+    // back at is zero -- see hal::keysight_edu36311a::EDU36311A::safe() on why
+    // safing clears the setpoint rather than only disabling the output.
+    //
+    // All three outputs of one supply, reached by reflection over the globals
+    // rather than by anything that knows they share a chassis -- which is the
+    // part of safeRig() this actually tests. If this rig ever declares a
+    // source whose driver forgot the member, the build fails naming the type
+    // rather than the run leaving a rail live.
     //
     EXPECT_FALSE( DcP5.isEnabled());
     EXPECT_FALSE( DcP6.isEnabled());
@@ -180,9 +168,9 @@ TEST_F( SafingFixture, SafeRigLeavesCurrentLimitsInPlace)
     // Not an oversight -- with the output off and the setpoint at zero a
     // stale limit has nothing to limit, and an accidental re-enable is
     // better off finding one still set than finding none. See
-    // hal::keysight_n6701a::N6701A::safe().
-    ASSERT_TRUE( DcP1.currentLimit().has_value());
-    EXPECT_DOUBLE_EQ( DcP1.currentLimit()->value(), 7.0);
+    // hal::keysight_edu36311a::EDU36311A::safe().
+    ASSERT_TRUE( DcP5.currentLimit().has_value());
+    EXPECT_DOUBLE_EQ( DcP5.currentLimit()->value(), 4.0);   // what energiseEverything() set
 }
 
 TEST_F( SafingFixture, SafeRigOpensEveryRelayInTheFabric)
@@ -222,7 +210,7 @@ TEST_F( SafingFixture, SafeRigIsIdempotent)
     hal::safeRig();
     hal::safeRig();
 
-    EXPECT_FALSE( DcP1.isEnabled());
+    EXPECT_FALSE( DcP5.isEnabled());
     EXPECT_FALSE( AcP1.isEnabled());
     EXPECT_FALSE( hal::fabric.isClosed( someElement));
 }
@@ -235,7 +223,7 @@ TEST_F( SafingFixture, SafeRigWorksOnAnAlreadyIdleRigWithNoSetupAtAll)
     hal::safeRig();
     hal::safeRig();
 
-    EXPECT_FALSE( DcP1.isEnabled());
+    EXPECT_FALSE( DcP5.isEnabled());
     EXPECT_FALSE( hal::fabric.isClosed( someElement));
 }
 
@@ -268,15 +256,15 @@ TEST( Safing, SourceSafeIsIndependentOfRemoveAndNeedsNoFabricOrWiring)
     // script was driving. safe() is called when that is exactly what
     // nobody knows, so it is reachable on a bare instrument with no
     // engine, no fabric, and no wiring table in sight.
-    hal::keysight_n6701a::Relay dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+    hal::keysight_edu36311a::RelayOutput3 dcP7{ hal::InstrumentId::DcP7, hal::Simulated{} };
 
-    dcP3.applyOutput( 24.0_V, 7.0_A);
-    ASSERT_TRUE( dcP3.isEnabled());
+    dcP7.applyOutput( 24.0_V, 1.0_A, std::nullopt);
+    ASSERT_TRUE( dcP7.isEnabled());
 
-    dcP3.safe();
+    dcP7.safe();
 
-    EXPECT_FALSE( dcP3.isEnabled());
-    EXPECT_DOUBLE_EQ( dcP3.outputVoltage().value(), 0.0);
+    EXPECT_FALSE( dcP7.isEnabled());
+    EXPECT_DOUBLE_EQ( dcP7.outputVoltage().value(), 0.0);
 }
 
 TEST_F( SafingFixture, RigSafingGuardSafesOnNormalScopeExit)
@@ -285,10 +273,10 @@ TEST_F( SafingFixture, RigSafingGuardSafesOnNormalScopeExit)
         hal::RigSafingGuard safeOnExit;
 
         energiseEverything();
-        ASSERT_TRUE( DcP1.isEnabled());
+        ASSERT_TRUE( DcP5.isEnabled());
     }
 
-    EXPECT_FALSE( DcP1.isEnabled());
+    EXPECT_FALSE( DcP5.isEnabled());
     EXPECT_FALSE( hal::fabric.isClosed( someElement));
 }
 
@@ -300,7 +288,7 @@ TEST_F( SafingFixture, RigSafingGuardSafesWhenUnwoundByAnException)
     // that unwind, not only on the return path energiseEverything() itself
     // takes.
     energiseEverything();
-    ASSERT_TRUE( DcP1.isEnabled());
+    ASSERT_TRUE( DcP5.isEnabled());
 
     try
     {
@@ -311,21 +299,21 @@ TEST_F( SafingFixture, RigSafingGuardSafesWhenUnwoundByAnException)
     {
     }
 
-    EXPECT_FALSE( DcP1.isEnabled());
+    EXPECT_FALSE( DcP5.isEnabled());
     EXPECT_FALSE( hal::fabric.isClosed( someElement));
 }
 
 TEST( Safing, DirectWiredSupplySafesTheSameWayARelayIsolatedOneDoes)
 {
     // Isolation is about whether there is a relay to Connect/Disconnect
-    // (see hal::keysight_n6701a::SwitchableIsolation) -- it says nothing about whether the
+    // (see hal::keysight_edu36311a::SwitchableIsolation) -- it says nothing about whether the
     // output can be dropped. Both kinds safe identically, which is why
     // safe() is unconstrained where connectDriver is not.
-    hal::keysight_n6701a::Direct dcP1{ hal::InstrumentId::DcP1, hal::Simulated{}, 1 };
+    hal::keysight_edu36311a::DirectOutput1 dcP5{ hal::InstrumentId::DcP5, hal::Simulated{} };
 
-    dcP1.applyOutput( 24.0_V, std::nullopt);
-    dcP1.safe();
+    dcP5.applyOutput( 5.0_V, std::nullopt, std::nullopt);
+    dcP5.safe();
 
-    EXPECT_FALSE( dcP1.isEnabled());
-    EXPECT_DOUBLE_EQ( dcP1.outputVoltage().value(), 0.0);
+    EXPECT_FALSE( dcP5.isEnabled());
+    EXPECT_DOUBLE_EQ( dcP5.outputVoltage().value(), 0.0);
 }

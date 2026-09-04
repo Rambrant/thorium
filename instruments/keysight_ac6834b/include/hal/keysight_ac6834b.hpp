@@ -191,8 +191,8 @@ namespace hal::keysight_ac6834b
     // separately.
     //
     // Tag types on the builder and its config rather than a runtime flag, the
-    // same shape (and for the same reason) as hal::keysight_n6701a::DirectWiring/
-    // RelayIsolated in hal/keysight_n6701a.hpp: what differs between the two is the
+    // same shape (and for the same reason) as hal::keysight_edu36311a::DirectWiring/
+    // RelayIsolated in hal/keysight_edu36311a.hpp: what differs between the two is the
     // *type* of what a config holds -- one voltage or three -- so a driver
     // reading it never has to ask which case it is in.
     //
@@ -263,7 +263,7 @@ namespace hal::keysight_ac6834b
     }
 
     //
-    // Symmetric with N6701AConfig (see hal/keysight_n6701a.hpp) -- no points here
+    // Symmetric with N6701AConfig (see hal/keysight_edu36311a.hpp) -- no points here
     // either, and for the same reason: AcP1's three phases (and its
     // ground/neutral return -- see this header's own comment on Ac6834B)
     // are each hard-cabled to one fixed VPC pin, not routed through a mux
@@ -356,7 +356,7 @@ namespace hal::keysight_ac6834b
 
     //
     // Same fluent-builder shape as N6701ABuilder -- see its own comment in
-    // hal/keysight_n6701a.hpp -- with one addition: a per-phase setter returns a
+    // hal/keysight_edu36311a.hpp -- with one addition: a per-phase setter returns a
     // builder of a *different* symmetry, so a chain that names phases
     // individually ends up holding an AcConfig<PerPhase> and one that
     // does not keeps the balanced config it started with.
@@ -503,8 +503,8 @@ namespace hal::keysight_ac6834b
     // The Agilent/Keysight 6834B AC Power Source/Analyzer: 4500 VA total
     // (1500 VA per phase), two output ranges (150 V/30 A and 300 V/15 A),
     // three-phase, GPIB/RS-232 with SCPI. Modeled after the physical
-    // instrument deliberately -- see hal::keysight_n6701a::N6701A's own comment in
-    // hal/keysight_n6701a.hpp for why.
+    // instrument deliberately -- see hal::keysight_edu36311a::EDU36311A's own comment in
+    // hal/keysight_edu36311a.hpp for why.
     //
     // Everything below that names a SCPI command is taken from the Agilent
     // "AC Power Solutions" programming guide (part 5962-0889), which covers
@@ -567,7 +567,7 @@ namespace hal::keysight_ac6834b
     //     no hardware behind it cannot exercise it.
     //
     // Fixed-wired, same reasoning and same safety motivation as
-    // hal::keysight_n6701a::N6701A (see that class's own comment) -- but with four physical
+    // hal::keysight_edu36311a::EDU36311A (see that class's own comment) -- but with four physical
     // connections rather than one: phases A, B, and C, plus the neutral/
     // ground return. An earlier version of this file treated the neutral
     // return as simply not modeled at all ("hard-wired to ground, outside
@@ -729,7 +729,7 @@ namespace hal::keysight_ac6834b
 
             //
             // What this source reports about its own output, over its own
-            // interface -- see hal::keysight_n6701a::N6701A::measuredVoltage() for the reasoning,
+            // interface -- see hal::keysight_edu36311a::EDU36311A::measuredVoltage() for the reasoning,
             // which is the same here and matters more: 115 V at 5 A is not a
             // signal, so there is no version of this reading that travels
             // through the signal switching.
@@ -855,7 +855,7 @@ namespace hal::keysight_ac6834b
             // Drop this source to a known idle state, unconditionally --
             // same contract, and the same reasoning for zeroing the
             // setpoint rather than only disabling the output, as
-            // hal::keysight_n6701a::N6701A::safe(); see that function's own comment.
+            // hal::keysight_edu36311a::EDU36311A::safe(); see that function's own comment.
             // mFrequency and the per-phase current limits are left as-is for
             // the same reason its mCurrentLimit is.
             //
@@ -1001,13 +1001,13 @@ namespace hal::keysight_ac6834b
     };
 
     //
-    // ADL targets for core::ApplyEngine/RemoveEngine -- see hal/keysight_n6701a.hpp's
+    // ADL targets for core::ApplyEngine/RemoveEngine -- see hal/keysight_edu36311a.hpp's
     // own comment on the same mechanism. Programs -- or disables -- the
     // instrument's simulated output only; see connectDriver/disconnectDriver
     // below for the fabric routing this used to also do.
     //
     // One template over both symmetries rather than an overload apiece: the
-    // body is the same once detail::asPerPhase() has run, and hal::keysight_n6701a::N6701A's
+    // body is the same once detail::asPerPhase() has run, and hal::keysight_edu36311a::EDU36311A's
     // SwitchableIsolation comment gives the reason for preferring that shape
     // -- an overload per named tag means every tag carries an identical copy
     // of the same body, purely because it was named.
@@ -1031,7 +1031,7 @@ namespace hal::keysight_ac6834b
     }
 
     //
-    // ADL target for the electrical interlock -- see hal::keysight_n6701a::N6701A's own
+    // ADL target for the electrical interlock -- see hal::keysight_edu36311a::EDU36311A's own
     // isEnergised for the contract, which is identical, and core/verbs/interlock.hpp
     // for why every config with an applyDriver must have one.
     //
@@ -1081,7 +1081,7 @@ namespace hal::keysight_ac6834b
     } // namespace detail
 
     //
-    // ADL target for the run journal -- see hal/keysight_n6701a.hpp's describeConfig for
+    // ADL target for the run journal -- see hal/keysight_edu36311a.hpp's describeConfig for
     // the same mechanism and hal/driver/describe.hpp for the helpers. "3-phase" is
     // stated rather than implied so a reader of the log knows what was
     // driven without going to look up the model -- not because it could have
@@ -1130,7 +1130,7 @@ namespace hal::keysight_ac6834b
 
     //
     // ADL targets for core::ConnectEngine/DisconnectEngine -- see
-    // hal/keysight_n6701a.hpp's own comment on the same mechanism. Closes -- or
+    // hal/keysight_edu36311a.hpp's own comment on the same mechanism. Closes -- or
     // opens -- all four of this instrument's fixed channels together (see
     // hal::InstrumentWiring::findAll() and this class's own comment on why
     // ground/neutral is included), additively (hal::SwitchFabric::

@@ -36,7 +36,7 @@
 #include "scripts.hpp"
 
 //
-// The rig: Dmm1, Osc1, DcP1.. as globals a script addresses by name, and the
+// The rig: Dmm1, Osc1, DcP5.. as globals a script addresses by name, and the
 // verbs they are pointed through -- Measure, and the Apply/Connect/Disconnect/
 // Remove sourcing counterparts. at(...) comes with them.
 //

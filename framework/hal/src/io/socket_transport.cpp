@@ -112,7 +112,7 @@ namespace hal::io
         {
             const int error = WSAGetLastError();
 
-            return error == WSAEWOULDBLOCK || error == WSAEINPROGRESS;
+            return error == WSAEWOULDBLOCK || error == WSAEINPROGRESS || error == WSAETIMEDOUT;
         }
 
         [[nodiscard]]
@@ -144,7 +144,7 @@ namespace hal::io
         [[nodiscard]]
         auto pollWritable( const SocketHandle socket, const std::chrono::milliseconds timeout) -> int
         {
-            WSAPOLLFD descriptor{ socket, POLLWRNORM, 0 };
+            WSAPOLLFD descriptor{ socket, POLLOUT, 0 };
 
             return ::WSAPoll( &descriptor, 1, static_cast<INT>( timeout.count()));
         }

@@ -101,8 +101,8 @@ disconnects them as a unit — a three-phase source with one phase live and its
 return open is not a state worth being able to reach.
 
 This is why `findAll()` exists alongside `find()`: single-channel instruments
-like `hal::keysight_l4411a::L4411A` and `hal::keysight_dso8064a::DSO8064A` use `find()`, while this driver and
-relay-isolated `hal::keysight_n6701a::N6701A` outputs with remote sense need every entry for
+like `hal::keysight_edu34450a::EDU34450A` and the retired Infiniium driver use `find()`, while this driver and
+relay-isolated `hal::keysight_edu36311a::EDU36311A` outputs with remote sense need every entry for
 their id at once.
 
 ## Adding it to a rig

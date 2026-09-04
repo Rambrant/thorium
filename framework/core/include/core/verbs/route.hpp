@@ -21,7 +21,7 @@ namespace core
     // matrix-plus-mux route chosen at the call site (a measuring
     // instrument like hal::keysight_dsox1202g::DSOX1202G, which takes an at(...) point), or
     // just an instrument's own fixed channel(s) with nothing left to
-    // choose (hal::keysight_n6701a::N6701A/hal::keysight_ac6834b::Ac6834B -- see their own comments on why a
+    // choose (hal::keysight_edu36311a::EDU36311A/hal::keysight_ac6834b::Ac6834B -- see their own comments on why a
     // real power rail is hard-wired rather than routed) -- Connect/
     // Disconnect don't need to know which; that's entirely up to what
     // connectDriver/disconnectDriver does for the concrete config type.

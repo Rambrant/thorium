@@ -78,7 +78,7 @@ namespace hal::keysight_dsox1202g
     //
     // This is the biggest single difference from the Infiniium driver beside
     // it, and it is a difference in the hardware rather than in the modelling.
-    // hal::keysight_dso8064a::ChannelInput folds coupling and input impedance
+    // hal::keysight_dsox1202g::ChannelInput folds coupling and input impedance
     // into ONE setting, because that instrument offers DC at 1 MOhm, DC at
     // 50 Ohm and AC at 1 MOhm and the combined enum is what stops a script
     // asking for the fourth combination. This instrument has no such choice to
@@ -291,7 +291,7 @@ namespace hal::keysight_dsox1202g
     //
     // That is a real loss against the scope this replaces, and it is worth
     // stating as a loss rather than quietly shipping a shorter enum.
-    // hal::keysight_dso8064a::MeasurementFault carries nineteen of the
+    // hal::keysight_dsox1202g::MeasurementFault carries nineteen of the
     // Infiniium's own result states -- "waveform is clipped high", "required
     // edge not found", "top and base are equal" -- and its comment makes the
     // case for them: "Rise time unmeasurable" sends an engineer to the scope,
@@ -997,7 +997,7 @@ namespace hal::keysight_dsox1202g
     //
     // Keysight InfiniiVision DSOX1202G: this rig's actual scope -- two
     // channels, 2 GSa/s, 70 MHz as shipped and licence-upgradable to 200 --
-    // replacing hal::keysight_dso8064a::DSO8064A, which was this bench's scope
+    // replacing hal::keysight_dsox1202g::DSOX1202G, which was this bench's scope
     // when the only thing known about it was the legacy ATE script it had to
     // reproduce.
     //
@@ -1024,7 +1024,7 @@ namespace hal::keysight_dsox1202g
     // Calling one of the Mode-tagged measurement methods switches the
     // instrument's current measurement mode *and* channel, the same way the
     // front-panel Meas menu switches which measurement is installed before a
-    // reading is taken. Same accepted sharp edge hal::keysight_l4411a::L4411A's
+    // reading is taken. Same accepted sharp edge hal::keysight_edu34450a::EDU34450A's
     // AC/DC mode has: a port handle read after a later mode or channel switch
     // reads whichever is current at rawMeasure() time, not whichever was
     // active when the handle was obtained -- harmless for
@@ -1281,7 +1281,7 @@ namespace hal::keysight_dsox1202g
 
             //
             // Nothing to do -- a scope is passive, exactly as
-            // hal::keysight_l4411a::L4411A is; see that class's safe() for why
+            // hal::keysight_edu34450a::EDU34450A is; see that class's safe() for why
             // this is written out as an explicit empty body rather than simply
             // left absent.
             //

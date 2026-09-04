@@ -3,7 +3,7 @@
 #include <optional>
 
 //
-// The Capacitance group's SETUP/TEARDOWN pair: remember how DcP3 was programmed
+// The Capacitance group's SETUP/TEARDOWN pair: remember how DcP7 was programmed
 // before the group's tests run, and put it back afterwards.
 //
 // The sibling of suite/scripts/transient_bracket.cpp, and read the same way --
@@ -25,7 +25,7 @@
 // bracket that runs whether or not anything was measured. Same split
 // transient_bracket.cpp draws around the AC drop.
 //
-// Two supplies, one bracket, is *not* what this is: only DcP3 is touched. The
+// Two supplies, one bracket, is *not* what this is: only DcP7 is touched. The
 // battery rail is the one this group's test disturbs, and a hook that saved and
 // restored every rail on the rig would be doing rigPowerOn's job from inside a
 // group, on every pass, for no reason.
@@ -34,9 +34,9 @@
 namespace
 {
     //
-    // What DcP3 was programmed to when this group's setup ran, and whether it
+    // What DcP7 was programmed to when this group's setup ran, and whether it
     // was delivering it. Setpoint readbacks (VOLTage?, CURRent?) rather than
-    // measurements: DcP3.measuredVoltage() answers what the source says it is
+    // measurements: DcP7.measuredVoltage() answers what the source says it is
     // producing, which is the right question for a check and the wrong one for
     // a restore. Re-applying a measured 23.98 V would program the rig to a
     // value nobody asked for, and would do it again, a little further off, on
@@ -66,7 +66,7 @@ namespace
         // Optional, because "never programmed" is a state the instrument
         // distinguishes and the restore has to preserve: std::nullopt means
         // leave that setting alone, which is what it means everywhere else in
-        // hal::keysight_n6701a::DcConfig too. Voltage above is not optional,
+        // hal::keysight_edu36311a::DcConfig too. Voltage above is not optional,
         // because the driver's own readback is not -- an output voltage is
         // always some value, where a current limit may genuinely never have
         // been set.
@@ -82,7 +82,7 @@ namespace
     // different object in a different translation unit with the same lifetime
     // rules.
     //
-    DcSourceState sDcP3{};
+    DcSourceState sDcP7{};
 } // namespace
 
 //
@@ -105,18 +105,18 @@ auto capacitanceSetup() -> bool
     // state that accumulated across passes would have the second teardown
     // restoring what the first one had already put back.
     //
-    sDcP3 = {};
+    sDcP7 = {};
 
-    sDcP3.Voltage      = DcP3.outputVoltage();
-    sDcP3.CurrentLimit = DcP3.currentLimit();
-    sDcP3.Energised    = DcP3.isEnabled();
-    sDcP3.Recorded     = true;
+    sDcP7.Voltage      = DcP7.outputVoltage();
+    sDcP7.CurrentLimit = DcP7.currentLimit();
+    sDcP7.Energised    = DcP7.isEnabled();
+    sDcP7.Recorded     = true;
 
     return true;
 }
 
 //
-// The Capacitance group's TEARDOWN: DcP3 back to what the setup found, if and
+// The Capacitance group's TEARDOWN: DcP7 back to what the setup found, if and
 // only if something took it away.
 //
 // The three-part guard below is what keeps the fabric's use counts balanced.
@@ -129,7 +129,7 @@ auto capacitanceSetup() -> bool
 //
 auto capacitanceTeardown() -> bool
 {
-    if( ! sDcP3.Recorded || ! sDcP3.Energised || DcP3.isEnabled())
+    if( ! sDcP7.Recorded || ! sDcP7.Energised || DcP7.isEnabled())
     {
         return true;
     }
@@ -141,7 +141,7 @@ auto capacitanceTeardown() -> bool
     // AcceptanceMachineLog.NoShippedScriptOrHookMovesARelayUnderLoad, which
     // reads this run's own machine log to catch the inverse.
     //
-    Connect( DcP3.dc());
+    Connect( DcP7.dc());
 
     //
     // Chained through a named local rather than reassigned into one, because a
@@ -157,9 +157,9 @@ auto capacitanceTeardown() -> bool
     // is correct only because of what another file happens to do is a hook that
     // breaks when that file changes.
     //
-    const auto voltage  = DcP3.dc().voltage( sDcP3.Voltage);
-    const auto restored = sDcP3.CurrentLimit
-                              ? voltage.currentLimit( *sDcP3.CurrentLimit)
+    const auto voltage  = DcP7.dc().voltage( sDcP7.Voltage);
+    const auto restored = sDcP7.CurrentLimit
+                              ? voltage.currentLimit( *sDcP7.CurrentLimit)
                               : voltage;
 
     Apply( restored);

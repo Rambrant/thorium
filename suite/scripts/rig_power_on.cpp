@@ -36,10 +36,15 @@ auto rigPowerOn() -> bool
     // would also turn the build red: see
     // AcceptanceMachineLog.NoShippedScriptOrHookMovesARelayUnderLoad.
     //
-    // DcP1/DcP2 below get no Connect at all: they are hal::keysight_n6701a::Direct, wired
-    // straight through with no isolation relay, so there is nothing to
-    // sequence and Connect( DcP1.dc()) would not compile. Only DcP3 and AcP1
-    // have one.
+    // Every source this hook brings up has a relay, so every one of them is
+    // Connect-then-Apply. That was not true while an N6701A fed the DC rails:
+    // DcP1/DcP2 were hal::keysight_edu36311a::DirectOutput1, wired straight through with
+    // nothing to sequence, and Connect( DcP1.dc()) would not compile. The
+    // EDU36311A outputs that replaced them are 1 A and fit inside a 1260-18
+    // relay's 2 A rating, so both are RelayOutput and both get sequenced (see
+    // rig/instrument.inc). The one output that is still hard-wired, DcP5, is a
+    // 5 A output no relay in this rack can carry -- and it drives nothing on
+    // this DUT, so it does not appear here at all.
     //
     Connect( AcP1.ac());
     Apply(   AcP1.ac().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 2_A));
@@ -48,8 +53,9 @@ auto rigPowerOn() -> bool
     // Read back from the source itself -- no at(...), no point. This asks the
     // instrument what it is delivering over its own interface, which is a
     // different question from what a DMM would see at a DUT pin: a supply's
-    // rail does not travel the signal matrix (see hal::keysight_n6701a::N6701A's own comment on
-    // why its output is hard-wired), so there is no route to name. Note that
+    // rail does not travel the signal matrix (see
+    // hal::keysight_edu36311a::EDU36311A's own comment on why a supply's
+    // output is cabled rather than routed), so there is no route to name. Note that
     // passing at(...) here anyway *compiles* -- it selects the routed overload
     // and closes a mux path for a reading that never leaves the instrument. If
     // the question really is what arrives at the DUT's pin, that is a DMM at a
@@ -76,36 +82,54 @@ auto rigPowerOn() -> bool
 
     //
     // Backup supply -- dut::BackupSupply, "28Vdc backup supply". The pairing
-    // named in this and the two comments below is no longer only a comment:
-    // it is recorded as data in rig/wiring.inc's SOURCE_WIRING table and
+    // named in this and the comment below is no longer only a comment: it is
+    // recorded as data in rig/wiring.inc's SOURCE_WIRING table and
     // cross-checked against dut/adapter.inc's SOURCE_POINTs when dut_tests
     // builds, so this file and the rig cannot drift apart silently.
     //
-    Apply( DcP1.dc().voltage( 28_V).currentLimit( 7_A));
+    // -- On the current limits, which are not what they were ----------------
+    //
+    // 1 A, where this rail was brought up at 7 A while an N6701A fed it. That
+    // is not a tightening anybody chose: DcP6 is a 30 V / **1 A** output of an
+    // EDU36311A, so 1 A is its badge and the most it can be asked for at all.
+    // Asking for more is refused before anything reaches the wire
+    // (hal::keysight_edu36311a::RatingExceeded), deliberately, so that a
+    // simulated run and an attached one fail the same way.
+    //
+    // What that means on a bench, stated here because this is the file that
+    // would be blamed for it: if the DUT draws more than 1 A on this rail, the
+    // supply enters constant current, the rail sags below 28 V, and the
+    // readback Verify below fails -- which stops the run before the first test
+    // rather than letting a suite measure a DUT that is browning out. That is
+    // the right failure and a legible one. It is also not something this file
+    // can fix: 28 V at 7 A is 196 W and the whole chassis is 90 W. See
+    // rig/instrument.inc's own TODO.
+    //
+    Connect( DcP6.dc());
+    Apply(   DcP6.dc().voltage( 28_V).currentLimit( 1_A));
 
     allPassed &= Verify( "Backup supply at nominal",
                          EQ( 28_V).epsilon( 0.1_V),
-                         Measure( DcP1.measuredVoltage()));
+                         Measure( DcP6.measuredVoltage()));
 
     //
-    // Secondary backup supply -- dut::BackupSupply_2.
+    // Battery supply -- dut::BatterySupply. 1 A for the same reason, where
+    // this rail used to be brought up at 4 A.
     //
-    Apply( DcP2.dc().voltage( 28_V).currentLimit( 7_A));
-
-    allPassed &= Verify( "Secondary backup supply at nominal",
-                         EQ( 28_V).epsilon( 0.1_V),
-                         Measure( DcP2.measuredVoltage()));
-
-    //
-    // Battery supply -- dut::BatterySupply.
-    //
-    Connect( DcP3.dc());
-    Apply(   DcP3.dc().voltage( 24_V).currentLimit( 4_A));
+    Connect( DcP7.dc());
+    Apply(   DcP7.dc().voltage( 24_V).currentLimit( 1_A));
 
     allPassed &= Verify( "Battery supply at nominal",
                          EQ( 24_V).epsilon( 0.1_V),
-                         Measure( DcP3.measuredVoltage()));
+                         Measure( DcP7.measuredVoltage()));
 
-    
+    //
+    // dut::BackupSupply_2 is not brought up, and its absence is the one thing
+    // in this sequence worth checking against the DUT rather than the rig: the
+    // secondary backup rail has no supply on this bench (see dut/adapter.inc,
+    // where it is a plain POINT for that reason). A DUT that needs all three
+    // rails up to reach the state these scripts are written against will fail
+    // its first test, not this hook.
+    //
     return allPassed;
 }

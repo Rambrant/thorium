@@ -1,6 +1,6 @@
 #include "hal/keysight_ac6834b.hpp"
 #include "hal/verbs/measure.hpp"
-#include "hal/keysight_n6701a.hpp"
+#include "hal/keysight_edu36311a.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
 
@@ -38,14 +38,14 @@ namespace
         // Empty, and that is what makes these tests about the point-free
         // overload rather than about the refusal it now carries: a supply
         // reading back its own output is not a tapped instrument, so nothing
-        // here is cabled onto a DUT pin for measuring. DcP3 *is* cabled to
+        // here is cabled onto a DUT pin for measuring. DcP7 *is* cabled to
         // one -- SOURCE_WIRING, a different table -- which is exactly the
         // distinction that keeps this reading legal without at( ...). See
         // core::MeasureEngine's point-free overload.
         //
         hal::TapWiring         tapWiring;
 
-        hal::keysight_n6701a::Relay  dcP3{ hal::InstrumentId::DcP3, hal::Simulated{}, 3 };
+        hal::keysight_edu36311a::RelayOutput3  dcP7{ hal::InstrumentId::DcP7, hal::Simulated{} };
         hal::keysight_ac6834b::Ac6834B      acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ApplyEngine    apply{};
@@ -58,7 +58,7 @@ namespace
 
         SourceReadbackFixture()
         {
-            instrumentWiring.addWire( hal::InstrumentId::DcP3, { hal::SwitchDeviceId::Spst1, 4 });
+            instrumentWiring.addWire( hal::InstrumentId::DcP7, { hal::SwitchDeviceId::Spst1, 7 });
 
             core::journal().clearSinks();
             core::journal().add( sink);
@@ -71,11 +71,11 @@ namespace
 
 TEST_F( SourceReadbackFixture, ASupplyReportsWhatItIsDelivering)
 {
-    apply( dcP3.dc().voltage( 24.0_V).currentLimit( 7.0_A));
-    dcP3.setSimulatedOutputCurrent( 2.1_A);
+    apply( dcP7.dc().voltage( 24.0_V).currentLimit( 1.0_A));
+    dcP7.setSimulatedOutputCurrent( 2.1_A);
 
-    EXPECT_DOUBLE_EQ( measure( dcP3.measuredVoltage()).value(), 24.0);
-    EXPECT_DOUBLE_EQ( measure( dcP3.measuredCurrent()).value(),  2.1);
+    EXPECT_DOUBLE_EQ( measure( dcP7.measuredVoltage()).value(), 24.0);
+    EXPECT_DOUBLE_EQ( measure( dcP7.measuredCurrent()).value(),  2.1);
 }
 
 //
@@ -85,12 +85,12 @@ TEST_F( SourceReadbackFixture, ASupplyReportsWhatItIsDelivering)
 //
 TEST_F( SourceReadbackFixture, ADisabledSupplyReadsZeroRatherThanItsSetpoint)
 {
-    apply( dcP3.dc().voltage( 24.0_V));
-    dcP3.setSimulatedOutputCurrent( 2.1_A);
-    dcP3.removeOutput();
+    apply( dcP7.dc().voltage( 24.0_V));
+    dcP7.setSimulatedOutputCurrent( 2.1_A);
+    dcP7.removeOutput();
 
-    EXPECT_DOUBLE_EQ( measure( dcP3.measuredVoltage()).value(), 0.0);
-    EXPECT_DOUBLE_EQ( measure( dcP3.measuredCurrent()).value(), 0.0);
+    EXPECT_DOUBLE_EQ( measure( dcP7.measuredVoltage()).value(), 0.0);
+    EXPECT_DOUBLE_EQ( measure( dcP7.measuredCurrent()).value(), 0.0);
 }
 
 //
@@ -100,16 +100,16 @@ TEST_F( SourceReadbackFixture, ADisabledSupplyReadsZeroRatherThanItsSetpoint)
 //
 TEST_F( SourceReadbackFixture, AReadbackNeverTouchesTheFabric)
 {
-    apply(   dcP3.dc().voltage( 24.0_V));
-    connect( dcP3.dc());
+    apply(   dcP7.dc().voltage( 24.0_V));
+    connect( dcP7.dc());
 
-    const auto channel = hal::SwitchElementId{ hal::SwitchDeviceId::Spst1, 4 };
+    const auto channel = hal::SwitchElementId{ hal::SwitchDeviceId::Spst1, 7 };
 
     ASSERT_TRUE( fabric.isClosed( channel));
 
     // A routed measurement would close and reopen its own path; this one has
     // none. The supply's relay stays exactly as Connect left it.
-    (void) measure( dcP3.measuredCurrent());
+    (void) measure( dcP7.measuredCurrent());
 
     EXPECT_TRUE( fabric.isClosed( channel));
 }
@@ -132,18 +132,18 @@ TEST_F( SourceReadbackFixture, AReadbackWithNoWiringEntryAtAllStillWorks)
 //
 TEST_F( SourceReadbackFixture, AReadbackIsLoggedAndKeyedByInstrumentAndQuantity)
 {
-    dcP3.applyOutput( 24.0_V, std::nullopt);
-    dcP3.setSimulatedOutputCurrent( 2.1_A);
+    dcP7.applyOutput( 24.0_V, std::nullopt, std::nullopt);
+    dcP7.setSimulatedOutputCurrent( 2.1_A);
 
-    (void) measure( dcP3.measuredCurrent());
+    (void) measure( dcP7.measuredCurrent());
 
     ASSERT_EQ( sink.Events.size(), 1u);
 
     const auto & event = sink.Events[ 0];
 
     EXPECT_EQ( event.Method,     core::Verb::Measure);
-    EXPECT_EQ( event.Subject,    "DcP3.Current");
-    EXPECT_EQ( event.Instrument, "DcP3");
+    EXPECT_EQ( event.Subject,    "DcP7.Current");
+    EXPECT_EQ( event.Instrument, "DcP7");
     EXPECT_EQ( event.Value,      "2.1 A");
     EXPECT_EQ( event.Unit,       "A");
 }
@@ -155,11 +155,11 @@ TEST_F( SourceReadbackFixture, AReadbackIsLoggedAndKeyedByInstrumentAndQuantity)
 //
 TEST_F( SourceReadbackFixture, VoltageAndCurrentAreSeparatelyInjectable)
 {
-    measure.inject( "DcP3.Voltage", core::QuantityVariant{ 23.9_V });
-    measure.inject( "DcP3.Current", core::QuantityVariant{  6.4_A });
+    measure.inject( "DcP7.Voltage", core::QuantityVariant{ 23.9_V });
+    measure.inject( "DcP7.Current", core::QuantityVariant{  6.4_A });
 
-    EXPECT_DOUBLE_EQ( measure( dcP3.measuredVoltage()).value(), 23.9);
-    EXPECT_DOUBLE_EQ( measure( dcP3.measuredCurrent()).value(),  6.4);
+    EXPECT_DOUBLE_EQ( measure( dcP7.measuredVoltage()).value(), 23.9);
+    EXPECT_DOUBLE_EQ( measure( dcP7.measuredCurrent()).value(),  6.4);
 
     measure.useLive();
 }

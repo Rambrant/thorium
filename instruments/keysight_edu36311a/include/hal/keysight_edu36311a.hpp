@@ -55,8 +55,9 @@ namespace hal::keysight_edu36311a
     // nothing.
     //
     // Deliberately the same shape and the same names as
-    // hal::keysight_n6701a::DirectWiring/RelayIsolated, and deliberately
-    // *not* the same types: a driver package compiles against hal and nothing
+    // the DirectWiring/RelayIsolated tags the retired N6701A driver carried,
+    // which is where this shape came from -- and deliberately
+    // *not* shared types: a driver package compiles against hal and nothing
     // else, so that it can be zipped and dropped into another rig on its own
     // (see instruments/README.md and this directory's CMakeLists.txt, where
     // the rule is enforced rather than described). Reaching into the other
@@ -84,7 +85,8 @@ namespace hal::keysight_edu36311a
     // Those two facts are one fact on this instrument, which is why they share
     // a tag rather than being a tag and a constructor argument. The N6701A
     // takes its channel as a constructor argument (see
-    // hal::keysight_n6701a::N6701A) and is right to: that mainframe has four
+    // the retired N6701A driver did exactly that, and was right to: that
+    // mainframe had four
     // *slots*, any module can be in any of them, so which slot a channel is in
     // says nothing about what it can source. An EDU36311A has three outputs
     // built into one chassis -- output 1 is the 6 V / 5 A one and cannot be
@@ -215,8 +217,8 @@ namespace hal::keysight_edu36311a
     // No Loc/AdapterPointTag here -- a DC rail's output is hard-cabled to one
     // VPC pin rather than routed through the fabric to whichever pin a script
     // names, so there was never a second point for at() to choose between (see
-    // this file's comment on EDU36311A, and hal::keysight_n6701a::DcConfig,
-    // which says the same thing for the same reason).
+    // this file's comment on EDU36311A -- the retired N6701A driver's DcConfig
+    // said the same thing for the same reason).
     //
     template<typename Output, typename Isolation>
     struct DcConfig

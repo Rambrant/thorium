@@ -1,7 +1,9 @@
 //
-// What remains of a file that used to hold hal::keysight_l4411a::L4411A's and hal::keysight_dso8064a::DSO8064A's
-// tests alongside this one: both drivers now live under instruments/ and their
-// tests went with them (instruments/keysight_l4411a/tests/, instruments/keysight_dso8064a/tests/).
+// What remains of a file that used to hold a Keysight L4411A's and a DSO8064A's
+// tests alongside this one: every driver now lives under instruments/ and its
+// tests go with it. Those two drivers have since been deleted outright, along
+// with the rest of the hardware this bench does not have (see
+// rig/instrument.inc).
 // hal::InstrumentId and to_string() over it are hal's own -- generated from the
 // rig's instrument.inc, meaningful without any driver present at all -- so this
 // is where they stay.

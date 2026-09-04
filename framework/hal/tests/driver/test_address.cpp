@@ -12,7 +12,7 @@ namespace
     // rejects.
     //
     // Each driver spells its own supported set in its own constructor (see
-    // hal::keysight_l4411a::L4411A and friends, and each driver's own test for the per-model
+    // hal::keysight_edu34450a::EDU34450A and friends, and each driver's own test for the per-model
     // assertion); what is checked here is the mechanism those all go through.
     //
     static_assert(   hal::ReachableOver< hal::Gpib,   hal::Gpib, hal::Lan> );

@@ -77,7 +77,7 @@ namespace hal
     //
     //   - A 4-wire (Kelvin) DMM measurement needs its sense leads routed
     //     *in addition to* force, but only for that one measurement -- a
-    //     plain 2-wire resistance() call on the same hal::keysight_l4411a::L4411A must not
+    //     plain 2-wire resistance() call on the same hal::keysight_edu34450a::EDU34450A must not
     //     touch sense at all. That's a per-measurement, per-call choice
     //     (see core::Port::requiresSensePath in core/driver/port.hpp and
     //     core::MeasureEngine's own comment in core/verbs/measure.hpp), so
@@ -92,7 +92,7 @@ namespace hal
     //     way hal::keysight_ac6834b::Ac6834B's phases and ground already do. findAll()
     //     below deliberately does NOT filter by role for this reason: it
     //     means "every entry registered for this instrument, force and
-    //     sense alike, closed together" -- see hal::keysight_n6701a::N6701A's own
+    //     sense alike, closed together" -- see hal::keysight_edu36311a::EDU36311A's own
     //     connectDriver/disconnectDriver.
     //
     enum class WireRole
@@ -149,7 +149,7 @@ namespace hal
             // (hal::keysight_ac6834b::Ac6834B's three phases plus ground/neutral return, or
             // a power supply's remote-sense leads if this rig has them).
             // Single-connection instruments with no sense wiring
-            // (hal::keysight_dsox1202g::DSOX1202G, hal::keysight_l4411a::L4411A) keep using find() above.
+            // (hal::keysight_dsox1202g::DSOX1202G, hal::keysight_edu34450a::EDU34450A) keep using find() above.
             // Throws std::runtime_error if this instrument has no fixed
             // path at all.
             //
@@ -419,7 +419,7 @@ namespace hal
     // This used to exist only as prose, in three files that each deferred it
     // to another one -- rig/wiring.inc noted that DcP1/DcP2 have no entry;
     // dut/adapter.inc noted that some of its points are where a supply lands
-    // but that which one was "not yet recorded"; hal::keysight_n6701a::N6701A noted that the
+    // but that which one was "not yet recorded"; hal::keysight_edu36311a::EDU36311A noted that the
     // DUT adapter documents it. Nobody recorded it, and the gap had a cost:
     // dut/tests/test_wiring_coverage.cpp requires every declared point to be
     // wired, there was no way to say "this pin is not routed", and so mux
@@ -427,8 +427,8 @@ namespace hal
     // A fabricated route to a rail is worse than a missing one -- closing it
     // puts a supply onto signal relays that were never meant to carry it.
     //
-    // Deliberately NOT keyed by, or derived from, hal::keysight_n6701a::DirectWiring/
-    // hal::keysight_n6701a::RelayIsolated (see hal/keysight_n6701a.hpp). Those say whether there is an
+    // Deliberately NOT keyed by, or derived from, hal::keysight_edu36311a::DirectWiring/
+    // hal::keysight_edu36311a::RelayOutput3Isolated (see hal/keysight_edu36311a.hpp). Those say whether there is an
     // isolation relay in an instrument's path -- whether Connect/Disconnect
     // have anything to do. This says where the output lands. They are
     // independent: DcP3/DcP4 have a relay AND a hard-cabled landing pin, and
@@ -1041,6 +1041,16 @@ namespace hal
 // fails in a way the error message does not mention.
 #define BANK( device, bankNumber, channel) \
     hal::bank<hal::SwitchDeviceId::device, bankNumber, channel>()
+
+//
+// ROW_COLUMN(...) is CROSSPOINT's two-part sibling, for a matrix that numbers
+// a crosspoint by a row and a column and nothing else -- a Keysight 34932A's
+// ROW_COLUMN( Matrix1, 3, 15) is channel 315. Not CROSSPOINT with a group of
+// zero: see hal::rowColumn for why a group the card does not have is worse
+// written as one than left out.
+//
+#define ROW_COLUMN( device, row, column) \
+    hal::rowColumn<hal::SwitchDeviceId::device, row, column>()
 
 //
 // INSTRUMENT_WIRING's expansion builds four things from the one set of

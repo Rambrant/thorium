@@ -52,7 +52,7 @@ addressing one over GPIB does not compile.
 `DirectOutput*` instance has no `connectDriver` overload that compiles at all,
 so `Connect( DcP5.dc())` is a compile error rather than a call that quietly
 closes nothing — `hal::keysight_edu36311a::SwitchableIsolation` doing the work,
-the same mechanism `hal::keysight_n6701a::N6701A` uses.
+the same mechanism `hal::keysight_edu36311a::EDU36311A` uses.
 
 Because it is a concept rather than a per-tag overload, a new relay-having
 isolation tag gets `Connect`/`Disconnect` for free with no change here — which
