@@ -2468,6 +2468,104 @@ TEST_F( AcceptanceBench, AnOrdinaryRunsHeaderSaysTheBenchWasThere)
 }
 
 //
+// -- The preflight, from outside the binary ------------------------------
+//
+// The header's instrument rows, which are the run's answer to "which boxes
+// was this?" -- see hal/verbs/preflight.hpp. Asserted here rather than only
+// in rig/tests/test_preflight.cpp because the two check different things:
+// that one checks what hal::bannerLines() returns, and this one checks that
+// the runner actually puts it in the header a person is handed.
+//
+TEST_F( AcceptanceBench, TheReportHeaderNamesTheInstrumentsTheRunBound)
+{
+    EXPECT_EQ( run( {} ), 1);
+
+    EXPECT_TRUE( containsText( outPath(), mOut, "Instruments"));
+
+    //
+    // The id, the driver and the provenance from one row -- enough to say the
+    // whole line arrived, and specific enough to fail if the columns were
+    // ever assembled from something other than the binding.
+    //
+    EXPECT_TRUE( containsText( outPath(), mOut, "keysight_edu34450a::EDU34450A"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "simulated -- no instrument at this address"));
+
+    const auto rtfPath = findArtifact( ".rtf");
+
+    ASSERT_FALSE( rtfPath.empty());
+
+    EXPECT_TRUE( containsText( rtfPath, readFile( rtfPath), "keysight_edu34450a::EDU34450A"));
+}
+
+//
+// The machine log carries the same rows as an array -- so that a consumer
+// grouping runs by which meter took the reading is matching elements rather
+// than splitting a blob (see core::RunInfo::Instruments).
+//
+TEST_F( AcceptanceBench, TheMachineLogCarriesTheInstrumentsAsAnArray)
+{
+    EXPECT_EQ( run( {} ), 1);
+
+    const auto sarifPath = findArtifact( ".sarif");
+
+    ASSERT_FALSE( sarifPath.empty());
+
+    const auto sarif = readFile( sarifPath);
+
+    EXPECT_TRUE( containsText( sarifPath, sarif, "\"instruments\": ["));
+    EXPECT_TRUE( containsText( sarifPath, sarif, "keysight_edu34450a::EDU34450A"));
+}
+
+//
+// An --address the rig cannot accept fails before a log exists, which is the
+// half of the preflight's placement that is hardest to see from inside the
+// binary: no .rtf, no .sarif, and a message on stderr rather than a report
+// saying a run happened.
+//
+// Osc1 is the row to try it on, and the choice is the point: a DSOX1202G has
+// a USB device port and no network connector at all, so a Lan address for it
+// is refused whatever its table row currently says.
+//
+TEST_F( AcceptanceBench, ARefusedAddressFailsBeforeAnythingIsWritten)
+{
+    EXPECT_EQ( run( { "--address=Osc1=lan:nowhere" } ), 1);
+
+    EXPECT_TRUE( containsText( errPath(), mErr, "Preflight failed"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "back panel has: Usb"));
+    EXPECT_TRUE( findArtifact( ".rtf").empty());
+    EXPECT_TRUE( findArtifact( ".sarif").empty());
+}
+
+//
+// And the case that used to be refused and now is not: a Simulated{} row
+// pointed at a real instrument, which is how a bench gets brought up (see
+// hal/topology/address_plan.hpp). Osc1's row says Simulated{} today and its
+// driver has a USB port, so this is accepted -- and then fails at the
+// preflight's *contact*, because no such scope is plugged into this machine,
+// which is the honest outcome and a different failure from the one above.
+//
+TEST_F( AcceptanceBench, ASimulatedRowMayBePointedAtRealHardware)
+{
+    EXPECT_EQ( run( { "--address=Osc1=usb:CN59176621" } ), 1);
+
+    EXPECT_TRUE( omitsText(    errPath(), mErr, "back panel has"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "Preflight failed"));
+}
+
+//
+// And one that the rig does accept moves the row and says so -- Ser1 is this
+// table's Serial row, so a Serial address for it is legal where the same flag
+// on a Simulated row above is not.
+//
+TEST_F( AcceptanceBench, AnAcceptedAddressIsReportedWithTheFlagAsItsSource)
+{
+    EXPECT_EQ( run( { "--address=Ser1=serial:/dev/ttyUSB9" } ), 1);
+
+    EXPECT_TRUE( containsText( outPath(), mOut, "/dev/ttyUSB9"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "--address"));
+}
+
+//
 // The one call in a detached run that most looks like it should happen anyway,
 // and most must not. Safing an unattached bench would be the single instruction
 // that did reach real hardware -- opening the relays of whatever rig the runner

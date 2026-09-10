@@ -191,6 +191,36 @@ namespace core
             };
         }
 
+        //
+        // The instruments this run bound, one row each -- or nothing at all
+        // for a core built without a rig.
+        //
+        // The one field in this header that is a *list*, and so the one that
+        // breaks the label/value form every other row follows. It is written
+        // as a labelled first row with the rest hanging under the same
+        // indent, rather than as "Instruments" repeated five times: the
+        // repetition would be five copies of a word to carry four columns
+        // that are already aligned against each other by hal::bannerLines().
+        //
+        // Absent rather than empty when there are none. That is the opposite
+        // of what benchLine() above argues for, and the difference is that a
+        // missing bench row would hide a fact this header exists to state,
+        // where an empty instrument list is not a fact about the run at all --
+        // it says the binary has no rig layer, which its DUT and rig rows have
+        // already said better.
+        //
+        auto instrumentLines( const RunInfo & info) -> std::vector<ReportLine>
+        {
+            std::vector<ReportLine> lines;
+
+            for( const auto & instrument : info.Instruments)
+            {
+                lines.push_back( metadataLine( lines.empty() ? "Instruments" : "", instrument));
+            }
+
+            return lines;
+        }
+
         auto append( std::vector<ReportLine> & into, std::vector<ReportLine> lines) -> void
         {
             into.insert( into.end(), std::make_move_iterator( lines.begin()), std::make_move_iterator( lines.end()));
@@ -306,6 +336,7 @@ namespace core
         append( lines, versionLines( info));
         append( lines, { metadataLine( "Started (UTC)", info.StartedUtc) });
         append( lines, { metadataLine( "Command line",  info.CommandLine) });
+        append( lines, instrumentLines( info));
 
         lines.push_back( line( Emphasis::Detail, std::string( kRule)));
         lines.push_back( blankLine());

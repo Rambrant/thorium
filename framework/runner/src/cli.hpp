@@ -100,6 +100,22 @@ namespace cli
     struct Clears {};
 
     //
+    // A list flag that accumulates one value per occurrence, instead of
+    // taking one comma-separated list.
+    //
+    // Which of the two a list flag wants is decided by whether a comma can
+    // appear *inside* a value. --select takes test ids, which cannot contain
+    // one, so "--select=A,B" is the natural spelling and repeating the flag
+    // would be a worse one. --address takes a bus address, and a GPIB address
+    // is written "gpib:0,5" -- comma-splitting that would hand the parser two
+    // fragments of one address and no way to tell that had happened.
+    //
+    // So this is not a convenience: it is the annotation that lets a value
+    // contain the character the other spelling reserves.
+    //
+    struct Repeatable {};
+
+    //
     // A number flag that rejects zero. The noun is what the flag is counting,
     // and exists only so the diagnostic can read "...whole number of passes"
     // rather than the generic wording -- the operator reading it is at a bench.
@@ -380,7 +396,18 @@ namespace cli
                                 matched = true;
 
                                 if constexpr ( type == ^^std::vector<std::string_view>)
-                                    options.[: member :] = detail::splitCommaList( value);
+                                {
+                                    //
+                                    // Append or replace -- see cli::Repeatable
+                                    // on why the choice belongs to the flag
+                                    // rather than being one rule for all lists.
+                                    //
+                                    if constexpr ( detail::has( member, ^^Repeatable))
+                                        options.[: member :].push_back( value);
+
+                                    else
+                                        options.[: member :] = detail::splitCommaList( value);
+                                }
 
                                 else if constexpr ( type == ^^std::optional<std::uint64_t>)
                                 {

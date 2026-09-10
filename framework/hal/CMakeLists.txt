@@ -66,6 +66,8 @@ add_library(hal STATIC
     src/driver/instrument.cpp
     src/fabric/switch_device.cpp
     src/fabric/switch_fabric.cpp
+    src/topology/address_plan.cpp
+    src/topology/address_tables.cpp
     src/topology/vpc_location.cpp
     src/topology/wiring.cpp
     # --- hal/driver: the driver-authoring kit ---
@@ -83,6 +85,16 @@ add_library(hal STATIC
     include/hal/driver/instrument.hpp     # header-only apart from src/driver/instrument.cpp
     include/hal/driver/builder.hpp        # header-only
     include/hal/driver/describe.hpp       # header-only
+    # --- hal/topology: where a row's address comes from when its own column
+    # does not say. In generic hal rather than hal_rig because neither file
+    # names an instrument global: address_plan.hpp is the vocabulary (a
+    # binding, a plan, the parse of an --address), and address_tables.hpp
+    # expands the two optional rig tables, both of which name only
+    # hal::InstrumentId enumerators. The pass that *applies* them reflects
+    # over the globals and so belongs to hal_rig -- see
+    # include/hal/verbs/preflight.hpp below.
+    include/hal/topology/address_plan.hpp   # header-only apart from src/topology/address_plan.cpp
+    include/hal/topology/address_tables.hpp # apart from src/topology/address_tables.cpp; expands THORIUM_POOL_TABLE/THORIUM_SITE_TABLE
     # --- hal/io: how bytes actually leave the PC ---
     # The transport a driver opens to reach real hardware, and the SCPI layer on
     # top of it. In hal rather than in a driver package because every driver
@@ -203,6 +215,28 @@ target_compile_definitions(hal PUBLIC
     THORIUM_DEVICE_TABLE="${THORIUM_DEVICE_TABLE}"
 )
 
+# The two optional tables, and the only rig files that are set only when they
+# exist -- see the top-level CMakeLists.txt, which sets these two variables at
+# all only for a deployment that brings the file.
+#
+# PUBLIC for the same reason the instrument table above is: hal/topology/
+# address_tables.hpp is a public header that expands them itself, and a
+# rig-level test asserting its own pool table includes that header directly.
+#
+# No else() branch, deliberately. The fallback is named inside that header,
+# next to the reader that needs it (#ifndef THORIUM_POOL_TABLE), so a
+# translation unit compiled outside this build -- a driver's own test, an
+# out-of-tree rig repo -- still reads a valid empty table instead of failing
+# on an undefined macro. Defaulting it here would move that guarantee into
+# this file and lose it for everyone who does not use this file.
+if(THORIUM_POOL_TABLE)
+    target_compile_definitions(hal PUBLIC THORIUM_POOL_TABLE="${THORIUM_POOL_TABLE}")
+endif()
+
+if(THORIUM_SITE_TABLE)
+    target_compile_definitions(hal PUBLIC THORIUM_SITE_TABLE="${THORIUM_SITE_TABLE}")
+endif()
+
 # --- The rig's instrument drivers ---
 # Each driver is its own self-contained directory with its own CMakeLists.txt,
 # its own include/hal/<model>.hpp and its own tests -- packageable and
@@ -316,6 +350,7 @@ add_library(hal_rig STATIC
     src/verbs/source.cpp
     src/verbs/safing.cpp
     src/verbs/interlock.cpp
+    src/verbs/preflight.cpp
     include/hal/verbs/measure.hpp        # header-only
     include/hal/verbs/route.hpp          # header-only
     include/hal/verbs/source.hpp         # header-only
@@ -323,6 +358,7 @@ add_library(hal_rig STATIC
     include/hal/verbs/trace.hpp          # header-only; Fetch defined in src/verbs/measure.cpp
     include/hal/verbs/safing.hpp         # header-only
     include/hal/verbs/interlock.hpp      # header-only
+    include/hal/verbs/preflight.hpp      # header-only apart from src/verbs/preflight.cpp
 )
 
 # PUBLIC on both counts. The driver targets carry the include directories the
@@ -341,9 +377,11 @@ target_compile_definitions(hal_rig PUBLIC
 )
 
 # PRIVATE, unlike the two above: rig/wiring.inc is expanded by src/verbs/route.cpp,
-# src/verbs/measure.cpp and src/verbs/interlock.cpp and nowhere else at all -- it builds
-# file-local wiring tables inside those three translation units, and no header
-# exposes it. That is exactly why hal::energisedSourceAt is an ordinary
+# src/verbs/measure.cpp, src/verbs/interlock.cpp and src/verbs/preflight.cpp, and
+# nowhere else at all -- it builds file-local wiring tables inside those four
+# translation units, and no header exposes it. (preflight.cpp is the one of the
+# four that composes no route: it reads the table's consteval predicates only, to
+# refuse an address pool on an instrument whose leads are written down.) That is exactly why hal::energisedSourceAt is an ordinary
 # declared-here/defined-there function rather than a template: the interlock's
 # answer needs this table, and the call sites that ask for it (every script
 # that measures) must not gain it. See hal/verbs/interlock.hpp.

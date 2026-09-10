@@ -198,6 +198,29 @@ namespace core
         // row in Warning, where every other metadata row is quiet).
         //
         bool BenchAttached{ true };
+
+        //
+        // One line per instrument saying what this run was actually talking
+        // to: the id, the driver, the resolved address, where that address
+        // came from, and the instrument's own *IDN? reply. Produced by
+        // hal::bannerLines() and stamped in by the runner (see
+        // framework/runner/src/main.cpp).
+        //
+        // In the traceability header rather than only on the console, and the
+        // reason is the same one that put BenchAttached above it here: it is a
+        // fact about the run that a reader of the log a week later cannot
+        // reconstruct. On a fleet of identical benches, or a desk whose meter
+        // is whichever one was free, the rig name two fields up says which
+        // *kind* of bench this was and nothing at all about which boxes
+        // answered.
+        //
+        // Empty for a core built without a rig -- core knows nothing about
+        // instruments and never fills this itself -- and each sink renders it
+        // its own way. A vector rather than one joined string because the
+        // human report pads it into columns and the machine sink wants the
+        // lines as an array.
+        //
+        std::vector<std::string> Instruments;
     };
 
     //

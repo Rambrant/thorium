@@ -382,6 +382,39 @@ set(THORIUM_INSTRUMENT_TABLE "${THORIUM_RIG_DIR}/instrument.inc" CACHE FILEPATH 
 set(THORIUM_WIRING_TABLE "${THORIUM_RIG_DIR}/wiring.inc" CACHE FILEPATH "" FORCE)
 set(THORIUM_DEVICE_TABLE "${THORIUM_RIG_DIR}/devices.inc" CACHE FILEPATH "" FORCE)
 
+# The fourth and fifth rig files, and the only optional ones.
+#
+# Set only when the deployment actually brings them, and with no default of
+# any kind here: the fallback empty table is named inside
+# hal/topology/address_tables.hpp, next to the reader, exactly as
+# core/src/criteria/criteria_variants.cpp names its own. See that header for
+# why "this deployment has no pools" is not a fact worth making every rig
+# directory write out, where "this bench has no cards" (devices.inc) is.
+#
+# No FATAL_ERROR for a missing one either, which is the whole difference from
+# the three above: their absence is always a mistake, and these two are absent
+# in the normal case -- including for this repo's own bench, which is one rig
+# with one address per row.
+# Each is unset when its file is absent, and the else() is not symmetry for
+# its own sake: these are cache variables, so a stale one outlives the file it
+# named. Deleting a deployment's pools.inc, or pointing THORIUM_RIG_DIR at a
+# deployment that has none, would otherwise leave the previous configure's
+# path in the cache and every translation unit trying to #include a file that
+# is no longer there.
+if(EXISTS "${THORIUM_RIG_DIR}/pools.inc")
+    set(THORIUM_POOL_TABLE "${THORIUM_RIG_DIR}/pools.inc" CACHE FILEPATH "" FORCE)
+    message(STATUS "Deployment: address pools from ${THORIUM_POOL_TABLE}")
+else()
+    unset(THORIUM_POOL_TABLE CACHE)
+endif()
+
+if(EXISTS "${THORIUM_RIG_DIR}/sites.inc")
+    set(THORIUM_SITE_TABLE "${THORIUM_RIG_DIR}/sites.inc" CACHE FILEPATH "" FORCE)
+    message(STATUS "Deployment: sites from ${THORIUM_SITE_TABLE}")
+else()
+    unset(THORIUM_SITE_TABLE CACHE)
+endif()
+
 # --- Which instrument drivers are available to build against ---
 # The fourth thing a rig supplies framework/hal, alongside the three files above:
 # where its instrument drivers live. One directory per driver, each with its

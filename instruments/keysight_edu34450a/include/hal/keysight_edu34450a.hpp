@@ -317,6 +317,37 @@ namespace hal::keysight_edu34450a
             }
 
             //
+            // Point this driver at a different instrument, before anything
+            // has used it.
+            //
+            // The sibling of useTransport() above -- that one replaces the
+            // *wire*, this one replaces the *address the wire is opened from*
+            // -- and the one caller is hal::bindAddresses(), which runs once
+            // at startup before the first script (see
+            // hal/verbs/preflight.hpp). A rig whose table names one fixed
+            // address per row never reaches it: the address a row is
+            // constructed with is the address it keeps.
+            //
+            // Validates nothing, and must not. Which bus kinds this meter can
+            // be reached over is settled once, by Buses above: the
+            // constructor is constrained by it, and hal::bindAddresses()
+            // checks a startup address against the same list before ever
+            // calling this. A check here would be a third reading of one
+            // list, on the far side of the two that already agree.
+            //
+            // Drops any open session, for the reason useTransport() replaces
+            // one: an address change that left the old socket open would go on
+            // talking to the old instrument, which is the single worst
+            // outcome this whole mechanism is built to prevent.
+            //
+            auto useAddress( const Address & address) -> void
+            {
+                mAddress  = address;
+                mSession.reset();
+                mPrepared = false;
+            }
+
+            //
             // The live SCPI session, opened on first use.
             //
             // Lazily, and that is not an optimisation -- it is the only thing

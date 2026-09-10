@@ -287,6 +287,24 @@ namespace hal::racal1260
                 return mAddress;
             }
 
+            //
+            // Point this driver at a different instrument -- see
+            // hal::keysight_edu34450a::EDU34450A::useAddress() for the
+            // argument, and note the one line of it that is missing here.
+            //
+            // There is no session to drop. This driver opens none: it answers
+            // from its own simulation hooks, which is why it has no
+            // identity() and why hal::ContactableInstrument does not match it
+            // (see hal/verbs/preflight.hpp on why that is branched on rather
+            // than asserted). So rebinding it is a store and nothing else --
+            // and it still has to exist, because the resolver refuses to
+            // silently skip a row it cannot rebind.
+            //
+            auto useAddress( const Address & address) -> void
+            {
+                mAddress = address;
+            }
+
             [[nodiscard]]
             auto id() const -> InstrumentId
             {

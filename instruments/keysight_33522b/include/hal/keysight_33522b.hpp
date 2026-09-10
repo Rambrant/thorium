@@ -787,6 +787,21 @@ namespace hal::keysight_33522b
             }
 
             //
+            // Point this driver at a different instrument -- see
+            // hal::keysight_edu34450a::EDU34450A::useAddress() for the whole
+            // argument, which is identical here: startup only, validates
+            // nothing because hal::ReachableOver and hal::sameKind already
+            // have, and drops any open session so that nothing goes on
+            // talking to the previous box.
+            //
+            auto useAddress( const Address & address) -> void
+            {
+                mAddress  = address;
+                mSession.reset();
+                mPrepared = false;
+            }
+
+            //
             // The live SCPI session, opened on first use.
             //
             // Lazily, and that is not an optimisation -- a rig's instruments

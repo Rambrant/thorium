@@ -208,7 +208,15 @@ namespace core
             // of everything else it does -- see the comment there, which says
             // so at the point where the order matters.
             //
-            .BenchAttached    = bench().isAttached()
+            .BenchAttached    = bench().isAttached(),
+
+            //
+            // Left to the runner, like CommandLine above: core has no rig and
+            // so nothing to say about which instruments answered. See
+            // hal::bannerLines(), and framework/runner/src/main.cpp for where
+            // the two meet.
+            //
+            .Instruments      = {}
         };
     }
 

@@ -22,6 +22,7 @@
 #include "core/journal/sarif_sink.hpp"
 #include "core/session/stimulus.hpp"
 #include "hal/verbs/measure.hpp"
+#include "hal/verbs/preflight.hpp"
 #include "hal/verbs/safing.hpp"
 
 //
@@ -387,6 +388,25 @@ namespace
         [[= cli::Flag{ "--operator" }, = cli::Meta{ "NAME" },
            = cli::Doc{ "operator name, recorded in both logs' header" }]]
         std::string                    OperatorName;
+
+        //
+        // The two that move where an instrument is reached, rather than what
+        // the run does -- see hal/topology/address_plan.hpp for the whole
+        // argument, and note that neither can change which *bus* a row uses.
+        //
+        // Repeatable rather than comma-separated because a GPIB address has a
+        // comma in it (see cli::Repeatable), and last-wins is deliberately
+        // not special-cased: two --address flags for one instrument are a
+        // caller contradicting themselves, and hal::bindAddresses() takes the
+        // first, which is the one they typed first.
+        //
+        [[= cli::Flag{ "--address" }, = cli::Meta{ "ID=KIND:VALUE" }, = cli::Repeatable{},
+           = cli::Doc{ "bind one instrument to a given address (repeatable), e.g. Dmm1=lan:dev-dmm-3" }]]
+        std::vector<std::string_view>  Addresses;
+
+        [[= cli::Flag{ "--site" }, = cli::Meta{ "NAME" },
+           = cli::Doc{ "which bench of an identical fleet this is" }]]
+        std::string                    Site;
     };
 
     auto isSelected( std::string_view id, const std::vector<std::string_view> & selection) -> bool
@@ -1474,12 +1494,70 @@ int main( int argc, char ** argv)
     }
 
     //
+    // --- Which instruments this run is actually going to talk to ---
+    //
+    // Two passes, and both halves of where they sit matter.
+    //
+    // After the detach decision above, because hal::contactInstruments() must
+    // see the same answer hal::RigSafingGuard will -- a --replay must not
+    // reach a bench, and this is the second place in this function where that
+    // invariant is load-bearing rather than tidy.
+    //
+    // Before core::defaultRunInfo() below, because the banner belongs in the
+    // traceability header and a header assembled first would describe a
+    // binding that had not happened yet. A preflight that fails therefore
+    // fails before any log exists, which is the right way round: a run that
+    // cannot say which instruments it is using has nothing worth writing
+    // down. The failure goes to stderr and exits non-zero, exactly as
+    // openLogs() does further below.
+    //
+    // The flags go in first and the environment is appended after them, which
+    // is what makes a flag typed now beat an export a bench PC's profile set
+    // months ago: hal::bindAddresses() takes the first override it finds for
+    // a row, so the higher claim has to be the earlier entry.
+    //
+    hal::AddressPlan plan;
+
+    try
+    {
+        plan.Site = options.Site.empty() ? hal::environmentSite() : std::string_view( options.Site);
+
+        for ( const auto text : options.Addresses )
+            plan.Overrides.push_back( hal::parseOverride( text));
+
+        for ( auto & fromEnvironment : hal::environmentOverrides() )
+            plan.Overrides.push_back( std::move( fromEnvironment));
+    }
+    catch ( const std::exception & failure )
+    {
+        std::cerr << "Bad address: " << failure.what() << '\n';
+
+        return 1;
+    }
+
+    std::vector<hal::Binding> bindings;
+
+    try
+    {
+        bindings = hal::bindAddresses( plan);
+
+        hal::contactInstruments( bindings);
+    }
+    catch ( const std::exception & failure )
+    {
+        std::cerr << "Preflight failed: " << failure.what() << '\n';
+
+        return 1;
+    }
+
+    //
     // --- Traceability header ---
     // Assembled before anything is measured, so the logs describe the run that
     // is about to happen rather than being reconstructed afterwards.
     //
     auto runInfo = core::defaultRunInfo();
 
+    runInfo.Instruments = hal::bannerLines( bindings);
     runInfo.CommandLine = commandLineOf( argc, argv);
     runInfo.DutSerial   = options.DutSerial;
 

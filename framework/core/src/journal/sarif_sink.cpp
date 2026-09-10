@@ -72,6 +72,51 @@ namespace core
         // to tell "no serial number was supplied" from "the serial number is
         // the empty string".
         //
+        //
+        // A list-valued property -- the one shape the three helpers around
+        // this one cannot express, and so far the only field that needs it
+        // (see RunInfo::Instruments).
+        //
+        // A JSON array rather than one newline-joined string, because these
+        // lines are records: a consumer asking "which serial took this
+        // reading" should be matching array elements, not splitting a blob
+        // this sink went to the trouble of assembling. Omitted entirely when
+        // empty, like optionalProperty() below and for the same reason -- a
+        // binary with no rig layer has nothing to say here, and an empty
+        // array would look like a rig that reported nothing.
+        //
+        auto optionalArrayProperty(
+            std::ostream &                   out,
+            const std::string_view           indent,
+            const std::string_view           key,
+            const std::vector<std::string> & values,
+            bool &                           first) -> void
+        {
+            if( values.empty())
+            {
+                return;
+            }
+
+            if( !first)
+            {
+                out << ",\n";
+            }
+
+            out << indent << quoted( key) << ": [";
+
+            bool firstValue = true;
+
+            for( const auto & value : values)
+            {
+                out << ( firstValue ? "" : ", ") << quoted( value);
+
+                firstValue = false;
+            }
+
+            out << "]";
+            first = false;
+        }
+
         auto optionalProperty( std::ostream & out, const std::string_view indent, const std::string_view key, const std::string_view value, bool & first) -> void
         {
             if( value.empty())
@@ -595,6 +640,15 @@ namespace core
         // happens to be interesting.
         //
         booleanProperty(  out, kI4, "benchAttached",    mRunInfo.BenchAttached,    first);
+
+        //
+        // Beside benchAttached deliberately: the two answer one question
+        // between them. That one says whether any hardware was touched, this
+        // one says which hardware -- and on a fleet of identical rigs, or a
+        // desk drawing from a pool of meters, rigName above is not an answer
+        // to the second.
+        //
+        optionalArrayProperty( out, kI4, "instruments", mRunInfo.Instruments,    first);
 
         //
         // Which revision of the tested content produced this -- see
