@@ -1,9 +1,11 @@
 #pragma once
 
 #include <concepts>
+#include <meta>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <variant>
 
 namespace hal
@@ -191,6 +193,135 @@ namespace hal
     concept ReachableOver = std::same_as<AddressT, Simulated> || ( std::same_as<AddressT, Supported> || ...);
 
     //
+    // The same list, as a value -- what a driver's back panel is, in a form
+    // something other than an overload resolution can ask about.
+    //
+    // -- Why the concept above was not enough ------------------------------
+    //
+    // ReachableOver answers at the point of construction, where the address's
+    // type is known: rig/instrument.inc writes Lan( "host") and the compiler
+    // matches it against the driver's own list. That covers every address a
+    // rig table can name, and for a long time a rig table was the only thing
+    // that could name one.
+    //
+    // It is not the only thing any more. An address can now arrive at
+    // startup, from --address or from a site table (see
+    // hal/topology/address_plan.hpp), and such an address is a hal::Address
+    // -- a variant whose alternative is a runtime fact. There is no
+    // constructor call to constrain, and no type for the concept to be
+    // instantiated with.
+    //
+    // So the list has to be reachable as data, and this is that: one
+    // spelling, used by the constructor's constraint and by the resolver's
+    // check both. A driver writes
+    //
+    //     using Buses = BackPanel<Lan, Usb>;
+    //
+    //     template<typename AddressT>
+    //         requires Buses::allows<AddressT>
+    //     EDU34450A( InstrumentId id, AddressT address);
+    //
+    // and the runtime check is Buses::accepts( address). Note what is NOT
+    // here: a second list. Writing the panel once and deriving both uses from
+    // it is the whole point -- a driver that listed its connectors twice
+    // could disagree with itself, and the disagreement would be exactly the
+    // one nobody would find, since the runtime half only runs on a bench.
+    //
+    // -- What guarantee survives, and it is the same one -------------------
+    //
+    // A driver never receives an address its panel cannot take. That was
+    // formerly true because the compiler said so; it is now true in two
+    // halves -- the compiler for a table's own address, the resolver for one
+    // supplied at startup -- and neither half can drift from the other,
+    // because both read this.
+    //
+    // The runtime half is not a weakening. It is checked before any session
+    // is opened, before the first script, and it fails the run there (see
+    // hal::bindAddresses()) rather than letting a Lan address reach a scope
+    // that has no network connector.
+    //
+    //
+    // One driver's panel, type-erased -- so that a resolver walking a rig's
+    // instruments can carry each one's answer without being a template over
+    // every driver in the rig.
+    //
+    // A function pointer and a string rather than a std::function: this is
+    // produced from a BackPanel's two static members, both of which exist for
+    // the life of the program, and there is nothing to own.
+    //
+    struct BackPanelInfo
+    {
+        bool ( *Accepts)( const Address &){ nullptr };
+
+        std::string_view Kinds{};
+
+        //
+        // The default is the panel of a driver that never said, and it
+        // accepts nothing -- which is the safe direction. A Binding that was
+        // never given a real panel refuses every address rather than waving
+        // all of them through.
+        //
+        [[nodiscard]]
+        auto allows( const Address & address) const -> bool
+        {
+            return Accepts != nullptr && Accepts( address);
+        }
+    };
+
+    template<typename... Supported>
+    struct BackPanel
+    {
+        template<typename AddressT>
+        static constexpr bool allows = ReachableOver<AddressT, Supported...>;
+
+        //
+        // "Lan, Usb" -- the connectors this panel has, for a diagnostic that
+        // has to tell somebody at a bench what they could have written
+        // instead.
+        //
+        // Off each alternative's own type name by reflection, the same way
+        // hal::to_string( const Address &) spells a kind, so a driver's
+        // diagnostic cannot name a connector its constraint does not have.
+        //
+        // Simulated is deliberately absent from the text even though every
+        // panel allows it: it is not a connector, and offering it as an
+        // alternative to somebody whose USB serial was refused would be
+        // suggesting they detach the instrument they are trying to reach.
+        //
+        static constexpr std::string_view Kinds = []
+        {
+            std::string names;
+
+            ( ( names += names.empty() ? "" : ", ",
+                names += std::meta::identifier_of( ^^Supported)), ...);
+
+            return std::string_view{ std::define_static_string( names) };
+        }();
+
+        //
+        // Whether an address this panel was not compiled against is one it
+        // could have been. The runtime half of the guarantee above.
+        //
+        [[nodiscard]]
+        static auto accepts( const Address & address) -> bool
+        {
+            return std::visit(
+                []( const auto & kind) { return allows<std::remove_cvref_t<decltype( kind)>>; },
+                address);
+        }
+
+        //
+        // This panel as a value -- what a driver hands the resolver.
+        //
+        [[nodiscard]]
+        static auto info() -> BackPanelInfo
+        {
+            return { &accepts, Kinds };
+        }
+    };
+
+
+    //
     // "Gpib 0::14", "Lan bench-dmm1:5025", "Simulated" -- for a log line, an
     // error message, or a run journal recording what the rig was actually
     // talking to. The bus kind's name comes from the alternative's own type
@@ -200,4 +331,19 @@ namespace hal
     //
     [[nodiscard]]
     auto to_string( const Address & address) -> std::string;
+
+    //
+    // Just the bus kind -- "Gpib", "Lan", "Simulated" -- with none of the
+    // detail to_string() puts after it.
+    //
+    // For a diagnostic about the kind itself rather than about the address,
+    // which is a distinction only one caller makes and makes constantly: an
+    // address resolved at startup may replace a row's payload and may not
+    // change its alternative (see hal::sameKind in
+    // hal/topology/address_plan.hpp), so the message when one tries has to
+    // name the two kinds and must not quote two addresses at a reader whose
+    // problem is that one word differs.
+    //
+    [[nodiscard]]
+    auto kindOf( const Address & address) -> std::string_view;
 } // namespace hal

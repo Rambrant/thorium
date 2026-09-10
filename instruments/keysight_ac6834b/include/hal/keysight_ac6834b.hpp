@@ -696,8 +696,17 @@ namespace hal::keysight_ac6834b
             // source is commanded down -- not anything the DUT sees, and
             // nothing to do with hal::racal1260::Racal1260's RS232 framing.
             //
+            // This model's back panel, written once and read twice: the
+            // constructor below is constrained by it, and
+            // hal::bindAddresses() checks an address supplied at startup
+            // against the same list (see hal::BackPanel). A second
+            // spelling of these connectors could disagree with this one,
+            // and only the bench would ever find out.
+            //
+            using Buses = BackPanel<Gpib, Serial>;
+
             template<typename AddressT>
-                requires ReachableOver<AddressT, Gpib, Serial>
+                requires Buses::allows<AddressT>
             Ac6834B( const InstrumentId id, const AddressT address) : mId( id), mAddress( address)
             {
                 for( auto & phase : mPhases)

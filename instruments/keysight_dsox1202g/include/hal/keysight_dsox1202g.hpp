@@ -1121,8 +1121,17 @@ namespace hal::keysight_dsox1202g
             // sharpest example of it in the tree, because the scope it
             // replaces accepted Gpib, Lan and Usb and this rig's row said Lan.
             //
+            // This model's back panel, written once and read twice: the
+            // constructor below is constrained by it, and
+            // hal::bindAddresses() checks an address supplied at startup
+            // against the same list (see hal::BackPanel). A second
+            // spelling of these connectors could disagree with this one,
+            // and only the bench would ever find out.
+            //
+            using Buses = BackPanel<Usb>;
+
             template<typename AddressT>
-                requires ReachableOver<AddressT, Usb>
+                requires Buses::allows<AddressT>
             DSOX1202G( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 
             //

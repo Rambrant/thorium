@@ -66,6 +66,14 @@ namespace hal
         }
     } // namespace
 
+    auto kindOf( const Address & address) -> std::string_view
+    {
+        return std::visit( []( const auto & kind) -> std::string_view
+        {
+            return kindName<std::remove_cvref_t<decltype( kind)>>();
+        }, address);
+    }
+
     auto to_string( const Address & address) -> std::string
     {
         return std::visit( []( const auto & kind) -> std::string

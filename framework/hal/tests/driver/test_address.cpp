@@ -84,3 +84,81 @@ TEST( HalAddress, SimulatedRendersItsKindAndNothingElse)
 {
     EXPECT_EQ( to_string( hal::Address{ hal::Simulated{} }), "Simulated");
 }
+
+//
+// hal::BackPanel is the same list of connectors as the concept above, in a
+// form something other than an overload resolution can ask about -- see
+// hal/driver/address.hpp on why a resolver needs one.
+//
+// The compile-time half is asserted in both directions, exactly as
+// hal::ReachableOver is at the top of this file, and for the same reason: a
+// check only ever exercised where it holds demonstrates nothing about what it
+// rejects.
+//
+using TwoConnectors = hal::BackPanel<hal::Lan, hal::Usb>;
+
+static_assert(   TwoConnectors::allows<hal::Lan> );
+static_assert(   TwoConnectors::allows<hal::Usb> );
+static_assert( ! TwoConnectors::allows<hal::Gpib> );
+static_assert( ! TwoConnectors::allows<hal::Serial> );
+
+//
+// Simulated is in every panel without any driver listing it -- the same
+// deliberate hole ReachableOver has, and the thing that makes detaching one
+// instrument of a live rig possible without editing its table.
+//
+static_assert( TwoConnectors::allows<hal::Simulated> );
+
+//
+// And the runtime half agrees with the compile-time half, which is the
+// property the whole arrangement rests on: these are two readings of one
+// list, not two lists that happen to match today.
+//
+TEST( HalBackPanel, TheRuntimeCheckAgreesWithTheCompileTimeOne)
+{
+    EXPECT_TRUE(  TwoConnectors::accepts( hal::Address{ hal::Lan{ "host" } }));
+    EXPECT_TRUE(  TwoConnectors::accepts( hal::Address{ hal::Usb{ "CN0001" } }));
+    EXPECT_TRUE(  TwoConnectors::accepts( hal::Address{ hal::Simulated{} }));
+    EXPECT_FALSE( TwoConnectors::accepts( hal::Address{ hal::Gpib{ 0, 5 } }));
+    EXPECT_FALSE( TwoConnectors::accepts( hal::Address{ hal::Serial{ "/dev/ttyUSB0" } }));
+}
+
+//
+// The connectors named for a diagnostic, taken off each alternative's own
+// type name the way to_string() takes a kind's -- so a driver cannot offer a
+// reader a connector its constraint does not have.
+//
+// Simulated is absent from the text on purpose. It is not a connector, and
+// offering it to somebody whose USB serial was just refused would be
+// suggesting they unplug the instrument they are trying to reach.
+//
+TEST( HalBackPanel, ThePanelNamesItsOwnConnectors)
+{
+    EXPECT_EQ( TwoConnectors::Kinds,                        "Lan, Usb");
+    EXPECT_EQ( ( hal::BackPanel<hal::Usb>::Kinds),          "Usb");
+    EXPECT_EQ( ( hal::BackPanel<hal::Gpib, hal::Serial>::Kinds), "Gpib, Serial");
+}
+
+//
+// A panel nobody declared accepts nothing, which is the safe direction for a
+// default: a caller carrying an unset hal::BackPanelInfo refuses every
+// address rather than waving all of them through.
+//
+TEST( HalBackPanel, AnUndeclaredPanelAcceptsNothing)
+{
+    const hal::BackPanelInfo none;
+
+    EXPECT_FALSE( none.allows( hal::Address{ hal::Lan{ "host" } }));
+    EXPECT_FALSE( none.allows( hal::Address{ hal::Simulated{} }));
+}
+
+//
+// kindOf() is to_string() without the detail -- for a message about the bus
+// rather than about the address, which is what a refusal against a panel is.
+//
+TEST( HalAddress, KindOfNamesTheBusAndNothingElse)
+{
+    EXPECT_EQ( hal::kindOf( hal::Address{ hal::Lan( "bench-dmm1") }),   "Lan");
+    EXPECT_EQ( hal::kindOf( hal::Address{ hal::Gpib( 0, 14) }),         "Gpib");
+    EXPECT_EQ( hal::kindOf( hal::Address{ hal::Simulated{} }),          "Simulated");
+}

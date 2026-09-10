@@ -242,8 +242,17 @@ namespace hal::keysight_edu34450a
             // the PC to reach the instrument. hal::Usb here means the rear
             // USBTMC device port.
             //
+            // This model's back panel, written once and read twice: the
+            // constructor below is constrained by it, and
+            // hal::bindAddresses() checks an address supplied at startup
+            // against the same list (see hal::BackPanel). A second
+            // spelling of these connectors could disagree with this one,
+            // and only the bench would ever find out.
+            //
+            using Buses = BackPanel<Lan, Usb>;
+
             template<typename AddressT>
-                requires ReachableOver<AddressT, Lan, Usb>
+                requires Buses::allows<AddressT>
             EDU34450A( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 
             //

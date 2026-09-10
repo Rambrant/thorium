@@ -461,8 +461,17 @@ namespace hal::keysight_34980a
             // why a chassis has neither an hal::InstrumentId nor an
             // hal::SwitchDeviceId. What identifies one is its address.
             //
+            // This model's back panel, written once and read twice: the
+            // constructor below is constrained by it, and
+            // hal::bindAddresses() checks an address supplied at startup
+            // against the same list (see hal::BackPanel). A second
+            // spelling of these connectors could disagree with this one,
+            // and only the bench would ever find out.
+            //
+            using Buses = BackPanel<Gpib, Lan, Usb>;
+
             template<typename AddressT>
-                requires ReachableOver<AddressT, Gpib, Lan, Usb>
+                requires Buses::allows<AddressT>
             explicit Chassis( const AddressT address) : mAddress( address) {}
 
             //

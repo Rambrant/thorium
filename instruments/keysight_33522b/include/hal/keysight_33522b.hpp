@@ -712,8 +712,17 @@ namespace hal::keysight_33522b
             // finds that out when openTransport fails to reach it, which is
             // the right place for a fact about one particular box.
             //
+            // This model's back panel, written once and read twice: the
+            // constructor below is constrained by it, and
+            // hal::bindAddresses() checks an address supplied at startup
+            // against the same list (see hal::BackPanel). A second
+            // spelling of these connectors could disagree with this one,
+            // and only the bench would ever find out.
+            //
+            using Buses = BackPanel<Lan, Usb, Gpib>;
+
             template<typename AddressT>
-                requires ReachableOver<AddressT, Lan, Usb, Gpib>
+                requires Buses::allows<AddressT>
             Wfg33522B( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 
             //

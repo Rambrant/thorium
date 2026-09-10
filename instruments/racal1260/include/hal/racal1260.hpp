@@ -267,8 +267,17 @@ namespace hal::racal1260
             // rate a test sets is a DUT-facing decision, and hal::Serial's
             // device path is not.
             //
+            // This model's back panel, written once and read twice: the
+            // constructor below is constrained by it, and
+            // hal::bindAddresses() checks an address supplied at startup
+            // against the same list (see hal::BackPanel). A second
+            // spelling of these connectors could disagree with this one,
+            // and only the bench would ever find out.
+            //
+            using Buses = BackPanel<Serial, Gpib>;
+
             template<typename AddressT>
-                requires ReachableOver<AddressT, Serial, Gpib>
+                requires Buses::allows<AddressT>
             Racal1260( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 
             // Where the PC reaches this port -- see hal/driver/address.hpp.
