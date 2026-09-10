@@ -338,6 +338,18 @@ from":
   names that a script, taking no parameters at all, cannot carry itself.
 ```
 
+That block is *where each piece comes from*. What it deliberately does not show is
+the **order** things happen in, and the order holds one surprise worth a picture of
+its own: the session seam is not a stage the value passes through on its way up
+from the fabric, it sits *above* the fabric and the driver and reaches them only
+through a callback -- `liveRead` -- that it is free never to invoke. That is the
+whole of why injection and replay need no cooperation from a script, and it reads
+backwards from the diagram above.
+
+[![What one Measure( ...) actually does](doc/diagrams/measure.svg)](doc/diagrams/measure.svg)
+
+See [`doc/README.md`](doc/README.md) for how the diagrams are kept.
+
 Three ideas carry most of the weight:
 
 **Points and criteria are types, not strings.** `POINT` and `CRIT` expand into

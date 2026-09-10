@@ -69,7 +69,23 @@ import sys
 # deliberately the same shape of thing -- the files a person writes -- so a
 # generated artifact is neither checked nor citable.
 #
-SCANNED_SUFFIXES = ( '.cpp', '.hpp', '.inc', '.md', '.txt', '.cmake', '.sh')
+# .svg is scanned but not a target: the diagrams under doc/ name the files they
+# draw, so those names rot exactly the way a comment's do, and nothing else would
+# catch it. They are not citable in return because a reference is an instruction
+# to go read something, and pointing a reader at a picture of the mechanism
+# instead of the mechanism is not that -- doc/README.md and the root README link
+# the diagrams in prose, which is where a reader can be told what they are about
+# to look at.
+#
+# Note the .svg files are generated, from the table in tools/make_diagrams.py,
+# which makes them the one generated artifact this file does look at. The rule
+# above would say to scan the generator instead, and it cannot: the allowlist
+# below is a list of paths that must *not* resolve, so scanning .py sources makes
+# this checker fail on itself, 66 times. So the artifact is the checked surface,
+# and the cost is real -- a path corrected in the generator is only checked once
+# it has been re-run and the .svg committed.
+#
+SCANNED_SUFFIXES = ( '.cpp', '.hpp', '.inc', '.md', '.txt', '.cmake', '.sh', '.svg')
 TARGET_SUFFIXES  = ( 'hpp', 'cpp', 'inc', 'cmake', 'sh', 'md')
 
 #
@@ -104,22 +120,20 @@ ALLOWED = {
         'history -- "there used to be a separate ..."',
     ( 'framework/runner/CMakeLists.txt', 'VARIANT/test_catalog.inc'):
         'a pattern with a variable in it, not a path',
+    ( 'instruments/keysight_33522b/CMakeLists.txt', 'include/keysight_33522b.hpp'):
+        'contrast -- "include/hal/keysight_33522b.hpp, not include/keysight_33522b.hpp"',
+    ( 'instruments/keysight_34980a/CMakeLists.txt', 'include/keysight_34980a.hpp'):
+        'contrast -- "include/hal/keysight_34980a.hpp, not include/keysight_34980a.hpp"',
     ( 'instruments/keysight_ac6834b/CMakeLists.txt', 'include/keysight_ac6834b.hpp'):
         'contrast -- "include/hal/ac6834b.hpp, not include/ac6834b.hpp"',
-    ( 'instruments/keysight_dso8064a/CMakeLists.txt', 'include/keysight_dso8064a.hpp'):
-        'contrast -- "include/hal/dso8064a.hpp, not include/dso8064a.hpp"',
     ( 'instruments/keysight_dsox1202g/CMakeLists.txt', 'include/keysight_dsox1202g.hpp'):
         'contrast -- "include/hal/dsox1202g.hpp, not include/dsox1202g.hpp"',
     ( 'instruments/keysight_edu34450a/CMakeLists.txt', 'include/keysight_edu34450a.hpp'):
         'contrast -- "include/hal/edu34450a.hpp, not include/edu34450a.hpp"',
-    ( 'instruments/keysight_l4411a/CMakeLists.txt', 'include/keysight_l4411a.hpp'):
-        'contrast -- "include/hal/l4411a.hpp, not include/l4411a.hpp"',
-    ( 'instruments/keysight_n6701a/CMakeLists.txt', 'include/keysight_n6701a.hpp'):
-        'contrast -- "include/hal/n6701a.hpp, not include/n6701a.hpp"',
+    ( 'instruments/keysight_edu36311a/CMakeLists.txt', 'include/keysight_edu36311a.hpp'):
+        'contrast -- "include/hal/keysight_edu36311a.hpp, not include/keysight_edu36311a.hpp"',
     ( 'instruments/racal1260/CMakeLists.txt', 'include/racal1260.hpp'):
         'contrast -- "include/hal/racal1260.hpp, not include/racal1260.hpp"',
-    ( 'rig/instrument.inc', 'InstrumentWiring/wiring.inc'):
-        'prose pairing a type with a file, not a path',
 
     #
     # The three below are real gaps rather than deliberate spellings, listed so
@@ -207,9 +221,18 @@ def main():
     for path, number, reference in unexpected:
         print( f'{path}:{number}: names {reference}, which is not in the tree')
 
+    #
+    # Deliberately says "no longer needed" rather than "now resolves". An entry
+    # stops being triggered for three different reasons -- the path resolves, the
+    # comment that named it was rewritten, or the file holding it was deleted --
+    # and this cannot tell which. Saying the first one out loud sent a reader
+    # looking for a newly-created header three times in a row, when what had
+    # actually happened was that three drivers were deleted.
+    #
     for path, reference in withered:
-        print( f'{path}: allowlisted {reference} now resolves -- drop its entry in '
-               f'tools/check_references.py')
+        print( f'{path}: allowlisted {reference} is no longer needed (it resolves '
+               f'now, or the file or the comment naming it is gone) -- drop its '
+               f'entry in tools/check_references.py')
 
     if unexpected or withered:
         print()

@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="2039" viewBox="0 0 1160 2039" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="call" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22303c"/></marker>
+    <marker id="ret" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#71818f" stroke-width="1.7"/></marker>
+  </defs>
+  <rect width="1160" height="2039" fill="#ffffff"/>
+  <text x="22" y="36" font-size="17.5" font-weight="600" fill="#22303c">What one Measure( ...) actually does</text>
+  <text x="22" y="58" font-size="12.5" fill="#5b6b7a">From the call site to the rows in the log. This is ordering, not data flow -- and the order is the part the README's block does not show:</text>
+  <text x="22" y="76" font-size="12.5" fill="#5b6b7a">the session sits <tspan font-style="italic">above</tspan> the fabric and the driver, and reaches them only through a callback it is free never to invoke.</text>
+  <line x1="88" y1="152" x2="88" y2="1961" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="300" y1="152" x2="300" y2="1961" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="540" y1="152" x2="540" y2="1961" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="748" y1="152" x2="748" y2="1961" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="916" y1="152" x2="916" y2="1961" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="1068" y1="152" x2="1068" y2="1961" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <rect x="196" y="494" width="800" height="1022" fill="none" stroke="#a8762a" stroke-width="1.2" stroke-dasharray="6 4" rx="4"/>
+  <rect x="196" y="494" width="264" height="20" fill="#a8762a" rx="3"/>
+  <text x="202" y="508" font-size="10.5" font-weight="600" fill="#ffffff">live only -- inside the liveRead callback</text>
+  <rect x="10" y="98" width="156" height="54" rx="5" fill="#e7f0fb" stroke="#2b6cb0" stroke-width="1.3"/>
+  <text x="88" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">a test script</text>
+  <text x="88" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">suite/scripts/*.cpp</text>
+  <rect x="212" y="98" width="176" height="54" rx="5" fill="#eef3f7" stroke="#3d5666" stroke-width="1.3"/>
+  <text x="300" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core::MeasureEngine</text>
+  <text x="300" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core/verbs/measure.hpp</text>
+  <rect x="460" y="98" width="160" height="54" rx="5" fill="#eef3f7" stroke="#3d5666" stroke-width="1.3"/>
+  <text x="540" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core::ISession</text>
+  <text x="540" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core/session/session.hpp</text>
+  <rect x="668" y="98" width="160" height="54" rx="5" fill="#fdf4e4" stroke="#8a5a00" stroke-width="1.3"/>
+  <text x="748" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">hal::SwitchFabric</text>
+  <text x="748" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">hal/fabric/switch_fabric.hpp</text>
+  <rect x="844" y="98" width="144" height="54" rx="5" fill="#fdf4e4" stroke="#8a5a00" stroke-width="1.3"/>
+  <text x="916" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the driver</text>
+  <text x="916" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core::Port -&gt; instrument</text>
+  <rect x="998" y="98" width="140" height="54" rx="5" fill="#eef3f7" stroke="#3d5666" stroke-width="1.3"/>
+  <text x="1068" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core::Journal</text>
+  <text x="1068" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core/journal/journal.hpp</text>
+  <line x1="90" y1="180" x2="293" y2="180" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="194" y="172" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Measure( Dmm1.voltage(), at( dut::Output5V))</text>
+  <rect x="113" y="216" width="375" height="52" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="124" y="238" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">key = "Output5V"  -- the point's name, and the port's</text>
+  <text x="124" y="253" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">qualifier when it has one ("Output5V.Vmin")</text>
+  <line x1="302" y1="302" x2="533" y2="302" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="420" y="294" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">fetch( key, kind, liveRead)</text>
+  <rect x="316" y="338" width="448" height="112" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="327" y="360" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">fetch( key, "Dmm1", QuantityKind::Voltage, liveRead)</text>
+  <text x="327" y="390" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">The session decides where the value comes from. Only LiveSession</text>
+  <text x="327" y="405" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">calls liveRead. ScriptedSession, a replay and PlaceholderSession</text>
+  <text x="327" y="420" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">answer from an injection, a recording or a zero -- and nothing</text>
+  <text x="327" y="435" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">in the frame below happens at all.</text>
+  <line x1="538" y1="540" x2="307" y2="540" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
+  <text x="420" y="532" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">liveRead()</text>
+  <rect x="106" y="576" width="388" height="82" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="117" y="598" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the electrical interlock, before any path is composed:</text>
+  <text x="117" y="613" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">energisedSourceAt( Loc) throws when a source holds this</text>
+  <text x="117" y="628" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">pin live and the reading needs a dead node</text>
+  <text x="117" y="643" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">                             core/verbs/interlock.hpp</text>
+  <rect x="103" y="692" width="395" height="82" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="114" y="714" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">tapWiring.taps( instrumentId)?</text>
+  <text x="114" y="729" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">On a direct-wired rig this confirms the instrument's own</text>
+  <text x="114" y="744" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">leads are on this very pin, and skips all of the fabric</text>
+  <text x="114" y="759" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">below -- a tapped reading is not a degenerate route.</text>
+  <rect x="119" y="808" width="361" height="97" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="130" y="830" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">path = instrumentWiring.find( instrumentId)</text>
+  <text x="130" y="845" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">     + connectorWiring.find( Loc)</text>
+  <text x="130" y="860" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">     + both sense paths, when SensePath::Required</text>
+  <text x="130" y="875" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Composed at the moment of reading, never stored.</text>
+  <text x="130" y="890" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">                            hal/topology/wiring.hpp</text>
+  <line x1="302" y1="939" x2="741" y2="939" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="524" y="931" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">connect( path)</text>
+  <rect x="594" y="975" width="308" height="67" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="605" y="997" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">close( id) for each element, in order.</text>
+  <text x="605" y="1012" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Reference-counted, so this cannot disturb a</text>
+  <text x="605" y="1027" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">path another instrument is holding open.</text>
+  <line x1="302" y1="1076" x2="909" y2="1076" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="608" y="1068" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">port.rawMeasure()</text>
+  <rect x="755" y="1112" width="321" height="52" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="766" y="1134" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the driver's own SCPI, over io::ScpiSession</text>
+  <text x="766" y="1149" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">and io::Transport -- CONFigure..., then READ?</text>
+  <line x1="914" y1="1198" x2="307" y2="1198" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
+  <text x="608" y="1190" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Voltage</text>
+  <rect x="113" y="1234" width="375" height="67" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="124" y="1256" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">An UnmeasurableReading is caught here and turned into</text>
+  <text x="124" y="1271" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the value whenUnmeasurable() gives -- inside the pair</text>
+  <text x="124" y="1286" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">below, so a normal failure still opens the relays.</text>
+  <line x1="302" y1="1335" x2="741" y2="1335" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="524" y="1327" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">disconnect( path)</text>
+  <rect x="581" y="1371" width="335" height="67" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="592" y="1393" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">open( id) each -- and a relay truly opens only</text>
+  <text x="592" y="1408" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">once every close() on it has been matched, so a</text>
+  <text x="592" y="1423" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">supply parked on this point keeps its own shut.</text>
+  <line x1="302" y1="1472" x2="533" y2="1472" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
+  <text x="420" y="1464" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">QuantityVariant{ Voltage }</text>
+  <line x1="538" y1="1544" x2="307" y2="1544" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
+  <text x="420" y="1536" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">QuantityVariant</text>
+  <rect x="349" y="1580" width="381" height="52" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="360" y="1602" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">On the way out, a RecordingSession files the value</text>
+  <text x="360" y="1617" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">for replay -- a strict ordered sequence, not a report.</text>
+  <rect x="96" y="1666" width="408" height="52" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="107" y="1688" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">asQuantity&lt;Voltage&gt;()  -- the type erasure ends here, so</text>
+  <text x="107" y="1703" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">everything downstream, the log included, has the real type</text>
+  <line x1="302" y1="1752" x2="1061" y2="1752" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="684" y="1744" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">post( JournalRecord)</text>
+  <rect x="722" y="1788" width="428" height="97" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="733" y="1810" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">post({ Verb::Measure, key, detail, instrument, value, unit })</text>
+  <text x="733" y="1840" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">onEvent -&gt; every registered sink, in registration order:</text>
+  <text x="733" y="1855" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">ConsoleSink, then SarifSink and RtfSink when the run</text>
+  <text x="733" y="1870" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">was asked for artifacts.</text>
+  <line x1="298" y1="1919" x2="95" y2="1919" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
+  <text x="194" y="1911" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Voltage</text>
+  <line x1="22" y1="1971" x2="1138" y2="1971" stroke="#b9c4cf" stroke-width="1"/>
+  <text x="22" y="1991" font-size="11" fill="#5b6b7a">One Measure() is exactly one journal event, whether the value came from an instrument, an injection or a recording -- so a script's log says what the</text>
+  <text x="22" y="2007" font-size="11" fill="#5b6b7a">script measured, not how the run was set up. The Verify( FS_Supply_1::FS_Supply_5V0, rail) that follows is a second, separate event.</text>
+  <text x="22" y="2023" font-size="11" fill="#5b6b7a">Solid arrow: a call.   Dashed: what it returns.</text>
+</svg>
