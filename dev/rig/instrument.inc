@@ -26,20 +26,45 @@
 // this deployment takes from it -- including capacitance, which is the one
 // function the L4411A this row used to name does not have at all.
 //
-// The address is a placeholder for whichever meter is on the desk, and unlike
-// rig/instrument.inc's provisional GPIB addresses this one is expected to be
-// edited rather than confirmed -- it names one developer's bench, not a rack
-// whose wiring a reviewer can check. Lan( ...) rather than Simulated{}
-// deliberately: this deployment exists to talk to a real instrument, and
-// Simulated{} here would say the opposite (see hal/driver/address.hpp on which of
-// those two an absent instrument should be). A build with nothing plugged in
-// still runs -- --inject and --skeleton detach the bench, and an attached run
-// with no instrument fails at the reading, which is the honest outcome.
+// The address is a placeholder for whichever meter is on the desk -- it names
+// one developer's bench, not a rack whose wiring a reviewer can check.
+// Lan( ...) rather than Simulated{} deliberately: this deployment exists to
+// talk to a real instrument, and Simulated{} here would say the opposite (see
+// hal/driver/address.hpp on which of those two an absent instrument should
+// be).
+//
+// This row used to say the placeholder was "expected to be edited rather than
+// confirmed", and that is no longer the advice. Editing it means a
+// permanently dirty working tree and a live chance of committing your own
+// desk's hostname into the deployment, so the meter you actually have is
+// named from outside the tree instead:
+//
+//     run_scripts --address Dmm1=lan:dev-dmm-3
+//
+// or THORIUM_ADDRESS_Dmm1 in the shell that runs it, which a desk that always
+// has the same meter can set once. Either way the run's own header says which
+// box answered and that the flag is where the address came from -- see
+// hal/verbs/preflight.hpp.
+//
+// The flag is checked against this meter's own back panel rather than against
+// this row: an EDU34450A has LAN and USB, so --address Dmm1=usb:<serial> is
+// accepted here too, and a bus it has no connector for is refused at startup
+// exactly as it would fail to compile in this column (see hal::BackPanel).
+//
+// A build with nothing plugged in still runs, and the two ways it can go are
+// worth keeping straight. --inject and --skeleton detach the bench, so no
+// address is ever opened and the run completes against described readings. An
+// *attached* run now fails at startup rather than at the first reading: the
+// preflight opens every reachable instrument before the first script, so a
+// desk with no meter at dev-dmm gets "cannot resolve Lan dev-dmm:5025"
+// immediately, with nothing else attempted. That is the honest outcome and an
+// earlier one than before, but it is a change worth knowing about if you were
+// used to watching the chain run and fail at the Measure.
 //
 // Dmm1, not DevDmm: a script written here should be movable to the bench
 // suite and back, and the instrument names are the vocabulary that makes that
 // true.
 //
 INSTRUMENTS
-    INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "dev-dmm"))   // TODO(bench): the hostname of the meter on your desk
+    INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "dev-dmm"))   // the desk default; --address Dmm1=lan:<host> for whichever meter you actually have
 END_INSTRUMENTS

@@ -187,6 +187,36 @@
 // and USB box with no GPIB connector, so Gpib( ...) on the Dmm1 row is a
 // compile error rather than a run that dies on its first reading.
 //
+// -- What this column fixes, and what can still move ----------------------
+//
+// A row's address can be replaced at startup -- by --address, or by a site
+// table on a bench that is one of an identical fleet (see
+// hal/topology/address_plan.hpp, and hal/verbs/preflight.hpp for the pass
+// that does it). What that does not do is loosen the paragraph above, and it
+// is worth saying exactly why, because "the command line can change it" reads
+// like it should.
+//
+// A replacement is checked against the same list the compiler checks this
+// column against: the driver's own hal::BackPanel, which is where its
+// connectors are written down once (see hal/driver/address.hpp). So
+// Osc1=lan:... is refused at startup, before any session is opened, for
+// precisely the reason Lan( ...) on the Osc1 row does not compile -- a
+// DSOX1202G has no network connector. The guarantee is unchanged; only which
+// half of the build enforces it moves, and both halves read one list.
+//
+// What this *does* allow is the bring-up order, which matters here because
+// six of these eight rows say Simulated{} today. A Simulated{} row can be
+// pointed at real hardware from the command line:
+//
+//     run_scripts --address Dmm1=usb:MY60012345
+//
+// Plug the meter in, name it, confirm it answers, and then edit the row --
+// with the serial the run's own banner printed, rather than one typed
+// hopefully into this table first and debugged afterwards. The rule at the
+// top of this section is untouched by that: this column must still say
+// Simulated{} until there is hardware at it, because the table is a claim
+// about the bench and a flag is a statement about one run.
+//
 // Dmm1 and Dmm2 used to be two *different* models, and the argument for that
 // is kept here even though Dmm2 has gone, because it is the thing a reader
 // adding a second meter is most likely to get wrong. They were two

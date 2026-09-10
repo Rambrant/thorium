@@ -136,13 +136,20 @@ both log sinks, with nothing stubbed anywhere in the chain:
 
 What a run does with *no* meter at the other end changed, and changed in the
 direction this framework argues for everywhere else. It used to read `0 V` and
-fail its criteria; it now fails at the reading, immediately, saying what it
-could not reach:
+fail its criteria; then it failed at the first reading; it now fails before the
+first script runs at all, saying what it could not reach:
 
 ```
-Uncaught exception during test run: cannot resolve Lan dev-dmm:5025:
+Preflight failed: cannot resolve Lan dev-dmm:5025:
     nodename nor servname provided, or not known
 ```
+
+That last move is the preflight (see `hal/verbs/preflight.hpp`), which opens
+every reachable instrument once at startup so that the whole rig is confirmed
+before anything is measured rather than one box at a time as scripts happen to
+touch them. On this deployment it is one meter and the difference is half a
+second; on a bench it is the difference between a report with one failing test
+and no report at all, which is the right way round when the cause is a cable.
 
 Which is the better failure. A rig that reads zero volts off a meter that was
 never connected is precisely the outcome this whole design is written against,
@@ -152,7 +159,26 @@ connect deadline rather than letting the OS retransmit its SYN for a minute.
 
 `--inject` and `--skeleton` still need no meter at all, because they detach the
 bench and take their readings from a file — which is what keeps a script's own
-unit tests hardware-free.
+unit tests hardware-free. A detached run skips the preflight entirely, for the
+same reason it skips safing: a run that must not touch hardware must not open a
+socket to find out what is there.
+
+When the meter you have is not the one `dev/rig/instrument.inc` names — which
+is the normal case on a desk sharing a shelf of them — say so on the command
+line rather than editing the file:
+
+```bash
+run_scripts --address Dmm1=lan:dev-dmm-3
+```
+
+The run's header then records both the address and the fact that a flag chose
+it, so a log from your desk is still readable by somebody at another one.
+
+The flag is checked against the meter's own back panel, not against the row —
+an EDU34450A has LAN and USB, so `--address Dmm1=usb:<serial>` works here too,
+and a bus the instrument has no connector for is refused at startup with the
+list of the ones it does have. That is the same list the compiler holds the
+table to; see `hal::BackPanel`.
 
 The driver's own tests are hardware-free too, by a different route: they hand it
 a fake `hal::io::ITransport` and assert the exact SCPI it would have sent. So
