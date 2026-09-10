@@ -129,7 +129,11 @@ def layout( diagram):
     lanes  = { part[ 0]: part[ 1] for part in diagram[ "Parts"]}
     placed = []
     frames = []
-    opened = None
+    #
+    # A stack, not one slot: the run lifecycle nests a per-test frame inside a
+    # per-group one, and the two are the same shape at two depths.
+    #
+    opened = []
     y      = TOP + 28
 
     for row in diagram[ "Rows"]:
@@ -140,14 +144,21 @@ def layout( diagram):
             # A frame's label sits in a tab on its top edge, so the first row
             # inside it has to clear the tab as well as the edge.
             #
-            y     += 10
-            opened = ( y, row[ 1])
-            y     += 46
+            # An inner frame carries its own span. Nothing derives it from the
+            # arrows inside: the span says which participants the frame is a
+            # statement about, and a derived one would shift every time a row
+            # moved.
+            #
+            span = row[ 2] if len( row) > 2 else diagram[ "FrameSpan"]
+
+            y += 10
+            opened.append(( y, row[ 1], span))
+            y += 46
 
         elif kind == "endframe":
-            frames.append(( opened[ 0], y + 8, opened[ 1]))
-            opened = None
-            y     += 36
+            top, label, span = opened.pop()
+            frames.append(( top, y + 8, label, span))
+            y += 36
 
         elif kind == "msg":
             _, source, target, arrow, text = row
@@ -164,16 +175,79 @@ def layout( diagram):
             # that is ordinary in a sequence diagram -- but it may not fall off
             # the edge, which is what the clamp is for.
             #
-            left = max( 10, min( lanes[ over] - box_width / 2, width - box_width - 10))
+            # MARGIN, not the canvas's own 8: a frame drawn around this note has
+            # to fit outside it and still be on the page, so the widest note
+            # leaves room for one. Ten pixels here and frames ran off the edge.
+            #
+            MARGIN = 24
+
+            left = max( MARGIN, min( lanes[ over] - box_width / 2, width - box_width - MARGIN))
             placed.append(( "note", y, left, box_width, lines, box_height))
             y += box_height + GAP
 
         else:
             raise AssertionError( f"unknown row kind {kind!r}")
 
-    assert opened is None, "a frame was opened and never closed"
+    assert not opened, "a frame was opened and never closed"
 
-    return placed, frames, y + 6
+    #
+    # The authored span says which participants a frame is a statement about,
+    # and it is written in those terms -- but a note box is sized from its own
+    # text and is routinely wider than the participant it hangs off, so an
+    # authored span cannot also be a promise to contain one. So it is a
+    # minimum: each frame is widened here to hold whatever it encloses.
+    #
+    # Doing it rather than complaining about it, because the alternative was
+    # hand-tuning a number per frame against a width nobody computes by eye --
+    # which is exactly the arithmetic this generator exists to stop doing. The
+    # check that survives is the one this cannot satisfy on its own: a frame
+    # that has to grow past the edge of the canvas.
+    #
+    PAD = 12
+
+    widened = []
+
+    for frame_top, frame_bottom, label, ( left, right) in frames:
+        for item in placed:
+            if not ( frame_top < item[ 1] < frame_bottom):
+                continue
+
+            if item[ 0] == "note":
+                low, high = item[ 2], item[ 2] + item[ 3]
+            else:
+                low, high = min( item[ 2], item[ 3]), max( item[ 2], item[ 3])
+
+            left  = max( 10, min( left,  low  - PAD))
+            right = min( width - 10, max( right, high + PAD))
+
+        widened.append(( frame_top, frame_bottom, label, ( round( left), round( right))))
+
+    #
+    # Then outwards, so a frame still encloses the ones nested in it after both
+    # have grown. Sorted by height: an enclosing frame is always the taller.
+    #
+    # This is why check() has nothing to say about nesting. A frame drawn
+    # outside the one it nests in would read as two unrelated regions rather
+    # than a loop inside a loop, and that was a check here until this pass
+    # made it unreachable -- which is the better answer of the two, and the
+    # one README.md section 7 asks for: where a property can be established by
+    # construction, establish it, and do not keep an assertion that can no
+    # longer fail. The canvas-edge check below is the one this cannot satisfy
+    # on its own.
+    #
+    for outer in sorted( range( len( widened)), key = lambda i: widened[ i][ 0] - widened[ i][ 1]):
+        o_top, o_bottom, o_label, ( o_left, o_right) = widened[ outer]
+
+        for inner in range( len( widened)):
+            i_top, i_bottom, _label, ( i_left, i_right) = widened[ inner]
+
+            if inner != outer and o_top < i_top and o_bottom > i_bottom:
+                o_left  = max( 10, min( o_left,  i_left  - PAD))
+                o_right = min( width - 10, max( o_right, i_right + PAD))
+
+        widened[ outer] = ( o_top, o_bottom, o_label, ( o_left, o_right))
+
+    return placed, widened, y + 6
 
 
 def check( diagram, placed, frames):
@@ -254,7 +328,10 @@ def check( diagram, placed, frames):
     # first draft had "QuantityVariant" with the frame's bottom edge struck
     # through it and it looked like a rendering bug, not a layout one.
     #
-    for frame_top, frame_bottom, label in frames:
+    for frame_top, frame_bottom, label, ( left, right) in frames:
+        if left < 8 or right > width - 8:
+            faults.append( f"frame {label[ :24]!r} runs off the canvas")
+
         for item in placed:
             if item[ 0] != "msg":
                 continue
@@ -312,8 +389,7 @@ def render( diagram, placed, frames, bottom):
     # Drawn after the lifelines and before the notes: a frame is a region, so it
     # belongs behind anything with an opaque fill.
     #
-    for frame_top, frame_bottom, label in frames:
-        left, right = diagram[ "FrameSpan"]
+    for frame_top, frame_bottom, label, ( left, right) in frames:
         out.append( f'  <rect x="{left}" y="{frame_top}" width="{right - left}"'
                     f' height="{frame_bottom - frame_top}" fill="none" stroke="{FRAME_S}"'
                     f' stroke-width="1.2" stroke-dasharray="6 4" rx="4"/>')
@@ -469,7 +545,284 @@ MEASURE = {
     ],
 }
 
-DIAGRAMS = { "measure": MEASURE}
+
+LIFECYCLE = {
+    "Width": 1200,
+    "Title": "How a run starts, and how it stops",
+    "Subtitle": [
+        "framework/runner/src/main.cpp from the first argument to the last log line. The startup order is what makes a failure legible; the shutdown",
+        "order is what makes it safe -- and every teardown guard below is deliberately constructed <tspan font-style=\"italic\">before</tspan> the setup it answers for.",
+    ],
+    "FrameSpan": ( 40, 1010),
+    "Parts": [
+        ( "main",    110, 86, SCRIPT_FILL, SCRIPT_LINE, "main()",         "framework/runner"),
+        ( "flight",  340, 88, HAL_FILL,    HAL_LINE,    "hal preflight",  "hal/verbs/preflight.hpp"),
+        ( "journal", 560, 80, CORE_FILL,   CORE_LINE,   "core::Journal",  "core/journal/journal.hpp"),
+        ( "hooks",   770, 82, SCRIPT_FILL, SCRIPT_LINE, "the hooks",      "suite/test_catalog.inc"),
+        ( "script",  950, 74, SCRIPT_FILL, SCRIPT_LINE, "a test script",  "suite/scripts/*.cpp"),
+        ( "safing", 1110, 76, HAL_FILL,    HAL_LINE,    "hal::safeRig",   "hal/verbs/safing.hpp"),
+    ],
+    "Rows": [
+        ( "frame", "startup -- nothing has been touched yet", ( 40, 700)),
+        ( "note", "main", [ "The --address flags go in first and $THORIUM_ADDRESS_* after",
+                            "them, because bindAddresses takes the first override it finds",
+                            "-- so a flag typed now beats an export a bench PC set months ago."]),
+        ( "msg", "main", "flight", "call", "bindAddresses( plan)"),
+        ( "note", "flight", [ "per row, in this order: an --address override, the site table,",
+                              "this row's candidate pool, then the row's own third column.",
+                              "Every candidate is checked against the driver's hal::BackPanel,",
+                              "so a bus the instrument has no connector for is refused here."]),
+        ( "msg", "main", "flight", "call", "contactInstruments( bindings)"),
+        ( "note", "flight", [ "opens every reachable instrument, asks *IDN?, and acquires each",
+                              "pooled row from its shelf. Skipped entirely on a detached run:",
+                              "a run that must not touch hardware must not open a socket to",
+                              "find out what is there."]),
+        ( "note", "main", [ "runInfo = defaultRunInfo() + bannerLines( bindings)",
+                            "The traceability header is assembled before anything is measured,",
+                            "so a preflight that fails fails before any log exists -- which is",
+                            "the right way round: a run that cannot say which instruments it",
+                            "is using has nothing worth writing down."]),
+        ( "msg", "main", "journal", "call", "add( ConsoleSink), add( SarifSink), add( RtfSink)"),
+        ( "msg", "main", "journal", "call", "begin( runInfo)"),
+        ( "endframe",),
+        ( "note", "main", [ "hal::RigSafingGuard safeOnExit;",
+                            "Constructed inside begin()/end(), so the Safe event its own",
+                            "destructor posts lands in the log of the run it belongs to."]),
+        ( "note", "main", [ "unmatchedSelection( options.Selection)",
+                            "A --select naming a test this catalog has not got stops the run",
+                            "here -- before RUN_SETUP powers a rig up to then not run what",
+                            "was asked for."]),
+        ( "note", "main", [ "TeardownGuard teardown{ Teardown};   <-- before the setup below"]),
+        ( "msg", "main", "hooks", "call", "RUN_SETUP"),
+        ( "note", "hooks", [ "rigPowerOn: relay closed dead, then energised, primary before",
+                             "the alternates. It reads each source back, and a false stops",
+                             "the run before the first script."]),
+        ( "frame", "for each --repeat pass, for each group with something selected", ( 40, 1010)),
+        ( "msg", "main", "journal", "call", "beginGroup( name)"),
+        ( "note", "main", [ "TeardownGuard groupTeardown{ group.teardown};",
+                            "Again before the group's own setup, and inside beginGroup so",
+                            "whatever a hook posts is attributed to the group it brackets.",
+                            "Per pass, not per run: --repeat=3 arms and disarms each group",
+                            "three times."]),
+        ( "msg", "main", "hooks", "call", "group SETUP"),
+        ( "frame", "for each selected test", ( 76, 1010)),
+        ( "msg", "main", "journal", "call", "beginTest( id)"),
+        ( "msg", "main", "script", "call", "test.script()"),
+        ( "note", "script", [ "Measure, Verify, Setup, Apply, Arm ... every verb posts to the",
+                              "journal as it goes. measure.svg is one of them end to end.",
+                              "",
+                              "A script that throws unwinds straight past endTest to main's",
+                              "handler: an exception out of a script means the rig is in an",
+                              "unknown state, which is what the guards above are for."]),
+        ( "msg", "main", "journal", "call", "endTest()"),
+        ( "msg", "journal", "main", "ret", "passed"),
+        ( "note", "journal", [ "Derived from the checks the script actually recorded, never",
+                               "returned by the script -- so there is no flag to fold, and no",
+                               "way for a script's answer to disagree with its own log. A",
+                               "script that recorded no check cannot pass."]),
+        ( "endframe",),
+        ( "msg", "main", "hooks", "call", "group TEARDOWN"),
+        ( "note", "hooks", [ "The guard's destructor, so it runs whether or not the group's",
+                             "tests did -- and before endGroup closes the group it belongs to."]),
+        ( "msg", "main", "journal", "call", "endGroup()"),
+        ( "endframe",),
+        ( "msg", "main", "hooks", "call", "RUN_TEARDOWN"),
+        ( "note", "hooks", [ "rigPowerOff: the exact inverse of the power-up. Reached on every",
+                             "path out, including the one where RUN_SETUP failed half way",
+                             "through -- which is the whole of what constructing the guard",
+                             "first buys, and why a restore written at the end of a script is",
+                             "not the same thing."]),
+        ( "msg", "main", "safing", "call", "~RigSafingGuard"),
+        ( "note", "safing", [ "The crash path: everything off, every relay open, unordered and",
+                              "unconditional. It exists to be correct when nothing else ran,",
+                              "which is exactly why it cannot express a sequence -- and why",
+                              "the ordered teardowns above are separate from it."]),
+        ( "msg", "main", "journal", "call", "end( allPassed)"),
+        ( "note", "journal", [ "the report, and both logs closed"]),
+    ],
+    "Footer": [
+        "Every teardown here is a destructor, and every one of them is constructed before the setup it answers for. That is the single idea the shutdown half",
+        "of this diagram is about: a teardown that only runs when its setup succeeded is not a teardown, it is the happy path with extra steps.",
+        "Solid arrow: a call.   Dashed: what it returns.",
+    ],
+}
+
+SOURCE = {
+    "Width": 1180,
+    "Title": "Connect, Apply, Remove, Disconnect -- and why they nest",
+    "Subtitle": [
+        "The relay moves while the path is dead, at both ends of the sequence. Nothing here enforces that: hot switching is a wear argument, not a",
+        "correctness one -- so instead of refusing it, Connect and Disconnect ask the driver whether its output was live and put the answer in the log.",
+    ],
+    "FrameSpan": ( 150, 1140),
+    "Parts": [
+        ( "script",   95, 78, SCRIPT_FILL, SCRIPT_LINE, "a test script",       "suite/scripts/*.cpp"),
+        ( "route",   320, 90, CORE_FILL,   CORE_LINE,   "Connect/Disconnect",  "core/verbs/route.hpp"),
+        ( "source",  545, 84, CORE_FILL,   CORE_LINE,   "Apply/Remove",        "core/verbs/source.hpp"),
+        ( "fabric",  740, 78, HAL_FILL,    HAL_LINE,    "hal::SwitchFabric",   "hal/fabric/switch_fabric.hpp"),
+        ( "driver",  915, 72, HAL_FILL,    HAL_LINE,    "the driver",          "a supply, via ADL"),
+        ( "journal",1080, 74, CORE_FILL,   CORE_LINE,   "core::Journal",       "core/journal/journal.hpp"),
+    ],
+    "Rows": [
+        ( "note", "source", [ "The order the hardware cares about, written out as a rig's real",
+                              "power-up in suite/scripts/rig_power_on.cpp:",
+                              "",
+                              "    Connect, Apply  ...  Remove, Disconnect",
+                              "",
+                              "It nests rather than mirrors, and both ends are the same",
+                              "mechanism: contacts that part under current draw an arc, and",
+                              "contacts closing onto a live supply bounce, breaking an",
+                              "energised circuit on each bounce."]),
+        ( "frame", "bringing a rail up", ( 40, 1140)),
+        ( "msg", "script", "route", "call", "Connect( DcP5.dc())"),
+        ( "msg", "route", "driver", "call", "isEnergised( config)?"),
+        ( "msg", "driver", "route", "ret", "false -- cold, which is the point"),
+        ( "note", "route", [ "core::detail::energisedNow asks it, through an unqualified",
+                             "isEnergised -- so this header stays free of any hal:: type.",
+                             "",
+                             "Optional, because most configs Connect is called with are not",
+                             "sources at all: asking whether a UART is live is not a question.",
+                             "But optional in the one shape that cannot lose the check by",
+                             "omission -- \"has an applyDriver\" is exactly \"Apply can energise",
+                             "this\", so a config with one and no isEnergised is a static_assert",
+                             "naming the missing member, not a quiet report of \"cold\".",
+                             "",
+                             "Not asked at all on a detached run: the driver call is guarded by",
+                             "bench().isAttached(), so nothing to switch means nothing hot."]),
+        ( "msg", "route", "fabric", "call", "connect( path)"),
+        ( "msg", "route", "journal", "call", "post( Verb::Connect, hot = false)"),
+        ( "msg", "script", "source", "call", "Apply( DcP5.dc().voltage( 5_V))"),
+        ( "msg", "source", "driver", "call", "applyDriver( config)"),
+        ( "note", "driver", [ "Only when bench().isAttached(). A replayed run takes its",
+                              "readings from a file, and energising a rail for real while",
+                              "doing so is the one thing it must not do -- but the event is",
+                              "posted either way, and says which happened."]),
+        ( "msg", "source", "journal", "call", "post( Verb::Apply)"),
+        ( "note", "journal", [ "Posted after the driver call, never before: if applyDriver",
+                               "throws, nothing was applied and nothing should claim it was."]),
+        ( "endframe",),
+        ( "frame", "and taking it back down -- the exact inverse", ( 40, 1140)),
+        ( "msg", "script", "source", "call", "Remove( DcP5.dc())"),
+        ( "msg", "source", "driver", "call", "removeDriver( config)"),
+        ( "msg", "source", "journal", "call", "post( Verb::Remove)"),
+        ( "msg", "script", "route", "call", "Disconnect( DcP5.dc())"),
+        ( "msg", "route", "driver", "call", "isEnergised( config)?"),
+        ( "msg", "driver", "route", "ret", "false"),
+        ( "msg", "route", "fabric", "call", "disconnect( path)"),
+        ( "msg", "route", "journal", "call", "post( Verb::Disconnect, hot = false)"),
+        ( "endframe",),
+        ( "note", "source", [ "Swap Apply above Connect and nothing refuses it. That is",
+                              "deliberate -- a safety interlock dropping a connection the",
+                              "instant it is asked to should not first wait out a supply's",
+                              "ramp-down, and that call belongs to whoever writes the",
+                              "sequence. What changed is that the choice is no longer",
+                              "invisible: energisedNow() is asked at the moment the contact",
+                              "moves, and a true lands in the event.",
+                              "",
+                              "Which is what lets the acceptance suite read it back out of a",
+                              "run's own machine log -- see acceptance/test_acceptance.cpp,",
+                              "NoShippedScriptOrHookMovesARelayUnderLoad. Getting the order",
+                              "wrong is not a build error and not a failing script; it is a",
+                              "line in the log that a test goes looking for."]),
+    ],
+    "Footer": [
+        "Setup is the fourth verb of this family and is not on the diagram: it tells an instrument how to behave without making it do anything, so it moves no",
+        "relay and energises nothing. core/verbs/interlock.hpp is why this hazard is recorded where an ammeter across a live rail is refused outright.",
+        "Solid arrow: a call.   Dashed: what it returns.",
+    ],
+}
+
+CAPTURE = {
+    "Width": 1140,
+    "Title": "A single-shot capture: Arm, cause the event, Await",
+    "Subtitle": [
+        "suite/scripts/ac_dropout_script.cpp -- the one observation whose stimulus the script itself causes, which is why it cannot be a plain Measure.",
+        "Every step is a separate verb because every step is a separate thing that can go wrong, and a log showing them in order is what tells them apart.",
+    ],
+    "FrameSpan": ( 150, 980),
+    "Parts": [
+        ( "script",   95, 78, SCRIPT_FILL, SCRIPT_LINE, "a test script",   "suite/scripts/*.cpp"),
+        ( "acquire", 330, 88, CORE_FILL,   CORE_LINE,   "Arm/Await",       "core/verbs/acquire.hpp"),
+        ( "session", 570, 80, CORE_FILL,   CORE_LINE,   "core::ISession",  "core/session/session.hpp"),
+        ( "driver",  800, 78, HAL_FILL,    HAL_LINE,    "the scope",       "keysight_dsox1202g"),
+        ( "journal", 1010, 74, CORE_FILL,  CORE_LINE,   "core::Journal",   "core/journal/journal.hpp"),
+    ],
+    "Rows": [
+        ( "msg", "script", "acquire", "call", "Arm( Osc1.single().timeout( 2_s))"),
+        ( "msg", "acquire", "driver", "call", "armDriver( config)"),
+        ( "note", "driver", [ "Arm returns when the scope is *armed and ready to trigger*, not",
+                              "when it has been told to arm. Those are different moments, and",
+                              "the gap between them is where a single-shot test silently",
+                              "fails: the event fires while the scope is still setting itself",
+                              "up, nothing triggers, and the run reports a missing transient",
+                              "that was in fact there."]),
+        ( "msg", "acquire", "journal", "call", "post( Verb::Arm)"),
+        ( "note", "script", [ "the event, and the script causes it:",
+                              "",
+                              "    Remove(     AcP1.ac());",
+                              "    Disconnect( AcP1.ac());",
+                              "",
+                              "Remove before Disconnect, so the relay opens on a dead path",
+                              "-- see source.svg. This is the very next line after Arm, which",
+                              "is only safe because Arm blocked until the scope was ready."]),
+        ( "msg", "script", "acquire", "call", "Await( Osc1.single())"),
+        ( "msg", "acquire", "session", "call", "fetchFlag( key, instrument, livePoll)"),
+        ( "note", "session", [ "The same seam Measure goes through, and for the same reason: a",
+                               "live run polls the scope, and a scripted or replayed one",
+                               "answers from its file and never touches the instrument. Which",
+                               "is what lets this script's own unit test drive a capture that",
+                               "never happened."]),
+        ( "msg", "session", "acquire", "ret", "completed"),
+        ( "msg", "acquire", "journal", "call", "post( Verb::Await, completed)"),
+        ( "msg", "acquire", "script", "ret", "bool"),
+        ( "note", "script", [ "Verify( FS_Transient_Captured, captured)  -- checked BEFORE",
+                              "anything is read out of the acquisition, and the ordering is",
+                              "the point rather than tidiness. With no capture the buffer",
+                              "still holds whatever was in it beforehand, so a vmin() taken",
+                              "here would return a real number about a real waveform -- just",
+                              "not this one. It would be in tolerance, and it would mean",
+                              "nothing."]),
+        ( "frame", "only if the capture completed", ( 40, 700)),
+        ( "note", "script", [ "const auto lowest = Measure( Osc1.channel<2>().vmin(),",
+                              "                             at( dut::Output5V));",
+                              "const auto dip    = baseline - lowest;",
+                              "",
+                              "An ordinary Measure from here on, through MeasureEngine rather",
+                              "than through these two verbs -- see measure.svg. The reading",
+                              "itself is inside the guard, not merely the arithmetic on it.",
+                              "",
+                              "Two readings at one pin is why a scope's ports carry a",
+                              "qualifier: they key as Output5V.Vbase and Output5V.Vmin rather",
+                              "than both as Output5V."]),
+        ( "endframe",),
+        ( "note", "script", [ "and if it did not, Fail( \"... not measured, the capture did not",
+                              "complete\") -- the prose form rather than the criterion, because",
+                              "nothing here measured how far the rail dipped, and naming the",
+                              "criterion even as unchecked would attach this run's silence to",
+                              "a requirement it has nothing to say about.",
+                              "",
+                              "Something is recorded either way, never nothing: a report in",
+                              "which a check simply does not appear reads as a run that did",
+                              "not need it."]),
+    ],
+    "Footer": [
+        "Arm and Await are named for the operation rather than for an oscilloscope, and deliberately live in core: \"arm a capture, let the event happen, find",
+        "out whether it landed\" is what a transient recorder does, what a digitizer does, and what a DMM in triggered burst mode does.",
+        "Solid arrow: a call.   Dashed: what it returns.",
+    ],
+}
+
+#
+# Insertion order is the order they are written and the order to read them in:
+# one verb end to end, then the run that calls it, then two verb families whose
+# ordering is their whole content.
+#
+DIAGRAMS = {
+    "measure":   MEASURE,
+    "lifecycle": LIFECYCLE,
+    "source":    SOURCE,
+    "capture":   CAPTURE,
+}
 
 
 def main():

@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1140" height="1670" viewBox="0 0 1140 1670" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="call" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22303c"/></marker>
+    <marker id="ret" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#71818f" stroke-width="1.7"/></marker>
+  </defs>
+  <rect width="1140" height="1670" fill="#ffffff"/>
+  <text x="22" y="36" font-size="17.5" font-weight="600" fill="#22303c">A single-shot capture: Arm, cause the event, Await</text>
+  <text x="22" y="58" font-size="12.5" fill="#5b6b7a">suite/scripts/ac_dropout_script.cpp -- the one observation whose stimulus the script itself causes, which is why it cannot be a plain Measure.</text>
+  <text x="22" y="76" font-size="12.5" fill="#5b6b7a">Every step is a separate verb because every step is a separate thing that can go wrong, and a log showing them in order is what tells them apart.</text>
+  <line x1="95" y1="152" x2="95" y2="1592" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="330" y1="152" x2="330" y2="1592" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="570" y1="152" x2="570" y2="1592" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="800" y1="152" x2="800" y2="1592" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="1010" y1="152" x2="1010" y2="1592" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <rect x="12" y="1092" width="688" height="275" fill="none" stroke="#a8762a" stroke-width="1.2" stroke-dasharray="6 4" rx="4"/>
+  <rect x="12" y="1092" width="190" height="20" fill="#a8762a" rx="3"/>
+  <text x="18" y="1106" font-size="10.5" font-weight="600" fill="#ffffff">only if the capture completed</text>
+  <rect x="17" y="98" width="156" height="54" rx="5" fill="#e7f0fb" stroke="#2b6cb0" stroke-width="1.3"/>
+  <text x="95" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">a test script</text>
+  <text x="95" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">suite/scripts/*.cpp</text>
+  <rect x="242" y="98" width="176" height="54" rx="5" fill="#eef3f7" stroke="#3d5666" stroke-width="1.3"/>
+  <text x="330" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Arm/Await</text>
+  <text x="330" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core/verbs/acquire.hpp</text>
+  <rect x="490" y="98" width="160" height="54" rx="5" fill="#eef3f7" stroke="#3d5666" stroke-width="1.3"/>
+  <text x="570" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core::ISession</text>
+  <text x="570" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core/session/session.hpp</text>
+  <rect x="722" y="98" width="156" height="54" rx="5" fill="#fdf4e4" stroke="#8a5a00" stroke-width="1.3"/>
+  <text x="800" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the scope</text>
+  <text x="800" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">keysight_dsox1202g</text>
+  <rect x="936" y="98" width="148" height="54" rx="5" fill="#eef3f7" stroke="#3d5666" stroke-width="1.3"/>
+  <text x="1010" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core::Journal</text>
+  <text x="1010" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core/journal/journal.hpp</text>
+  <line x1="97" y1="180" x2="323" y2="180" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="212" y="172" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Arm( Osc1.single().timeout( 2_s))</text>
+  <line x1="332" y1="216" x2="793" y2="216" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="565" y="208" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">armDriver( config)</text>
+  <rect x="579" y="252" width="441" height="112" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="590" y="274" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Arm returns when the scope is *armed and ready to trigger*, not</text>
+  <text x="590" y="289" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">when it has been told to arm. Those are different moments, and</text>
+  <text x="590" y="304" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the gap between them is where a single-shot test silently</text>
+  <text x="590" y="319" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">fails: the event fires while the scope is still setting itself</text>
+  <text x="590" y="334" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">up, nothing triggers, and the run reports a missing transient</text>
+  <text x="590" y="349" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">that was in fact there.</text>
+  <line x1="332" y1="398" x2="1003" y2="398" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="670" y="390" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">post( Verb::Arm)</text>
+  <rect x="24" y="434" width="435" height="142" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="456" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the event, and the script causes it:</text>
+  <text x="35" y="486" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">    Remove(     AcP1.ac());</text>
+  <text x="35" y="501" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">    Disconnect( AcP1.ac());</text>
+  <text x="35" y="531" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Remove before Disconnect, so the relay opens on a dead path</text>
+  <text x="35" y="546" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">-- see source.svg. This is the very next line after Arm, which</text>
+  <text x="35" y="561" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">is only safe because Arm blocked until the scope was ready.</text>
+  <line x1="97" y1="610" x2="323" y2="610" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="212" y="602" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Await( Osc1.single())</text>
+  <line x1="332" y1="646" x2="563" y2="646" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="450" y="638" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">fetchFlag( key, instrument, livePoll)</text>
+  <rect x="353" y="682" width="435" height="97" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="364" y="704" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">The same seam Measure goes through, and for the same reason: a</text>
+  <text x="364" y="719" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">live run polls the scope, and a scripted or replayed one</text>
+  <text x="364" y="734" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">answers from its file and never touches the instrument. Which</text>
+  <text x="364" y="749" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">is what lets this script's own unit test drive a capture that</text>
+  <text x="364" y="764" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">never happened.</text>
+  <line x1="568" y1="813" x2="337" y2="813" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
+  <text x="450" y="805" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">completed</text>
+  <line x1="332" y1="849" x2="1003" y2="849" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="670" y="841" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">post( Verb::Await, completed)</text>
+  <line x1="328" y1="885" x2="102" y2="885" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
+  <text x="212" y="877" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">bool</text>
+  <rect x="24" y="921" width="428" height="127" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="943" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Verify( FS_Transient_Captured, captured)  -- checked BEFORE</text>
+  <text x="35" y="958" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">anything is read out of the acquisition, and the ordering is</text>
+  <text x="35" y="973" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the point rather than tidiness. With no capture the buffer</text>
+  <text x="35" y="988" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">still holds whatever was in it beforehand, so a vmin() taken</text>
+  <text x="35" y="1003" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">here would return a real number about a real waveform -- just</text>
+  <text x="35" y="1018" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">not this one. It would be in tolerance, and it would mean</text>
+  <text x="35" y="1033" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">nothing.</text>
+  <rect x="24" y="1138" width="435" height="187" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="1160" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">const auto lowest = Measure( Osc1.channel&lt;2&gt;().vmin(),</text>
+  <text x="35" y="1175" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">                             at( dut::Output5V));</text>
+  <text x="35" y="1190" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">const auto dip    = baseline - lowest;</text>
+  <text x="35" y="1220" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">An ordinary Measure from here on, through MeasureEngine rather</text>
+  <text x="35" y="1235" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">than through these two verbs -- see measure.svg. The reading</text>
+  <text x="35" y="1250" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">itself is inside the guard, not merely the arithmetic on it.</text>
+  <text x="35" y="1280" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Two readings at one pin is why a scope's ports carry a</text>
+  <text x="35" y="1295" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">qualifier: they key as Output5V.Vbase and Output5V.Vmin rather</text>
+  <text x="35" y="1310" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">than both as Output5V.</text>
+  <rect x="24" y="1395" width="441" height="157" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="1417" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">and if it did not, Fail( "... not measured, the capture did not</text>
+  <text x="35" y="1432" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">complete") -- the prose form rather than the criterion, because</text>
+  <text x="35" y="1447" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">nothing here measured how far the rail dipped, and naming the</text>
+  <text x="35" y="1462" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">criterion even as unchecked would attach this run's silence to</text>
+  <text x="35" y="1477" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">a requirement it has nothing to say about.</text>
+  <text x="35" y="1507" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Something is recorded either way, never nothing: a report in</text>
+  <text x="35" y="1522" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">which a check simply does not appear reads as a run that did</text>
+  <text x="35" y="1537" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">not need it.</text>
+  <line x1="22" y1="1602" x2="1118" y2="1602" stroke="#b9c4cf" stroke-width="1"/>
+  <text x="22" y="1622" font-size="11" fill="#5b6b7a">Arm and Await are named for the operation rather than for an oscilloscope, and deliberately live in core: "arm a capture, let the event happen, find</text>
+  <text x="22" y="1638" font-size="11" fill="#5b6b7a">out whether it landed" is what a transient recorder does, what a digitizer does, and what a DMM in triggered burst mode does.</text>
+  <text x="22" y="1654" font-size="11" fill="#5b6b7a">Solid arrow: a call.   Dashed: what it returns.</text>
+</svg>

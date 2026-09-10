@@ -13,9 +13,9 @@
   <line x1="748" y1="152" x2="748" y2="1961" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
   <line x1="916" y1="152" x2="916" y2="1961" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
   <line x1="1068" y1="152" x2="1068" y2="1961" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
-  <rect x="196" y="494" width="800" height="1022" fill="none" stroke="#a8762a" stroke-width="1.2" stroke-dasharray="6 4" rx="4"/>
-  <rect x="196" y="494" width="264" height="20" fill="#a8762a" rx="3"/>
-  <text x="202" y="508" font-size="10.5" font-weight="600" fill="#ffffff">live only -- inside the liveRead callback</text>
+  <rect x="91" y="494" width="998" height="1022" fill="none" stroke="#a8762a" stroke-width="1.2" stroke-dasharray="6 4" rx="4"/>
+  <rect x="91" y="494" width="264" height="20" fill="#a8762a" rx="3"/>
+  <text x="97" y="508" font-size="10.5" font-weight="600" fill="#ffffff">live only -- inside the liveRead callback</text>
   <rect x="10" y="98" width="156" height="54" rx="5" fill="#e7f0fb" stroke="#2b6cb0" stroke-width="1.3"/>
   <text x="88" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">a test script</text>
   <text x="88" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">suite/scripts/*.cpp</text>
@@ -100,11 +100,11 @@
   <text x="107" y="1703" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">everything downstream, the log included, has the real type</text>
   <line x1="302" y1="1752" x2="1061" y2="1752" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
   <text x="684" y="1744" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">post( JournalRecord)</text>
-  <rect x="722" y="1788" width="428" height="97" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
-  <text x="733" y="1810" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">post({ Verb::Measure, key, detail, instrument, value, unit })</text>
-  <text x="733" y="1840" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">onEvent -&gt; every registered sink, in registration order:</text>
-  <text x="733" y="1855" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">ConsoleSink, then SarifSink and RtfSink when the run</text>
-  <text x="733" y="1870" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">was asked for artifacts.</text>
+  <rect x="708" y="1788" width="428" height="97" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="719" y="1810" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">post({ Verb::Measure, key, detail, instrument, value, unit })</text>
+  <text x="719" y="1840" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">onEvent -&gt; every registered sink, in registration order:</text>
+  <text x="719" y="1855" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">ConsoleSink, then SarifSink and RtfSink when the run</text>
+  <text x="719" y="1870" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">was asked for artifacts.</text>
   <line x1="298" y1="1919" x2="95" y2="1919" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
   <text x="194" y="1911" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Voltage</text>
   <line x1="22" y1="1971" x2="1138" y2="1971" stroke="#b9c4cf" stroke-width="1"/>

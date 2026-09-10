@@ -605,7 +605,9 @@ the DUT pass".
 
 Powering the rig up before the first script and back down after the last is a
 `RUN_SETUP`/`RUN_TEARDOWN` pair in the catalog, named as identifiers exactly the
-way `TEST` names a script. They go at the catalog's file scope, outside every
+way `TEST` names a script. What the pair actually *does* — `Connect, Apply ...
+Remove, Disconnect`, and why that nests rather than mirrors — is
+[`doc/diagrams/source.svg`](doc/diagrams/source.svg). They go at the catalog's file scope, outside every
 `GROUP` — a group brackets itself with the unqualified pair instead, see
 [Bracket one group](#bracket-one-group):
 
@@ -1044,6 +1046,8 @@ reads and disconnects inside one call. A triggered capture is not, because the
 thing being captured happens *between* the halves and the script is what causes
 it. That is the whole reason `Arm` and `Await` exist as two verbs.
 
+[![A single-shot capture](doc/diagrams/capture.svg)](doc/diagrams/capture.svg)
+
 ```cpp
 Setup( Osc1.trigger().edgeSource<2>().slope( TriggerSlope::Falling)
                      .level( 4.8_V).sweep( TriggerSweep::Auto));
@@ -1329,6 +1333,14 @@ rather than a trace of nothing.
 ---
 
 ## 4. Running a suite
+
+[![How a run starts, and how it stops](doc/diagrams/lifecycle.svg)](doc/diagrams/lifecycle.svg)
+
+The three nested brackets in that picture — the run's own pair, a group's, and a
+test — are the subject of §3's four "bracket" recipes above. What it adds to them
+is the ordering, and one fact worth having before reading either: every teardown
+is a destructor constructed *before* the setup it answers for, so it runs on the
+path where that setup failed half way through.
 
 ```bash
 cmake --preset macos-debug          # or windows-debug

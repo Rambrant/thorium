@@ -48,7 +48,12 @@ which runs immediately after the teardown on every exit and looks like the same
 job: safing is the unconditional, unordered crash path, while these are the
 normal one and exist to express the one thing safing deliberately cannot -- a
 sequence. Up: relay closed dead, then energised, primary before the alternates.
-Down: the exact inverse. Only the setup returns a meaningful verdict -- it reads
+Down: the exact inverse.
+
+Both of those are drawn: [`doc/diagrams/lifecycle.svg`](../doc/diagrams/lifecycle.svg)
+puts all three brackets and the safing pass on one timeline, and
+[`doc/diagrams/source.svg`](../doc/diagrams/source.svg) is the `Connect, Apply ...
+Remove, Disconnect` nesting a power-up hook is made of. Only the setup returns a meaningful verdict -- it reads
 each source back, and a `false` stops the run before the first script.
 
 The hooks are also the only functions in this directory that return anything at

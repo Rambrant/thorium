@@ -1,0 +1,147 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="2766" viewBox="0 0 1200 2766" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="call" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22303c"/></marker>
+    <marker id="ret" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="#71818f" stroke-width="1.7"/></marker>
+  </defs>
+  <rect width="1200" height="2766" fill="#ffffff"/>
+  <text x="22" y="36" font-size="17.5" font-weight="600" fill="#22303c">How a run starts, and how it stops</text>
+  <text x="22" y="58" font-size="12.5" fill="#5b6b7a">framework/runner/src/main.cpp from the first argument to the last log line. The startup order is what makes a failure legible; the shutdown</text>
+  <text x="22" y="76" font-size="12.5" fill="#5b6b7a">order is what makes it safe -- and every teardown guard below is deliberately constructed <tspan font-style="italic">before</tspan> the setup it answers for.</text>
+  <line x1="110" y1="152" x2="110" y2="2688" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="340" y1="152" x2="340" y2="2688" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="560" y1="152" x2="560" y2="2688" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="770" y1="152" x2="770" y2="2688" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="950" y1="152" x2="950" y2="2688" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <line x1="1110" y1="152" x2="1110" y2="2688" stroke="#b9c4cf" stroke-width="1.4" stroke-dasharray="3 4"/>
+  <rect x="12" y="190" width="688" height="662" fill="none" stroke="#a8762a" stroke-width="1.2" stroke-dasharray="6 4" rx="4"/>
+  <rect x="12" y="190" width="252" height="20" fill="#a8762a" rx="3"/>
+  <text x="18" y="204" font-size="10.5" font-weight="600" fill="#ffffff">startup -- nothing has been touched yet</text>
+  <rect x="76" y="1574" width="1103" height="460" fill="none" stroke="#a8762a" stroke-width="1.2" stroke-dasharray="6 4" rx="4"/>
+  <rect x="76" y="1574" width="147" height="20" fill="#a8762a" rx="3"/>
+  <text x="82" y="1588" font-size="10.5" font-weight="600" fill="#ffffff">for each selected test</text>
+  <rect x="12" y="1315" width="1178" height="913" fill="none" stroke="#a8762a" stroke-width="1.2" stroke-dasharray="6 4" rx="4"/>
+  <rect x="12" y="1315" width="393" height="20" fill="#a8762a" rx="3"/>
+  <text x="18" y="1329" font-size="10.5" font-weight="600" fill="#ffffff">for each --repeat pass, for each group with something selected</text>
+  <rect x="24" y="98" width="172" height="54" rx="5" fill="#e7f0fb" stroke="#2b6cb0" stroke-width="1.3"/>
+  <text x="110" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">main()</text>
+  <text x="110" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">framework/runner</text>
+  <rect x="252" y="98" width="176" height="54" rx="5" fill="#fdf4e4" stroke="#8a5a00" stroke-width="1.3"/>
+  <text x="340" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">hal preflight</text>
+  <text x="340" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">hal/verbs/preflight.hpp</text>
+  <rect x="480" y="98" width="160" height="54" rx="5" fill="#eef3f7" stroke="#3d5666" stroke-width="1.3"/>
+  <text x="560" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core::Journal</text>
+  <text x="560" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">core/journal/journal.hpp</text>
+  <rect x="688" y="98" width="164" height="54" rx="5" fill="#e7f0fb" stroke="#2b6cb0" stroke-width="1.3"/>
+  <text x="770" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the hooks</text>
+  <text x="770" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">suite/test_catalog.inc</text>
+  <rect x="876" y="98" width="148" height="54" rx="5" fill="#e7f0fb" stroke="#2b6cb0" stroke-width="1.3"/>
+  <text x="950" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">a test script</text>
+  <text x="950" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">suite/scripts/*.cpp</text>
+  <rect x="1034" y="98" width="152" height="54" rx="5" fill="#fdf4e4" stroke="#8a5a00" stroke-width="1.3"/>
+  <text x="1110" y="120" text-anchor="middle" font-size="12" font-weight="600" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">hal::safeRig</text>
+  <text x="1110" y="138" text-anchor="middle" font-size="8.5" fill="#5b6b7a" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">hal/verbs/safing.hpp</text>
+  <rect x="24" y="236" width="455" height="67" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="258" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">The --address flags go in first and $THORIUM_ADDRESS_* after</text>
+  <text x="35" y="273" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">them, because bindAddresses takes the first override it finds</text>
+  <text x="35" y="288" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">-- so a flag typed now beats an export a bench PC set months ago.</text>
+  <line x1="112" y1="337" x2="333" y2="337" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="225" y="329" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">bindAddresses( plan)</text>
+  <rect x="119" y="373" width="441" height="82" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="130" y="395" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">per row, in this order: an --address override, the site table,</text>
+  <text x="130" y="410" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">this row's candidate pool, then the row's own third column.</text>
+  <text x="130" y="425" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Every candidate is checked against the driver's hal::BackPanel,</text>
+  <text x="130" y="440" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">so a bus the instrument has no connector for is refused here.</text>
+  <line x1="112" y1="489" x2="333" y2="489" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="225" y="481" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">contactInstruments( bindings)</text>
+  <rect x="119" y="525" width="441" height="82" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="130" y="547" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">opens every reachable instrument, asks *IDN?, and acquires each</text>
+  <text x="130" y="562" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">pooled row from its shelf. Skipped entirely on a detached run:</text>
+  <text x="130" y="577" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">a run that must not touch hardware must not open a socket to</text>
+  <text x="130" y="592" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">find out what is there.</text>
+  <rect x="24" y="641" width="455" height="97" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="663" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">runInfo = defaultRunInfo() + bannerLines( bindings)</text>
+  <text x="35" y="678" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">The traceability header is assembled before anything is measured,</text>
+  <text x="35" y="693" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">so a preflight that fails fails before any log exists -- which is</text>
+  <text x="35" y="708" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the right way round: a run that cannot say which instruments it</text>
+  <text x="35" y="723" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">is using has nothing worth writing down.</text>
+  <line x1="112" y1="772" x2="553" y2="772" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="335" y="764" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">add( ConsoleSink), add( SarifSink), add( RtfSink)</text>
+  <line x1="112" y1="808" x2="553" y2="808" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="335" y="800" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">begin( runInfo)</text>
+  <rect x="24" y="880" width="415" height="67" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="902" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">hal::RigSafingGuard safeOnExit;</text>
+  <text x="35" y="917" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Constructed inside begin()/end(), so the Safe event its own</text>
+  <text x="35" y="932" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">destructor posts lands in the log of the run it belongs to.</text>
+  <rect x="24" y="981" width="441" height="82" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="1003" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">unmatchedSelection( options.Selection)</text>
+  <text x="35" y="1018" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">A --select naming a test this catalog has not got stops the run</text>
+  <text x="35" y="1033" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">here -- before RUN_SETUP powers a rig up to then not run what</text>
+  <text x="35" y="1048" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">was asked for.</text>
+  <rect x="24" y="1097" width="441" height="37" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="1119" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">TeardownGuard teardown{ Teardown};   &lt;-- before the setup below</text>
+  <line x1="112" y1="1168" x2="763" y2="1168" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="440" y="1160" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">RUN_SETUP</text>
+  <rect x="556" y="1204" width="428" height="67" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="567" y="1226" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">rigPowerOn: relay closed dead, then energised, primary before</text>
+  <text x="567" y="1241" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the alternates. It reads each source back, and a false stops</text>
+  <text x="567" y="1256" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the run before the first script.</text>
+  <line x1="112" y1="1361" x2="553" y2="1361" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="335" y="1353" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">beginGroup( name)</text>
+  <rect x="24" y="1397" width="428" height="97" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="35" y="1419" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">TeardownGuard groupTeardown{ group.teardown};</text>
+  <text x="35" y="1434" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Again before the group's own setup, and inside beginGroup so</text>
+  <text x="35" y="1449" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">whatever a hook posts is attributed to the group it brackets.</text>
+  <text x="35" y="1464" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Per pass, not per run: --repeat=3 arms and disarms each group</text>
+  <text x="35" y="1479" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">three times.</text>
+  <line x1="112" y1="1528" x2="763" y2="1528" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="440" y="1520" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">group SETUP</text>
+  <line x1="112" y1="1620" x2="553" y2="1620" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="335" y="1612" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">beginTest( id)</text>
+  <line x1="112" y1="1656" x2="943" y2="1656" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="530" y="1648" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">test.script()</text>
+  <rect x="733" y="1692" width="435" height="112" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="744" y="1714" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Measure, Verify, Setup, Apply, Arm ... every verb posts to the</text>
+  <text x="744" y="1729" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">journal as it goes. measure.svg is one of them end to end.</text>
+  <text x="744" y="1759" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">A script that throws unwinds straight past endTest to main's</text>
+  <text x="744" y="1774" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">handler: an exception out of a script means the rig is in an</text>
+  <text x="744" y="1789" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">unknown state, which is what the guards above are for.</text>
+  <line x1="112" y1="1838" x2="553" y2="1838" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="335" y="1830" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">endTest()</text>
+  <line x1="558" y1="1874" x2="117" y2="1874" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
+  <text x="335" y="1866" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">passed</text>
+  <rect x="346" y="1910" width="428" height="82" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="357" y="1932" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Derived from the checks the script actually recorded, never</text>
+  <text x="357" y="1947" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">returned by the script -- so there is no flag to fold, and no</text>
+  <text x="357" y="1962" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">way for a script's answer to disagree with its own log. A</text>
+  <text x="357" y="1977" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">script that recorded no check cannot pass.</text>
+  <line x1="112" y1="2062" x2="763" y2="2062" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="440" y="2054" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">group TEARDOWN</text>
+  <rect x="546" y="2098" width="448" height="52" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="557" y="2120" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">The guard's destructor, so it runs whether or not the group's</text>
+  <text x="557" y="2135" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">tests did -- and before endGroup closes the group it belongs to.</text>
+  <line x1="112" y1="2184" x2="553" y2="2184" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="335" y="2176" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">endGroup()</text>
+  <line x1="112" y1="2256" x2="763" y2="2256" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="440" y="2248" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">RUN_TEARDOWN</text>
+  <rect x="546" y="2292" width="448" height="97" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="557" y="2314" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">rigPowerOff: the exact inverse of the power-up. Reached on every</text>
+  <text x="557" y="2329" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">path out, including the one where RUN_SETUP failed half way</text>
+  <text x="557" y="2344" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">through -- which is the whole of what constructing the guard</text>
+  <text x="557" y="2359" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">first buys, and why a restore written at the end of a script is</text>
+  <text x="557" y="2374" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">not the same thing.</text>
+  <line x1="112" y1="2423" x2="1103" y2="2423" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="610" y="2415" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">~RigSafingGuard</text>
+  <rect x="735" y="2459" width="441" height="82" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="746" y="2481" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">The crash path: everything off, every relay open, unordered and</text>
+  <text x="746" y="2496" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">unconditional. It exists to be correct when nothing else ran,</text>
+  <text x="746" y="2511" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">which is exactly why it cannot express a sequence -- and why</text>
+  <text x="746" y="2526" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the ordered teardowns above are separate from it.</text>
+  <line x1="112" y1="2575" x2="553" y2="2575" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="335" y="2567" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">end( allPassed)</text>
+  <rect x="443" y="2611" width="235" height="37" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
+  <text x="454" y="2633" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the report, and both logs closed</text>
+  <line x1="22" y1="2698" x2="1178" y2="2698" stroke="#b9c4cf" stroke-width="1"/>
+  <text x="22" y="2718" font-size="11" fill="#5b6b7a">Every teardown here is a destructor, and every one of them is constructed before the setup it answers for. That is the single idea the shutdown half</text>
+  <text x="22" y="2734" font-size="11" fill="#5b6b7a">of this diagram is about: a teardown that only runs when its setup succeeded is not a teardown, it is the happy path with extra steps.</text>
+  <text x="22" y="2750" font-size="11" fill="#5b6b7a">Solid arrow: a call.   Dashed: what it returns.</text>
+</svg>

@@ -15,9 +15,15 @@ its own test spec is already the picture.
 
 ## What is here
 
+Four, in the order to read them: one verb end to end, the run that calls it, and
+two verb families whose ordering is their whole content.
+
 | | |
 |---|---|
 | [`diagrams/measure.svg`](diagrams/measure.svg) | What one `Measure( Dmm1.voltage(), at( dut::Output5V))` does, from the call site to the rows in the log. Linked from the README's "How it is all connected", whose block shows where each piece comes from but not the order -- and the order is where the surprise is: `core::ISession` sits *above* the fabric and the driver and reaches them only through the `liveRead` callback, which a scripted or replayed run never invokes. |
+| [`diagrams/lifecycle.svg`](diagrams/lifecycle.svg) | How a run starts and how it stops -- address resolution, the preflight, the traceability header, then the three nested brackets (`RUN_SETUP`, a group's `SETUP`, a test) and their teardowns, ending at `hal::safeRig()`. Its one idea: every teardown is a destructor constructed *before* the setup it answers for, which is prose in three separate READMEs and a picture here. |
+| [`diagrams/source.svg`](diagrams/source.svg) | `Connect, Apply ... Remove, Disconnect` -- why the sequence nests rather than mirrors, and what happens when you write it the other way round. Nothing refuses hot switching, because it is a wear argument rather than a correctness one; what the framework does instead is ask the driver whether its output was live at the moment the contact moved, and put the answer in the log where the acceptance suite reads it back. |
+| [`diagrams/capture.svg`](diagrams/capture.svg) | `Arm`, cause the event, `Await` -- the one observation whose stimulus the script itself causes, and therefore the only one that cannot be a plain `Measure`. Shows why `Arm` blocks until the instrument is *armed* rather than *told to arm*, and why the capture's yes/no is checked before anything is read out of the acquisition. |
 
 ## The diagrams are generated, and the table is the source
 
