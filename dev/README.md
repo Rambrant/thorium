@@ -27,13 +27,17 @@ ctest --test-dir build/dev
 
 ```
 dev/
-    rig/     one EDU34450A, no switching hardware, no wiring
+    rig/     one EDU34450A from a pool of three, no switching hardware, no wiring
     dut/     an adapter with no points, one criteria table
     suite/   one group, one test, one script
 ```
 
-Sixty-odd lines of content in total, none of it a special case: every file is the
-ordinary form of its table, with the rows a desk bench has.
+Sixty-odd lines of content in total, and every file is the ordinary form of its
+table with the rows a desk bench has. One of them has no counterpart on the
+bench: `rig/pools.inc`, the shelf of interchangeable meters this desk draws
+Dmm1 from. That is not a special case in the mechanism — it is the fifth rig
+table, optional and read the same way as the others — but it is the one table
+here the bench deliberately does not have, and its own comment says why.
 
 The selection is three directory paths — `THORIUM_RIG_DIR`, `THORIUM_DUT_DIR`,
 `THORIUM_SUITE_DIR` — plus an optional fourth this bench does not use
@@ -104,19 +108,30 @@ above stays exactly as correct as it has always been.
 **Transport.** Present, and this is now the item this deployment is *for*
 rather than the one it is missing.
 
-Put the meter's address in `dev/rig/instrument.inc` — a serial number for USB,
-a hostname for LAN — build, and run:
-
-```cpp
-INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Usb( "MY60012345"))   // rear USBTMC port, via VISA
-INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "dev-dmm"))      // LXI port 5025, no vendor software
-```
+Nothing needs an address put anywhere, which is the part worth knowing before
+reading the row. This desk draws Dmm1 from a shelf of three interchangeable
+meters declared in `dev/rig/pools.inc`, and a pool outranks a row's own address
+— so an attached run tries `dev-dmm-1`, `-2`, `-3` in that order and takes the
+first that answers `*IDN?`:
 
 ```bash
 cmake --preset windows-dev      # or macos-dev, or linux
 cmake --build build/dev
 ./build/dev/bin/run_scripts
 ```
+
+The address column in `dev/rig/instrument.inc` still fixes the row's *kind* at
+compile time — `Lan(...)` there is what makes a LAN address legal for this row
+at all — but an attached run never opens it. For a meter on none of the three,
+say so on the command line rather than editing either file:
+
+```bash
+run_scripts --address Dmm1=lan:dev-dmm-7
+```
+
+An override beats the pool as well as the column, so that is the one thing
+which always wins. A desk that always has the same meter can set
+`THORIUM_ADDRESS_Dmm1` once instead.
 
 USB needs Keysight IO Libraries Suite or NI-VISA on the machine (almost
 certainly already there on a Windows or Linux bench — it is what Connection
@@ -163,18 +178,23 @@ unit tests hardware-free. A detached run skips the preflight entirely, for the
 same reason it skips safing: a run that must not touch hardware must not open a
 socket to find out what is there.
 
-When the meter you have is not the one `dev/rig/instrument.inc` names — which
-is the normal case on a desk sharing a shelf of them — say so on the command
-line rather than editing the file:
+A desk sharing a shelf of meters is the normal case here, and it is the pool
+above that answers it rather than anything typed per run: a run needs no flag
+while one of the three declared meters is free, and a candidate that is busy or
+powered off is simply the wrong one. Only an empty shelf is a failure, and it
+arrives at startup naming how many candidates were tried.
 
-```bash
-run_scripts --address Dmm1=lan:dev-dmm-3
-```
+`dev/rig/pools.inc` is also where the reason the bench next door must never
+have one is written down — a `POOL` row says its candidates are
+interchangeable, and a wiring row says an instrument's leads go somewhere
+specific, so the two together are a compile error naming the offending row.
+That is worth reading before adding a pool anywhere else.
 
-The run's header then records both the address and the fact that a flag chose
-it, so a log from your desk is still readable by somebody at another one.
+Either way — pool or flag — the run's header records the address and where it
+came from, so a log from your desk is still readable by somebody at another
+one, and a pooled row also records which candidate of how many it took.
 
-The flag is checked against the meter's own back panel, not against the row —
+An override is checked against the meter's own back panel, not against the row —
 an EDU34450A has LAN and USB, so `--address Dmm1=usb:<serial>` works here too,
 and a bus the instrument has no connector for is refused at startup with the
 list of the ones it does have. That is the same list the compiler holds the

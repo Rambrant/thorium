@@ -36,14 +36,23 @@
 // This row used to say the placeholder was "expected to be edited rather than
 // confirmed", and that is no longer the advice. Editing it means a
 // permanently dirty working tree and a live chance of committing your own
-// desk's hostname into the deployment, so the meter you actually have is
-// named from outside the tree instead:
+// desk's hostname into the deployment.
 //
-//     run_scripts --address Dmm1=lan:dev-dmm-3
+// Two things replaced that, and the first is why this column no longer decides
+// anything on an attached run. dev/rig/pools.inc declares the shelf of meters
+// this desk draws from, and a pool outranks a row's own address -- so an
+// attached run walks dev-dmm-1, -2, -3 in order and takes the first that
+// answers, and what is written here is never opened. See that file: it is also
+// where the reason the bench next door must never have one is written down.
+//
+// The second is for the meter that is on none of them:
+//
+//     run_scripts --address Dmm1=lan:dev-dmm-7
 //
 // or THORIUM_ADDRESS_Dmm1 in the shell that runs it, which a desk that always
-// has the same meter can set once. Either way the run's own header says which
-// box answered and that the flag is where the address came from -- see
+// has the same meter can set once. An override beats the pool as well as this
+// column, so it is still the one thing that always wins. Either way the run's
+// own header says which box answered and where the address came from -- see
 // hal/verbs/preflight.hpp.
 //
 // The flag is checked against this meter's own back panel rather than against
@@ -54,9 +63,13 @@
 // A build with nothing plugged in still runs, and the two ways it can go are
 // worth keeping straight. --inject and --skeleton detach the bench, so no
 // address is ever opened and the run completes against described readings. An
-// *attached* run now fails at startup rather than at the first reading: the
+// *attached* run fails at startup rather than at the first reading: the
 // preflight opens every reachable instrument before the first script, so a
-// desk with no meter at dev-dmm gets "cannot resolve Lan dev-dmm:5025"
+// desk with none of the pooled meters on it gets
+//
+//     Preflight failed: no free instrument for Dmm1: all 3 candidates in its
+//     pool were busy or unreachable
+//
 // immediately, with nothing else attempted. That is the honest outcome and an
 // earlier one than before, but it is a change worth knowing about if you were
 // used to watching the chain run and fail at the Measure.
@@ -66,5 +79,5 @@
 // true.
 //
 INSTRUMENTS
-    INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "dev-dmm"))   // the desk default; --address Dmm1=lan:<host> for whichever meter you actually have
+    INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "dev-dmm"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
 END_INSTRUMENTS

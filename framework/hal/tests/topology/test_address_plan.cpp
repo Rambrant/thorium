@@ -239,21 +239,33 @@ namespace
         EXPECT_EQ( to_string( AddressSource::Override), "--address");
     }
 
-    // -- what a deployment with neither optional table answers -------------
+    // -- what a deployment with no site table answers ----------------------
 
     //
-    // The state hal/topology/detail/no_pools.inc and no_sites.inc produce,
-    // asserted so that a deployment acquiring a table by accident is a failed
-    // test rather than a surprise on a bench. Both this repo's deployments
-    // are in it.
+    // The state hal/topology/detail/no_sites.inc produces, asserted so that a
+    // deployment acquiring a site table by accident is a failed test rather
+    // than a surprise on a bench. Neither of this repo's deployments has one.
     //
-    TEST( AddressTables, ADeploymentWithNoTablesDeclaresNoPoolsAndNoSites)
+    // This used to assert the same thing about pools, for both tables at once,
+    // and could not keep doing it once one deployment had a real pool table
+    // (dev/rig/pools.inc). The claim was never a framework claim in the first
+    // place: these tests link whichever deployment the build selected, so
+    // "there are no pools" is a fact about that deployment and belongs with
+    // its own rig tests. Both halves of it are covered there and more
+    // precisely than here --
+    //
+    //   rig/tests/test_preflight.cpp asserts every binding on the bench comes
+    //   from AddressSource::Table, which a bench pool would break by turning
+    //   one of them into AddressSource::Pool.
+    //
+    //   dev/rig/tests/test_dev_rig.cpp asserts the dev desk's pool is exactly
+    //   the three candidates it declares, in order.
+    //
+    // What stays here is the half that is still true of every deployment in
+    // this repo, and the reason it stays is that nothing else says it.
+    //
+    TEST( AddressTables, ADeploymentWithNoSiteTableDeclaresNoSites)
     {
-        for( const auto id : core::meta::values<InstrumentId>)
-        {
-            EXPECT_TRUE( poolFor( id).empty()) << "unexpected pool for " << to_string( id);
-        }
-
         EXPECT_TRUE( siteNames().empty());
     }
 } // namespace

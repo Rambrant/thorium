@@ -17,9 +17,10 @@
 //
 // It exists only so that the #include in hal/topology/address_tables.hpp has
 // a file to name; see that header on why this table is one of the two optional
-// ones, and for the shape a filled-in one takes. No deployment in this tree
-// supplies one today -- the root CMakeLists.txt substitutes a deployment's own
-// pools.inc for this file when its rig directory has one.
+// ones. The root CMakeLists.txt substitutes a deployment's own pools.inc for
+// this file when its rig directory has one, which in this tree is the dev desk
+// and nothing else -- dev/rig/pools.inc is what a real one looks like, and says
+// why the bench beside it must never have the equivalent.
 //
 ADDRESS_POOLS
 END_ADDRESS_POOLS

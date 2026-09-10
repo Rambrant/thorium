@@ -139,18 +139,17 @@ namespace hal
 // the two declarative tables, in the shape every other table in this codebase
 // uses -- see rig/wiring.inc for the sibling this is modelled on.
 //
-// No deployment in this tree fills either of them in, so there is no worked
-// example to point at; a pool table is
+// dev/rig/pools.inc is the filled-in one, and the only one in this tree: the
+// dev desk shares a shelf of interchangeable meters, which is the whole of
+// what a pool is for. A deployment supplies the file by putting pools.inc in
+// its rig directory -- the root CMakeLists.txt picks it up by existence, so
+// there is nothing to switch on and nothing to unset when it goes away.
 //
-//     ADDRESS_POOLS
-//         POOL( Dmm1, Lan( "dev-dmm-1"))
-//         POOL( Dmm1, Lan( "dev-dmm-2"))
-//     END_ADDRESS_POOLS
-//
-// and a deployment supplies one by putting pools.inc in its rig directory --
-// the root CMakeLists.txt picks it up by existence, so there is nothing to
-// switch on. Written out here rather than left as a reference to a file
-// somebody may one day add: this comment already outlived one such promise.
+// The site table has no worked example, because no deployment here is one of a
+// fleet. Read dev/rig/pools.inc for the distinction before writing one: it is
+// the pool/site question that decides which of these two tables a problem
+// wants, and getting it backwards produces a table that resolves addresses
+// perfectly and means the wrong thing.
 //
 // One row per candidate with the id repeated, rather than a list nested inside
 // one entry: that is what keeps the table greppable for "which rows can end up

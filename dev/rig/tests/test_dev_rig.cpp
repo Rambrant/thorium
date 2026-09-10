@@ -5,7 +5,9 @@
 #include "hal/keysight_edu34450a.hpp"
 #include "hal/fabric/switch_device.hpp"
 #include "hal/fabric/switch_fabric.hpp"
+#include "hal/topology/address_tables.hpp"
 #include "hal/topology/wiring.hpp"
+#include "hal/verbs/preflight.hpp"
 
 #include <gtest/gtest.h>
 
@@ -123,4 +125,50 @@ TEST( DevRig, SafingReachesTheOneInstrumentAndSurvivesAnEmptyFabric)
 TEST( DevRig, AskingForARouteOnAFabriclessBenchThrows)
 {
     EXPECT_THROW( ( void) hal::instrumentWiring.find( hal::InstrumentId::Dmm1), std::runtime_error);
+}
+
+//
+// -- the pool table -------------------------------------------------------
+//
+// This deployment is the only one in the tree with a pool (dev/rig/pools.inc),
+// so it is the only place these two facts can be asserted. They are the half
+// of framework/hal/tests/topology/test_address_plan.cpp's old
+// "no deployment declares a pool" tripwire that survived the desk acquiring
+// one -- see that file on why the claim moved rather than being softened.
+//
+// Both are about the table rather than about a meter, so neither needs
+// hardware: poolFor() is a table read, and the binding below stops short of
+// the acquisition that would open a socket.
+//
+TEST( DevRig, TheDeskDeclaresItsShelfOfMetersInPreferenceOrder)
+{
+    const auto candidates = hal::poolFor( hal::InstrumentId::Dmm1);
+
+    //
+    // In order, because order is meaning here: acquireFromPool() takes the
+    // first that answers, so a reshuffle of these rows is a change to which
+    // meter a run prefers and should not pass silently.
+    //
+    ASSERT_EQ( candidates.size(), 3u);
+    EXPECT_EQ( candidates[ 0], hal::Address{ hal::Lan{ "dev-dmm-1" } });
+    EXPECT_EQ( candidates[ 1], hal::Address{ hal::Lan{ "dev-dmm-2" } });
+    EXPECT_EQ( candidates[ 2], hal::Address{ hal::Lan{ "dev-dmm-3" } });
+}
+
+//
+// The consequence a reader of dev/rig/instrument.inc is most likely to get
+// wrong: with a pool declared, the row's own third column no longer decides
+// an attached run's address. bindAddresses() marks the row Pool and leaves it
+// unbound, and Lan( "dev-dmm") is not where the meter is looked for.
+//
+// Asserted as the source rather than as a value, because there is no value
+// yet at this point in a run -- which is the whole distinction.
+//
+TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
+{
+    const auto bindings = hal::bindAddresses( hal::AddressPlan{});
+
+    ASSERT_EQ( bindings.size(), 1u);
+    EXPECT_EQ( bindings[ 0].Id,     hal::InstrumentId::Dmm1);
+    EXPECT_EQ( bindings[ 0].Source, hal::AddressSource::Pool);
 }
