@@ -313,6 +313,42 @@ def check( diagram, placed, frames):
                     faults.append( f"label {text[ :30]!r} reaches lifeline {name}")
 
     #
+    # A dashed return answering nothing. This is the one defect in the list that
+    # is not about pixels: the arrow is drawn perfectly and the diagram is
+    # simply wrong about what happened, which means it survives every look at
+    # the render and is only caught by reading the rows against each other.
+    #
+    # The rule is a call stack, but a forgiving one. These diagrams deliberately
+    # leave most returns off -- a post() to the journal is drawn one way because
+    # nothing about the answer is worth a row -- so an omitted return is not a
+    # fault, and a return is matched against the innermost *open* call from the
+    # participant it points at, not only against the top of the stack. Anything
+    # above that match was a call whose return was left out, and is dropped.
+    #
+    # What cannot be excused is a return with no open call under it at all:
+    # nobody is waiting for that value, so the arrow is claiming a frame of
+    # control that was never entered.
+    #
+    stack = []
+
+    for row in diagram[ "Rows"]:
+        if row[ 0] != "msg":
+            continue
+
+        _, source, target, arrow, text = row
+
+        if arrow == "call":
+            stack.append(( source, target))
+            continue
+
+        for depth in range( len( stack) - 1, -1, -1):
+            if stack[ depth] == ( target, source):
+                del stack[ depth:]
+                break
+        else:
+            faults.append( f"return {text[ :30]!r} answers no call from {target}")
+
+    #
     # Two arrows whose labels are close enough to read as one line. This is what
     # the pair of returns either side of a frame edge did.
     #
@@ -494,7 +530,13 @@ MEASURE = {
                                "answer from an injection, a recording or a zero -- and nothing",
                                "in the frame below happens at all."]),
         ( "frame", "live only -- inside the liveRead callback"),
-        ( "msg", "session", "measure", "ret", "liveRead()"),
+        #
+        # A call, not a return: the session *invokes* the callback the engine
+        # handed it, and the QuantityVariant at the bottom of the frame is what
+        # that invocation returns. Drawn dashed it read as fetch() answering,
+        # which left the two returns below it answering nothing.
+        #
+        ( "msg", "session", "measure", "call", "liveRead()"),
         ( "note", "measure", [ "the electrical interlock, before any path is composed:",
                                "energisedSourceAt( Loc) throws when a source holds this",
                                "pin live and the reading needs a dead node",

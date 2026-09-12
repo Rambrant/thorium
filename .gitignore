@@ -2,6 +2,7 @@
 .vscode/
 build/
 cmake-build-*/
+tools/__pycache__/
 *.o
 *.out
 .DS_Store

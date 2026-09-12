@@ -47,8 +47,8 @@
   <text x="327" y="405" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">calls liveRead. ScriptedSession, a replay and PlaceholderSession</text>
   <text x="327" y="420" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">answer from an injection, a recording or a zero -- and nothing</text>
   <text x="327" y="435" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">in the frame below happens at all.</text>
-  <line x1="538" y1="540" x2="307" y2="540" stroke="#71818f" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ret)"/>
-  <text x="420" y="532" text-anchor="middle" font-size="11.5" fill="#71818f" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">liveRead()</text>
+  <line x1="538" y1="540" x2="307" y2="540" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
+  <text x="420" y="532" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">liveRead()</text>
   <rect x="106" y="576" width="388" height="82" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
   <text x="117" y="598" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the electrical interlock, before any path is composed:</text>
   <text x="117" y="613" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">energisedSourceAt( Loc) throws when a source holds this</text>
