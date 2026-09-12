@@ -13,6 +13,8 @@
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
 
+#include "core/meta.hpp"
+
 #include <gtest/gtest.h>
 
 #include <concepts>
@@ -45,13 +47,39 @@ using namespace core::quantities;
 
 namespace
 {
+    //
+    // Whatever the linking deployment's first instrument is called. A driver's
+    // tests have no business knowing that this repo's bench rig calls this
+    // source AcP1 -- see the top-level CMakeLists.txt on the packageability
+    // defect that hard-coded ids in a driver's tests cause.
+    //
+    [[nodiscard]]
+    auto anyId() -> hal::InstrumentId
+    {
+        return core::meta::values<hal::InstrumentId>[ 0];
+    }
+
+    //
+    // And whatever its first switching device is called, for the same reason:
+    // the rows below say this source's four leads land on one card, not that
+    // the card is this bench's Spst1.
+    //
+    // Unlike the instrument list this one is allowed to be empty -- a
+    // deployment may declare no switching hardware at all (dev/rig/devices.inc
+    // is exactly that) -- so every test that reaches the fabric skips there
+    // rather than asserting. The fixture's other tests do not route and still
+    // run: what an Apply does to the instrument is the same fact on a desk as
+    // on a rack.
+    //
+    constexpr auto switchDeviceIds = core::meta::values<hal::SwitchDeviceId>;
+
     struct SourceInstrumentFixture : ::testing::Test
     {
         hal::SwitchFabric      fabric;
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::keysight_ac6834b::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
+        hal::keysight_ac6834b::Ac6834B           acP1{ anyId(), hal::Simulated{} };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};
@@ -60,45 +88,63 @@ namespace
 
         SourceInstrumentFixture()
         {
-            // AcP1: four fixed channels -- phases A/B/C plus the neutral/
-            // ground return (see hal::keysight_ac6834b::Ac6834B's own comment on why the
-            // return is included), all under the same InstrumentId so
-            // hal::InstrumentWiring::findAll() returns all four together.
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 0 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 1 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 2 });
-            instrumentWiring.addWire( hal::InstrumentId::AcP1, { hal::SwitchDeviceId::Spst1, 3 });
+            if constexpr( ! switchDeviceIds.empty())
+            {
+                // Four fixed channels -- phases A/B/C plus the neutral/
+                // ground return (see hal::keysight_ac6834b::Ac6834B's own comment on why the
+                // return is included), all under the same InstrumentId so
+                // hal::InstrumentWiring::findAll() returns all four together.
+                instrumentWiring.addWire( anyId(), { switchDeviceIds[ 0], 0 });
+                instrumentWiring.addWire( anyId(), { switchDeviceIds[ 0], 1 });
+                instrumentWiring.addWire( anyId(), { switchDeviceIds[ 0], 2 });
+                instrumentWiring.addWire( anyId(), { switchDeviceIds[ 0], 3 });
+            }
         }
     };
 } // namespace
 
 TEST_F( SourceInstrumentFixture, AcApplyProgramsTheInstrumentWithoutTouchingTheFabric)
 {
+    if( switchDeviceIds.empty())
+    {
+        GTEST_SKIP() << "this deployment declares no switching hardware -- no fabric to leave untouched";
+    }
+
     apply( acP1.ac().phaseVoltage( 115.0_V).frequency( 400.0_Hz).currentLimit( 3.0_A));
 
     EXPECT_TRUE( acP1.isEnabled());
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 0 }));
+    EXPECT_FALSE( fabric.isClosed( { switchDeviceIds[ 0], 0 }));
 }
 
 TEST_F( SourceInstrumentFixture, AcConnectClosesAllFourFixedChannelsPhasesAndGround)
 {
+    if( switchDeviceIds.empty())
+    {
+        GTEST_SKIP() << "this deployment declares no switching hardware -- nothing to route over";
+    }
+
     connect( acP1.ac());
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 0 })); // phase A
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 1 })); // phase B
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 2 })); // phase C
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 3 })); // ground/neutral
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 0 })); // phase A
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 1 })); // phase B
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 2 })); // phase C
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 3 })); // ground/neutral
 }
 
 TEST_F( SourceInstrumentFixture, AcDisconnectOpensAllFourFixedChannelsTogether)
 {
+    if( switchDeviceIds.empty())
+    {
+        GTEST_SKIP() << "this deployment declares no switching hardware -- nothing to route over";
+    }
+
     connect( acP1.ac());
     disconnect( acP1.ac());
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 0 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 1 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 2 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 3 }));
+    EXPECT_FALSE( fabric.isClosed( { switchDeviceIds[ 0], 0 }));
+    EXPECT_FALSE( fabric.isClosed( { switchDeviceIds[ 0], 1 }));
+    EXPECT_FALSE( fabric.isClosed( { switchDeviceIds[ 0], 2 }));
+    EXPECT_FALSE( fabric.isClosed( { switchDeviceIds[ 0], 3 }));
 }
 
 TEST_F( SourceInstrumentFixture, AcApplySetsPhaseVoltageFrequencyAndCurrentLimit)

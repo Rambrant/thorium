@@ -240,28 +240,26 @@ check could not see any of this, because an *enumerator* is neither. The link li
 catches a test that reaches for the rig's objects; nothing caught a test that
 reaches for the rig's names.
 
-### One defect left open
+It found one more outside `framework/`, which is why the count above is of
+*framework* code. A driver package's tests named this bench's instrument ids — `InstrumentId::Osc1` in
+`instruments/keysight_dsox1202g/tests`, `::AcP1` in `ac6834b`, `::Ser1` in
+`racal1260`, `::Dmm1` in the two DMM packages — and `ac6834b` and `racal1260`
+named its switching cards on top of that. None of those enumerators exists on a
+desk with one meter and no relays, so those packages' tests did not compile
+here at all. Every package now takes the ids it needs from
+`core::meta::values<hal::InstrumentId>` and `core::meta::values<hal::SwitchDeviceId>`,
+and skips what this deployment is too small to give meaning to: a routed
+`Connect` where there is no fabric to route over, a two-instrument test where
+there is one instrument. All seven directories build their tests against this
+deployment as well as against the bench.
 
-**A driver package's tests name this bench's instrument ids.**
-`instruments/keysight_dsox1202g/tests` constructs its driver with `InstrumentId::Osc1`,
-`ac6834b` with `::AcP1`, `racal1260` with `::Ser1`, `keysight_edu36311a` with
-`::DcP5..7`. None
-of those enumerators exists on a bench that has no scope, no AC source and no
-serial port, so those three packages' tests do not compile against this
-deployment — which contradicts `instruments/README.md`'s claim that each
-directory is independently packageable.
-
-Worked around rather than fixed: `THORIUM_INSTRUMENT_PACKAGES` lets a deployment
-build only the packages it has an instrument for, and this one builds
-`keysight_edu34450a` alone. That package is fixed
-properly, as the pattern for the rest — each takes the ids it needs from
-`core::meta::values<hal::InstrumentId>` and skips the two-instrument test where
-there is only one. The other four want the same treatment, and that is a
-separate change.
-
-It is a CMake *cache* variable, which matters when this line changes: editing
-the preset does not reach an existing build directory. Reconfigure it, or the
-build fails on a driver header the include path no longer has.
+`THORIUM_INSTRUMENT_PACKAGES` stays, because it was never really the fix — what
+it does is let a deployment stop paying to compile drivers it has no instrument
+for, and this one builds `keysight_edu34450a` alone for that reason rather than
+because the others would fail. It is a CMake *cache* variable, which matters
+when that line changes: editing the preset does not reach an existing build
+directory. Reconfigure it, or the build fails on a driver header the include
+path no longer has.
 
 ## Adding to it
 

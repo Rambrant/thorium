@@ -449,16 +449,24 @@ file(GLOB _thorium_instrument_manifests CONFIGURE_DEPENDS
 # hal::InstrumentId enumerator and no object code, so building every package
 # costs nothing but compile time.
 #
-# It does cost one thing, and a second deployment is what made it visible: a
-# driver package's *tests* are object code, and every one of them constructs its
-# driver with an id from this bench's instrument list -- InstrumentId::Osc1 in
-# instruments/keysight_dsox1202g/tests, ::AcP1 in ac6834b, ::Ser1 in racal1260. Those
-# enumerators do not exist on a bench that has no scope, no AC source and no
-# serial port, so a deployment declaring one meter cannot build those packages'
-# tests at all. (The two DMM packages are fine on such a bench -- both take
-# ::Dmm1 -- which is what makes the defect easy to forget about.) That is a real defect against the claim in
-# instruments/README.md that each directory is independently packageable, and it
-# is not fixed here -- see dev/README.md for what fixing it looks like.
+# It once cost one thing, and a second deployment is what made it visible: a
+# driver package's *tests* are object code, and each of them used to construct
+# its driver with an id from this bench's instrument list -- InstrumentId::Osc1
+# in instruments/keysight_dsox1202g/tests, ::AcP1 in ac6834b, ::Ser1 in
+# racal1260, ::Dmm1 in the two DMM packages -- and ac6834b and racal1260 named
+# this bench's switching cards on top of that. None of those enumerators exists
+# on a bench with one meter and no relays, so a deployment declaring one could
+# not build those packages' tests at all, which was a real defect against the
+# claim in instruments/README.md that each directory is independently
+# packageable.
+#
+# Every package now takes the ids it needs from core::meta::values<InstrumentId>
+# and core::meta::values<SwitchDeviceId> instead, and skips the tests a
+# deployment is too small to give meaning to -- a routed Connect where there is
+# no switching hardware, a two-instrument test where there is one instrument. So
+# this list is no longer a workaround for anything: every instruments/<dir>
+# builds its tests against every deployment, and dev/README.md's table of what a
+# second deployment turned up is the whole of that story.
 #
 # What this list does is let a deployment stop paying for packages it has no
 # instrument for. Empty means the glob, so the bench deployment and any existing

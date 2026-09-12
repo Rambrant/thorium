@@ -33,6 +33,7 @@ namespace
 
 #include <chrono>
 
+#include "core/meta.hpp"
 #include "core/verbs/at.hpp"
 #include "hal/topology/adapter.hpp"
 
@@ -58,25 +59,56 @@ namespace
         LINE( Gnd,  A, 2, 5, "console signal ground")
     END_BUNDLE
 
+    //
+    // Whatever the linking deployment's first instrument is called. A driver's
+    // tests have no business knowing that this repo's bench rig calls this
+    // port Ser1 -- see the top-level CMakeLists.txt on the packageability
+    // defect that hard-coded ids in a driver's tests cause.
+    //
+    [[nodiscard]]
+    auto anyId() -> hal::InstrumentId
+    {
+        return core::meta::values<hal::InstrumentId>[ 0];
+    }
+
+    //
+    // And whatever its switching hardware is called. The wiring below used to
+    // name this bench's Spst1 for the port's channels and its Spdt1 for the
+    // connector's, and the two cards were never the point: what the routed
+    // Connect has to compose is one path out of both tables. So both halves sit
+    // on the first declared device here, in two channel ranges that cannot
+    // collide, and the assertions read the same either way.
+    //
+    // Unlike the instrument list this one is allowed to be empty -- a
+    // deployment may declare no switching hardware at all (dev/rig/devices.inc
+    // is exactly that) -- so the three tests that route skip there rather than
+    // assert. The rest of this file configures, writes to and safes a port,
+    // which is the same fact on a desk as on a rack.
+    //
+    constexpr auto switchDeviceIds = core::meta::values<hal::SwitchDeviceId>;
+
     struct Racal1260Fixture : ::testing::Test
     {
         hal::SwitchFabric      fabric;
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::racal1260::Racal1260         ser1{ hal::InstrumentId::Ser1, hal::Simulated{} };
+        hal::racal1260::Racal1260         ser1{ anyId(), hal::Simulated{} };
 
         Racal1260Fixture()
         {
-            // The port's own three channels -- transmit, receive, return.
-            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Spst1, 16 });
-            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Spst1, 17 });
-            instrumentWiring.addWire( hal::InstrumentId::Ser1, { hal::SwitchDeviceId::Spst1, 18 });
+            if constexpr( ! switchDeviceIds.empty())
+            {
+                // The port's own three channels -- transmit, receive, return.
+                instrumentWiring.addWire( anyId(), { switchDeviceIds[ 0], 16 });
+                instrumentWiring.addWire( anyId(), { switchDeviceIds[ 0], 17 });
+                instrumentWiring.addWire( anyId(), { switchDeviceIds[ 0], 18 });
 
-            // The interface's three pins.
-            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 1 }, { hal::SwitchDeviceId::Spdt1, 0 });
-            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 2 }, { hal::SwitchDeviceId::Spdt1, 1 });
-            connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 5 }, { hal::SwitchDeviceId::Spdt1, 2 });
+                // The interface's three pins.
+                connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 1 }, { switchDeviceIds[ 0], 0 });
+                connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 2 }, { switchDeviceIds[ 0], 1 });
+                connectorWiring.addWire( hal::VpcLocation{ hal::VpcRack::A, 2, 5 }, { switchDeviceIds[ 0], 2 });
+            }
         }
     };
 } // namespace
@@ -138,16 +170,21 @@ TEST_F( Racal1260Fixture, APortWithNothingToSayReturnsAnEmptyPayload)
 //
 TEST_F( Racal1260Fixture, ConnectingTheInterfaceClosesEveryLineOnBothSides)
 {
+    if( switchDeviceIds.empty())
+    {
+        GTEST_SKIP() << "this deployment declares no switching hardware -- nothing to route over";
+    }
+
     connectDriver( fabric, instrumentWiring, connectorWiring,
                         ser1.rs232().config(), core::at( Console).point);
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 16 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 17 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 18 }));
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 16 }));
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 17 }));
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 18 }));
 
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 0 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 1 }));
-    EXPECT_TRUE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 2 }));
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 0 }));
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 1 }));
+    EXPECT_TRUE( fabric.isClosed( { switchDeviceIds[ 0], 2 }));
 }
 
 //
@@ -158,15 +195,20 @@ TEST_F( Racal1260Fixture, ConnectingTheInterfaceClosesEveryLineOnBothSides)
 //
 TEST_F( Racal1260Fixture, DisconnectingOpensExactlyWhatWasClosed)
 {
+    if( switchDeviceIds.empty())
+    {
+        GTEST_SKIP() << "this deployment declares no switching hardware -- nothing to route over";
+    }
+
     const auto config = ser1.rs232().config();
 
     connectDriver(    fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
     disconnectDriver( fabric, instrumentWiring, connectorWiring, config, core::at( Console).point);
 
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 16 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spst1, 18 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 0 }));
-    EXPECT_FALSE( fabric.isClosed( { hal::SwitchDeviceId::Spdt1, 2 }));
+    EXPECT_FALSE( fabric.isClosed( { switchDeviceIds[ 0], 16 }));
+    EXPECT_FALSE( fabric.isClosed( { switchDeviceIds[ 0], 18 }));
+    EXPECT_FALSE( fabric.isClosed( { switchDeviceIds[ 0], 0 }));
+    EXPECT_FALSE( fabric.isClosed( { switchDeviceIds[ 0], 2 }));
 }
 
 //
@@ -176,6 +218,11 @@ TEST_F( Racal1260Fixture, DisconnectingOpensExactlyWhatWasClosed)
 //
 TEST_F( Racal1260Fixture, SafingDropsTheConnectionAndDiscardsAnythingQueued)
 {
+    if( switchDeviceIds.empty())
+    {
+        GTEST_SKIP() << "this deployment declares no switching hardware -- nothing to route over";
+    }
+
     connectDriver( fabric, instrumentWiring, connectorWiring,
                         ser1.rs232().config(), core::at( Console).point);
     writeDriver( ser1.rs232().config(), core::Bytes( "RD 30\r"));
@@ -197,7 +244,7 @@ TEST_F( Racal1260Fixture, TheLogReportsOnlyTheSettingsThatWereActuallyGiven)
     const auto described = describeConfig(
         ser1.rs232().baudRate( 9600).wordLength( 8).parity( hal::racal1260::Parity::None).stopBits( hal::racal1260::StopBits::One).config());
 
-    EXPECT_EQ( described.Instrument, "Ser1");
+    EXPECT_EQ( described.Instrument, core::meta::to_string( anyId()));
     EXPECT_EQ( described.Settings,   "baud=9600, wordLength=8, parity=none, stopBits=1");
 
     const auto sparse = describeConfig( ser1.rs232().baudRate( 9600).config());

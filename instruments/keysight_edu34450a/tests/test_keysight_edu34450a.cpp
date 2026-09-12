@@ -61,6 +61,20 @@ namespace
     //
     static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::EDU34450A> );
     static_assert( std::derived_from< hal::keysight_edu34450a::EDU34450A, hal::InstrumentTag> );
+
+    //
+    // Whatever the linking deployment's first instrument is called. A driver's
+    // tests have no business knowing that both rigs in this repo happen to call
+    // their meter Dmm1 -- see the top-level CMakeLists.txt on the packageability
+    // defect that hard-coded ids in a driver's tests cause. This package was the
+    // easiest of the six to leave broken, precisely because the name it picked
+    // exists on every deployment that would build it today.
+    //
+    [[nodiscard]]
+    auto anyId() -> hal::InstrumentId
+    {
+        return core::meta::values<hal::InstrumentId>[ 0];
+    }
 } // namespace
 
 using namespace core::literals;
@@ -70,7 +84,7 @@ using hal::keysight_edu34450a::EDU34450A;
 
 TEST( Edu34450A, ExposesBothVoltageAndCurrentPorts)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedVoltage( 5.02_V);
     dmm.setSimulatedCurrent( 0.5_A);
 
@@ -80,11 +94,11 @@ TEST( Edu34450A, ExposesBothVoltageAndCurrentPorts)
 
 //
 // Two ids taken from whatever the linking deployment declares, rather than the
-// literal Dmm1/Dmm2 this would otherwise be written with -- see the same test
-// in instruments/keysight_edu34450a/tests for the bench dependency that shape
-// removes. What is under test is that the driver carries the id it was given
-// through to its ports, which needs two distinct ids and does not care which
-// two.
+// literal Dmm1/Dmm2 this would otherwise be written with -- the same reason
+// anyId() above exists, one step further: this one needs the ids to be
+// *distinct*, not merely to exist. What is under test is that the driver
+// carries the id it was given through to its ports, and it does not care which
+// two ids those are.
 //
 // Skipped rather than weakened on a deployment that declares only one: there is
 // then nothing for an instrument to be distinguishable *from*, and a version of
@@ -111,7 +125,7 @@ TEST( Edu34450A, TwoMetersAreDistinguishableByInstrumentId)
 
 TEST( Edu34450A, AcVoltagePortReadsTheAcSimulatedReading)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedVoltage( 5.0_V);
     dmm.setSimulatedAcVoltage( 230.0_V);
 
@@ -120,7 +134,7 @@ TEST( Edu34450A, AcVoltagePortReadsTheAcSimulatedReading)
 
 TEST( Edu34450A, AcCurrentPortReadsTheAcSimulatedReading)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedCurrent( 0.5_A);
     dmm.setSimulatedAcCurrent( 1.2_A);
 
@@ -129,7 +143,7 @@ TEST( Edu34450A, AcCurrentPortReadsTheAcSimulatedReading)
 
 TEST( Edu34450A, VoltageAfterAcVoltageSwitchesBackToDcMode)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedVoltage( 5.0_V);
     dmm.setSimulatedAcVoltage( 230.0_V);
 
@@ -146,7 +160,7 @@ TEST( Edu34450A, ModeIsSharedAcrossPortHandlesHeldPastAModeSwitch)
     // current when rawMeasure() is eventually called, not the mode active when
     // the handle was created. It mirrors the instrument, which has one
     // measurement front end and one SCPI FUNCtion setting.
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedVoltage( 5.0_V);
     dmm.setSimulatedAcVoltage( 230.0_V);
 
@@ -158,7 +172,7 @@ TEST( Edu34450A, ModeIsSharedAcrossPortHandlesHeldPastAModeSwitch)
 
 TEST( Edu34450A, ResistancePortReadsTheTwoWireSimulatedReading)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedResistance( 100.0_Ohm);
     dmm.setSimulatedFourWireResistance( 99.5_Ohm);
 
@@ -167,7 +181,7 @@ TEST( Edu34450A, ResistancePortReadsTheTwoWireSimulatedReading)
 
 TEST( Edu34450A, FourWireResistancePortReadsTheFourWireSimulatedReading)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedResistance( 100.0_Ohm);
     dmm.setSimulatedFourWireResistance( 99.5_Ohm);
 
@@ -176,7 +190,7 @@ TEST( Edu34450A, FourWireResistancePortReadsTheFourWireSimulatedReading)
 
 TEST( Edu34450A, ResistanceAfterFourWireResistanceSwitchesBackToTwoWireMode)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedResistance( 100.0_Ohm);
     dmm.setSimulatedFourWireResistance( 99.5_Ohm);
 
@@ -194,7 +208,7 @@ TEST( Edu34450A, ResistanceAfterFourWireResistanceSwitchesBackToTwoWireMode)
 //
 TEST( Edu34450A, FourWireResistanceRequiresTheSensePathButTwoWireDoesNot)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
 
     static_assert( decltype( dmm.resistance())::SenseUse         == core::SensePath::NotUsed);
     static_assert( decltype( dmm.fourWireResistance())::SenseUse == core::SensePath::Required);
@@ -213,7 +227,7 @@ TEST( Edu34450A, FourWireResistanceRequiresTheSensePathButTwoWireDoesNot)
 //
 TEST( Edu34450A, FrequencyPortReadsRegardlessOfWhichModeTheMeterIsIn)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedFrequency( 50.0_Hz);
 
     EXPECT_DOUBLE_EQ( dmm.frequency().rawMeasure().value(), 50.0);
@@ -231,7 +245,7 @@ TEST( Edu34450A, FrequencyPortReadsRegardlessOfWhichModeTheMeterIsIn)
 //
 TEST( Edu34450A, TheFrequencySettingOnAnAcPortIsNotAFrequencyReading)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedAcVoltage( 230.0_V);
     dmm.setSimulatedFrequency( 50.0_Hz);
 
@@ -250,7 +264,7 @@ TEST( Edu34450A, TheFrequencySettingOnAnAcPortIsNotAFrequencyReading)
 //
 TEST( Edu34450A, CapacitancePortReadsRegardlessOfWhichModeTheMeterIsIn)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedCapacitance( 470.0_uF);
 
     EXPECT_DOUBLE_EQ( dmm.capacitance().rawMeasure().value(), 470.0e-6);
@@ -276,7 +290,7 @@ TEST( Edu34450A, CapacitancePortReadsRegardlessOfWhichModeTheMeterIsIn)
 //
 TEST( Edu34450A, CapacitanceIsATwoWireReadingThatRequiresADeadNode)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
 
     static_assert( decltype( dmm.capacitance())::SenseUse == core::SensePath::NotUsed);
 
@@ -293,7 +307,7 @@ TEST( Edu34450A, CapacitanceIsATwoWireReadingThatRequiresADeadNode)
 //
 TEST( Edu34450A, ResolutionDefaultsToSlowAndIsInstrumentStateNotPortState)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
 
     EXPECT_EQ( dmm.resolution(), EDU34450A::Resolution::Slow);
 
@@ -317,7 +331,7 @@ TEST( Edu34450A, ResolutionDefaultsToSlowAndIsInstrumentStateNotPortState)
 //
 TEST( Edu34450A, SafeLeavesTheMetersOwnStateAlone)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
     (void)dmm.acVoltage();
     dmm.setResolution( EDU34450A::Resolution::Medium);
 
@@ -334,7 +348,7 @@ TEST( Edu34450A, SafeLeavesTheMetersOwnStateAlone)
 //
 TEST( Edu34450A, CarriesTheAddressItWasDeclaredWith)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Lan( "bench-dmm1") };
+    EDU34450A dmm{ anyId(), hal::Lan( "bench-dmm1") };
 
     EXPECT_EQ( to_string( dmm.address()), "Lan bench-dmm1:5025");
 }
@@ -470,7 +484,7 @@ namespace
     //
     struct Bench
     {
-        EDU34450A   Dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+        EDU34450A   Dmm{ anyId(), hal::Simulated{} };
         FakeMeter * Meter{};
     };
 
@@ -512,7 +526,7 @@ namespace
 //
 TEST( Edu34450AWire, AnInjectedTransportMakesTheDriverStopSimulating)
 {
-    EDU34450A dmm{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+    EDU34450A dmm{ anyId(), hal::Simulated{} };
 
     EXPECT_TRUE( dmm.isSimulated());
 

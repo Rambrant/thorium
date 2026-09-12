@@ -7,10 +7,10 @@
 //
 // And the one test file here that names no hal::InstrumentId at all, because a
 // chassis has none: it is a switching device, not an instrument (see the
-// header's preamble). Which makes these the only driver tests in the tree that
-// a deployment declaring one meter and no switching can still build -- the
-// coupling the top-level CMakeLists.txt calls a real defect simply does not
-// arise.
+// header's preamble). Which is why this file needs no anyId() helper, where
+// every other package in instruments/ has one -- the coupling the top-level
+// CMakeLists.txt describes, and the deployment-agnostic ids that answer it,
+// simply do not arise here.
 //
 #include "hal/keysight_34980a.hpp"
 

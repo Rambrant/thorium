@@ -235,6 +235,17 @@ point: a test here that needs the switching fabric, an `Apply`, or a second
 instrument is, by construction, not testing this driver in isolation, and the
 directory stops being packageable the moment one does.
 
+The link line cannot catch everything, and the one thing it misses is worth
+knowing before writing a test here: an `InstrumentId` or a `SwitchDeviceId`
+enumerator is neither a global nor an `Apply`, so a test naming
+`InstrumentId::Osc1` links perfectly well on the bench and fails to *compile*
+anywhere that has no scope. Take the ids a test needs from
+`core::meta::values<hal::InstrumentId>` and `core::meta::values<hal::SwitchDeviceId>`
+instead — every package in this directory does — and skip, with `GTEST_SKIP()`,
+where the linking deployment is too small for the test to mean anything: a
+routed `Connect` with no switching hardware declared, or a test of two distinct
+ids on a rig that declares one instrument.
+
 Tests that genuinely need several instruments together, or this rig's wiring,
 are rig-level integration tests and belong with the rig, not here. They live in
 `rig/tests/` — five files, which passed through `framework/hal/tests/` on their way
