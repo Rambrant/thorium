@@ -1391,6 +1391,7 @@ fails that build rather than being reported.
 |---|---|
 | *(none)* | run every test in the catalog |
 | `--list-tests` | print `group\|id\|description` per test, run nothing |
+| `--describe-options` | print every flag as JSON, run nothing — what [`ui/`](ui/README.md) builds its form from |
 | `--select=a,b` | run only these test ids, in catalog order |
 | `--criteria=NAME` | apply that tolerance variant — `production`, `stress`, `aged` |
 | `--repeat=N` | run the selection N times over |
@@ -1402,6 +1403,7 @@ fails that build rather than being reported.
 | `--inject=PATH` | take readings from a stimulus file — authored, not captured |
 | `--dut-serial=`, `--operator=` | traceability, into both logs |
 | `--log-dir=`, `--sarif=`, `--rtf=` | where the logs go |
+| `--events=PATH` | stream the run as JSON lines to `PATH`, or `-` for stdout, as it happens |
 | `--quiet`, `--no-logs`, `--no-color` | suppress the console, the files, the colour |
 
 Exit code is 0 only if every selected test passed.

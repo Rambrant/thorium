@@ -13,6 +13,8 @@ add_library(core STATIC
         src/journal/console_sink.cpp
         src/journal/rtf_sink.cpp
         src/journal/sarif_sink.cpp
+        src/journal/event_sink.cpp
+        src/journal/json.cpp
         src/criteria/verify.cpp
         src/criteria/criteria_variants.cpp
         src/verbs/interlock.cpp
@@ -83,13 +85,18 @@ add_library(core STATIC
         # human_sink.hpp are the two halves the human-readable sinks (console,
         # rtf) share -- what the stream says, and which hook says it -- leaving
         # each sink only its own medium, while sarif_sink writes the
-        # machine-readable stream. The group depends on nothing else in core.
+        # machine-readable stream and event_sink the live one a supervising
+        # process watches. json.hpp is the escaping rule the two JSON sinks
+        # share, and the only thing they do share -- their documents have
+        # nothing else in common. The group depends on nothing else in core.
         include/core/journal/journal.hpp
         include/core/journal/report.hpp
         include/core/journal/human_sink.hpp
         include/core/journal/console_sink.hpp
         include/core/journal/rtf_sink.hpp
         include/core/journal/sarif_sink.hpp
+        include/core/journal/event_sink.hpp
+        include/core/journal/json.hpp
         # --- core/criteria: the CRITERIA/CRIT tables, the predicate vocabulary
         # they are written in, how a run picks a tolerance variant, and Verify.
         # Closed against the rest of core: only verify.hpp is reached from

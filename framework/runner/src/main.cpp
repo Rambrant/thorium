@@ -6,6 +6,7 @@
 #include <iostream>
 #include <limits>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -15,6 +16,7 @@
 #include "core/catalog/active_test_catalog.hpp"
 #include "core/session/bench.hpp"
 #include "core/journal/console_sink.hpp"
+#include "core/journal/event_sink.hpp"
 #include "core/criteria/criteria_variants.hpp"
 #include "core/journal/journal.hpp"
 #include "core/session/recording.hpp"
@@ -26,12 +28,16 @@
 #include "hal/verbs/safing.hpp"
 
 //
-// Runner for the test-script catalog (core/catalog/active_test_catalog.hpp). Five
-// modes, matching what tools/run-tests.sh expects:
+// Runner for the test-script catalog (core/catalog/active_test_catalog.hpp). Six
+// modes, matching what tools/run-tests.sh and ui/ expect:
 //
 //   run_scripts                    run every test in the catalog
 //   run_scripts --list-tests       print "group|id|description", one per
 //                                  test, then exit -- nothing is run
+//   run_scripts --describe-options print every flag as JSON and exit -- what
+//                                  a supervising process builds a form from,
+//                                  generated from the same annotations --help
+//                                  is (see cli.hpp and ui/README.md)
 //   run_scripts --select=a,b,c     run only the named test ids (from any
 //                                  group), in catalog order
 //   run_scripts --safe             drop the rig to a known idle state and
@@ -290,7 +296,7 @@ namespace
            = cli::Doc{ "run only the named test ids, in catalog order" }]]
         std::vector<std::string_view>  Selection;      // empty => run everything
 
-        [[= cli::Flag{ "--list-tests" },
+        [[= cli::Flag{ "--list-tests" }, = cli::Query{},
            = cli::Doc{ "print \"group|id|description\" per test and exit" }]]
         bool                           ListOnly{ false };
 
@@ -298,8 +304,20 @@ namespace
            = cli::Doc{ "drop the rig to a known idle state and exit" }]]
         bool                           SafeOnly{ false };
 
-        [[= cli::Flag{ "--help" }, = cli::Doc{ "print this list and exit" }]]
+        [[= cli::Flag{ "--help" }, = cli::Query{},
+           = cli::Doc{ "print this list and exit" }]]
         bool                           ShowHelp{ false };
+
+        //
+        // Every flag above and below, as JSON, so a supervising process can
+        // build a form out of them instead of restating them (see cli.hpp's
+        // optionsModel and ui/README.md). The model is generated from the same
+        // annotations --help is, which is the whole point: this cannot describe
+        // a flag the parser does not accept, or miss one it does.
+        //
+        [[= cli::Flag{ "--describe-options" }, = cli::Query{},
+           = cli::Doc{ "print every flag as JSON and exit" }]]
+        bool                           DescribeOptions{ false };
 
         //
         // Which tolerance variant to apply. Unset means the one this build was
@@ -373,6 +391,20 @@ namespace
         [[= cli::Flag{ "--no-logs" }, = cli::Clears{},
            = cli::Doc{ "write no run log at all" }]]
         bool                           WriteLogs{ true };
+
+        //
+        // The live event stream (core/journal/event_sink.hpp), for a process
+        // watching this run while it happens. "-" means stdout, which is what a
+        // parent reading this process's pipe wants and how the UI invokes it.
+        //
+        // Not derived from --log-dir the way --sarif and --rtf are, and not
+        // written unless asked for. Those two are the record of a run and every
+        // run should leave one; this is a wire, and a run nobody is watching
+        // should not be writing down what it would have said to a watcher.
+        //
+        [[= cli::Flag{ "--events" }, = cli::Meta{ "PATH" },
+           = cli::Doc{ "stream the run as JSON lines to PATH, or - for stdout" }]]
+        std::optional<std::string>     EventsPath;
 
         [[= cli::Flag{ "--no-color" }, = cli::Flag{ "--no-colour" }, = cli::Clears{},
            = cli::Doc{ "no ANSI colour in the console view" }]]
@@ -490,6 +522,24 @@ namespace
         {
             std::cerr << "--inject= is exclusive with --record= and --skeleton=: both write a file, and "
                          "injected readings would be written into it as if they had been observed.\n";
+            return std::nullopt;
+        }
+
+        //
+        // --events=- writes JSON objects to stdout, which is where the console
+        // view writes its coloured prose. Both at once is neither: a parser
+        // reading that pipe hits a line it cannot parse, and the one thing a
+        // supervisor must be able to do is tell a malformed stream from a
+        // finished one.
+        //
+        // Rejected rather than silently suppressing the console view, which
+        // would be this runner deciding it knew better than a caller who asked
+        // for both. --events=PATH has no such conflict and is left alone.
+        //
+        if ( options.EventsPath && *options.EventsPath == "-" && !options.Quiet)
+        {
+            std::cerr << "--events=- writes the event stream to stdout, where the console view also writes: "
+                         "pass --quiet as well, or send the stream to a file.\n";
             return std::nullopt;
         }
 
@@ -1128,6 +1178,16 @@ namespace
         std::optional<core::ConsoleSink>  Console;
         std::optional<core::SarifSink>    Sarif;
         std::optional<core::RtfSink>      Rtf;
+
+        //
+        // The live stream and, when it is going to a file rather than to
+        // stdout, the file under it. Two members because core::EventSink
+        // references a std::ostream it does not own -- which is what lets the
+        // same sink write to std::cout, the case the UI actually uses (see
+        // ui/README.md), where there is no file to hold.
+        //
+        std::optional<std::ofstream>      EventsFile;
+        std::optional<core::EventSink>    Events;
     };
 
     [[nodiscard]]
@@ -1179,6 +1239,57 @@ namespace
                 std::cerr << "Could not open run logs: " << e.what() << '\n';
                 return false;
             }
+        }
+
+        //
+        // The live stream, and the one sink a skeleton run does get.
+        //
+        // That is not an oversight in the paragraph above. The two report logs
+        // are withheld from a skeleton because they would be *evidence* that a
+        // run tested something, and it did not. This is not evidence of
+        // anything -- it is the pipe back to whoever started the process, and a
+        // UI that asked for a skeleton still has a progress bar to draw. A
+        // watcher also already knows: the --skeleton flag is on the command
+        // line it built, and runStart's benchAttached says false.
+        //
+        if ( options.EventsPath)
+        {
+            //
+            // "-" is stdout. Spelled the way every other command-line tool
+            // spells it rather than invented here, and it is the path the UI
+            // takes: a parent reading its child's pipe needs no file, no
+            // temporary directory, and no way for the two to disagree about
+            // where the file was.
+            //
+            if ( *options.EventsPath == "-")
+            {
+                logs.Events.emplace( std::cout);
+            }
+            else
+            {
+                try
+                {
+                    const auto path = std::filesystem::path( *options.EventsPath);
+
+                    ensureParentDirectory( path);
+
+                    logs.EventsFile.emplace( path);
+
+                    if ( !*logs.EventsFile)
+                    {
+                        throw std::runtime_error( "could not open " + path.string());
+                    }
+
+                    logs.Events.emplace( *logs.EventsFile);
+                }
+                catch ( const std::exception & e)
+                {
+                    std::cerr << "Could not open the event stream: " << e.what() << '\n';
+                    return false;
+                }
+            }
+
+            core::journal().add( *logs.Events);
         }
 
         return true;
@@ -1429,6 +1540,17 @@ int main( int argc, char ** argv)
     if ( options.ShowHelp)
     {
         printUsage();
+        return 0;
+    }
+
+    //
+    // Beside --help and for the same reason: it answers a question about this
+    // binary and runs nothing. Ahead of --safe, so a UI can interrogate a
+    // binary it has just discovered without that act touching a rig.
+    //
+    if ( options.DescribeOptions)
+    {
+        cli::writeOptionsJson( cli::optionsModel<Options>(), std::cout);
         return 0;
     }
 

@@ -1,12 +1,11 @@
 #include "core/journal/sarif_sink.hpp"
 
 #include <algorithm>
-#include <array>
-#include <cstdio>
 #include <fstream>
 #include <ostream>
 #include <stdexcept>
 
+#include "core/journal/json.hpp"
 #include "core/quantities/format.hpp"
 
 namespace core
@@ -283,50 +282,19 @@ namespace core
         }
     } // namespace
 
+    //
+    // Forwards to core::jsonEscape (core/journal/json.hpp), which is where the
+    // rule now lives -- a second JSON stream (core/journal/event_sink.hpp)
+    // needs the same escaping, and two copies of it would be two answers to the
+    // same question with only one of them under test.
+    //
+    // The name stays because the tests and this file's own quoted() call it,
+    // and because "the SARIF sink escapes its strings this way" is still a true
+    // and worth-asserting statement about this sink.
+    //
     auto SarifSink::escape( const std::string_view text) -> std::string
     {
-        std::string result;
-        result.reserve( text.size() + text.size() / 8);
-
-        for( const char c : text)
-        {
-            switch( c)
-            {
-                case '"':  result += "\\\""; break;
-                case '\\': result += "\\\\"; break;
-                case '\b': result += "\\b";  break;
-                case '\f': result += "\\f";  break;
-                case '\n': result += "\\n";  break;
-                case '\r': result += "\\r";  break;
-                case '\t': result += "\\t";  break;
-
-                default:
-                    if( static_cast<unsigned char>( c) < 0x20)
-                    {
-                        //
-                        // JSON requires every remaining control byte to be
-                        // escaped as \u00XX -- unlike the RTF sink, which can
-                        // drop them, a raw control byte here makes the document
-                        // invalid rather than merely ugly.
-                        //
-                        std::array<char, 8> escaped{};
-                        std::snprintf( escaped.data(), escaped.size(), "\\u%04x", static_cast<unsigned>( static_cast<unsigned char>( c)));
-                        result += escaped.data();
-                        break;
-                    }
-
-                    //
-                    // Bytes above ASCII are passed through untouched: JSON is
-                    // UTF-8 by default, so valid UTF-8 input stays valid, and
-                    // re-encoding it would only risk breaking multi-byte
-                    // sequences this has no reason to decode.
-                    //
-                    result += c;
-                    break;
-            }
-        }
-
-        return result;
+        return jsonEscape( text);
     }
 
     auto SarifSink::ruleIdFor( const JournalEvent & event) -> std::string

@@ -14,7 +14,7 @@
 // of step.
 //
 // Deliberately generic: nothing below knows anything about run_scripts, and the
-// whole vocabulary is the five annotation types in the "Vocabulary" section. It
+// whole vocabulary is the annotation types in the "Vocabulary" section. It
 // lives in framework/runner/src/ rather than in an include/ directory of its own,
 // let alone framework/core/include/, because main.cpp is its only consumer and a
 // general-purpose CLI framework is not something this framework should be
@@ -22,6 +22,15 @@
 // change that: what framework/runner installs is the run_scripts binary, not a header
 // anyone compiles against. If a second consumer ever appears, that is the moment
 // to move it, not before.
+//
+// The UI (ui/, see its README) is pointedly *not* that second consumer, and the
+// option model below is what keeps it from becoming one. It needs to know what
+// the flags are, which is exactly what would have justified promoting this to a
+// public header -- so instead the model is emitted as JSON by
+// --describe-options and the UI reads that, in another process, built by
+// another compiler. The UI cannot include this file and does not want to. That
+// is the whole argument for the out-of-process boundary in one sentence: the
+// declaration stays here, and what crosses is data.
 //
 // What this does NOT do, on purpose: invariants that span two flags (--record
 // with --replay), or a value whose legality only some other component knows
@@ -38,6 +47,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "core/journal/json.hpp"
 
 namespace cli
 {
@@ -121,6 +132,28 @@ namespace cli
     // rather than the generic wording -- the operator reading it is at a bench.
     //
     struct Positive { Text Noun; };
+
+    //
+    // A flag that makes the program describe itself and exit, rather than doing
+    // anything the caller asked for -- --help, --list-tests, --describe-options.
+    //
+    // It exists for the option model below, and therefore for the UI. A
+    // generated form must not offer these: they are how the form was built in
+    // the first place, and a "print this list and exit" checkbox on a run
+    // dialog is nonsense. Without the annotation the UI would carry a hardcoded
+    // list of three names to skip -- a second declaration of what the flags
+    // are, in another process, which is the exact failure this whole file
+    // exists to prevent.
+    //
+    // Note what it is NOT: a general "hide this". --safe also runs no test, and
+    // is deliberately not a Query, because a UI very much wants a button for
+    // it. The distinction is whether the flag answers a question *about the
+    // binary* or does something *to the rig*.
+    //
+    // Query flags still appear in --help. A person reading it is the one
+    // audience these are for.
+    //
+    struct Query {};
 
     // -----------------------------------------------------------------------
     // Reading the annotations back
@@ -245,6 +278,15 @@ namespace cli
             if ( detail::has( member, ^^Meta) && isBool)
                 return false;
 
+            // A Query flag exits after printing. Anything that takes a value
+            // would be a mode with an argument, which none of them is.
+            if ( detail::has( member, ^^Query) && !isBool)
+                return false;
+
+            // A Query on something with no flag at all describes nothing.
+            if ( detail::has( member, ^^Query) && !isFlag)
+                return false;
+
             // An undocumented flag would be absent from --help and so, to
             // anyone reading --help, would not exist.
             if ( isFlag && detail::docOf( member).Len == 0)
@@ -295,6 +337,225 @@ namespace cli
         }
 
         return std::define_static_string( usage);
+    }
+
+    // -----------------------------------------------------------------------
+    // The same annotations, as data a program can read
+    // -----------------------------------------------------------------------
+
+    //
+    // usageText() above renders the flags for a person. This renders them for a
+    // program -- the UI, which builds its run dialog out of them and so needs
+    // the facts behind the --help line rather than the line.
+    //
+    // Same annotations, same members, one declaration. A form with a checkbox
+    // per flag, hand-written in another process, would be the three-places
+    // problem this file's opening comment describes, reopened across a process
+    // boundary where no compiler can see both halves at once. Here a flag added
+    // to Options appears in --help, in the parser, and in the UI's form, and
+    // the third of those needs no edit anywhere.
+    //
+    // What it deliberately cannot carry is a default. A member's default
+    // initialiser is not reachable through reflection (see vocabularyIsSane's
+    // comment, which runs into the same wall), and the honest consequence is
+    // better than a workaround would have been: the UI starts every control
+    // unset and emits only the flags an operator actually touched. That
+    // preserves the distinction main.cpp depends on in at least two places --
+    // "the caller said nothing" is not "the caller named the default" (see
+    // Options::CriteriaVariant and Options::Repeat). A UI that helpfully filled
+    // in defaults and always passed them would erase it.
+    //
+    // Clears is the one case where a default is knowable, and it is knowable
+    // from the annotation rather than the initialiser: --no-logs exists to turn
+    // something off, so the thing is on. That is enough for the UI to start
+    // those boxes checked.
+    //
+
+    enum class Kind
+    {
+        Switch,   // bool -- a checkbox
+        Text,     // a string of some flavour -- a field
+        Number,   // std::optional<std::uint64_t> -- a spinner
+        List      // std::vector<std::string_view> -- comma-separated, or repeated
+    };
+
+    [[nodiscard]]
+    constexpr auto to_string( const Kind kind) -> std::string_view
+    {
+        switch ( kind)
+        {
+            case Kind::Switch: return "switch";
+            case Kind::Text:   return "text";
+            case Kind::Number: return "number";
+            case Kind::List:   return "list";
+        }
+
+        return "text";
+    }
+
+    //
+    // One flag, reduced to plain runtime data. std::string rather than
+    // std::string_view even though every one of these points into static
+    // storage: this is the type that crosses into a consumer that may well
+    // build it from parsed JSON rather than from reflection, and a model whose
+    // provenance changes its lifetime rules is a trap.
+    //
+    struct OptionInfo
+    {
+        std::vector<std::string>  Spellings;    // first is the canonical one
+        std::string               Help;
+        std::string               Placeholder;  // NAME in --criteria=NAME; empty for a switch
+        std::string               Noun;         // Positive's noun, for a number's diagnostic
+        Kind                      ValueKind{ Kind::Text };
+        bool                      Clears{ false };
+        bool                      Repeatable{ false };
+        bool                      Positive{ false };
+        bool                      Query{ false };
+    };
+
+    namespace detail
+    {
+        consteval auto kindOf( std::meta::info member) -> Kind
+        {
+            const auto type = std::meta::type_of( member);
+
+            if ( type == ^^bool)
+                return Kind::Switch;
+
+            if ( type == ^^std::optional<std::uint64_t>)
+                return Kind::Number;
+
+            if ( type == ^^std::vector<std::string_view>)
+                return Kind::List;
+
+            //
+            // Everything else is a string of some flavour, which is what the
+            // parser does with it too. Not an exhaustive match on purpose: the
+            // parser's own static_assert( false, "cli: no parsing rule for this
+            // member's type") is where an unhandled type has to fail, because
+            // that is the one that makes the flag unusable. A model that also
+            // refused would just be a second, earlier error about the same
+            // typo.
+            //
+            return Kind::Text;
+        }
+    }
+
+    //
+    // Members without a Flag are skipped, exactly as usageText() skips them: an
+    // option that exists only internally is not part of the interface either
+    // way.
+    //
+    template<typename Options>
+    [[nodiscard]]
+    auto optionsModel() -> std::vector<OptionInfo>
+    {
+        static_assert( vocabularyIsSane<Options>(),
+                       "cli: an annotation is on a member it cannot apply to, or a flag has no Doc");
+
+        static constexpr auto members = std::define_static_array( detail::membersOf( ^^Options));
+
+        std::vector<OptionInfo> model;
+
+        //
+        // An expansion statement for the reason parse() uses one: the body has
+        // to splice each member to ask its type. The cost parse() pays -- the
+        // match logic emitted once per member -- is not paid here, because this
+        // body does not branch on the type at all; kindOf() answers during
+        // constant evaluation and what is left is a push_back.
+        //
+        template for ( constexpr auto member : members)
+        {
+            static constexpr auto spellings = std::define_static_array( detail::spellingsOf( member));
+
+            if constexpr ( !spellings.empty())
+            {
+                OptionInfo info;
+
+                for ( const auto & spelling : spellings)
+                    info.Spellings.emplace_back( spelling.view());
+
+                info.Help        = std::string( detail::docOf( member).view());
+                info.Placeholder = std::string( detail::metaOf( member).view());
+                info.Noun        = std::string( detail::nounOf( member).view());
+                info.ValueKind   = detail::kindOf( member);
+                info.Clears      = detail::has( member, ^^Clears);
+                info.Repeatable  = detail::has( member, ^^Repeatable);
+                info.Positive    = detail::has( member, ^^Positive);
+                info.Query       = detail::has( member, ^^Query);
+
+                model.push_back( std::move( info));
+            }
+        }
+
+        return model;
+    }
+
+    //
+    // The model as JSON, which is the form it actually travels in.
+    //
+    // Here rather than in main.cpp because it is generic -- it knows the
+    // vocabulary and nothing about run_scripts, the same test every other
+    // function in this file passes. The one outward dependency is
+    // core::jsonQuoted, and it is the right one: a second escaper written here
+    // would be a second answer to a question core/journal/json.hpp already
+    // answers for both JSON sinks.
+    //
+    // Pretty-printed, one flag per object over several lines. It is read by a
+    // program, but it is also the thing a person diffs when the UI offers a
+    // control they did not expect, and a single-line document cannot be diffed.
+    //
+    inline auto writeOptionsJson( const std::vector<OptionInfo> & model, std::ostream & out) -> void
+    {
+        out << "{\n  \"options\": [";
+
+        bool firstOption = true;
+
+        for ( const auto & option : model)
+        {
+            out << ( firstOption ? "\n" : ",\n") << "    {\n";
+
+            firstOption = false;
+
+            out << "      \"flags\": [";
+
+            bool firstSpelling = true;
+
+            for ( const auto & spelling : option.Spellings)
+            {
+                out << ( firstSpelling ? "" : ", ") << core::jsonQuoted( spelling);
+
+                firstSpelling = false;
+            }
+
+            out << "],\n";
+            out << "      \"kind\": "  << core::jsonQuoted( to_string( option.ValueKind)) << ",\n";
+            out << "      \"help\": "  << core::jsonQuoted( option.Help) << ",\n";
+
+            //
+            // The four booleans are written whether or not they are set, unlike
+            // the two strings below them. A consumer branches on every one of
+            // them -- a cleared switch starts checked, a repeatable list is
+            // emitted as N flags rather than one comma-separated value -- and
+            // "absent" and "false" being the same thing is fine for a field
+            // that is always consulted. A placeholder or a noun that is not
+            // there is genuinely not there.
+            //
+            out << "      \"clears\": "     << ( option.Clears     ? "true" : "false") << ",\n";
+            out << "      \"repeatable\": " << ( option.Repeatable ? "true" : "false") << ",\n";
+            out << "      \"positive\": "   << ( option.Positive   ? "true" : "false") << ",\n";
+            out << "      \"query\": "      << ( option.Query      ? "true" : "false");
+
+            if ( !option.Placeholder.empty())
+                out << ",\n      \"placeholder\": " << core::jsonQuoted( option.Placeholder);
+
+            if ( !option.Noun.empty())
+                out << ",\n      \"noun\": " << core::jsonQuoted( option.Noun);
+
+            out << "\n    }";
+        }
+
+        out << "\n  ]\n}\n";
     }
 
     // -----------------------------------------------------------------------

@@ -421,7 +421,23 @@ namespace core
             virtual auto onPhaseStart( std::string_view, std::string_view, std::string_view) -> void {}
             virtual auto onPhaseEnd( std::string_view) -> void {}
             virtual auto onEvent( const JournalEvent &) -> void {}
-            virtual auto onTestEnd( std::string_view, std::string_view, bool) -> void {}
+            //
+            // (group, test, passed) -- NOT (test, description, ...) the way
+            // onTestStart above reads. The pair is asymmetric on purpose: the
+            // verdict is derived at the end rather than handed in (see
+            // Journal::endTest), the group is what a sink needs to attribute it
+            // to, and the description was already given at the start so nothing
+            // needs it twice.
+            //
+            // Named in comments rather than for real, which is the only form
+            // available: every hook here has an empty default body, and a named
+            // parameter nobody uses is -Werror=unused-parameter. That is why
+            // none of them is named -- a constraint, not a house style -- and
+            // why this one at least says which is which. An implementer who
+            // assumes symmetry with onTestStart writes a sink that compiles,
+            // runs, and reports the group as the test.
+            //
+            virtual auto onTestEnd( std::string_view /* group */, std::string_view /* test */, bool /* passed */) -> void {}
             virtual auto onRunEnd( bool) -> void {}
     };
 
