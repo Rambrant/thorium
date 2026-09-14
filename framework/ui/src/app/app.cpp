@@ -10,7 +10,7 @@ namespace
     //
     // Where to look for installed suites when nothing says otherwise.
     //
-    // Baked in by ui/CMakeLists.txt from THORIUM_SUITE_PREFIX, and overridable
+    // Baked in by framework/ui/CMakeLists.txt from THORIUM_SUITE_PREFIX, and overridable
     // on the command line -- a default, not a binding. A bench PC is configured
     // once and a developer's machine has suites wherever they were built, and
     // neither should have to be the other.

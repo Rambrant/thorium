@@ -124,7 +124,7 @@ namespace ui
 
             //
             // Set when a runEnd arrives. Its absence at exit is what "crashed"
-            // means -- see the class comment and ui/README.md §4.
+            // means -- see the class comment and framework/ui/README.md §4.
             //
             // Only meaningful for a caller that set OnEvent, which is why
             // onEnded narrows it before reporting rather than passing it on

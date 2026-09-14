@@ -1,18 +1,43 @@
 #
-# The bench console -- a separate project, on purpose.
+# The bench console -- framework, and a separate CMake project.
 #
-# This is NOT part of the framework build and is not reachable from its presets.
-# `cmake -S ui -B build/ui` is the whole entry point. The reasoning is in
-# README.md §1 and is worth restating in one line here, because this file is
-# where somebody would first be tempted to undo it: the framework compiles with
-# GCC 16 and -freflection -fcontracts -Werror -Wpedantic on every translation
-# unit, and a GUI toolkit does not belong inside that fence -- on macOS it would
-# also mean mixing Homebrew GCC's libstdc++ with a toolkit built against libc++.
+# Both halves of that sentence matter, and they are answers to different
+# questions.
+#
+# It is under framework/ because that is what it is: it names no DUT point, no
+# criterion and no instrument, and works against any installed suite. The
+# position is the same argument framework/runner/CMakeLists.txt makes for having
+# been moved here out of a top-level app/ -- a deployment reading the layer list
+# and seeing rig/, dut/, suite/ and ui/ at one level could reasonably conclude
+# it was expected to bring a window of its own. It is not. It brings content.
+#
+# It is nevertheless NOT built by the framework's build, is not reachable from
+# its presets, and is not add_subdirectory'd from the top-level CMakeLists.txt.
+# `cmake -S framework/ui -B build/ui` is the whole entry point. This is the file
+# where somebody would first be tempted to undo that, so: the framework refuses
+# to configure with anything but GCC 16, and on macOS GCC cannot compile a GUI
+# toolkit at all -- wxWidgets' Cocoa port includes SDK headers written in
+# Clang's blocks extension, which GCC does not implement. A file containing only
+# `#include <CoreGraphics/CoreGraphics.h>` does not parse under g++-16. That is
+# not a warning to suppress or an ABI to be careful about; it is a thing that
+# cannot be done. See README.md §1 and cmake/WxWidgets.cmake.
 #
 # So: ordinary compiler, ordinary flags, no reflection, no framework libraries
 # linked. What crosses between the two is the run_scripts binary's stdout.
 #
 cmake_minimum_required(VERSION 3.24)
+
+#
+# Before project(), because that is when a toolchain file is read and
+# cmake/WxWidgets.cmake's first half sets one. Its own comment explains the
+# split and why the second half is a macro rather than a function.
+#
+# Self-locating: this is a top-level project of its own, so CMAKE_SOURCE_DIR
+# here is this directory and not the repository.
+#
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../cmake")
+
+include(WxWidgets)
 
 project(thorium_ui LANGUAGES CXX)
 
@@ -39,54 +64,16 @@ endif()
 # the bench console unbuildable on the morning of a test campaign.
 
 # --- wxWidgets -----------------------------------------------------------
-# A system copy if there is one, fetched and built if not. The fallback is what
-# makes "clone and build" true on a machine nobody has prepared -- a bench PC,
-# or CI -- and the system copy is what makes it fast everywhere else.
+# Declared once, in vcpkg.json beside this file, and satisfied the same way on
+# Windows, Linux and macOS. cmake/WxWidgets.cmake has the argument for vcpkg
+# over the three-package-managers-and-a-guess alternative, and over vendoring
+# the source the way third_party/googletest is vendored.
 #
-#   brew install wxwidgets            # macOS
-#   sudo apt install libwxgtk3.2-dev  # Debian/Ubuntu
-#   vcpkg install wxwidgets           # Windows
-#
-option(THORIUM_UI_FETCH_WX "Build wxWidgets from source when no system copy is found" ON)
+# A copy the machine already has is used if there is one, so nobody who has
+# already installed wxWidgets is made to build it again.
+option(THORIUM_UI_REQUIRE_WX "Fail the configure if wxWidgets is not found, instead of building only the protocol library" OFF)
 
-find_package(wxWidgets QUIET COMPONENTS core base)
-
-if(wxWidgets_FOUND)
-    include(${wxWidgets_USE_FILE})
-    set(THORIUM_UI_WX_LIBRARIES ${wxWidgets_LIBRARIES})
-    set(THORIUM_UI_HAVE_WX ON)
-    message(STATUS "wxWidgets: system copy (${wxWidgets_VERSION_STRING})")
-elseif(THORIUM_UI_FETCH_WX)
-    include(FetchContent)
-
-    # A pinned tag, never a branch. A bench console that builds differently in
-    # March than it did in February is a console nobody can say anything about,
-    # and this program's whole job is to be believable about what a rig did.
-    FetchContent_Declare(wxWidgets
-        GIT_REPOSITORY https://github.com/wxWidgets/wxWidgets.git
-        GIT_TAG        v3.2.6
-        GIT_SHALLOW    TRUE)
-
-    set(wxBUILD_SHARED OFF CACHE BOOL "" FORCE)
-
-    FetchContent_MakeAvailable(wxWidgets)
-
-    set(THORIUM_UI_WX_LIBRARIES wxcore wxbase)
-    set(THORIUM_UI_HAVE_WX ON)
-    message(STATUS "wxWidgets: fetched (v3.2.6)")
-else()
-    # No toolkit, and not allowed to fetch one: the protocol library and its
-    # tests are still built, the window is not.
-    #
-    # This is for CI, and it is not a consolation prize. What most needs
-    # checking on every commit is the *contract* -- that this program can still
-    # read what run_scripts emits -- and that check needs a built run_scripts
-    # and no display, no toolkit and no window at all. A CI job that had to
-    # build wxWidgets to discover a renamed JSON field would be a check nobody
-    # keeps.
-    set(THORIUM_UI_HAVE_WX OFF)
-    message(STATUS "wxWidgets: not found and THORIUM_UI_FETCH_WX=OFF -- protocol only, no window")
-endif()
+thorium_resolve_wxwidgets()
 
 # --- The protocol layer, which has no toolkit in it ----------------------
 # A library of its own, and this is the load-bearing structural decision in

@@ -1,24 +1,34 @@
 # cmake/ — the build's own moving parts
 
-Five files, each solving one problem the top-level `CMakeLists.txt` would
-otherwise solve badly inline. Nothing here is generic CMake boilerplate: each
-exists because a hand-written alternative had a failure mode worth avoiding, and
-that reasoning is the useful part of the file.
+Six files, each solving one problem the build would otherwise solve badly
+inline. Nothing here is generic CMake boilerplate: each exists because a
+hand-written alternative had a failure mode worth avoiding, and that reasoning
+is the useful part of the file.
 
 | File | Kind | Runs at | Entry point |
 |---|---|---|---|
 | `CriteriaVariants.cmake` | module, `include()`d | configure | `thorium_generate_criteria_variants()` |
 | `InstrumentDrivers.cmake` | module, `include()`d | configure | `thorium_generate_instrument_drivers()` |
 | `FetchGTest.cmake` | module, `include()`d | configure | `add_layer_tests()` |
+| `WxWidgets.cmake` | module, `include()`d by **another project** | configure | inclusion, then `thorium_resolve_wxwidgets()` |
 | `GenerateManifest.cmake` | script, `install(SCRIPT)` | **install** | the whole file |
 | `ThoriumConfig.cmake.in` | template, `configure_package_config_file()` | configure → install | `find_package(Thorium)` |
 
-The distinction in the *Kind* column matters. Three are modules included into
-the project's scope, so their functions are callable from any `CMakeLists.txt`. One
-is a standalone script executed in a fresh interpreter at install time, with no
-access to project variables except what the surrounding `install(CODE ...)`
-calls put in scope. One is never executed here at all — it is installed, to be
-read by somebody else's build.
+The distinction in the *Kind* column matters. Four are modules included into a
+project's scope, so their macros and functions are callable from a
+`CMakeLists.txt`. One is a standalone script executed in a fresh interpreter at
+install time, with no access to project variables except what the surrounding
+`install(CODE ...)` calls put in scope. One is never executed here at all — it
+is installed, to be read by somebody else's build.
+
+`WxWidgets.cmake` is the odd one, and the "another project" in its row is the
+point: it is not included by the top-level `CMakeLists.txt` at all, but by
+[`framework/ui`](../framework/ui/README.md), which is a CMake project of its own
+built by a different compiler. It lives here rather than beside its one consumer
+because this is where this repository keeps the reasoning behind a build
+decision, and the decision it carries — vcpkg over vendoring, and why the two
+halves of this tree can never share a compiler on macOS — is one somebody will
+want to find without knowing to look in a UI directory.
 
 ---
 
@@ -181,6 +191,73 @@ An empty glob is a `FATAL_ERROR` naming the directory, because
 
 `CONFIGURE_DEPENDS`, so adding or deleting a `tests/*.cpp` is picked up by the
 next build with no manual reconfigure.
+
+## `WxWidgets.cmake` — one dependency, three platforms, one package manager
+
+`framework/ui` needs wxWidgets and nothing else the platform does not already
+have. The three ways a machine could get it are `brew`, `apt` and `vcpkg`, and
+only the last exists on all three platforms this framework targets — so "brew
+install wxwidgets / apt install libwxgtk3.2-dev / vcpkg install wxwidgets" is
+not a portable instruction, it is three instructions and a guess about which one
+a reader needs, two of which cannot be followed on a Windows bench.
+
+So the dependency is declared once, in `framework/ui/vcpkg.json`, with a pinned
+`builtin-baseline` — the version is a property of this repository rather than of
+when somebody last ran `git pull` in their vcpkg checkout.
+
+**Why not vendor it the way `FetchGTest.cmake` vendors GoogleTest** — and, the
+same question from the other end, why GoogleTest is not a vcpkg dependency like
+this one. Both were tried and measured; `FetchGTest.cmake` carries the second
+half of the answer. GoogleTest is 4.5 MB across 252 files and is compiled by
+this project's own compiler alongside the code it tests. wxWidgets trimmed to
+what a library build needs is **121 MB across 6,752 files**, which is a
+repository an order of magnitude larger with the increase in its history
+forever — and it could never be compiled by this project's compiler anyway.
+
+**That last part is the load-bearing fact, and it cuts both ways.** The
+top-level `CMakeLists.txt` refuses to configure with anything but GCC 16. wxWidgets' Cocoa port includes
+the macOS SDK's CoreGraphics headers, those headers are written in Clang's
+blocks extension (the `^` block-pointer syntax), and GCC does not implement
+blocks. A file whose entire contents are `#include <CoreGraphics/CoreGraphics.h>`
+fails to parse under `g++-16` and compiles clean under Apple Clang. No flag
+fixes it, which is why `framework/ui` is a project of its own and why this
+module is included by that project rather than by the top-level build.
+
+**The split into two halves is forced by CMake.** A toolchain file is read by
+`project()` and only by `project()`, so the half that points at vcpkg must run
+before it and the `find_package` it enables must run after:
+
+```cmake
+include(WxWidgets)          # before project() — points at vcpkg
+project(thorium_ui ...)
+thorium_resolve_wxwidgets() # after  project() — finds the toolkit
+```
+
+A macro rather than a function, because `FindwxWidgets` hands back a
+`wxWidgets_USE_FILE` whose job is to call `include_directories()` — inside a
+function that would scope the include paths to the function and vanish on
+return, leaving a configure that succeeds and a compile that cannot find
+`wx/app.h`.
+
+vcpkg builds with the platform's compiler, so anything that comes from it is
+compiled by Apple Clang against libc++ on this machine. That is fine for
+wxWidgets, which lives in a separate binary built by that same compiler, and
+fatal for GoogleTest, which is linked into binaries this project compiles with
+GCC against libstdc++ — the two disagree about what `std::string` is, and every
+test target fails to link. Hence one from vcpkg and one vendored, and neither
+arrangement is available to the other.
+
+The corollary is worth keeping: **`framework/` itself has no external
+dependency at all.** Configuring and building the framework and every one of its
+tests touches the network never and needs no package manager. Only
+`framework/ui` needs vcpkg, and only for the window.
+
+Not finding wxWidgets is not an error by default: the protocol library and its
+tests still build, which is the check worth running on every commit and needs no
+display, no toolkit and no window. `THORIUM_UI_REQUIRE_WX=ON` turns it into a
+hard failure for the build that is supposed to produce a console.
+
+---
 
 ## `GenerateManifest.cmake` — asking the built binary what it contains
 

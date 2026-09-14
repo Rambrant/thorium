@@ -14,6 +14,39 @@ include(FetchContent)
 # different version than the one actually vendored, so the only thing it could
 # do was tell a reader the wrong GoogleTest version.
 #
+# ---------------------------------------------------------------------------
+# Why this is not a vcpkg dependency, when wxWidgets is
+# ---------------------------------------------------------------------------
+# framework/ui gets its toolkit from vcpkg (cmake/WxWidgets.cmake), so the
+# obvious tidy-up is to get GoogleTest the same way and delete third_party/.
+# It does not work, and the reason is the exact mirror of the reason wxWidgets
+# cannot be vendored.
+#
+# vcpkg builds with the platform's compiler -- /usr/bin/c++, which on macOS is
+# Apple Clang against libc++. This project builds with GCC 16 against
+# libstdc++, and GoogleTest's ABI is full of std::string: MakeAndRegisterTestInfo
+# takes one, EqFailure takes two. A Clang-built libgtest.a exports those as
+# std::__1::basic_string and a GCC translation unit asks for
+# std::__cxx11::basic_string, so every test binary in this tree would fail to
+# link with undefined symbols. That was tried before this comment was written,
+# and that is what it says.
+#
+# So the two dependencies pull in opposite directions, and each is where it has
+# to be:
+#
+#   GoogleTest  must be built by THIS project's compiler, with this project's
+#               flags, because it is linked into this project's binaries
+#               -> vendored here, compiled from source alongside them
+#   wxWidgets   can never be built by this project's compiler (GCC cannot parse
+#               the macOS SDK's block syntax -- see cmake/WxWidgets.cmake)
+#               -> vcpkg, in a separate project built by a separate compiler
+#
+# There is a second thing this arrangement buys, worth stating because moving to
+# vcpkg would quietly spend it: framework/ has no external dependency at all.
+# Configuring and building the framework and every one of its tests touches the
+# network never and needs no package manager installed. Only framework/ui does,
+# and only for the window.
+#
 FetchContent_Declare(
     googletest
     SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/googletest-1.18.0

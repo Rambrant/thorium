@@ -13,7 +13,7 @@ namespace ui
     //
     // One entry per control the operator has *touched*. A control left alone
     // produces nothing, and that is the design rather than an optimisation --
-    // see ui/README.md §3 and cli::optionsModel's comment: main.cpp depends in
+    // see framework/ui/README.md §3 and cli::optionsModel's comment: main.cpp depends in
     // two places on telling "the caller said nothing" from "the caller named
     // the default", and a form that emitted every default would erase the
     // distinction.

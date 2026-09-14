@@ -22,7 +22,7 @@ class wxTextCtrl;
 namespace ui
 {
     //
-    // The window. Three areas and a bar, as laid out in ui/README.md §3.
+    // The window. Three areas and a bar, as laid out in framework/ui/README.md §3.
     //
     // It holds no state about a run beyond what is on screen, and computes no
     // verdict. Every PASS and FAIL it shows arrived in the event stream with

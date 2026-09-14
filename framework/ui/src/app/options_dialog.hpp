@@ -76,7 +76,7 @@ namespace ui
             //
             // "Touched" is load-bearing and is why every control is compared
             // against the state it was built in rather than simply read. See
-            // ui/README.md §3: main.cpp depends on telling "the caller said
+            // framework/ui/README.md §3: main.cpp depends on telling "the caller said
             // nothing" from "the caller named the default", and a dialog that
             // emitted every control would destroy that distinction on every
             // run.

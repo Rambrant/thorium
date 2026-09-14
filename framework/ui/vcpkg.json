@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "thorium-ui",
+  "version-string": "0.1.0",
+  "description": "The Thorium bench console. Declares the one dependency this program has that the platform does not already provide.",
+  "dependencies": [
+    "wxwidgets"
+  ],
+  "builtin-baseline": "53b9816594558d0b78529ecce2bf4a97d0a0729e"
+}

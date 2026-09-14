@@ -1,8 +1,8 @@
 //
-// Tests over the protocol layer -- the half of ui/ that has no toolkit in it.
+// Tests over the protocol layer -- the half of framework/ui/ that has no toolkit in it.
 //
 // Black-box against real output, not against hand-written fixtures wherever
-// that is possible: ui/CMakeLists.txt points THORIUM_UI_TEST_BINARY at a built
+// that is possible: framework/ui/CMakeLists.txt points THORIUM_UI_TEST_BINARY at a built
 // run_scripts, and the tests below drive it. A fixture asserting on a schema
 // nobody produces would pass forever after the schema changed, which is the
 // one failure this layer cannot afford -- it is the whole contract between two

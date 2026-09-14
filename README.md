@@ -267,6 +267,7 @@ that cannot be recovered from the code.
 | | |
 |---|---|
 | [`framework/hal`](framework/hal/README.md) | The two-target `hal`/`hal_rig` split, the static wiring facts and how a route is composed, adapter points, `hal/io/` (how bytes reach an instrument), and what is still a runtime check |
+| [`framework/ui`](framework/ui/README.md) | The bench console — why it is a separate process and a separate build (the framework's compiler cannot build a GUI toolkit on macOS), and how it offers every CLI flag without restating one |
 | [`instruments`](instruments/README.md) | Why each driver is its own packageable directory, and what a driver may assume |
 | [`cmake`](cmake/README.md) | The four build helpers: generated criteria tables, the per-layer test target, the install-time manifest, and the installed CMake package |
 
@@ -1384,6 +1385,24 @@ tree's cache and later configures of the tree reuse it:
 cmake --preset macos-debug -DCMAKE_MAKE_PROGRAM=/path/to/bundled/ninja
 ```
 
+**An IDE must build from a preset, not from a profile of its own.** CLion opens
+a CMake project with a default profile that names no compiler, so it configures
+with whatever `/usr/bin/c++` is — on macOS, AppleClang — and the compiler check
+above rejects it:
+
+```
+CMake Error at CMakeLists.txt (message):
+  Thorium needs GCC 16 or newer ...
+  This configure got AppleClang ...
+```
+
+That profile is the problem, not the project: in *Settings → Build, Execution,
+Deployment → CMake*, delete the one that is not marked as coming from a preset
+(it builds into `cmake-build-debug/`) and keep `macos-debug`, which carries the
+compiler. The symptom is confusing because the presets work perfectly from a
+terminal at the same moment, and because CLion reloads *every* enabled profile —
+so one stale profile fails the reload even when the right one is selected.
+
 Note that `-Werror` applies to Release as well, so an optimiser-only warning
 fails that build rather than being reported.
 
@@ -1391,7 +1410,7 @@ fails that build rather than being reported.
 |---|---|
 | *(none)* | run every test in the catalog |
 | `--list-tests` | print `group\|id\|description` per test, run nothing |
-| `--describe-options` | print every flag as JSON, run nothing — what [`ui/`](ui/README.md) builds its form from |
+| `--describe-options` | print every flag as JSON, run nothing — what [`framework/ui/`](framework/ui/README.md) builds its form from |
 | `--select=a,b` | run only these test ids, in catalog order |
 | `--criteria=NAME` | apply that tolerance variant — `production`, `stress`, `aged` |
 | `--repeat=N` | run the selection N times over |

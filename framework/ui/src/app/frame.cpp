@@ -967,7 +967,7 @@ namespace ui
         //
         // mSafeButton is untouched, deliberately. It is the one control that is
         // live at every moment -- during a run, after a crash, before anything
-        // has started. See ui/README.md §4.
+        // has started. See framework/ui/README.md §4.
         //
     }
 

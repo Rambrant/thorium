@@ -5,8 +5,23 @@ is standing at a rig rather than sitting at a terminal. Everything the CLI can
 do, it can do.
 
 It is a **separate program, in a separate build tree, built by a different
-compiler**, and it links nothing in `framework/`. That is the first and largest
-decision here, so it goes first.
+compiler**, and it links nothing else in `framework/`. That is the first and
+largest decision here, so it goes first.
+
+It nevertheless lives *under* `framework/`, beside `core`, `hal` and `runner`,
+and the two facts are not in tension because they answer different questions.
+Position in this tree says what a thing *is*: `framework/runner/CMakeLists.txt`
+moved the runner here from a top-level `app/` precisely because a deployment
+reading the layer list "saw `rig/`, `dut/`, `suite/` *and* `app/` at the same
+level and could reasonably conclude it was expected to bring a `main()` of its
+own". A top-level `ui/` makes exactly that error again -- a deployment brings
+content, three directories of tables and scripts, and it does not bring a
+window. This program names no DUT point, no criterion and no instrument; it is
+generic over any installed suite, which is the definition of framework here.
+
+Which build compiles it is a separate matter, and it is the subject of the rest
+of this section. The top-level `CMakeLists.txt` does not `add_subdirectory` this
+one.
 
 ---
 
@@ -14,18 +29,26 @@ decision here, so it goes first.
 
 Three reasons, in descending order of how hard they are to argue with.
 
-**The framework's build is not a place to put a GUI toolkit.** The top-level
-`CMakeLists.txt` refuses to configure on anything but GCC 16 and passes
-`-freflection -fcontracts -Wall -Wextra -Wpedantic -Werror` to every translation
-unit in the tree. Those flags are not decoration -- reflection is what makes
-`cli.hpp` and the wiring-coverage checks possible, and `-Werror` is why a warning
-has never been ignored here. A toolkit dragged inside that fence has to survive
-all of it, on three platforms, forever. On macOS it is worse than inconvenient:
-Homebrew's GCC compiles against libstdc++ while every prebuilt toolkit on the
-machine is built against libc++, and two C++ runtimes in one process is a class
-of bug nobody should spend an afternoon on. Outside the fence, the UI is
-compiled by whatever compiler the platform hands it and the question never
-arises.
+**The framework's compiler cannot build a GUI toolkit on macOS at all.** Not
+"with difficulty" -- at all. The top-level `CMakeLists.txt` refuses to configure
+on anything but GCC 16, and wxWidgets' Cocoa port includes the macOS SDK's
+CoreGraphics headers, which are written in Clang's blocks extension (the `^`
+block-pointer syntax). GCC does not implement blocks. A file whose entire
+contents are `#include <CoreGraphics/CoreGraphics.h>` fails to parse under
+`g++-16` with *expected unqualified-id before '^' token*, and compiles clean
+under Apple Clang. Building wxWidgets 3.3.3 with `g++-16` fails in the same
+place, across a dozen translation units, before any wx code of its own is
+reached.
+
+No flag fixes that, and there is no version of this repository in which
+`framework/ui` joins the GCC build on a Mac. The two halves are compiled by two
+different compilers and that is settled.
+
+Even setting that aside, the fence is hostile: `-freflection -fcontracts -Wall
+-Wextra -Wpedantic -Werror` reaches every translation unit, and a toolkit
+dragged inside it has to survive all of that, on three platforms, forever.
+Outside the fence, the UI is compiled by whatever compiler the platform hands
+it and neither question arises.
 
 **The binary is already an interface, and it is already tested as one.**
 `acceptance/test_acceptance.cpp` drives `run_scripts` as a subprocess and
@@ -58,7 +81,7 @@ Two things cross, and neither is restated:
 | what tests exist | `run_scripts --list-tests` | the catalog itself, and already what `manifest.json` is built from |
 | which tolerance variants exist | `manifest.json` | written at install time by asking the installed binary |
 
-There is no list of flags in `ui/`. There is no list of tests in `ui/`. A flag
+There is no list of flags in `framework/ui/`. There is no list of tests in `framework/ui/`. A flag
 added to `Options` in `main.cpp` appears in this window with no edit here at
 all, which is the same promise `--help` makes and for the same reason.
 
@@ -134,7 +157,7 @@ entire mapping, and it is why the dialog needs no maintenance.
 
 **Five flags are left out because the window drives them itself** -- `--select`
 is the test tree, `--criteria` the picker, `--dut-serial` and `--operator` the
-header fields, `--safe` the button. That list of names lives in `ui/`, which
+header fields, `--safe` the button. That list of names lives in `framework/ui/`, which
 everything else here goes to some length to avoid, and the distinction is the
 argument: it does not say what the flags *are*, it says which of them this
 window surfaces specially, which is a fact about the window and lives nowhere
@@ -172,7 +195,7 @@ The UI reads the child's stdout a line at a time. Each line is one JSON object
 with a `kind`, and the kinds are the journal's own hooks --
 `runStart/groupStart/testStart/phaseStart/event/testEnd/groupEnd/runEnd`. The
 format is documented where it is produced, in
-[`core/journal/event_sink.hpp`](../framework/core/include/core/journal/event_sink.hpp),
+[`core/journal/event_sink.hpp`](../core/include/core/journal/event_sink.hpp),
 including why it is line-delimited rather than a document: a truncated stream is
 a whole number of valid events, where a truncated SARIF file is nothing at all.
 That matters here more than anywhere, because the process being watched is one
@@ -220,11 +243,10 @@ greyed out.
 ## 5. Why wxWidgets
 
 Native controls on all three platforms from one source, a licence with no
-relicensing obligation if this ever ships inside a product, and a CMake build
-that `FetchContent` can drive when a system copy is not there. A tree view with
-checkboxes, a styled text control, a form, and native file dialogs are all
-stock -- which is the whole requirement, since section 3 asks for nothing
-unusual.
+relicensing obligation if this ever ships inside a product, and a port in vcpkg
+so one manifest serves every platform. A tree view with checkboxes, a styled
+text control, a form, and native file dialogs are all stock -- which is the
+whole requirement, since section 3 asks for nothing unusual.
 
 The alternatives and why not: **Qt** is the better toolkit and was the near
 miss, but LGPL dynamic linking is a conversation rather than a non-issue, and it
@@ -237,6 +259,77 @@ from this one and does not replace it.
 
 ---
 
+### Getting it: vcpkg, declared once
+
+The dependency is declared in [`vcpkg.json`](vcpkg.json) beside this README, and
+`cmake/WxWidgets.cmake` points the build at a vcpkg checkout. That is the whole
+mechanism.
+
+vcpkg rather than the obvious alternatives, and the reason is the requirement at
+the top of this file. The three ways a machine could get wxWidgets are `brew`,
+`apt` and `vcpkg`, and **only the last exists on all three platforms this
+framework targets**. "brew install wxwidgets / apt install libwxgtk3.2-dev /
+vcpkg install wxwidgets" is not a portable instruction -- it is three
+instructions plus a guess about which one a reader needs, and two of them cannot
+be followed on a Windows bench at all. One manifest, satisfied the same way
+everywhere, is the thing that makes "portable between Windows, Linux and macOS"
+true rather than aspirational.
+
+The manifest pins a `builtin-baseline`, so which wxWidgets a build gets is a
+property of this repository rather than of when somebody last ran `git pull` in
+their vcpkg checkout. A bench console that builds differently in March than it
+did in February is a console nobody can say anything about.
+
+**Vendoring the source into `third_party/` was tried first, and dropped.** It is
+what `cmake/FetchGTest.cmake` does for GoogleTest, so it deserved a real look:
+
+| | GoogleTest | wxWidgets (trimmed) |
+|---|---|---|
+| size | 4.5 MB | **121 MB** |
+| files | 252 | **6,752** |
+| built by | this project's compiler | the platform's, always |
+
+The first two rows are a repository that grows about elevenfold and keeps the
+increase in its history forever, which on its own is a poor trade for one
+dependency. The third row is what actually breaks the analogy:
+`third_party/googletest` is compiled alongside the code it tests, by the same
+compiler, in the same build. A vendored wxWidgets could never be -- see §1 -- so
+it would be a tenth of a gigabyte of source in `third_party/` that this
+project's own build is structurally unable to touch.
+
+A copy the machine already has is still used if there is one, so nobody who has
+installed wxWidgets by some other means is made to build it again. What is
+*not* supported any more is a network fetch of the source at configure time:
+vcpkg is that, done properly and reproducibly, and having both would be two
+answers to one question.
+
+Not finding wxWidgets at all is not an error. The protocol library and its tests
+still build -- that is the check worth running on every commit, and it needs no
+display, no toolkit and no window. `-DTHORIUM_UI_REQUIRE_WX=ON` turns it into a
+hard failure for the build that is supposed to produce a console and must not
+quietly produce half of one.
+
+**One subtlety, and it is the kind that would have gone unnoticed.** vcpkg's
+wxwidgets port ships CMake config targets (`wx::core`) and deliberately moves
+`wx-config` out of `bin/` into `tools/wxwidgets/`, where `find_program` does not
+look. So the plain `FindwxWidgets` module cannot see a vcpkg copy at all -- and
+on a machine that also has a system wxWidgets, it does not fail, it quietly
+finds *that one instead*. The build would succeed against a version the manifest
+never asked for, making the pinned baseline decorative. `CONFIG` mode is
+therefore tried first and module mode second, and the configure line says which
+one answered:
+
+```
+-- vcpkg: /path/to/vcpkg
+-- wxWidgets: 3.2.7 (CMake package)     # vcpkg, pinned
+-- wxWidgets: 3.3.3 (wx-config)         # a system copy
+```
+
+All four paths were built and run: vcpkg, a system copy, neither, and neither
+with `THORIUM_UI_REQUIRE_WX=ON`. The window itself is checked against both
+wxWidgets 3.2.7 (vcpkg's pin) and 3.3.3 (Homebrew's current), and compiles
+warning-free on both.
+
 ## 6. Building it
 
 The UI is **not** part of the framework build and is not reachable from its
@@ -244,7 +337,7 @@ presets. It is configured separately, against an install prefix where one or
 more suites have been installed:
 
 ```bash
-cmake -S ui -B build/ui -DTHORIUM_SUITE_PREFIX=/opt/thorium
+cmake -S framework/ui -B build/ui -DTHORIUM_SUITE_PREFIX=/opt/thorium
 cmake --build build/ui
 ```
 
@@ -253,21 +346,29 @@ can be pointed anywhere, and a prefix holding several installed suites shows
 several entries. Each is discovered the way `GenerateManifest.cmake` intended:
 find a `manifest.json`, read the binary beside it.
 
-wxWidgets is found with `find_package(wxWidgets)` and fetched if that fails.
-On a developer machine:
+**wxWidgets comes from vcpkg**, and the only thing the build needs told is
+where vcpkg is:
 
 ```bash
-brew install wxwidgets           # macOS
-sudo apt install libwxgtk3.2-dev # Debian/Ubuntu
-vcpkg install wxwidgets          # Windows
+export VCPKG_ROOT=/path/to/vcpkg
 ```
 
-Built and run against wxWidgets 3.3.3.
+That is the same line on Windows, Linux and macOS. `vcpkg.json` beside this
+README declares the dependency and pins its version, and the first configure
+installs it -- which takes a while, since vcpkg builds from source, and is
+cached per machine afterwards. `cmake/WxWidgets.cmake` also looks for a `vcpkg`
+checkout beside or one level above this repository, so a clone that sits next to
+one needs no environment variable at all.
+
+If you have no vcpkg and already have wxWidgets some other way, that copy is
+used instead and nothing needs setting. If you have neither, the configure still
+succeeds and builds the protocol library and its tests without a window; pass
+`-DTHORIUM_UI_REQUIRE_WX=ON` to make that a hard error instead.
 
 ### The tests, and why there are two
 
 ```bash
-cmake -S ui -B build/ui -DTHORIUM_UI_TEST_BINARY=$PWD/build/dev/bin/run_scripts
+cmake -S framework/ui -B build/ui -DTHORIUM_UI_TEST_BINARY=$PWD/build/dev/bin/run_scripts
 cmake --build build/ui
 ctest --test-dir build/ui
 ```
@@ -282,9 +383,9 @@ builder, checked against real `--describe-options`, `--list-tests` and
 `--events=-` output. `ui_process` links wxWidgets but builds a console binary,
 because everything `ChildProcess` touches is wxBase: it covers the part of the
 window that cannot be checked by pressing Run, which is what happens when a run
-*doesn't* finish. Set `-DTHORIUM_UI_FETCH_WX=OFF` on a machine with no toolkit
-and `ui_protocol` still builds and runs — that is the check worth having on
-every commit, and it needs no display.
+*doesn't* finish. On a machine with no toolkit at all, `ui_protocol` still
+builds and runs — that is the check worth having on every commit, and it needs
+no display, no toolkit and no vcpkg.
 
 ### Three things the build taught, which are now comments in the code
 
@@ -319,9 +420,9 @@ Deliberately little. Three additions, each of which stands on its own:
 
 | Addition | Where | Would it exist without the UI? |
 |---|---|---|
-| `core::EventSink` | [`event_sink.hpp`](../framework/core/include/core/journal/event_sink.hpp) | yes -- `journal.hpp` had already argued for a live stream as the example of what the fan-out design buys |
+| `core::EventSink` | [`event_sink.hpp`](../core/include/core/journal/event_sink.hpp) | yes -- `journal.hpp` had already argued for a live stream as the example of what the fan-out design buys |
 | `cli::Query` + `cli::optionsModel` + `--describe-options` | `framework/runner/src/cli.hpp` | no. This one is for the UI, and it is the price of not restating the flags |
-| `core::jsonEscape` | [`json.hpp`](../framework/core/include/core/journal/json.hpp) | it is the escaper `SarifSink` already had, moved so the second JSON stream could not grow a second copy |
+| `core::jsonEscape` | [`json.hpp`](../core/include/core/journal/json.hpp) | it is the escaper `SarifSink` already had, moved so the second JSON stream could not grow a second copy |
 
 No verb changed. No script changed. No sink changed. The event stream exists
 because `IJournalSink` was designed for exactly this and had been waiting for
