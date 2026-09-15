@@ -1934,6 +1934,12 @@ tools/run-ctest.sh -- --output-on-failure
 tools/run-ctest.sh build/dev -- -LE acceptance
 ```
 
+Both this and `tools/run-tests.sh` are shell scripts, so on Windows they want
+Git Bash (`sh.exe`) rather than `cmd`. That is a prerequisite the repository
+already has — the presets need `git` for the content revisions in every log
+header — and it is a deliberate choice not to keep a second `.ps1` copy of each
+in step with the first.
+
 | Target | Covers |
 |---|---|
 | `core_tests` | units, predicates, criteria, sessions, journal, all three log sinks |

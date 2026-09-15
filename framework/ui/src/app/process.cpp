@@ -106,9 +106,20 @@ namespace ui
 
     auto ChildProcess::requestStop() -> void
     {
-        if( running())
+        if( !running())
         {
-            wxProcess::Kill( mPid, wxSIGTERM);
+            return;
+        }
+
+        //
+        // Escalate on anything that is not a clean acceptance. See the header
+        // for why this is required rather than cautious: on Windows the polite
+        // signal cannot reach a process with no top-level windows and reports
+        // wxKILL_ERROR, so without this a Stop press would do nothing there.
+        //
+        if( wxProcess::Kill( mPid, wxSIGTERM) != wxKILL_OK)
+        {
+            wxProcess::Kill( mPid, wxSIGKILL);
         }
     }
 

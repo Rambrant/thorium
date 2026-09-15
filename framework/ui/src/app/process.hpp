@@ -92,15 +92,30 @@ namespace ui
             auto running() const -> bool { return mPid != 0; }
 
             //
-            // Asks the run to stop, the polite way first.
+            // Asks the run to stop: politely first, forcibly if that is refused.
             //
-            // wxSIGTERM rather than wxSIGKILL, and the difference is the point:
-            // a terminated run still unwinds, so hal::RigSafingGuard's
-            // destructor still runs and the rig still comes down to idle (see
-            // main.cpp's safeOnExit). A killed one does not, and leaves a
-            // powered rig behind. The window follows up with --safe regardless,
-            // because "the guard probably ran" is not something to be relying
-            // on where an output rail is concerned.
+            // wxSIGTERM is tried first because on Unix it lets the run unwind,
+            // so hal::RigSafingGuard's destructor runs and the child brings the
+            // rig down to idle itself (see main.cpp's safeOnExit). That is the
+            // outcome to want -- the process that owns the fabric is the one
+            // best placed to close it.
+            //
+            // It is escalated rather than trusted, and that is not defensive
+            // programming. On Windows wxKill implements every signal except
+            // wxSIGKILL by enumerating the target's top-level windows and
+            // posting WM_QUIT to one; a process with no windows takes the
+            // "else" branch, which sets wxKILL_ERROR and does nothing at all.
+            // run_scripts is a console program with no windows. So on Windows
+            // the polite request is not merely less effective, it is a no-op,
+            // and a Stop button that did only that would be a button that does
+            // nothing on one of the three platforms this program targets.
+            //
+            // wxSIGKILL terminates without unwinding, so on that path the rig
+            // is left as the run had it. That is survivable only because of
+            // what MainFrame does next: no runEnd arrives, the run is reported
+            // as crashed, and --safe is invoked unconditionally. On Unix that
+            // follow-up is belt and braces; on Windows it is the only thing
+            // that safes the rig.
             //
             auto requestStop() -> void;
 

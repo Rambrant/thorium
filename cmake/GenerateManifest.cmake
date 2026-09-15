@@ -68,6 +68,23 @@ endif()
 string(REPLACE "\n" ";" THORIUM_CATALOG_LINES "${THORIUM_CATALOG_RAW}")
 
 #
+# The binary's own file name, taken from the target rather than written out.
+#
+# It used to be the literal "run_scripts", which is right on exactly two of the
+# three platforms this framework targets: on Windows the installed file is
+# run_scripts.exe, so the manifest named a file that is not there. A consumer
+# resolving it against the manifest's directory -- which is what
+# framework/ui/src/protocol/suite.cpp does, and what the "discovering web
+# server" this file was written for would do -- gets a path that does not exist.
+#
+# Derived from THORIUM_RUN_SCRIPTS_EXE, which is a $<TARGET_FILE:run_scripts>
+# generator expression and therefore carries whatever suffix the platform gives
+# it. The same value is already being executed a few lines above to read the
+# catalog, so this cannot disagree with the binary that was asked.
+#
+get_filename_component(THORIUM_RUN_SCRIPTS_NAME "${THORIUM_RUN_SCRIPTS_EXE}" NAME)
+
+#
 # Turns "group|id|description" lines (see framework/runner/src/main.cpp's listTests())
 # into a JSON array. Splits on only the first two '|'s, not every '|' in the
 # line -- a description containing one of its own (unlikely, but nothing
@@ -122,7 +139,7 @@ file(WRITE "${THORIUM_MANIFEST_OUTPUT}" "{
   \"criteriaVariants\": [${THORIUM_VARIANTS_JSON}],
   \"defaultCriteriaVariant\": \"${THORIUM_CRITERIA_VARIANT}\",
   \"masterCriteriaVariant\": \"${THORIUM_CRITERIA_MASTER}\",
-  \"binary\": \"run_scripts\",
+  \"binary\": \"${THORIUM_RUN_SCRIPTS_NAME}\",
   \"tests\": [${THORIUM_TESTS_JSON}
   ]
 }
