@@ -47,9 +47,17 @@ include(FetchContent)
 # network never and needs no package manager installed. Only framework/ui does,
 # and only for the window.
 #
+# Self-locating rather than ${CMAKE_SOURCE_DIR}-relative, because there are two
+# projects in this repository and only one of them is rooted here. framework/ui
+# is a CMake project of its own (see cmake/WxWidgets.cmake on why it has to be),
+# and its tests want the same GoogleTest and the same gtest_discover_tests as
+# every other test target in the tree -- so the path has to be relative to this
+# file rather than to whoever included it.
+get_filename_component(THORIUM_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+
 FetchContent_Declare(
     googletest
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/googletest-1.18.0
+    SOURCE_DIR ${THORIUM_ROOT}/third_party/googletest-1.18.0
 )
 
 # Match the parent project's compiler settings, avoid installing gtest system-wide

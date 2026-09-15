@@ -1,20 +1,28 @@
 //
-// Tests over the protocol layer -- the half of framework/ui/ that has no toolkit in it.
+// Tests over the protocol layer -- the half of framework/ui/ that has no
+// toolkit in it.
 //
 // Black-box against real output, not against hand-written fixtures wherever
-// that is possible: framework/ui/CMakeLists.txt points THORIUM_UI_TEST_BINARY at a built
-// run_scripts, and the tests below drive it. A fixture asserting on a schema
-// nobody produces would pass forever after the schema changed, which is the
-// one failure this layer cannot afford -- it is the whole contract between two
-// processes.
+// that is possible: framework/ui/CMakeLists.txt points THORIUM_UI_TEST_BINARY
+// at a built run_scripts, and the tests below drive it. A fixture asserting on
+// a schema nobody produces would pass forever after the schema changed, which
+// is the one failure this layer cannot afford -- it is the whole contract
+// between two processes.
+//
+// GoogleTest, like every other test target in this repository, and compiled
+// from the same third_party/googletest-1.18.0 -- but by *this* project's
+// compiler rather than the framework's, which is exactly why that library is
+// vendored as source rather than taken from a package manager (see
+// cmake/FetchGTest.cmake).
 //
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
-#include <iostream>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "protocol/command.hpp"
 #include "protocol/events.hpp"
@@ -24,22 +32,12 @@
 
 namespace
 {
-    int gFailures = 0;
-
-    auto check( const bool condition, const std::string & what) -> void
-    {
-        if( !condition)
-        {
-            std::cerr << "FAILED: " << what << '\n';
-            ++gFailures;
-        }
-    }
+    const std::string kBinary = THORIUM_UI_TEST_BINARY;
 
     //
     // Runs a command and returns its stdout. popen rather than anything
     // portable, because this is a test helper on a developer's machine -- the
-    // real program uses wxProcess, which is where portability has to be
-    // solved.
+    // real program uses wxProcess, which is where portability has to be solved.
     //
     auto capture( const std::string & command) -> std::string
     {
@@ -62,343 +60,478 @@ namespace
 
         return output;
     }
+
+    auto contains( const std::vector<std::string> & argv, const std::string & flag) -> bool
+    {
+        return std::find( argv.begin(), argv.end(), flag) != argv.end();
+    }
 } // namespace
 
-int main()
+// ---------------------------------------------------------------------------
+// The JSON reader
+// ---------------------------------------------------------------------------
+
+TEST( Json, ReadsAWellFormedObject)
 {
-#ifndef THORIUM_UI_TEST_BINARY
-#error "THORIUM_UI_TEST_BINARY must name a built run_scripts"
-#endif
+    const auto document = ui::Json::parse( R"({"a":1,"b":"x\ny","c":[true,false],"d":null})");
 
-    const std::string binary = THORIUM_UI_TEST_BINARY;
+    ASSERT_NE( document, nullptr);
 
-    // --- The JSON reader ---------------------------------------------------
-    {
-        const auto document = ui::Json::parse( R"({"a":1,"b":"x\ny","c":[true,false],"d":null})");
+    EXPECT_EQ( document->at( "a")->number(), 1.0);
+    EXPECT_EQ( document->textAt( "b"), "x\ny");
+    EXPECT_EQ( document->at( "c")->items().size(), 2u);
+    EXPECT_TRUE( document->at( "c")->items()[ 0]->boolean());
+    EXPECT_EQ( document->at( "d")->type(), ui::Json::Type::Null);
+}
 
-        check( document != nullptr,                              "a well-formed object parses");
-        check( document->at( "a")->number() == 1.0,              "a number reads back");
-        check( document->textAt( "b") == "x\ny",                 "an escape is decoded");
-        check( document->at( "c")->items().size() == 2,          "an array has its items");
-        check( document->at( "c")->items()[ 0]->boolean(),       "a bool reads back");
-        check( document->at( "d")->type() == ui::Json::Type::Null, "null is null");
-        check( !document->has( "missing"),                       "an absent key is absent");
-        check( document->textAt( "missing", "fb") == "fb",       "an absent key falls back");
+TEST( Json, AnAbsentKeyFallsBackRatherThanFailing)
+{
+    const auto document = ui::Json::parse( R"({"a":1})");
 
-        check( ui::Json::parse( R"({"a":1)")   == nullptr,       "an unterminated object fails");
-        check( ui::Json::parse( R"({} {})")    == nullptr,       "trailing content fails");
-        check( ui::Json::parse( R"("a)")       == nullptr,       "an unterminated string fails");
-        check( ui::Json::parse( R"({"a":})")   == nullptr,       "a missing value fails");
-        check( ui::Json::parse( R"("	")")->text() == "\t",  "a \\u00XX control byte decodes");
-    }
+    ASSERT_NE( document, nullptr);
 
-    // --- The option model, from the binary itself --------------------------
-    {
-        const auto json  = capture( binary + " --describe-options");
-        const auto model = ui::parseOptionModel( json);
+    EXPECT_FALSE( document->has( "missing"));
+    EXPECT_EQ( document->textAt( "missing", "fb"), "fb");
+}
 
-        check( model.has_value(), "--describe-options parses");
+TEST( Json, DecodesTheControlByteEscapeTheProducerEmits)
+{
+    //
+    // core::jsonEscape spells a control byte \u00XX and passes everything above
+    // ASCII through untouched, so this is the only \u form that has to work.
+    //
+    const auto document = ui::Json::parse( R"("	")");
 
-        if( model)
+    ASSERT_NE( document, nullptr);
+    EXPECT_EQ( document->text(), "\t");
+}
+
+TEST( Json, MalformedInputIsRefusedRatherThanGuessedAt)
+{
+    EXPECT_EQ( ui::Json::parse( R"({"a":1)"), nullptr) << "unterminated object";
+    EXPECT_EQ( ui::Json::parse( R"({} {})"), nullptr) << "trailing content";
+    EXPECT_EQ( ui::Json::parse( R"("a)"),    nullptr) << "unterminated string";
+    EXPECT_EQ( ui::Json::parse( R"({"a":})"), nullptr) << "missing value";
+}
+
+// ---------------------------------------------------------------------------
+// The option model, read back from the binary itself
+// ---------------------------------------------------------------------------
+
+class OptionModel : public ::testing::Test
+{
+    protected:
+        void SetUp() override
         {
-            bool sawSelect = false;
-            bool sawNoLogs = false;
-            bool sawRepeat = false;
-            bool sawColour = false;
-            bool sawHelp   = false;
-            bool sawSafe   = false;
+            auto parsed = ui::parseOptionModel( capture( kBinary + " --describe-options"));
 
-            for( const auto & option : *model)
+            ASSERT_TRUE( parsed.has_value()) << "--describe-options did not parse";
+
+            Model = std::move( *parsed);
+        }
+
+        auto find( const std::string & flag) const -> const ui::OptionInfo *
+        {
+            for( const auto & option : Model)
             {
-                check( !option.Spellings.empty(),  "every option has a spelling");
-                check( !option.Help.empty(),       "every option has help: " + option.flag());
-                check( option.Kind != ui::OptionKind::Unknown, "every kind is known: " + option.flag());
-
-                if( option.flag() == "--select")
+                if( option.flag() == flag)
                 {
-                    sawSelect = true;
-                    check( option.Kind == ui::OptionKind::List, "--select is a list");
-                    check( !option.Repeatable,                  "--select is not repeatable");
-                    check( option.Placeholder == "ID[,ID...]",  "--select has its placeholder");
+                    return &option;
                 }
-
-                if( option.flag() == "--no-logs")
-                {
-                    sawNoLogs = true;
-                    check( option.Kind == ui::OptionKind::Switch, "--no-logs is a switch");
-                    check( option.Clears,                        "--no-logs clears");
-                }
-
-                if( option.flag() == "--repeat")
-                {
-                    sawRepeat = true;
-                    check( option.Kind == ui::OptionKind::Number, "--repeat is a number");
-                    check( option.Positive,                       "--repeat is positive");
-                    check( option.Noun == "passes",               "--repeat counts passes");
-                }
-
-                if( option.flag() == "--no-color")
-                {
-                    sawColour = true;
-                    check( option.Spellings.size() == 2, "--no-color carries both spellings");
-                }
-
-                if( option.flag() == "--help")      { sawHelp = true;  check( option.Query,  "--help is a query"); }
-                if( option.flag() == "--safe")      { sawSafe = true;  check( !option.Query, "--safe is NOT a query"); }
             }
 
-            check( sawSelect && sawNoLogs && sawRepeat && sawColour && sawHelp && sawSafe,
-                   "every flag the form relies on is described");
+            return nullptr;
+        }
+
+        std::vector<ui::OptionInfo> Model;
+};
+
+TEST_F( OptionModel, EveryOptionIsUsable)
+{
+    ASSERT_FALSE( Model.empty());
+
+    for( const auto & option : Model)
+    {
+        EXPECT_FALSE( option.Spellings.empty());
+        EXPECT_FALSE( option.Help.empty())                     << option.flag() << " has no help";
+        EXPECT_NE( option.Kind, ui::OptionKind::Unknown)       << option.flag() << " has an unknown kind";
+    }
+}
+
+TEST_F( OptionModel, AListFlagIsDescribedAsOne)
+{
+    const auto * select = find( "--select");
+
+    ASSERT_NE( select, nullptr);
+
+    EXPECT_EQ( select->Kind, ui::OptionKind::List);
+    EXPECT_FALSE( select->Repeatable) << "a test id cannot contain a comma, so --select is not repeatable";
+    EXPECT_EQ( select->Placeholder, "ID[,ID...]");
+}
+
+TEST_F( OptionModel, AClearingSwitchSaysSo)
+{
+    const auto * noLogs = find( "--no-logs");
+
+    ASSERT_NE( noLogs, nullptr);
+
+    EXPECT_EQ( noLogs->Kind, ui::OptionKind::Switch);
+    EXPECT_TRUE( noLogs->Clears) << "the form starts a clearing flag's box ticked";
+}
+
+TEST_F( OptionModel, APositiveNumberCarriesItsNoun)
+{
+    const auto * repeat = find( "--repeat");
+
+    ASSERT_NE( repeat, nullptr);
+
+    EXPECT_EQ( repeat->Kind, ui::OptionKind::Number);
+    EXPECT_TRUE( repeat->Positive);
+    EXPECT_EQ( repeat->Noun, "passes");
+}
+
+TEST_F( OptionModel, EverySpellingOfAFlagIsReported)
+{
+    const auto * colour = find( "--no-color");
+
+    ASSERT_NE( colour, nullptr);
+    EXPECT_EQ( colour->Spellings.size(), 2u) << "--no-color and --no-colour are one member";
+}
+
+TEST_F( OptionModel, AQueryFlagIsMarkedAndASafingFlagIsNot)
+{
+    //
+    // The distinction cli::Query draws, and the reason the generated dialog can
+    // leave --help out without carrying a list of names to skip: a query
+    // describes the binary, --safe does something to the rig and very much
+    // wants a button.
+    //
+    const auto * help = find( "--help");
+    const auto * safe = find( "--safe");
+
+    ASSERT_NE( help, nullptr);
+    ASSERT_NE( safe, nullptr);
+
+    EXPECT_TRUE( help->Query);
+    EXPECT_FALSE( safe->Query);
+}
+
+// ---------------------------------------------------------------------------
+// The catalog
+// ---------------------------------------------------------------------------
+
+TEST( Catalog, ListTestsYieldsUsableEntries)
+{
+    const auto tests = ui::parseTestList( capture( kBinary + " --list-tests"));
+
+    ASSERT_FALSE( tests.empty());
+
+    for( const auto & test : tests)
+    {
+        EXPECT_FALSE( test.Group.empty());
+        EXPECT_FALSE( test.Id.empty());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The event stream, from a real run
+// ---------------------------------------------------------------------------
+
+class EventStream : public ::testing::Test
+{
+    protected:
+        void SetUp() override
+        {
+            const auto skeleton = ( std::filesystem::temp_directory_path() / "thorium-ui-test.tsv").string();
+
+            ui::EventStream reader;
+
+            Events   = reader.consume( capture( kBinary + " --quiet --no-logs --events=- --skeleton=" + skeleton));
+            Residue  = reader.residue();
+
+            std::filesystem::remove( skeleton);
+        }
+
+        std::vector<ui::RunEvent>  Events;
+        std::string                Residue;
+};
+
+TEST_F( EventStream, ARunProducesAWholeStream)
+{
+    ASSERT_FALSE( Events.empty());
+
+    EXPECT_TRUE( Residue.empty()) << "a complete run leaves no partial line";
+    EXPECT_EQ( Events.front().Which, ui::RunEvent::Kind::RunStart);
+    EXPECT_EQ( Events.back().Which,  ui::RunEvent::Kind::RunEnd);
+    EXPECT_TRUE( Events.back().Passed.has_value()) << "runEnd carries the run's verdict";
+}
+
+TEST_F( EventStream, EveryKindIsOneThisBuildKnows)
+{
+    for( const auto & event : Events)
+    {
+        EXPECT_NE( event.Which, ui::RunEvent::Kind::Unknown);
+    }
+}
+
+TEST_F( EventStream, RunStartCarriesTheTraceabilityHeader)
+{
+    ASSERT_FALSE( Events.empty());
+
+    const auto & header = Events.front().Header;
+
+    EXPECT_FALSE( header.DutName.empty());
+    EXPECT_FALSE( header.CriteriaVariant.empty());
+
+    //
+    // The single most important fact about a --skeleton run, and the reason
+    // core::RunInfo states it rather than leaving it to be derived from the
+    // command line: this is the difference between a green report about a DUT
+    // and a green report about a file.
+    //
+    EXPECT_FALSE( header.BenchAttached) << "a --skeleton run touches no instrument";
+}
+
+TEST_F( EventStream, TestEndNamesItsGroupAndNotItsDescription)
+{
+    //
+    // The regression this exists for: IJournalSink::onTestEnd is
+    // (group, test, passed), not (test, description, passed) the way
+    // onTestStart reads, and the first version of core::EventSink got it the
+    // other way round -- producing a stream in which every test was named after
+    // its group. It parsed perfectly.
+    //
+    std::string  openGroup;
+    std::size_t  checked = 0;
+
+    for( const auto & event : Events)
+    {
+        if( event.Which == ui::RunEvent::Kind::GroupStart)
+        {
+            openGroup = event.Group;
+        }
+
+        if( event.Which == ui::RunEvent::Kind::TestEnd)
+        {
+            EXPECT_EQ( event.Group, openGroup);
+            EXPECT_TRUE( event.Passed.has_value());
+
+            ++checked;
         }
     }
 
-    // --- The catalog, from the binary itself --------------------------------
+    EXPECT_GT( checked, 0u) << "the run ended no tests, so nothing was checked";
+}
+
+TEST_F( EventStream, AVerdictIsCarriedOnlyByAVerify)
+{
+    std::size_t verifies = 0;
+
+    for( const auto & event : Events)
     {
-        const auto tests = ui::parseTestList( capture( binary + " --list-tests"));
-
-        check( !tests.empty(), "--list-tests yields tests");
-
-        for( const auto & test : tests)
+        if( event.Which != ui::RunEvent::Kind::Event)
         {
-            check( !test.Group.empty(), "every test has a group");
-            check( !test.Id.empty(),    "every test has an id");
-        }
-    }
-
-    // --- The event stream, from a real run ----------------------------------
-    {
-        const auto skeleton = ( std::filesystem::temp_directory_path() / "thorium-ui-test.tsv").string();
-        const auto stream   = capture( binary + " --quiet --no-logs --events=- --skeleton=" + skeleton);
-
-        ui::EventStream reader;
-
-        const auto events = reader.consume( stream);
-
-        check( !events.empty(),           "a run produces events");
-        check( reader.residue().empty(),  "a complete run leaves no partial line");
-
-        bool sawRunStart = false;
-        bool sawRunEnd   = false;
-        bool sawVerify   = false;
-
-        std::string lastGroup;
-
-        for( const auto & event : events)
-        {
-            check( event.Which != ui::RunEvent::Kind::Unknown, "every kind is known");
-
-            switch( event.Which)
-            {
-                case ui::RunEvent::Kind::RunStart:
-                    sawRunStart = true;
-                    check( !event.Header.DutName.empty(),      "runStart names the DUT");
-                    check( !event.Header.CriteriaVariant.empty(), "runStart names the variant");
-                    check( !event.Header.BenchAttached,        "a --skeleton run reports no bench");
-                    break;
-
-                case ui::RunEvent::Kind::GroupStart:
-                    lastGroup = event.Group;
-                    check( !event.Group.empty(), "groupStart names its group");
-                    break;
-
-                case ui::RunEvent::Kind::TestEnd:
-                    //
-                    // The regression this exists for: onTestEnd is
-                    // (group, test, passed), not (test, description, passed),
-                    // and the first version of core::EventSink got it the other
-                    // way round -- producing a stream in which every test was
-                    // named after its group. It parsed perfectly.
-                    //
-                    check( event.Group == lastGroup,   "testEnd's group is the open group");
-                    check( event.Passed.has_value(),   "testEnd carries a verdict");
-                    break;
-
-                case ui::RunEvent::Kind::Event:
-                    check( !event.Verb.empty(), "an event names its verb");
-
-                    if( event.Verb == "Verify")
-                    {
-                        sawVerify = true;
-                        check( event.Passed.has_value(), "a Verify carries a verdict");
-                    }
-                    else if( event.Verb != "Note")
-                    {
-                        check( !event.Passed.has_value(), "a non-Verify carries no verdict: " + event.Verb);
-                    }
-                    break;
-
-                case ui::RunEvent::Kind::RunEnd:
-                    sawRunEnd = true;
-                    check( event.Passed.has_value(), "runEnd carries the run's verdict");
-                    break;
-
-                default:
-                    break;
-            }
+            continue;
         }
 
-        check( sawRunStart, "the stream opens with a runStart");
-        check( sawRunEnd,   "the stream closes with a runEnd");
-        check( sawVerify,   "the stream carries verdicts");
+        EXPECT_FALSE( event.Verb.empty());
 
-        std::filesystem::remove( skeleton);
-    }
-
-    // --- A chunked stream, which is what a pipe actually delivers ------------
-    {
-        const auto whole = std::string(
-            R"({"kind":"groupStart","group":"A"})"  "\n"
-            R"({"kind":"testStart","test":"T"})"    "\n"
-            R"({"kind":"runEnd","allPassed":true})" "\n");
-
-        ui::EventStream reader;
-
-        std::vector<ui::RunEvent> events;
-
-        //
-        // One byte at a time -- the worst case a pipe can hand a reader, and
-        // the one that finds an off-by-one in the partial-line handling.
-        //
-        for( const char c : whole)
+        if( event.Verb == "Verify")
         {
-            for( auto & event : reader.consume( std::string_view( &c, 1)))
-            {
-                events.push_back( std::move( event));
-            }
+            EXPECT_TRUE( event.Passed.has_value());
+
+            ++verifies;
         }
-
-        check( events.size() == 3,          "a byte-at-a-time stream yields whole events");
-        check( reader.residue().empty(),    "nothing is left over");
-        check( events.back().Passed == true, "the last event is the verdict");
-    }
-
-    // --- A run killed mid-line ----------------------------------------------
-    {
-        ui::EventStream reader;
-
-        const auto events = reader.consume(
-            R"({"kind":"testStart","test":"T"})" "\n" R"({"kind":"eve)");
-
-        check( events.size() == 1,          "the complete line is delivered");
-        check( !reader.residue().empty(),   "the fragment is held, not delivered");
-    }
-
-    // --- Windows line endings ------------------------------------------------
-    {
-        ui::EventStream reader;
-
-        const auto events = reader.consume( R"({"kind":"runEnd","allPassed":false})" "\r\n");
-
-        check( events.size() == 1,            "a \\r\\n line parses");
-        check( events[ 0].Passed == false,    "and carries its verdict");
-    }
-
-    // --- Building a command --------------------------------------------------
-    {
-        ui::Suite suite;
-
-        suite.Binary = "/opt/thorium/bin/run_scripts";
-
-        ui::RunRequest request;
-
-        request.Selection = { "SupplyRail", "AcDropout" };
-        request.Settings  = {
-            { .Flag = "--criteria",  .Value = "stress", .Present = true },
-            { .Flag = "--no-logs",   .Value = "",       .Present = false },
-            { .Flag = "--repeat",    .Value = "50",     .Present = true },
-            { .Flag = "--until-failure", .Value = "",   .Present = true }
-        };
-        request.Extra = { "--address=Dmm1=lan:dev-dmm-3" };
-
-        const auto argv = ui::buildRunCommand( suite, request);
-
-        const auto has = [ &argv]( const std::string & flag)
+        else if( event.Verb != "Note")
         {
-            return std::find( argv.begin(), argv.end(), flag) != argv.end();
-        };
-
-        check( argv.front() == suite.Binary.string(), "argv[0] is the binary");
-        check( has( "--quiet"),                       "the stream flags are forced");
-        check( has( "--no-color"),                    "colour is off");
-        check( has( "--events=-"),                    "the stream goes to stdout");
-        check( has( "--select=SupplyRail,AcDropout"), "the selection is one comma-separated flag");
-        check( has( "--criteria=stress"),             "a value flag is flag=value");
-        check( has( "--until-failure"),               "a switch is its flag alone");
-        check( has( "--repeat=50"),                   "a number is flag=value");
-        check( !has( "--no-logs"),                    "an untouched switch is absent");
-        check( argv.back() == "--address=Dmm1=lan:dev-dmm-3", "a hand-typed flag comes last");
-
-        //
-        // An empty selection is an absent --select, not --select= with
-        // everything in it. See RunRequest::Selection on why those are not the
-        // same run.
-        //
-        const auto everything = ui::buildRunCommand( suite, ui::RunRequest{});
-
-        check( std::none_of( everything.begin(), everything.end(),
-                             []( const std::string & arg) { return arg.starts_with( "--select"); }),
-               "no selection means no --select at all");
-
-        const auto safe = ui::buildSafeCommand( suite);
-
-        check( safe.size() == 2 && safe[ 1] == "--safe", "safing is the same binary with --safe");
-    }
-
-    // --- A manifest ----------------------------------------------------------
-    {
-        const auto suite = ui::parseManifest( R"({
-            "criteriaVariants": ["production", "stress", "aged"],
-            "defaultCriteriaVariant": "production",
-            "masterCriteriaVariant": "production",
-            "binary": "run_scripts",
-            "tests": [ { "group": "G", "id": "T", "description": "d" } ]
-        })", "/opt/thorium/bin/manifest.json", "/opt");
-
-        check( suite.has_value(), "a manifest parses");
-
-        if( suite)
-        {
-            check( suite->CriteriaVariants.size() == 3,     "every variant is listed");
-            check( suite->MasterCriteria == "production",   "the master is reported");
-            check( suite->Tests.size() == 1,                "the catalog snapshot is read");
             //
-            // "thorium", not "bin". Every installed suite lives in <prefix>/bin,
-            // so the immediate parent is the same word for all of them and
-            // tells an operator nothing -- see Suite::label().
+            // An unset Passed is not "false" -- it is an event with no pass/fail
+            // notion at all, which is what stops an Apply being drawn as a
+            // check that succeeded.
             //
-            check( suite->label() == "thorium",             "the label is the prefix, not its bindir");
-
-            //
-            // Resolved against the manifest's directory, never taken as
-            // absolute -- an install prefix has to survive being copied or
-            // mounted somewhere else.
-            //
-            check( suite->Binary == std::filesystem::path( "/opt/thorium/bin/run_scripts"),
-                   "the binary is resolved beside the manifest");
+            EXPECT_FALSE( event.Passed.has_value()) << event.Verb << " carried a verdict";
         }
-
-        check( !ui::parseManifest( R"({"tests":[]})", "/x/manifest.json").has_value(),
-               "a manifest naming no binary is refused");
-
-        //
-        // Two suites under one root must not come back with the same label,
-        // which is the entire job of that function and what the first version
-        // failed at -- it answered "bin" for both.
-        //
-        const auto json  = R"({"binary":"run_scripts","tests":[]})";
-        const auto left  = ui::parseManifest( json, "/opt/thorium/dut-a/bin/manifest.json", "/opt/thorium");
-        const auto right = ui::parseManifest( json, "/opt/thorium/dut-b/bin/manifest.json", "/opt/thorium");
-
-        check( left && right,                          "two suites under one root parse");
-        check( left->label() == "dut-a",               "the first is named for its own prefix");
-        check( right->label() == "dut-b",              "and the second for its");
-        check( left->label() != right->label(),        "two suites under one root are distinguishable");
     }
 
-    if( gFailures == 0)
+    EXPECT_GT( verifies, 0u);
+}
+
+// ---------------------------------------------------------------------------
+// What a pipe actually delivers
+// ---------------------------------------------------------------------------
+
+TEST( EventStreaming, AByteAtATimeStreamYieldsWholeEvents)
+{
+    const auto whole = std::string(
+        R"({"kind":"groupStart","group":"A"})"  "\n"
+        R"({"kind":"testStart","test":"T"})"    "\n"
+        R"({"kind":"runEnd","allPassed":true})" "\n");
+
+    ui::EventStream            reader;
+    std::vector<ui::RunEvent>  events;
+
+    //
+    // The worst case a pipe can hand a reader, and the one that finds an
+    // off-by-one in the partial-line handling.
+    //
+    for( const char c : whole)
     {
-        std::cout << "ui protocol: all checks passed\n";
+        for( auto & event : reader.consume( std::string_view( &c, 1)))
+        {
+            events.push_back( std::move( event));
+        }
     }
 
-    return gFailures == 0 ? 0 : 1;
+    ASSERT_EQ( events.size(), 3u);
+
+    EXPECT_TRUE( reader.residue().empty());
+    EXPECT_EQ( events.back().Passed, true);
+}
+
+TEST( EventStreaming, ARunKilledMidLineDeliversWhatWasCompleteAndHoldsTheRest)
+{
+    ui::EventStream reader;
+
+    const auto events = reader.consume(
+        R"({"kind":"testStart","test":"T"})" "\n" R"({"kind":"eve)");
+
+    EXPECT_EQ( events.size(), 1u);
+    EXPECT_FALSE( reader.residue().empty()) << "the fragment is held, not delivered";
+}
+
+TEST( EventStreaming, AWindowsLineEndingParses)
+{
+    ui::EventStream reader;
+
+    const auto events = reader.consume( R"({"kind":"runEnd","allPassed":false})" "\r\n");
+
+    ASSERT_EQ( events.size(), 1u);
+    EXPECT_EQ( events[ 0].Passed, false);
+}
+
+// ---------------------------------------------------------------------------
+// Building a command line
+// ---------------------------------------------------------------------------
+
+class RunCommand : public ::testing::Test
+{
+    protected:
+        void SetUp() override { Suite.Binary = "/opt/thorium/bin/run_scripts"; }
+
+        ui::Suite Suite;
+};
+
+TEST_F( RunCommand, TheStreamFlagsAreForcedAndTheBinaryComesFirst)
+{
+    const auto argv = ui::buildRunCommand( Suite, ui::RunRequest{});
+
+    ASSERT_FALSE( argv.empty());
+
+    EXPECT_EQ( argv.front(), Suite.Binary.string());
+    EXPECT_TRUE( contains( argv, "--quiet"));
+    EXPECT_TRUE( contains( argv, "--no-color"));
+    EXPECT_TRUE( contains( argv, "--events=-"));
+}
+
+TEST_F( RunCommand, AnEmptySelectionIsAnAbsentFlagRatherThanEveryId)
+{
+    //
+    // Not the same run the day a test is added to the catalog: an operator who
+    // ticked "all" means all, and a window that had frozen today's list into a
+    // --select would silently keep running yesterday's suite.
+    //
+    const auto argv = ui::buildRunCommand( Suite, ui::RunRequest{});
+
+    EXPECT_TRUE( std::none_of( argv.begin(), argv.end(),
+                               []( const std::string & arg) { return arg.starts_with( "--select"); }));
+}
+
+TEST_F( RunCommand, SettingsBecomeFlagsAndUntouchedControlsDoNot)
+{
+    ui::RunRequest request;
+
+    request.Selection = { "SupplyRail", "AcDropout" };
+    request.Settings  = {
+        { .Flag = "--criteria",      .Value = "stress", .Present = true },
+        { .Flag = "--no-logs",       .Value = "",       .Present = false },
+        { .Flag = "--repeat",        .Value = "50",     .Present = true },
+        { .Flag = "--until-failure", .Value = "",       .Present = true }
+    };
+    request.Extra = { "--address=Dmm1=lan:dev-dmm-3" };
+
+    const auto argv = ui::buildRunCommand( Suite, request);
+
+    EXPECT_TRUE( contains( argv, "--select=SupplyRail,AcDropout")) << "one comma-separated flag";
+    EXPECT_TRUE( contains( argv, "--criteria=stress"));
+    EXPECT_TRUE( contains( argv, "--repeat=50"));
+    EXPECT_TRUE( contains( argv, "--until-failure")) << "a switch is its flag alone";
+    EXPECT_FALSE( contains( argv, "--no-logs"))      << "an untouched switch contributes nothing";
+    EXPECT_EQ( argv.back(), "--address=Dmm1=lan:dev-dmm-3") << "a hand-typed flag comes last";
+}
+
+TEST_F( RunCommand, SafingIsTheSameBinaryWithOneFlag)
+{
+    const auto safe = ui::buildSafeCommand( Suite);
+
+    ASSERT_EQ( safe.size(), 2u);
+    EXPECT_EQ( safe[ 1], "--safe");
+}
+
+// ---------------------------------------------------------------------------
+// The manifest
+// ---------------------------------------------------------------------------
+
+TEST( Manifest, IsReadIntoASuite)
+{
+    const auto suite = ui::parseManifest( R"({
+        "criteriaVariants": ["production", "stress", "aged"],
+        "defaultCriteriaVariant": "production",
+        "masterCriteriaVariant": "production",
+        "binary": "run_scripts",
+        "tests": [ { "group": "G", "id": "T", "description": "d" } ]
+    })", "/opt/thorium/bin/manifest.json", "/opt");
+
+    ASSERT_TRUE( suite.has_value());
+
+    EXPECT_EQ( suite->CriteriaVariants.size(), 3u);
+    EXPECT_EQ( suite->MasterCriteria, "production");
+    EXPECT_EQ( suite->Tests.size(), 1u);
+
+    //
+    // Resolved against the manifest's own directory, never taken as absolute --
+    // an install prefix has to survive being copied or mounted elsewhere.
+    //
+    EXPECT_EQ( suite->Binary, std::filesystem::path( "/opt/thorium/bin/run_scripts"));
+}
+
+TEST( Manifest, NamingNoBinaryIsRefused)
+{
+    EXPECT_FALSE( ui::parseManifest( R"({"tests":[]})", "/x/manifest.json").has_value());
+}
+
+TEST( Manifest, TwoSuitesUnderOneRootAreDistinguishable)
+{
+    //
+    // The entire job of Suite::label(), and what the first version failed at --
+    // it answered "bin" for both, because an install puts every suite in
+    // <prefix>/bin.
+    //
+    const auto json  = R"({"binary":"run_scripts","tests":[]})";
+    const auto left  = ui::parseManifest( json, "/opt/thorium/dut-a/bin/manifest.json", "/opt/thorium");
+    const auto right = ui::parseManifest( json, "/opt/thorium/dut-b/bin/manifest.json", "/opt/thorium");
+
+    ASSERT_TRUE( left.has_value());
+    ASSERT_TRUE( right.has_value());
+
+    EXPECT_EQ( left->label(),  "dut-a");
+    EXPECT_EQ( right->label(), "dut-b");
+}
+
+TEST( Manifest, ASingleInstallIsNamedForItsPrefixRatherThanItsBindir)
+{
+    const auto suite = ui::parseManifest( R"({"binary":"run_scripts","tests":[]})",
+                                          "/opt/thorium/bin/manifest.json", "/opt");
+
+    ASSERT_TRUE( suite.has_value());
+    EXPECT_EQ( suite->label(), "thorium");
 }

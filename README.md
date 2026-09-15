@@ -1884,10 +1884,54 @@ the first place.
 ## 6. Tests
 
 ```bash
-ctest --test-dir build/debug --output-on-failure     # everything
+tools/run-ctest.sh                                   # every configured build tree
+```
+
+```bash
+ctest --test-dir build/debug --output-on-failure     # the framework
 ctest --test-dir build/debug -LE acceptance          # unit tests only
 ctest --test-dir build/debug -L  acceptance -V       # the CLI tour
 ctest --test-dir build/debug -N                      # count and name them, run nothing
+ctest --test-dir build/ui                            # the bench console
+```
+
+**`ctest` reads exactly one build tree, and this repository has several.** Each
+deployment preset makes its own (`build/debug`, `build/dev`, `build/release`),
+compiling different suite content against the same framework; and
+[`framework/ui`](framework/ui/README.md) is a CMake project of its own — it has
+to be, since GCC cannot build a GUI toolkit on macOS. So
+`ctest --test-dir build/debug` reports one deployment's tests and knows nothing
+about the others or about the console's.
+
+That is a fine arrangement and a dangerous default, because the omission is
+invisible: a four-digit number and a green line, having tested a fraction of the
+repository. An IDE makes it worse — a CLion *Run all CTests* is per build
+profile, so it can only ever show one.
+
+`tools/run-ctest.sh` is the front door. It runs every tree that is configured and
+ends with a summary naming both what ran **and what did not**, so a green line
+can never quietly mean "the half I had configured passed":
+
+```
+--- summary ---
+  PASS  build/debug
+  PASS  build/dev
+  ----  build/release (not configured)
+  PASS  build/ui
+
+All suites passed.
+```
+
+A missing console tree is the one absence treated as a failure rather than a
+note, because `build/debug` and `build/dev` are two *deployments* of one
+framework — configuring one and not the other is a legitimate choice — while
+`framework/ui` is a different half of the codebase with tests nothing else runs.
+
+Name directories to run only those, and pass extra ctest arguments after `--`:
+
+```bash
+tools/run-ctest.sh -- --output-on-failure
+tools/run-ctest.sh build/dev -- -LE acceptance
 ```
 
 | Target | Covers |

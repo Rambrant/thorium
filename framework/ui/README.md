@@ -40,9 +40,14 @@ under Apple Clang. Building wxWidgets 3.3.3 with `g++-16` fails in the same
 place, across a dozen translation units, before any wx code of its own is
 reached.
 
-No flag fixes that, and there is no version of this repository in which
-`framework/ui` joins the GCC build on a Mac. The two halves are compiled by two
-different compilers and that is settled.
+No flag fixes that. For as long as the front end is a native toolkit there is no
+version of this repository in which `framework/ui` joins the GCC build on a Mac,
+and the two halves are compiled by two different compilers.
+
+That qualifier is load-bearing rather than hedging: the split follows from
+*Cocoa*, not from wxWidgets, so no change of toolkit lifts it -- but a front end
+that is not a native toolkit at all would. See §5, which records the one such
+option and why it is deferred rather than rejected.
 
 Even setting that aside, the fence is hostile: `-freflection -fcontracts -Wall
 -Wextra -Wpedantic -Werror` reaches every translation unit, and a toolkit
@@ -253,9 +258,61 @@ miss, but LGPL dynamic linking is a conversation rather than a non-issue, and it
 is a much heavier thing to require on three bench PCs. **Dear ImGui** would have
 been the right answer for a developer's debug window and the wrong one for a
 console an operator uses all shift -- immediate mode, weak accessibility, no
-native dialogs. **A browser front-end** remains the right answer for the
-*lab-wide* view that `manifest.json` was written for; it is a different program
-from this one and does not replace it.
+native dialogs.
+
+Neither of those, nor any other *native* toolkit, would remove the two-compiler
+split in §1: they all build their platform layer on Cocoa, and GCC cannot parse
+those headers. The one C++ arrangement that escapes is a **C**-API window
+library plus an immediate-mode GUI -- GLFW's header and the OpenGL headers do
+compile under `g++-16` with this framework's exact flags, and a prebuilt GLFW
+links into a GCC binary because C has a stable ABI where C++ does not. It was
+still turned down, and the reason is worth keeping: more than half of what wx is
+doing here is not widgets. It is `wxProcess`, `wxExecute`, `wxInputStream`,
+`wxTimer` and an event loop -- portable subprocess launching and asynchronous
+pipe draining on three platforms. GLFW supplies a window and nothing else, so
+that code would become ours, on every platform, and it is precisely the code
+that produced three of this program's four real bugs.
+
+### A browser front-end -- deferred, not rejected
+
+Kept in mind deliberately. It is the **only** option that removes the
+two-compiler split without giving up a real widget set, and that was checked
+rather than assumed: a full HTTP server (`cpp-httplib`, single header) compiles
+clean under `g++-16` with `-freflection -fcontracts -Wall -Wextra -Wpedantic
+-Werror`. A console-only server has no Cocoa in it, so the framework's own
+compiler builds it -- one build tree, one `ctest`, no vcpkg, and no separate
+project at all.
+
+It also *shrinks* the C++ rather than growing it. The event stream is already
+JSON lines, which is exactly Server-Sent Events; the server becomes a
+pipe-to-SSE bridge plus static files. The protocol layer under `src/protocol/`
+survives untouched -- it is the half of this program that never knew what a
+toolkit was -- and only `src/app/` becomes HTML.
+
+**It need not be a client-server product.** Bound to `127.0.0.1` and opened with
+`--app=` (Chrome/Edge, or Safari 17+'s *Add to Dock*), it is a desktop window
+with a title bar and no browser furniture, indistinguishable from this one at a
+glance; the same binary bound to `0.0.0.0` is the lab-wide view
+`cmake/GenerateManifest.cmake` was written for. Local or remote is a bind
+address, not an architecture.
+
+Two things to settle *before* that second bind address, and they are the reason
+this is deferred rather than scheduled:
+
+- **There is no authentication anywhere in Thorium.** On a routable address,
+  anyone who can reach the port can start a run, change the criteria variant, or
+  open every relay on the bench.
+- **Nothing arbitrates two operators.** Two browsers can press Run at once, and
+  a remote *Safe the rig* while somebody's hands are in the fixture is a hazard
+  pointing the opposite way from the one that button exists for.
+
+Local-only binding makes both vanish by construction, which is the argument for
+making `127.0.0.1` the default and a routable address an explicit, designed
+opt-in rather than a flag somebody flips because the lab wanted a dashboard.
+
+**An embedded webview is the trap to avoid.** `WKWebView` is Cocoa, so it puts
+the two compilers straight back; Tauri replaces that with a Rust toolchain.
+Browser-in-app-mode is the honest way to get the console-only look.
 
 ---
 
@@ -365,7 +422,7 @@ used instead and nothing needs setting. If you have neither, the configure still
 succeeds and builds the protocol library and its tests without a window; pass
 `-DTHORIUM_UI_REQUIRE_WX=ON` to make that a hard error instead.
 
-### The tests, and why there are two
+### The tests, and the second `ctest` they need
 
 ```bash
 cmake -S framework/ui -B build/ui -DTHORIUM_UI_TEST_BINARY=$PWD/build/dev/bin/run_scripts
@@ -373,19 +430,47 @@ cmake --build build/ui
 ctest --test-dir build/ui
 ```
 
-Both need a built `run_scripts` to drive, and neither uses a fixture where it
-could use the real thing. A test asserting on a hand-copied event schema keeps
-passing after the schema changes, and the schema is the entire contract between
-these two programs.
+**That is a `ctest` invocation of its own, and it is not optional.** This is a
+CMake project of its own — it has to be, §1 — so `ctest --test-dir build/debug`
+does not reach it and never will. `tools/run-ctest.sh` runs every configured
+build tree, and treats *this* one going missing as a failure rather than a note:
+a deployment tree not being configured is a choice, but the console's tests are
+a half of the repository nothing else runs.
 
-`ui_protocol` links no toolkit at all — it is the reader and the command
-builder, checked against real `--describe-options`, `--list-tests` and
-`--events=-` output. `ui_process` links wxWidgets but builds a console binary,
-because everything `ChildProcess` touches is wxBase: it covers the part of the
-window that cannot be checked by pressing Run, which is what happens when a run
-*doesn't* finish. On a machine with no toolkit at all, `ui_protocol` still
-builds and runs — that is the check worth having on every commit, and it needs
-no display, no toolkit and no vcpkg.
+```bash
+tools/run-ctest.sh             # every configured tree, with a coverage summary
+ctest --test-dir build/ui      # this one alone
+```
+
+Wiring them into `tools/run-tests.sh` is not the answer: that script is a bench
+operator's catalog picker, and its own header explains at length why offering
+unit tests there is a category error.
+
+They are GoogleTest targets registered with `gtest_discover_tests`, exactly like
+`core_tests` and `hal_tests` — so `ctest` lists one entry per case rather than
+one per binary. That is worth more than tidiness. These began as two hand-rolled
+`main()`s, and ninety-odd assertions reported as **two** pass/fail entries: a
+run that silently lost an entire section would have looked identical to one that
+did not.
+
+The GoogleTest they use is the same vendored `third_party/googletest-1.18.0`,
+compiled here by *this* project's compiler rather than the framework's — which
+is precisely why that library is vendored as source and not taken from a package
+manager. See `cmake/FetchGTest.cmake`.
+
+Neither target uses a fixture where it could use the real thing: both drive a
+built `run_scripts`. A test asserting on a hand-copied event schema keeps passing
+after the schema changes, and the schema is the entire contract between these two
+programs.
+
+`thorium_ui_protocol_tests` links no toolkit at all — it is the reader and the
+command builder, checked against real `--describe-options`, `--list-tests` and
+`--events=-` output. `thorium_ui_process_tests` links wxWidgets but builds a
+console binary, because everything `ChildProcess` touches is wxBase: it covers
+the part of the window that cannot be checked by pressing Run, which is what
+happens when a run *doesn't* finish. On a machine with no toolkit at all the
+protocol cases still build and run — that is the check worth having on every
+commit, and it needs no display, no toolkit and no vcpkg.
 
 ### Three things the build taught, which are now comments in the code
 

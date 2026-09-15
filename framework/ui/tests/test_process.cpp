@@ -8,9 +8,18 @@
 // that cannot be checked by clicking Run, because what it has to get right is
 // what happens when a run does NOT finish.
 //
-#include <iostream>
+//
+// GoogleTest hosted inside a wxAppConsole, which is not the usual shape and is
+// forced by what is under test. ui::ChildProcess needs a live wxApp -- it is a
+// wxEvtHandler and it starts wxTimers -- so the app has to be initialised
+// before any test body runs. wxIMPLEMENT_APP_NO_MAIN gives us the app without
+// its main(), and main() below hands control to wxEntry, which runs OnInit and
+// then OnRun; OnRun is where RUN_ALL_TESTS lives.
+//
 #include <string>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include <wx/app.h>
 #include <wx/evtloop.h>
@@ -21,16 +30,7 @@
 
 namespace
 {
-    int gFailures = 0;
-
-    auto check( const bool condition, const std::string & what) -> void
-    {
-        if( !condition)
-        {
-            std::cerr << "FAILED: " << what << '\n';
-            ++gFailures;
-        }
-    }
+    const std::string kBinary = THORIUM_UI_TEST_BINARY;
 
     struct Outcome
     {
@@ -109,110 +109,109 @@ namespace
 
 } // namespace
 
+// ---------------------------------------------------------------------------
+// A real run, streamed
+// ---------------------------------------------------------------------------
+
+TEST( ChildProcess, StreamsARunAndDoesNotCallItACrash)
+{
+    ui::Suite suite;
+
+    suite.Binary = kBinary;
+
+    ui::RunRequest request;
+
+    //
+    // --skeleton so this touches no instrument and writes no log: the thing
+    // under test is the plumbing, and a test that left an RTF with a DUT serial
+    // in it would be claiming a run happened.
+    //
+    request.Extra = { "--skeleton=" + std::string( wxFileName::CreateTempFileName( "thorium-ui").utf8_string()) };
+
+    const auto outcome = drive( ui::buildRunCommand( suite, request));
+
+    ASSERT_TRUE( outcome.Started);
+    ASSERT_FALSE( outcome.Events.empty());
+
+    EXPECT_FALSE( outcome.Crashed) << "a run that reported a result is not a crash";
+    EXPECT_EQ( outcome.Events.front().Which, ui::RunEvent::Kind::RunStart);
+
+    //
+    // The assertion behind ChildProcess::onEnded's final drain():
+    // wxEVT_END_PROCESS can arrive with the tail of the stream still in the
+    // pipe, and reporting the exit before reading it would show an operator a
+    // run that stopped several verdicts before it actually did.
+    //
+    EXPECT_EQ( outcome.Events.back().Which, ui::RunEvent::Kind::RunEnd)
+        << "the pipe is drained before the exit is reported";
+}
+
+// ---------------------------------------------------------------------------
+// The ways a run does not happen
+// ---------------------------------------------------------------------------
+
+TEST( ChildProcess, ARefusedInvocationSaysWhyOnStderrAndStreamsNothing)
+{
+    //
+    // --events=- without --quiet, which run_scripts rejects. The run never
+    // starts, so there are no events at all and stderr is the only thing an
+    // operator could be shown -- which is why ChildProcess carries it and
+    // MainFrame puts it in the results list.
+    //
+    const auto outcome = drive( { kBinary, "--events=-" });
+
+    EXPECT_TRUE( outcome.Started)        << "the process starts, then refuses";
+    EXPECT_NE( outcome.ExitCode, 0);
+    EXPECT_TRUE( outcome.Events.empty());
+    EXPECT_FALSE( outcome.Errors.empty());
+}
+
+TEST( ChildProcess, AMissingBinaryIsReportedRatherThanLookingLikeAnEmptyRun)
+{
+    const auto outcome = drive( { kBinary + "-does-not-exist", "--list-tests" });
+
+    //
+    // Asserted as the outcome a caller sees, not as the mechanism, because the
+    // mechanism differs by platform and both spellings are correct:
+    //
+    //   Unix    fork() succeeds, so wxExecute hands back a pid and the failed
+    //           exec surfaces as an exit of -1
+    //   Windows CreateProcess fails outright and wxExecute answers 0, so
+    //           start() returns false
+    //
+    // A test pinned to either one passes on one platform and fails on another
+    // while the program is behaving correctly on both.
+    //
+    EXPECT_TRUE( !outcome.Started || outcome.ExitCode != 0);
+    EXPECT_TRUE( outcome.Events.empty());
+}
+
+// ---------------------------------------------------------------------------
+// The app host
+// ---------------------------------------------------------------------------
+
+//
+// wxAppConsole rather than wxApp: everything ui::ChildProcess touches
+// (wxProcess, wxTimer, the event loop) is wxBase, so this runs on a build
+// machine with no display.
+//
 class TestApp : public wxAppConsole
-    {
-        public:
-            auto OnRun() -> int override
-            {
-                const std::string binary = THORIUM_UI_TEST_BINARY;
-
-                // --- a real run, streamed --------------------------------
-                {
-                    ui::Suite suite;
-
-                    suite.Binary = binary;
-
-                    ui::RunRequest request;
-
-                    //
-                    // --skeleton so this touches no instrument and writes no
-                    // log: the thing under test is the plumbing, and a test
-                    // that left an RTF with a DUT serial in it would be
-                    // claiming a run happened.
-                    //
-                    request.Extra = { "--skeleton=" + std::string( wxFileName::CreateTempFileName( "thorium-ui").utf8_string()) };
-
-                    const auto outcome = drive( ui::buildRunCommand( suite, request));
-
-                    check( outcome.Started,          "the process starts");
-                    check( !outcome.Events.empty(),  "events arrive");
-                    check( !outcome.Crashed,         "a complete run is not reported as crashed");
-
-                    bool sawRunStart = false;
-                    bool sawRunEnd   = false;
-
-                    for( const auto & event : outcome.Events)
-                    {
-                        sawRunStart = sawRunStart || event.Which == ui::RunEvent::Kind::RunStart;
-                        sawRunEnd   = sawRunEnd   || event.Which == ui::RunEvent::Kind::RunEnd;
-                    }
-
-                    check( sawRunStart, "the stream opens with a runStart");
-                    check( sawRunEnd,   "the stream closes with a runEnd");
-
-                    //
-                    // The last event drained is the runEnd. This is the
-                    // assertion behind ChildProcess::onEnded's final drain():
-                    // wxEVT_END_PROCESS can arrive with the tail of the stream
-                    // still in the pipe, and reporting the exit before reading
-                    // it would show an operator a run that stopped several
-                    // verdicts before it actually did.
-                    //
-                    check( !outcome.Events.empty() &&
-                           outcome.Events.back().Which == ui::RunEvent::Kind::RunEnd,
-                           "the pipe is drained before the exit is reported");
-                }
-
-                // --- a refused invocation --------------------------------
-                {
-                    //
-                    // --events=- without --quiet, which run_scripts rejects.
-                    // The run never starts, so there are no events at all and
-                    // stderr is the only thing an operator could be shown --
-                    // which is why ChildProcess carries it and MainFrame puts
-                    // it in the results list.
-                    //
-                    const auto outcome = drive( { binary, "--events=-" });
-
-                    check( outcome.Started,           "a refused invocation still starts a process");
-                    check( outcome.ExitCode != 0,     "and exits non-zero");
-                    check( outcome.Events.empty(),    "and produces no events");
-                    check( !outcome.Errors.empty(),   "and says why on stderr");
-                }
-
-                // --- a binary that is not there ---------------------------
-                {
-                    const auto outcome = drive( { binary + "-does-not-exist", "--list-tests" });
-
-                    //
-                    // Asserted as the outcome a caller sees, not as the
-                    // mechanism, because the mechanism differs by platform and
-                    // both spellings are correct:
-                    //
-                    //   Unix    fork() succeeds, so wxExecute hands back a pid
-                    //           and the failed exec surfaces as an exit of -1
-                    //   Windows CreateProcess fails outright and wxExecute
-                    //           answers 0, so start() returns false
-                    //
-                    // A test pinned to either one passes on one platform and
-                    // fails on another while the program is behaving correctly
-                    // on both. What every caller in MainFrame actually needs is
-                    // this: a binary that is not there never looks like a run
-                    // that produced nothing.
-                    //
-                    check( !outcome.Started || outcome.ExitCode != 0,
-                           "a missing binary is reported, not silently empty");
-
-                    check( outcome.Events.empty(), "and produces no events");
-                }
-
-                if( gFailures == 0)
-                {
-                    std::cout << "ui process: all checks passed\n";
-                }
-
-                return gFailures == 0 ? 0 : 1;
-            }
+{
+    public:
+        auto OnRun() -> int override { return RUN_ALL_TESTS(); }
 };
 
-wxIMPLEMENT_APP_CONSOLE( TestApp);
+wxIMPLEMENT_APP_NO_MAIN( TestApp);
+
+int main( int argc, char ** argv)
+{
+    //
+    // InitGoogleTest first so it can strip its own --gtest_* arguments before
+    // wx sees them -- gtest_discover_tests runs this binary with
+    // --gtest_list_tests, and wxAppConsole would otherwise reject the flag as
+    // unknown and exit before any test was listed.
+    //
+    ::testing::InitGoogleTest( &argc, argv);
+
+    return wxEntry( argc, argv);
+}

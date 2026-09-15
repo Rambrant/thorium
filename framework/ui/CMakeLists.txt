@@ -126,19 +126,34 @@ endif()
 # schema would keep passing after the schema changed, which is the one failure
 # this layer cannot afford.
 set(THORIUM_UI_TEST_BINARY "" CACHE FILEPATH
-    "A built run_scripts for the protocol tests to drive")
+    "A built run_scripts for the tests to drive")
 
 if(THORIUM_UI_TEST_BINARY)
     enable_testing()
 
+    # GoogleTest from third_party/, the same vendored copy every other test
+    # target in this repository uses -- but compiled by THIS project's compiler
+    # rather than the framework's, which is the whole reason that library is
+    # vendored as source instead of taken from a package manager. A binary one
+    # would be built against the wrong standard library for one of the two
+    # projects here; see cmake/FetchGTest.cmake.
+    #
+    # gtest_discover_tests comes with it, so these report one ctest entry per
+    # TEST case exactly like core_tests and hal_tests do, rather than one entry
+    # per binary. That matters for more than tidiness: a single opaque entry
+    # turns ninety-odd assertions into one pass/fail, and a run that lost a
+    # whole section would look identical to one that did not.
+    include(FetchGTest)
+
     add_executable(thorium_ui_protocol_tests tests/test_protocol.cpp)
 
-    target_link_libraries(thorium_ui_protocol_tests PRIVATE thorium_ui_protocol)
+    target_link_libraries(thorium_ui_protocol_tests
+        PRIVATE thorium_ui_protocol GTest::gtest_main)
 
     target_compile_definitions(thorium_ui_protocol_tests PRIVATE
         THORIUM_UI_TEST_BINARY="${THORIUM_UI_TEST_BINARY}")
 
-    add_test(NAME ui_protocol COMMAND thorium_ui_protocol_tests)
+    gtest_discover_tests(thorium_ui_protocol_tests)
 
     # --- ui::ChildProcess, headless ---------------------------------------
     # A console binary, not a GUI one, because everything ChildProcess touches
@@ -147,17 +162,19 @@ if(THORIUM_UI_TEST_BINARY)
     # be checked by pressing Run: what happens when a run does not finish.
     #
     # Needs a toolkit, unlike the protocol tests, which is why it is inside the
-    # wx guard and they are not.
+    # wx guard and they are not. GTest::gtest rather than gtest_main: the
+    # binary brings its own main() so that wxEntry can initialise the app
+    # before any test body runs (see tests/test_process.cpp).
     if(THORIUM_UI_HAVE_WX)
         add_executable(thorium_ui_process_tests tests/test_process.cpp
             src/app/process.cpp)
 
         target_link_libraries(thorium_ui_process_tests
-            PRIVATE thorium_ui_protocol ${THORIUM_UI_WX_LIBRARIES})
+            PRIVATE thorium_ui_protocol GTest::gtest ${THORIUM_UI_WX_LIBRARIES})
 
         target_compile_definitions(thorium_ui_process_tests PRIVATE
             THORIUM_UI_TEST_BINARY="${THORIUM_UI_TEST_BINARY}")
 
-        add_test(NAME ui_process COMMAND thorium_ui_process_tests)
+        gtest_discover_tests(thorium_ui_process_tests)
     endif()
 endif()
