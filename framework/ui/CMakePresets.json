@@ -1,0 +1,15 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "windows-ui",
+      "generator": "Ninja", 
+      "binaryDir": "${sourceDir}/../../build/ui",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "C:/mingw64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/mingw64/bin/g++.exe",
+        "THORIUM_UI_TEST_BINARY": "${sourceDir}/../../build/debug/bin/run_scripts"
+      }
+    }
+  ]
+}

@@ -50,7 +50,7 @@ endif()
 # directly -- or you'll get missing-symbol errors for the default contract
 # violation handler.
 add_compile_options(-Wall -Wextra -Wpedantic -Werror -fcontracts -freflection)
-add_link_options(-fcontracts)
+add_link_options(-fcontracts -static-libgcc -static-libstdc++)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 

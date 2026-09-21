@@ -92,6 +92,17 @@ if [ "${1:-}" = "--" ]; then
 fi
 
 # --- Which trees to run ----------------------------------------------------
+CTEST_PARALLEL=""
+if [[ "$*" != *"-j"* ]]; then
+    CORES=2
+    if command -v nproc >/dev/null 2>&1; then
+        CORES=$(nproc)
+    elif command -v sysctl >/dev/null 2>&1 && sysctl -n hw.ncpu >/dev/null 2>&1; then
+        CORES=$(sysctl -n hw.ncpu)
+    fi
+    CTEST_PARALLEL="-j $CORES"
+fi
+
 TO_RUN=""
 SKIPPED=""
 
@@ -133,7 +144,7 @@ for tree in $TO_RUN; do
     echo
     echo "=== ${tree} ==="
 
-    if ctest --test-dir "$tree" "$@"; then
+    if ctest --test-dir "$tree" $CTEST_PARALLEL "$@"; then
         results="${results}  PASS  ${tree}"$'\n'
     else
         results="${results}  FAIL  ${tree}"$'\n'
