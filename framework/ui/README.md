@@ -337,6 +337,22 @@ property of this repository rather than of when somebody last ran `git pull` in
 their vcpkg checkout. A bench console that builds differently in March than it
 did in February is a console nobody can say anything about.
 
+**One thing the pin does not do, and it is the trap.** vcpkg reads its version
+database out of the *working tree* of your checkout, not out of the baseline
+commit -- so the pin fixes the version in both directions, but the checkout
+still has to be at least as new as the baseline. An older one cannot see the
+version the manifest asks for, and says so:
+
+```
+error: no version database entry for wxwidgets at 3.3.3#1.
+Available versions:
+  3.2.7
+  ...
+```
+
+That is a `git -C /path/to/vcpkg pull` away, and it is the one piece of machine
+setup the manifest cannot do for you.
+
 **Vendoring the source into `third_party/` was tried first, and dropped.** It is
 what `cmake/FetchGTest.cmake` does for GoogleTest, so it deserved a real look:
 
@@ -384,8 +400,8 @@ one answered:
 
 All four paths were built and run: vcpkg, a system copy, neither, and neither
 with `THORIUM_UI_REQUIRE_WX=ON`. The window itself is checked against both
-wxWidgets 3.2.7 (vcpkg's pin) and 3.3.3 (Homebrew's current), and compiles
-warning-free on both.
+wxWidgets 3.2.7 (the previous pin) and 3.3.3 (the current one, and Homebrew's),
+and compiles warning-free on both.
 
 ## 6. Building it
 
@@ -397,6 +413,43 @@ more suites have been installed:
 cmake -S framework/ui -B build/ui -DTHORIUM_SUITE_PREFIX=/opt/thorium
 cmake --build build/ui
 ```
+
+### Windows, which needs three things said
+
+That command is the whole story on macOS and Linux. Windows gets a preset --
+[`CMakePresets.json`](CMakePresets.json) beside this README -- and it exists to
+correct three defaults that are each wrong here:
+
+```bash
+cmake --preset windows-ui
+cmake --build build/ui
+```
+
+**The compiler is MinGW, not MSVC.** This project is free to use whatever
+compiler a platform ships -- that is the point of §1, and on macOS it takes
+AppleClang rather than the framework's GCC 16. Windows is the host where that
+freedom would cost something: the framework's own build requires GCC 16 for
+reflection and contracts, so MinGW is on the bench regardless, and choosing MSVC
+here would mean installing a second toolchain in order to build one window.
+
+**The vcpkg triplet has to follow the compiler, and it does not by itself.**
+vcpkg defaults to `x64-windows` on a Windows host, and `x64-windows` means MSVC.
+Left alone it builds a wxWidgets that MinGW cannot link -- and says nothing
+about it until the link step, where it reads as a missing symbol rather than as
+a mismatched toolchain. The preset names `x64-mingw-dynamic` for the target and
+host triplet both, and `cmake/WxWidgets.cmake` now fails the configure with an
+explanation if the two are ever made to disagree again.
+
+**Ninja has to be on `PATH`** -- but this is not a new prerequisite. The
+framework's own Windows presets build with Ninja, and the root README covers
+installing it or borrowing an IDE's bundled copy with `-DCMAKE_MAKE_PROGRAM`.
+Worth repeating only because CMake resolves a generator's build program before
+it reads a line of this project, so the failure names a generator and offers
+nothing else to go on.
+
+The preset also points `THORIUM_UI_TEST_BINARY` at `build/debug/bin/run_scripts`
+-- where the framework's `windows-debug` preset leaves it -- so the tests below
+are configured without a second flag.
 
 `THORIUM_SUITE_PREFIX` is a default, not a binding -- the window's suite picker
 can be pointed anywhere, and a prefix holding several installed suites shows

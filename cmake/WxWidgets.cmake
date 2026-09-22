@@ -97,6 +97,47 @@ if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND NOT DEFINED ENV{CMAKE_TOOLCHAIN_FILE})
 endif()
 
 #
+# ---------------------------------------------------------------------------
+# Windows: the triplet has to agree with the compiler, and by default it does
+# not
+# ---------------------------------------------------------------------------
+# vcpkg's default triplet on a Windows host is x64-windows, and x64-windows
+# means MSVC. This project is compiled by MinGW there -- framework/ui/
+# CMakePresets.json names C:/mingw64, because the framework's own build already
+# requires GCC 16 and putting a second compiler on a bench in order to build one
+# window is a cost nobody agreed to.
+#
+# Left alone, those two facts produce a vcpkg that quietly builds an MSVC
+# wxWidgets and a compiler that cannot link a byte of it. The import libraries
+# are in the wrong format, and nothing says so until link time, where it arrives
+# looking like a missing symbol rather than like a mismatched toolchain.
+#
+# So the preset names x64-mingw-dynamic as well, and this is the check that says
+# so when a configure arrives without it. It deliberately does not *set* the
+# triplet: a triplet is a host fact, it belongs beside the compiler path in
+# CMakePresets.json for the same reason the top-level CMakeLists.txt stopped
+# naming compilers, and inferring one here from the shape of a path is how a
+# build ends up disagreeing with itself in a second place.
+#
+# Before project() rather than after, where CMAKE_CXX_COMPILER_ID would make the
+# test exact: the toolchain file installs the manifest during project(), so a
+# check that waited for the compiler ID would deliver its verdict on the far
+# side of a wxWidgets build that then has to be thrown away.
+#
+if(CMAKE_HOST_WIN32
+   AND CMAKE_TOOLCHAIN_FILE MATCHES "vcpkg"
+   AND CMAKE_CXX_COMPILER MATCHES "(gcc|g\\+\\+|mingw)"
+   AND NOT VCPKG_TARGET_TRIPLET MATCHES "mingw")
+    message(FATAL_ERROR
+        "This configure names a GCC compiler (${CMAKE_CXX_COMPILER}) but the "
+        "vcpkg triplet is '${VCPKG_TARGET_TRIPLET}', which builds wxWidgets "
+        "with MSVC. The two cannot be linked together. Configure through the "
+        "preset -- cmake --preset windows-ui -- or pass "
+        "-DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic and "
+        "-DVCPKG_HOST_TRIPLET=x64-mingw-dynamic yourself.")
+endif()
+
+#
 # Finds the toolkit and reports what it found. Sets, in the caller's scope:
 #
 #   THORIUM_UI_HAVE_WX        whether a window can be built at all
