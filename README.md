@@ -1848,6 +1848,45 @@ holds every octet and every sample.
 
 ## 5. Build options
 
+### Setting up a macOS or Windows toolchain
+
+The presets above don't resolve `gcc`/`g++` off `PATH` — they hardcode absolute
+compiler paths (`/opt/homebrew/bin/gcc-16` on macOS, `C:/mingw64/bin/gcc.exe` on
+Windows), because a bench machine's `PATH` is not trusted to resolve to a GCC 16
+that actually supports `-freflection`. Get GCC 16 installed at the path the
+preset for your platform names, or configure fails before it gets anywhere near
+a compile error.
+
+**macOS**
+
+```bash
+brew install gcc cmake ninja
+```
+
+Homebrew installs GCC 16 as `gcc-16`/`g++-16` — it deliberately leaves
+`cc`/`c++` pointing at Apple's clang, so those two names are exactly what the
+`macos` preset expects. Nothing further to configure.
+
+**Windows**
+
+GCC has no official Windows installer, and the usual packaged options (MSYS2,
+WinLibs) don't agree with each other on install location — so unlike macOS, the
+path has to be chosen deliberately rather than discovered:
+
+1. Download a win64, UCRT-runtime GCC 16 build from
+   [winlibs.com](https://winlibs.com/) and extract it so it lands at exactly
+   `C:\mingw64` (the archive's own top-level folder is already named `mingw64`,
+   so extracting straight into `C:\` gets this for free).
+2. Install CMake and Ninja separately — WinLibs bundles the compiler,
+   binutils, and gdb, not a build system:
+   `winget install Kitware.CMake` and `winget install Ninja-build.Ninja`.
+3. Add `C:\mingw64\bin` to `PATH` (gdb and the runtime DLLs built binaries
+   need it) and restart VS Code / your shell afterward — `PATH` is read once,
+   at process launch, not on every reload.
+
+Git Bash is already a prerequisite for `tools/*.sh` (see §6) and for the
+content revisions in every log header, so nothing extra is needed there.
+
 ```bash
 cmake --preset macos-debug -DTHORIUM_CRITERIA_VARIANT=stress
 ```

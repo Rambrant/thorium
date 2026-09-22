@@ -99,7 +99,7 @@ namespace ui
 
                 bool         InitialCheck{ false };
                 int          InitialSpin{ 0 };
-                wxString     InitialText;
+                wxString     InitialText{};
             };
 
             auto addRow( wxWindow * panel, wxSizer * grid, const OptionInfo & option, const RunRequest & current) -> void;

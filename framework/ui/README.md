@@ -451,6 +451,27 @@ The preset also points `THORIUM_UI_TEST_BINARY` at `build/debug/bin/run_scripts`
 -- where the framework's `windows-debug` preset leaves it -- so the tests below
 are configured without a second flag.
 
+**A fourth thing, which the build type decides and nothing else mentions.** On
+Windows the executables need their DLLs copied in beside them, and vcpkg's
+toolchain does that in a post-build step whose source directory is chosen by
+`$<$<CONFIG:Debug>:/debug>`. A configure with no build type set makes that
+expression false and copies the *release* DLLs -- while the linker, given an
+imported target with no configuration to match, takes the first one wxWidgets'
+vcpkg config offers, which is the debug one. The result links against
+`wxmsw33ud` and is handed `wxmsw33u`, and every executable that touches the
+toolkit dies on startup with `0xc0000135` and an empty message:
+
+```
+Result: Exit code 0xc0000135
+Output:
+```
+
+`gtest_discover_tests` is where it surfaces, because that runs the binary at
+build time -- so the build fails at the link step of a test rather than at the
+window, which is a long way from the cause. This is why `CMakeLists.txt`
+defaults `CMAKE_BUILD_TYPE` to `Debug` the way the top-level build does; an
+empty build type is untidy on macOS and Linux and load-bearing here.
+
 `THORIUM_SUITE_PREFIX` is a default, not a binding -- the window's suite picker
 can be pointed anywhere, and a prefix holding several installed suites shows
 several entries. Each is discovered the way `GenerateManifest.cmake` intended:

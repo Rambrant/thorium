@@ -44,6 +44,32 @@ project(thorium_ui LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+#
+# The same default the top-level CMakeLists.txt sets, and for one extra reason
+# that only shows up on Windows.
+#
+# An empty CMAKE_BUILD_TYPE is merely untidy on macOS and Linux -- no -O, no -g,
+# and a shared library found by rpath either way. On Windows it splits the build
+# in half. vcpkg's toolchain hangs a post-build step on every executable that
+# copies the DLLs it needs next to it, and the directory it copies them from is
+# chosen by a generator expression:
+#
+#     --installed-bin-dir=.../${VCPKG_TARGET_TRIPLET}$<$<CONFIG:Debug>:/debug>/bin
+#
+# With no build type that expression is false, so the *release* DLLs are copied
+# -- while the linker, asked for an imported target with no configuration to
+# match, takes the first one wxWidgets' vcpkg config offers, which is the debug
+# one. The executable then links against wxmsw33ud and is handed wxmsw33u, and
+# refuses to start with 0xc0000135 (STATUS_DLL_NOT_FOUND) and no other clue.
+#
+# Debug rather than Release because this is the tree the tests are configured
+# against: THORIUM_UI_TEST_BINARY below is pointed at the framework's debug
+# build. An explicit -DCMAKE_BUILD_TYPE=Release still wins, as it does upstairs.
+#
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
 # C++20, not 26. Nothing here needs reflection or contracts -- the parts of this
 # program that benefit from them are in the other build -- and pinning the
 # lowest standard that does the job is what lets this compile with whatever

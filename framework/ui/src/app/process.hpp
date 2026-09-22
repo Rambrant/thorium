@@ -51,10 +51,20 @@ namespace ui
             //
             struct Handlers
             {
-                std::function<void( const RunEvent &)>  OnEvent;
-                std::function<void( const std::string &)>  OnOutput;
-                std::function<void( const std::string &)>  OnStderr;
-                std::function<void( int exitCode, bool crashed)>  OnEnded;
+                //
+                // Braced rather than bare, and the braces earn their keep: every
+                // call site uses designated initialisers and names only the
+                // handlers it cares about, and under GCC's -Wextra a member left
+                // without a default member initialiser warns at each of those
+                // sites. One that has a default member initialiser does not.
+                // Row::InitialText in options_dialog.hpp is braced for the same
+                // reason. The warning is noise -- an omitted std::function is
+                // empty either way -- but it is noise on every Windows build.
+                //
+                std::function<void( const RunEvent &)>  OnEvent{};
+                std::function<void( const std::string &)>  OnOutput{};
+                std::function<void( const std::string &)>  OnStderr{};
+                std::function<void( int exitCode, bool crashed)>  OnEnded{};
             };
 
             //
