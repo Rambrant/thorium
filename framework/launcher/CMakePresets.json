@@ -1,0 +1,23 @@
+{
+  "version": 6,
+
+  "configurePresets": [
+    {
+      "name": "windows-launcher",
+      "displayName": "Bench console launcher (Windows, MinGW)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../build/launcher",
+
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "C:/mingw64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/mingw64/bin/g++.exe"
+      }
+    }
+  ]
+}
