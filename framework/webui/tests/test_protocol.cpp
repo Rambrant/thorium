@@ -246,7 +246,14 @@ class EventStream : public ::testing::Test
     protected:
         void SetUp() override
         {
-            const auto skeleton = ( std::filesystem::temp_directory_path() / "thorium-ui-test.tsv").string();
+            //
+            // Named after the test, the way core's journal and session fixtures
+            // name theirs: ctest runs each TEST_F as its own process, so under
+            // -j one shared name let a finishing test remove the skeleton out
+            // from under another test's run_scripts.
+            //
+            const auto skeleton = ( std::filesystem::temp_directory_path() /
+                                    ( "thorium-ui-test-" + std::string( ::testing::UnitTest::GetInstance()->current_test_info()->name()) + ".tsv")).string();
 
             webui::EventStream reader;
 
