@@ -17,9 +17,10 @@ namespace webui
     // step once there is more than one file to serve.
     //
     inline constexpr const char *  kIndexHtml = R"HTML(<!DOCTYPE html>
-<html lang="en">
+<html lang="en" translate="no">
 <head>
 <meta charset="utf-8">
+<meta name="google" content="notranslate">
 <title>Thorium Bench Console</title>
 <style>
   body { font-family: system-ui, sans-serif; margin: 1.5rem; background: #1e1e1e; color: #ddd; }

@@ -1,29 +1,31 @@
 #
-# The bench-console launcher -- Windows only, and a separate CMake project.
+# The bench-console launcher -- one small native program per platform, and a
+# separate CMake project.
 #
 # It is under framework/ for the same reason framework/ui was (deleted; see
 # framework/webui/README.md's "History"): it names no DUT point, no
 # criterion and no instrument, and drives whatever console server is installed
 # alongside it. It is NOT built by the framework's build, is not reachable
 # from its presets, and is not add_subdirectory'd from the top-level
-# CMakeLists.txt -- `cmake -S framework/launcher -B build/launcher` is the
-# whole entry point.
+# CMakeLists.txt -- `cmake --preset windows-launcher` or `cmake --preset
+# macos-launcher` from this directory is the whole entry point.
 #
-# Unlike framework/ui was, this one is Windows-only by design rather than by an
-# unfinished port: its entire job is Win32-specific (a named mutex, a Job
-# object, Shell_NotifyIcon, the registry). A macOS/Linux equivalent is a
-# different, smaller program against that platform's own APIs, not this one
-# made portable -- see README.md.
+# src/ is the Windows launcher and macos/ the macOS one. They are two
+# programs, not one made portable: each one's whole job is its platform's
+# own API (a Job object or a watched process group, Shell_NotifyIcon or
+# NSStatusItem), and what they share -- four command-line flags and three menu
+# actions -- is smaller than any abstraction over them would be. See
+# README.md.
 #
 cmake_minimum_required(VERSION 3.24)
 
 project(thorium_launcher LANGUAGES CXX)
 
-if(NOT WIN32)
+if(NOT WIN32 AND NOT APPLE)
     message(FATAL_ERROR
-        "framework/launcher is the Windows launcher for the bench console "
-        "(tray icon, single-instance guard, Chrome app-mode window). See "
-        "README.md -- there is nothing here for a non-Windows configure to build.")
+        "framework/launcher has a Windows launcher (src/) and a macOS one "
+        "(macos/), and nothing for this platform yet. See README.md -- a "
+        "Linux launcher would be a third small program, not a port of either.")
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -41,10 +43,17 @@ if(MSVC)
     add_compile_options(/W4)
 else()
     # -Werror, unlike framework/ui before it: everything this target compiles is either
-    # this program's own code or the Windows SDK headers, which are warning-clean
-    # under -Wall -Wextra -Wpedantic. There is no third-party toolkit here whose
-    # release schedule could break the build out from under this flag.
+    # this program's own code or the platform SDK's headers (Windows, or macOS's
+    # AppKit), which are warning-clean under -Wall -Wextra -Wpedantic. There is no
+    # third-party toolkit here whose release schedule could break the build out from
+    # under this flag.
     add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+endif()
+
+if(APPLE)
+    enable_testing()
+    add_subdirectory(macos)
+    return()
 endif()
 
 add_executable(thorium_launcher WIN32

@@ -106,9 +106,15 @@ unlike `framework/launcher` today -- see the top-level `CMakeLists.txt`'s note
 on why this target sits beside `framework/core` and `framework/hal`:
 
 ```
-cmake --preset windows-dev
+cmake --preset windows-dev     # or macos-dev
 cmake --build build/dev
 ```
+
+The same two lines on either platform, with the same compiler (GCC 16) --
+which is the point of this target: it has been built and run on macOS with
+`macos-dev` exactly as it is on Windows, `webui_protocol_tests` included,
+with nothing platform-specific but the `ws2_32` link `CMakeLists.txt` adds on
+Windows.
 
 Produces `thorium_webui`, run as:
 
@@ -116,8 +122,9 @@ Produces `thorium_webui`, run as:
 thorium_webui --run-scripts=<path to the installed run_scripts> --port=8420
 ```
 
-which is exactly what `framework/launcher` is for: `--server=<path to
-thorium_webui> --server-arg=--run-scripts=<path> --server-arg=--port=8420`.
+which is exactly what `framework/launcher` is for, on Windows and macOS
+alike: `--server=<path to thorium_webui> --server-arg=--run-scripts=<path>
+--server-arg=--port=8420`.
 
 ### Tests
 

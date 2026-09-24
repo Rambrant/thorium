@@ -18,10 +18,28 @@
         "CMAKE_C_COMPILER": "C:/mingw64/bin/gcc.exe",
         "CMAKE_CXX_COMPILER": "C:/mingw64/bin/g++.exe"
       }
+    },
+
+    {
+      "name": "macos-launcher",
+      "displayName": "Bench console launcher (macOS, GCC)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../../build/launcher",
+
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-16"
+      }
     }
   ],
 
   "buildPresets": [
-    { "name": "windows-launcher", "configurePreset": "windows-launcher" }
+    { "name": "windows-launcher", "configurePreset": "windows-launcher" },
+    { "name": "macos-launcher", "configurePreset": "macos-launcher" }
   ]
 }

@@ -268,7 +268,7 @@ that cannot be recovered from the code.
 |---|---|
 | [`framework/hal`](framework/hal/README.md) | The two-target `hal`/`hal_rig` split, the static wiring facts and how a route is composed, adapter points, `hal/io/` (how bytes reach an instrument), and what is still a runtime check |
 | [`framework/webui`](framework/webui/README.md) | The bench console's server — why it could join the ordinary build where its wxWidgets predecessor could not, the four ways a run can end, and what replacing that predecessor took |
-| [`framework/launcher`](framework/launcher/README.md) | The native tray icon and Chrome app-mode window that make the console feel like a desktop app rather than a browser tab, and why it is Windows-only by design |
+| [`framework/launcher`](framework/launcher/README.md) | The native tray icon and Chrome app-mode window that make the console feel like a desktop app rather than a browser tab, and why each platform gets its own small launcher rather than one portable one |
 | [`instruments`](instruments/README.md) | Why each driver is its own packageable directory, and what a driver may assume |
 | [`cmake`](cmake/README.md) | The four build helpers: generated criteria tables, the per-layer test target, the install-time manifest, and the installed CMake package |
 

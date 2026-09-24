@@ -7,7 +7,8 @@
 #
 # With no build directory named, every tree this repository knows how to make is
 # run if it has been configured -- the deployment presets (build/debug,
-# build/dev, build/release). Name one or more directories to run just those.
+# build/dev, build/release) and the launcher's (build/launcher). Name one or
+# more directories to run just those.
 #
 # ---------------------------------------------------------------------------
 # Why this exists at all
@@ -49,6 +50,13 @@
 # build/release like any other layer's, and this script needed no console-
 # specific case once that was true.
 #
+# build/launcher is the one separate project left: framework/launcher, the tray
+# or menu bar program that starts the console. It is separate because it holds
+# no framework code, not because of a compiler -- on macOS it is GCC 16 like
+# everything else (see framework/launcher/README.md) -- and its tests would be
+# exactly the kind this script exists to stop being forgotten, so it is listed
+# below with the rest.
+#
 set -uo pipefail
 
 #
@@ -69,7 +77,7 @@ cd "$( dirname "$0")/.." || exit 1
 # works; including it in a "run everything" default would mean this script's
 # result depended on an IDE's settings.
 #
-KNOWN_TREES="build/debug build/dev build/release"
+KNOWN_TREES="build/debug build/dev build/release build/launcher"
 
 # --- Arguments -------------------------------------------------------------
 #
@@ -164,10 +172,10 @@ done
 # build/debug and build/dev are two *deployments* of one framework --
 # configuring one and not the other is a legitimate choice, and neither is a
 # part of the repository the other leaves untested. That is why a skipped tree
-# above is a note, not a failure: every configured tree already ran, and there
-# is no second CMake project this script has to remember on top of them any
-# more -- see the header comment above on framework/ui's old build/ui, which
-# used to be exactly that.
+# above is a note, not a failure: every configured tree already ran. The one
+# exception in kind is build/launcher, a second CMake project -- but it is in
+# KNOWN_TREES, so an unconfigured one is still named here rather than
+# silently absent.
 #
 
 echo
