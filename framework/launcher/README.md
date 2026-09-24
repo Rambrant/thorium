@@ -47,6 +47,17 @@ It does four things, in order, every time it starts, and a fifth while it runs:
    explicitly: it re-fences a per-platform native control behind the thing
    this redesign exists to get out from behind. `--app=` needs none of that,
    on any platform that has Chrome.
+
+   On macOS, Chrome's own output -- its updater, crash reporter and
+   push-message registration, none of it about the console -- goes to
+   `~/Library/Application Support/Thorium/chrome.log` (truncated per launch)
+   rather than to the terminal the console was started from. And a
+   `SingletonLock` left in the profile by the last session's Chrome is
+   removed before the first window opens (`clearStaleProfileLock` in
+   `macos/browser_launch.hpp`): the watchdog's `SIGKILL` leaves one every
+   time, and Chrome only clears a dead lock recorded under the Mac's
+   *current* hostname -- which follows the network -- so after moving
+   networks it reported the profile as "in use on another computer".
 4. **Puts an icon in the tray** -- the notification area on Windows
    (`src/tray.hpp`), the menu bar on macOS (`macos/status_item.hpp`, with no
    Dock icon of its own) -- with three actions: *Show console* (opens another

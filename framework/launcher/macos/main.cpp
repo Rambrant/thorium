@@ -206,12 +206,26 @@ auto main( int argc, char ** argv) -> int
     const auto  url = "http://127.0.0.1:" + std::to_string( config->Port);
     const auto  userDataDir = dir + "/chrome-profile";
 
+    // Chrome's own logging goes here rather than to the terminal the console
+    // was started from, where it buried the server's lines. Truncated per
+    // launch, so it holds this session's and cannot grow without bound.
+    const auto  chromeLog = dir + "/chrome.log";
+    if ( auto * file = std::fopen( chromeLog.c_str(), "w"); file != nullptr)
+    {
+        std::fclose( file);
+    }
+
+    // Left by the last session's Chrome, which the watchdog killed -- see
+    // clearStaleProfileLock on why Chrome cannot always clear it itself.
+    // Silently: it is there after every session, so saying so is noise.
+    (void)launcher::clearStaleProfileLock( userDataDir);
+
     // Opens another window every time, as on Windows -- but here into the
     // one Chrome already running against userDataDir, which is what makes
     // the second click cheap. See browser_launch.hpp.
     auto  showConsole = [ & ]
     {
-        (void)group.spawn( launcher::buildAppModeArgv( *chrome, url, userDataDir));
+        (void)group.spawn( launcher::buildAppModeArgv( *chrome, url, userDataDir), chromeLog);
     };
 
     // Accessory: a menu bar item and no Dock icon, the way the Windows

@@ -3,6 +3,7 @@
 
 auto runSignatureTests() -> int;
 auto runMenuTests() -> int;
+auto runProfileLockTests() -> int;
 
 //
 // One binary, one test per argument, so ctest can report (and skip) each on
@@ -20,7 +21,11 @@ auto main( int argc, char ** argv) -> int
     {
         return runMenuTests();
     }
+    if ( which == "profile_lock")
+    {
+        return runProfileLockTests();
+    }
 
-    std::fprintf( stderr, "usage: launcher_macos_tests signatures|menu\n");
+    std::fprintf( stderr, "usage: launcher_macos_tests signatures|menu|profile_lock\n");
     return 2;
 }

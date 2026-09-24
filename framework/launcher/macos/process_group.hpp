@@ -54,8 +54,15 @@ namespace launcher
             // torn down, not individual children, the same way the Windows
             // launcher leaves a superseded browser window to the job.
             //
+            //
+            // With `output` set, the child's stdout and stderr are appended
+            // to that file instead of sharing the launcher's -- for Chrome,
+            // whose own logging (updater, crash reporter, push-message
+            // registration) would otherwise bury the server's lines in the
+            // terminal the console was started from.
+            //
             [[nodiscard]]
-            auto spawn( const std::vector<std::string> & argv) const -> int;
+            auto spawn( const std::vector<std::string> & argv, const std::string & output = {}) const -> int;
 
         private:
             pid_t  mGroup{ -1 };

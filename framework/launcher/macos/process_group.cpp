@@ -120,7 +120,7 @@ namespace launcher
         }
     }
 
-    auto ProcessGroup::spawn( const std::vector<std::string> & argv) const -> int
+    auto ProcessGroup::spawn( const std::vector<std::string> & argv, const std::string & output) const -> int
     {
         if ( !valid() || argv.empty())
         {
@@ -151,9 +151,21 @@ namespace launcher
 
         posix_spawnattr_setflags( &attr, POSIX_SPAWN_SETPGROUP | POSIX_SPAWN_SETSIGDEF);
 
-        pid_t       pid = 0;
-        const auto  result = posix_spawn( &pid, args.front(), nullptr, &attr, args.data(), environ);
+        // Opened in the child, by posix_spawn itself: nothing is opened here
+        // that the launcher would then have to close again.
+        posix_spawn_file_actions_t  actions;
+        posix_spawn_file_actions_init( &actions);
+        if ( !output.empty())
+        {
+            posix_spawn_file_actions_addopen( &actions, STDOUT_FILENO, output.c_str(),
+                                              O_WRONLY | O_CREAT | O_APPEND, 0644);
+            posix_spawn_file_actions_adddup2( &actions, STDOUT_FILENO, STDERR_FILENO);
+        }
 
+        pid_t       pid = 0;
+        const auto  result = posix_spawn( &pid, args.front(), &actions, &attr, args.data(), environ);
+
+        posix_spawn_file_actions_destroy( &actions);
         posix_spawnattr_destroy( &attr);
         return result;
     }

@@ -32,4 +32,24 @@ namespace launcher
         const std::string & chromePath,
         const std::string & url,
         const std::string & userDataDir) -> std::vector<std::string>;
+
+    //
+    // Removes the profile lock a Chrome that is no longer running left behind
+    // in userDataDir, and leaves a live one alone. True if it removed one.
+    //
+    // The launcher leaves one every time it quits: its watchdog ends the
+    // group with SIGTERM and then SIGKILL (process_group.hpp), and a Chrome
+    // killed that way never cleans up its SingletonLock. Chrome clears a
+    // dead lock by itself -- but only one recorded under this machine's
+    // current hostname, and a Mac's hostname follows the network it is on
+    // ("Mac.localdomain" on one, "MacBook-Air.local" on another). Across such
+    // a change Chrome takes the lock for another computer's and says so on
+    // stderr, which is the error an operator sees.
+    //
+    // Safe to decide here because the launcher is the only thing that runs
+    // Chrome on this profile, and it holds its own single-instance lock
+    // (single_instance.hpp) while it does: by the time this runs, a lock
+    // naming a process that is gone -- or that is not Chrome -- is stale.
+    //
+    auto clearStaleProfileLock( const std::string & userDataDir) -> bool;
 }

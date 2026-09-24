@@ -44,6 +44,7 @@ add_executable(launcher_macos_tests
     tests/main.cpp
     tests/test_signatures.cpp
     tests/test_menu.cpp
+    tests/test_profile_lock.cpp
 )
 target_link_libraries(launcher_macos_tests PRIVATE launcher_macos)
 
@@ -55,6 +56,8 @@ target_link_libraries(launcher_macos_tests PRIVATE
 )
 
 add_test(NAME launcher_macos.signatures COMMAND launcher_macos_tests signatures)
+
+add_test(NAME launcher_macos.profile_lock COMMAND launcher_macos_tests profile_lock)
 
 add_test(NAME launcher_macos.menu COMMAND launcher_macos_tests menu)
 set_tests_properties(launcher_macos.menu PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
