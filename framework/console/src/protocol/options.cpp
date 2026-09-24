@@ -2,7 +2,7 @@
 
 #include "protocol/json.hpp"
 
-namespace ui
+namespace console
 {
     auto optionKindFrom( const std::string_view name) -> OptionKind
     {
@@ -68,4 +68,4 @@ namespace ui
 
         return model;
     }
-} // namespace ui
+} // namespace console

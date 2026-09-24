@@ -1,6 +1,6 @@
 #include "protocol/command.hpp"
 
-namespace ui
+namespace console
 {
     namespace
     {
@@ -103,4 +103,4 @@ namespace ui
     {
         return { suite.Binary.string(), "--describe-options" };
     }
-} // namespace ui
+} // namespace console

@@ -7,22 +7,17 @@
 #
 # With no build directory named, every tree this repository knows how to make is
 # run if it has been configured -- the deployment presets (build/debug,
-# build/dev, build/release) and the console (build/ui). Name one or more
-# directories to run just those.
+# build/dev, build/release). Name one or more directories to run just those.
 #
 # ---------------------------------------------------------------------------
 # Why this exists at all
 # ---------------------------------------------------------------------------
-# There are two CMake projects here, and that is forced rather than chosen: the
-# framework refuses to configure with anything but GCC 16, and framework/ui
-# cannot be built by GCC at all on macOS (see cmake/WxWidgets.cmake). On top of
-# that, one framework source tree produces several build trees -- a preset per
+# One framework source tree produces several build trees -- a preset per
 # deployment and build type, each compiling different suite content against the
 # same framework.
 #
 # ctest reads exactly one build tree. So `ctest --test-dir build/debug` reports
-# one deployment's tests and silently knows nothing about the others or about
-# the console's.
+# one deployment's tests and silently knows nothing about the others.
 #
 # That is a fine arrangement and a terrible default, because the failure is
 # invisible: a developer runs "all the tests", sees a four-digit number and a
@@ -40,12 +35,19 @@
 #
 # What it deliberately does NOT do: pass --no-tests=error. ctest exits 0 when a
 # -R filter matches nothing, which looks like exactly the silent-omission
-# problem above and is not the same thing -- with several suites, a filter aimed
-# at one of them legitimately matches nothing in the others
-# (`-- -R Json\.` is UI-only). Turning that into an error would break every
-# filtered run to catch a case the caller created on purpose. The absence this
-# script guards against is a build tree that was never made, which no filter can
-# explain away.
+# problem above and is not the same thing -- a filter aimed at one deployment's
+# tests legitimately matches nothing in another's. Turning that into an error
+# would break every filtered run to catch a case the caller created on purpose.
+# The absence this script guards against is a build tree that was never made,
+# which no filter can explain away.
+#
+# There used to be a second kind of tree here, framework/ui's own
+# `build/ui` -- a separate CMake project, because wxWidgets could not be built
+# by this framework's compiler on macOS. It is gone along with that directory
+# (see framework/console/README.md's "History"): framework/console joined the
+# ordinary build, so its tests are already inside build/debug, build/dev and
+# build/release like any other layer's, and this script needed no console-
+# specific case once that was true.
 #
 set -uo pipefail
 
@@ -54,13 +56,12 @@ set -uo pipefail
 #
 # Every path below is relative to the root, and the callers who most need this
 # script are the ones least likely to be standing in the right place: an IDE run
-# configuration, a CI step, a shell that happens to be in framework/ui.
+# configuration, a CI step, a shell that happens to be in some other directory.
 #
 cd "$( dirname "$0")/.." || exit 1
 
 #
-# Every tree this repository knows how to produce, in the order a reader would
-# want them reported: the deployment presets first, the console last.
+# Every tree this repository knows how to produce.
 #
 # cmake-build-debug is not here on purpose. It is whatever an IDE made, it is
 # not produced by a preset, and a profile that names no compiler configures with
@@ -68,9 +69,7 @@ cd "$( dirname "$0")/.." || exit 1
 # works; including it in a "run everything" default would mean this script's
 # result depended on an IDE's settings.
 #
-KNOWN_TREES="build/debug build/dev build/release build/ui"
-
-UI_TREE="${THORIUM_UI_BUILD_DIR:-build/ui}"
+KNOWN_TREES="build/debug build/dev build/release"
 
 # --- Arguments -------------------------------------------------------------
 #
@@ -162,24 +161,14 @@ for tree in $SKIPPED; do
 done
 
 #
-# The console is the one absence treated as a failure rather than a note, and
-# the asymmetry is deliberate. build/debug and build/dev are two *deployments*
-# of one framework -- configuring one and not the other is a legitimate choice,
-# and neither is a part of the repository the other leaves untested.
-# framework/ui is a different half of the codebase, in a different language of
-# build, with its own tests that nothing else runs. Forgetting it is the exact
-# mistake this script was written for.
+# build/debug and build/dev are two *deployments* of one framework --
+# configuring one and not the other is a legitimate choice, and neither is a
+# part of the repository the other leaves untested. That is why a skipped tree
+# above is a note, not a failure: every configured tree already ran, and there
+# is no second CMake project this script has to remember on top of them any
+# more -- see the header comment above on framework/ui's old build/ui, which
+# used to be exactly that.
 #
-if [ ! -f "${UI_TREE}/CTestTestfile.cmake" ]; then
-    echo
-    echo "  The console's tests did not run, so this is not a full test run." >&2
-    echo >&2
-    echo "  cmake -S framework/ui -B ${UI_TREE} \\" >&2
-    echo "        -DTHORIUM_UI_TEST_BINARY=\$PWD/build/debug/bin/run_scripts" >&2
-    echo "  cmake --build ${UI_TREE}" >&2
-
-    status=1
-fi
 
 echo
 

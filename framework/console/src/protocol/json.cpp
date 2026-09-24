@@ -2,7 +2,7 @@
 
 #include <cstdlib>
 
-namespace ui
+namespace console
 {
     namespace
     {
@@ -385,4 +385,4 @@ namespace ui
     {
         return mType == Type::Array ? mItems : kNoItems;
     }
-} // namespace ui
+} // namespace console

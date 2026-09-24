@@ -1,7 +1,7 @@
 # Makes header-only cpp-httplib available as httplib::httplib, for
-# framework/console -- see framework/ui/README.md Sec.5, which checked (rather
-# than assumed) that cpp-httplib compiles clean under this project's own
-# compiler and flags, -freflection -fcontracts included.
+# framework/console -- see framework/console/README.md's "History", which
+# checked (rather than assumed) that cpp-httplib compiles clean under this
+# project's own compiler and flags, -freflection -fcontracts included.
 #
 # Vendored into third_party/, the same as GoogleTest (see FetchGTest.cmake)
 # and for a related but not identical reason. GoogleTest has to be vendored:

@@ -15,13 +15,8 @@ include(FetchContent)
 # do was tell a reader the wrong GoogleTest version.
 #
 # ---------------------------------------------------------------------------
-# Why this is not a vcpkg dependency, when wxWidgets is
+# Why this is not a vcpkg dependency
 # ---------------------------------------------------------------------------
-# framework/ui gets its toolkit from vcpkg (cmake/WxWidgets.cmake), so the
-# obvious tidy-up is to get GoogleTest the same way and delete third_party/.
-# It does not work, and the reason is the exact mirror of the reason wxWidgets
-# cannot be vendored.
-#
 # vcpkg builds with the platform's compiler -- /usr/bin/c++, which on macOS is
 # Apple Clang against libc++. This project builds with GCC 16 against
 # libstdc++, and GoogleTest's ABI is full of std::string: MakeAndRegisterTestInfo
@@ -31,28 +26,28 @@ include(FetchContent)
 # link with undefined symbols. That was tried before this comment was written,
 # and that is what it says.
 #
-# So the two dependencies pull in opposite directions, and each is where it has
-# to be:
+# GoogleTest must be built by THIS project's compiler, with this project's
+# flags, because it is linked into this project's binaries -- so it is
+# vendored here and compiled from source alongside them, rather than fetched
+# as a prebuilt package.
 #
-#   GoogleTest  must be built by THIS project's compiler, with this project's
-#               flags, because it is linked into this project's binaries
-#               -> vendored here, compiled from source alongside them
-#   wxWidgets   can never be built by this project's compiler (GCC cannot parse
-#               the macOS SDK's block syntax -- see cmake/WxWidgets.cmake)
-#               -> vcpkg, in a separate project built by a separate compiler
+# This used to be one half of a two-dependency contrast: framework/ui got
+# wxWidgets from vcpkg, built by whichever compiler each platform's package
+# manager uses, because GCC cannot parse the macOS SDK headers wxWidgets'
+# Cocoa port needs at all. That pulled in the opposite direction from
+# GoogleTest's ABI requirement above, and each dependency sat where its own
+# constraint put it. framework/ui and its vcpkg dependency are gone (see
+# framework/console/README.md for what replaced it), so nothing here pulls
+# the other way any more -- vendoring GoogleTest is simply the right answer to
+# its own ABI question, not one half of a contrast.
 #
-# There is a second thing this arrangement buys, worth stating because moving to
-# vcpkg would quietly spend it: framework/ has no external dependency at all.
-# Configuring and building the framework and every one of its tests touches the
-# network never and needs no package manager installed. Only framework/ui does,
-# and only for the window.
+# There is a second thing this arrangement buys: framework/ has no external
+# dependency at all. Configuring and building the framework and every one of
+# its tests touches the network never and needs no package manager installed.
 #
-# Self-locating rather than ${CMAKE_SOURCE_DIR}-relative, because there are two
-# projects in this repository and only one of them is rooted here. framework/ui
-# is a CMake project of its own (see cmake/WxWidgets.cmake on why it has to be),
-# and its tests want the same GoogleTest and the same gtest_discover_tests as
-# every other test target in the tree -- so the path has to be relative to this
-# file rather than to whoever included it.
+# Self-locating rather than ${CMAKE_SOURCE_DIR}-relative purely for that
+# reason: whoever includes this file gets the same vendored copy regardless of
+# where their own CMakeLists.txt sits in the tree.
 get_filename_component(THORIUM_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 
 FetchContent_Declare(

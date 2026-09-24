@@ -10,10 +10,12 @@ namespace launcher
 {
     //
     // One spawned process, tracked just well enough to answer "is it still
-    // running" and to be killed on demand. There is no stdout to read here --
-    // unlike ui::ChildProcess (framework/ui/src/app/process.hpp), neither the
-    // server nor the browser talks to the launcher over a pipe. The server
-    // talks HTTP (rig_client.hpp) and the browser talks nothing at all.
+    // running" and to be killed on demand. There is no stdout to read here:
+    // neither the server nor the browser talks to the launcher over a pipe --
+    // the server talks HTTP (rig_client.hpp) and the browser talks nothing at
+    // all. (framework/ui's old wx-based ChildProcess did read a pipe, because
+    // it drove run_scripts directly; this program never does that itself --
+    // framework/console does, over its own pipe -- see its child_stream.hpp.)
     //
     class ChildProcess
     {

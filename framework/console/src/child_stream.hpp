@@ -40,7 +40,7 @@ namespace console
                 // rather than what it is. This is how a run that never
                 // reaches journal().begin() -- a preflight that could not
                 // reach an instrument, a contradictory flag -- is still
-                // explainable: see framework/ui/README.md Sec.4's "never
+                // explainable: see framework/console/README.md's "never
                 // started -- the reason is on stderr" row.
                 //
                 std::function<void( const std::string &)>  OnStderrLine{};

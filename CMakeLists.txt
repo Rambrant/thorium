@@ -506,7 +506,8 @@ add_subdirectory(framework/hal)
 # deployment; it belongs with core and hal, the other framework/ subdirectories
 # that build the same way regardless of which bench this is. See
 # framework/console/CMakeLists.txt for why it is part of this build at all,
-# where framework/ui and framework/launcher are not.
+# where framework/launcher is not (and framework/ui, wxWidgets-based and
+# deleted, never was).
 add_subdirectory(framework/console)
 
 # --- Package export: core + hal + the drivers as the reusable "Thorium" framework ---

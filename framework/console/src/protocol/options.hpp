@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ui
+namespace console
 {
     //
     // The flags run_scripts accepts, as it describes them itself.
@@ -69,8 +69,8 @@ namespace ui
     // on a bench -- suites are installed per deployment and the console is
     // not -- and the failure mode has to be "that one flag is not offered"
     // rather than "the dialog is empty". The operator can still pass it: see
-    // ui::RunCommand's extra arguments.
+    // console::RunCommand's extra arguments.
     //
     [[nodiscard]]
     auto optionKindFrom( std::string_view name) -> OptionKind;
-} // namespace ui
+} // namespace console

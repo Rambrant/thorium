@@ -4,10 +4,11 @@ namespace console
 {
     //
     // The entire browser side of this program, for now: one file, embedded
-    // rather than read from disk. A real deployment's needs (a catalog tree,
-    // the generated options dialog framework/ui/README.md Sec.3 describes)
-    // are future work -- this exists to prove the pipe end to end, the same
-    // way run_scripts's own console view did before this program existed.
+    // rather than read from disk. A real deployment's needs -- a catalog
+    // tree, the generated options dialog README.md's "Generating a form from
+    // --describe-options" describes -- are future work: this exists to prove
+    // the pipe end to end, the same way run_scripts's own console view did
+    // before this program existed.
     //
     // Embedded so the binary has no path to get wrong: wherever
     // thorium_console.exe ends up -- built in place, copied to a bench,

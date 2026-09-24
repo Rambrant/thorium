@@ -267,7 +267,8 @@ that cannot be recovered from the code.
 | | |
 |---|---|
 | [`framework/hal`](framework/hal/README.md) | The two-target `hal`/`hal_rig` split, the static wiring facts and how a route is composed, adapter points, `hal/io/` (how bytes reach an instrument), and what is still a runtime check |
-| [`framework/ui`](framework/ui/README.md) | The bench console — why it is a separate process and a separate build (the framework's compiler cannot build a GUI toolkit on macOS), and how it offers every CLI flag without restating one |
+| [`framework/console`](framework/console/README.md) | The bench console's server — why it could join the ordinary build where its wxWidgets predecessor could not, the four ways a run can end, and what replacing that predecessor took |
+| [`framework/launcher`](framework/launcher/README.md) | The native tray icon and Chrome app-mode window that make the console feel like a desktop app rather than a browser tab, and why it is Windows-only by design |
 | [`instruments`](instruments/README.md) | Why each driver is its own packageable directory, and what a driver may assume |
 | [`cmake`](cmake/README.md) | The four build helpers: generated criteria tables, the per-layer test target, the install-time manifest, and the installed CMake package |
 
@@ -1410,7 +1411,7 @@ fails that build rather than being reported.
 |---|---|
 | *(none)* | run every test in the catalog |
 | `--list-tests` | print `group\|id\|description` per test, run nothing |
-| `--describe-options` | print every flag as JSON, run nothing — what [`framework/ui/`](framework/ui/README.md) builds its form from |
+| `--describe-options` | print every flag as JSON, run nothing — what [`framework/console/`](framework/console/README.md) builds its form from |
 | `--select=a,b` | run only these test ids, in catalog order |
 | `--criteria=NAME` | apply that tolerance variant — `production`, `stress`, `aged` |
 | `--repeat=N` | run the selection N times over |
@@ -1931,16 +1932,13 @@ ctest --test-dir build/debug --output-on-failure     # the framework
 ctest --test-dir build/debug -LE acceptance          # unit tests only
 ctest --test-dir build/debug -L  acceptance -V       # the CLI tour
 ctest --test-dir build/debug -N                      # count and name them, run nothing
-ctest --test-dir build/ui                            # the bench console
 ```
 
 **`ctest` reads exactly one build tree, and this repository has several.** Each
 deployment preset makes its own (`build/debug`, `build/dev`, `build/release`),
-compiling different suite content against the same framework; and
-[`framework/ui`](framework/ui/README.md) is a CMake project of its own — it has
-to be, since GCC cannot build a GUI toolkit on macOS. So
+compiling different suite content against the same framework. So
 `ctest --test-dir build/debug` reports one deployment's tests and knows nothing
-about the others or about the console's.
+about the others.
 
 That is a fine arrangement and a dangerous default, because the omission is
 invisible: a four-digit number and a green line, having tested a fraction of the
@@ -1956,15 +1954,21 @@ can never quietly mean "the half I had configured passed":
   PASS  build/debug
   PASS  build/dev
   ----  build/release (not configured)
-  PASS  build/ui
 
 All suites passed.
 ```
 
-A missing console tree is the one absence treated as a failure rather than a
-note, because `build/debug` and `build/dev` are two *deployments* of one
-framework — configuring one and not the other is a legitimate choice — while
-`framework/ui` is a different half of the codebase with tests nothing else runs.
+A skipped tree above is a note, not a failure: `build/debug` and `build/dev`
+are two *deployments* of one framework — configuring one and not the other is
+a legitimate choice, and neither is a part of the repository the other leaves
+untested. There used to be a second kind of absence this script treated as a
+hard failure instead: `framework/ui`'s own `build/ui`, a separate CMake
+project with its own tests nothing else ran, because GCC could not build its
+wxWidgets toolkit on macOS. That directory is gone (see
+[`framework/console/README.md`](framework/console/README.md)'s "History") and
+its successor, `framework/console`, joined the ordinary build — its tests are
+already inside `build/debug`, `build/dev` and `build/release` like any other
+layer's, so there is nothing left for this script to special-case.
 
 Name directories to run only those, and pass extra ctest arguments after `--`:
 

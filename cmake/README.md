@@ -10,7 +10,7 @@ is the useful part of the file.
 | `CriteriaVariants.cmake` | module, `include()`d | configure | `thorium_generate_criteria_variants()` |
 | `InstrumentDrivers.cmake` | module, `include()`d | configure | `thorium_generate_instrument_drivers()` |
 | `FetchGTest.cmake` | module, `include()`d | configure | `add_layer_tests()` |
-| `WxWidgets.cmake` | module, `include()`d by **another project** | configure | inclusion, then `thorium_resolve_wxwidgets()` |
+| `FetchHttplib.cmake` | module, `include()`d | configure | inclusion defines `httplib::httplib` |
 | `GenerateManifest.cmake` | script, `install(SCRIPT)` | **install** | the whole file |
 | `ThoriumConfig.cmake.in` | template, `configure_package_config_file()` | configure → install | `find_package(Thorium)` |
 
@@ -21,14 +21,12 @@ install time, with no access to project variables except what the surrounding
 `install(CODE ...)` calls put in scope. One is never executed here at all — it
 is installed, to be read by somebody else's build.
 
-`WxWidgets.cmake` is the odd one, and the "another project" in its row is the
-point: it is not included by the top-level `CMakeLists.txt` at all, but by
-[`framework/ui`](../framework/ui/README.md), which is a CMake project of its own
-built by a different compiler. It lives here rather than beside its one consumer
-because this is where this repository keeps the reasoning behind a build
-decision, and the decision it carries — vcpkg over vendoring, and why the two
-halves of this tree can never share a compiler on macOS — is one somebody will
-want to find without knowing to look in a UI directory.
+There used to be a seventh, `WxWidgets.cmake`, included not by the top-level
+`CMakeLists.txt` but by `framework/ui` — a CMake project of its own, built by
+a different compiler. It is gone along with that directory; see
+[`framework/console/README.md`](../framework/console/README.md)'s "History"
+for why, and `FetchHttplib.cmake` below for what a dependency with none of
+wxWidgets' cross-compiler problem looks like instead.
 
 ---
 
@@ -192,70 +190,45 @@ An empty glob is a `FATAL_ERROR` naming the directory, because
 `CONFIGURE_DEPENDS`, so adding or deleting a `tests/*.cpp` is picked up by the
 next build with no manual reconfigure.
 
-## `WxWidgets.cmake` — one dependency, three platforms, one package manager
+## `FetchHttplib.cmake` — a header-only dependency, vendored, no build of its own
 
-`framework/ui` needs wxWidgets and nothing else the platform does not already
-have. The three ways a machine could get it are `brew`, `apt` and `vcpkg`, and
-only the last exists on all three platforms this framework targets — so "brew
-install wxwidgets / apt install libwxgtk3.2-dev / vcpkg install wxwidgets" is
-not a portable instruction, it is three instructions and a guess about which one
-a reader needs, two of which cannot be followed on a Windows bench.
+`framework/console`'s server needs cpp-httplib and nothing else. Unlike
+GoogleTest, it has no ABI to clash with this project's compiler over: it is a
+single header, compiled by whichever translation unit includes it, so there
+is no prebuilt archive from somebody else's toolchain to link against.
 
-So the dependency is declared once, in `framework/ui/vcpkg.json`, with a pinned
-`builtin-baseline` — the version is a property of this repository rather than of
-when somebody last ran `git pull` in their vcpkg checkout.
-
-**Why not vendor it the way `FetchGTest.cmake` vendors GoogleTest** — and, the
-same question from the other end, why GoogleTest is not a vcpkg dependency like
-this one. Both were tried and measured; `FetchGTest.cmake` carries the second
-half of the answer. GoogleTest is 4.5 MB across 252 files and is compiled by
-this project's own compiler alongside the code it tests. wxWidgets trimmed to
-what a library build needs is **121 MB across 6,752 files**, which is a
-repository an order of magnitude larger with the increase in its history
-forever — and it could never be compiled by this project's compiler anyway.
-
-**That last part is the load-bearing fact, and it cuts both ways.** The
-top-level `CMakeLists.txt` refuses to configure with anything but GCC 16. wxWidgets' Cocoa port includes
-the macOS SDK's CoreGraphics headers, those headers are written in Clang's
-blocks extension (the `^` block-pointer syntax), and GCC does not implement
-blocks. A file whose entire contents are `#include <CoreGraphics/CoreGraphics.h>`
-fails to parse under `g++-16` and compiles clean under Apple Clang. No flag
-fixes it, which is why `framework/ui` is a project of its own and why this
-module is included by that project rather than by the top-level build.
-
-**The split into two halves is forced by CMake.** A toolchain file is read by
-`project()` and only by `project()`, so the half that points at vcpkg must run
-before it and the `find_package` it enables must run after:
+It is vendored into `third_party/cpp-httplib-0.18.5/` anyway — not because it
+has to be, the way GoogleTest does, but so that configuring
+`framework/console` touches the network never, matching the property the rest
+of `framework/` already has (see `FetchGTest.cmake`'s note on that).
 
 ```cmake
-include(WxWidgets)          # before project() — points at vcpkg
-project(thorium_ui ...)
-thorium_resolve_wxwidgets() # after  project() — finds the toolkit
+add_library(httplib INTERFACE)
+add_library(httplib::httplib ALIAS httplib)
+target_include_directories(httplib INTERFACE third_party/cpp-httplib-0.18.5)
 ```
 
-A macro rather than a function, because `FindwxWidgets` hands back a
-`wxWidgets_USE_FILE` whose job is to call `include_directories()` — inside a
-function that would scope the include paths to the function and vanish on
-return, leaving a configure that succeeds and a compile that cannot find
-`wx/app.h`.
+No `CMakeLists.txt` of cpp-httplib's own to `add_subdirectory` — a header has
+no build — so this defines the `INTERFACE` target directly rather than going
+through `FetchContent_MakeAvailable`. Guarded against a second `include()`
+(`if(TARGET httplib::httplib) return() endif()`), since `add_library` refuses
+to redefine an existing target and `framework/console` is not guaranteed to
+be the only consumer forever.
 
-vcpkg builds with the platform's compiler, so anything that comes from it is
-compiled by Apple Clang against libc++ on this machine. That is fine for
-wxWidgets, which lives in a separate binary built by that same compiler, and
-fatal for GoogleTest, which is linked into binaries this project compiles with
-GCC against libstdc++ — the two disagree about what `std::string` is, and every
-test target fails to link. Hence one from vcpkg and one vendored, and neither
-arrangement is available to the other.
+**Deliberately does not define `CPPHTTPLIB_OPENSSL_SUPPORT` or
+`CPPHTTPLIB_ZLIB_SUPPORT`, not even to `0`.** Every guard around OpenSSL and
+zlib in `httplib.h` is `#ifdef`, not `#if` — so defining either to `0` to be
+explicit about "off" turns the feature *on*, and the build then fails looking
+for OpenSSL. Absence is the only spelling of "off" that header understands.
+Plain HTTP is all this needs anyway: the server never binds anything but
+`127.0.0.1` (see `framework/console/README.md`).
 
-The corollary is worth keeping: **`framework/` itself has no external
-dependency at all.** Configuring and building the framework and every one of its
-tests touches the network never and needs no package manager. Only
-`framework/ui` needs vcpkg, and only for the window.
-
-Not finding wxWidgets is not an error by default: the protocol library and its
-tests still build, which is the check worth running on every commit and needs no
-display, no toolkit and no window. `THORIUM_UI_REQUIRE_WX=ON` turns it into a
-hard failure for the build that is supposed to produce a console.
+This is what a dependency looks like once it has none of wxWidgets' problem
+(`cmake/README.md`'s git history has that module, and
+`framework/console/README.md`'s "History" has the fuller story): checked, not
+assumed, to compile clean under this project's own experimental flags
+(`-freflection -fcontracts`), so `framework/console` could join the ordinary
+build instead of becoming a second CMake project.
 
 ---
 

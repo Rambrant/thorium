@@ -109,8 +109,8 @@ namespace console
         // an SSE connection open with nothing crossing the wire for as long
         // as a test campaign takes between events, which is exactly the shape
         // of connection a reverse proxy or an idle-timeout in front of this
-        // server (there is none today, but see framework/ui/README.md Sec.5
-        // on why "today" is doing the work in that sentence) would decide is
+        // server (there is none today, but see framework/console/README.md's
+        // "History" on why "today" is doing the work in that sentence) would decide is
         // dead. Waking up with nothing new lets the caller send an SSE
         // comment ping instead.
         mCv.wait_for( lock, std::chrono::seconds( 15), [ this, from]

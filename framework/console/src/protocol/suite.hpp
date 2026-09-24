@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace ui
+namespace console
 {
     //
     // One installed suite: the run_scripts binary, the catalog it holds, and
@@ -110,4 +110,4 @@ namespace ui
     //
     [[nodiscard]]
     auto parseTestList( std::string_view text) -> std::vector<TestEntry>;
-} // namespace ui
+} // namespace console

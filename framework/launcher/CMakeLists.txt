@@ -1,15 +1,15 @@
 #
 # The bench-console launcher -- Windows only, and a separate CMake project.
 #
-# It is under framework/ for the same reason framework/ui is: it names no DUT
-# point, no criterion and no instrument, and drives whatever console server is
-# installed alongside it. It is NOT built by the framework's build, is not
-# reachable from its presets, and is not add_subdirectory'd from the top-level
+# It is under framework/ for the same reason framework/ui was (deleted; see
+# framework/console/README.md's "History"): it names no DUT point, no
+# criterion and no instrument, and drives whatever console server is installed
+# alongside it. It is NOT built by the framework's build, is not reachable
+# from its presets, and is not add_subdirectory'd from the top-level
 # CMakeLists.txt -- `cmake -S framework/launcher -B build/launcher` is the
-# whole entry point. See framework/ui/CMakeLists.txt for the fuller version of
-# this argument.
+# whole entry point.
 #
-# Unlike framework/ui, this one is Windows-only by design rather than by an
+# Unlike framework/ui was, this one is Windows-only by design rather than by an
 # unfinished port: its entire job is Win32-specific (a named mutex, a Job
 # object, Shell_NotifyIcon, the registry). A macOS/Linux equivalent is a
 # different, smaller program against that platform's own APIs, not this one
@@ -29,9 +29,9 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Same reasoning as framework/ui/CMakeLists.txt: C++20, not 26. Nothing here
-# needs reflection or contracts, and pinning the lowest standard that does the
-# job is what lets this build with whatever compiler is on hand.
+# C++20, not 26: nothing here needs reflection or contracts, and pinning the
+# lowest standard that does the job is what lets this build with whatever
+# compiler is on hand.
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
@@ -40,7 +40,7 @@ endif()
 if(MSVC)
     add_compile_options(/W4)
 else()
-    # -Werror, unlike framework/ui: everything this target compiles is either
+    # -Werror, unlike framework/ui before it: everything this target compiles is either
     # this program's own code or the Windows SDK headers, which are warning-clean
     # under -Wall -Wextra -Wpedantic. There is no third-party toolkit here whose
     # release schedule could break the build out from under this flag.

@@ -17,8 +17,8 @@ namespace console
     // A rig has one fabric. Two run_scripts processes opening it at once is
     // not a race this class arbitrates so much as a thing it exists to make
     // impossible -- start() refuses a second run outright, which is the
-    // server-side half of framework/ui/README.md Sec.5's "nothing arbitrates
-    // two operators" gap. (The other half -- one *operator*, as opposed to
+    // server-side half of the "nothing arbitrates two operators" gap README.md's
+    // "What it does not do yet" describes. (The other half -- one *operator*, as opposed to
     // one run -- is a session/auth question for whenever this server binds
     // anything but 127.0.0.1, and is not this class's job.)
     //

@@ -2,7 +2,7 @@
 
 #include "protocol/json.hpp"
 
-namespace ui
+namespace console
 {
     namespace
     {
@@ -200,4 +200,4 @@ namespace ui
 
         return events;
     }
-} // namespace ui
+} // namespace console

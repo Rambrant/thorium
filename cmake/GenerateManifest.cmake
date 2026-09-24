@@ -74,7 +74,7 @@ string(REPLACE "\n" ";" THORIUM_CATALOG_LINES "${THORIUM_CATALOG_RAW}")
 # three platforms this framework targets: on Windows the installed file is
 # run_scripts.exe, so the manifest named a file that is not there. A consumer
 # resolving it against the manifest's directory -- which is what
-# framework/ui/src/protocol/suite.cpp does, and what the "discovering web
+# framework/console/src/protocol/suite.cpp does, and what the "discovering web
 # server" this file was written for would do -- gets a path that does not exist.
 #
 # Derived from THORIUM_RUN_SCRIPTS_EXE, which is a $<TARGET_FILE:run_scripts>

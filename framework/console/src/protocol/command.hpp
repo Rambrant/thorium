@@ -6,14 +6,15 @@
 #include "protocol/options.hpp"
 #include "protocol/suite.hpp"
 
-namespace ui
+namespace console
 {
     //
     // What the operator has set, in the terms the form collects it.
     //
     // One entry per control the operator has *touched*. A control left alone
     // produces nothing, and that is the design rather than an optimisation --
-    // see framework/ui/README.md §3 and cli::optionsModel's comment: main.cpp depends in
+    // see framework/console/README.md's "Generating a form from --describe-options"
+    // and cli::optionsModel's comment: main.cpp depends in
     // two places on telling "the caller said nothing" from "the caller named
     // the default", and a form that emitted every default would erase the
     // distinction.
@@ -91,4 +92,4 @@ namespace ui
     //
     [[nodiscard]] auto buildListTestsCommand( const Suite & suite) -> std::vector<std::string>;
     [[nodiscard]] auto buildDescribeCommand( const Suite & suite) -> std::vector<std::string>;
-} // namespace ui
+} // namespace console

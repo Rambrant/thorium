@@ -59,16 +59,15 @@ namespace
     }
 
     //
-    // The POST /api/run body, in the shape ui::RunRequest already defines
-    // (framework/ui/src/protocol/command.hpp) -- the browser sends exactly
-    // what the wxWidgets form used to build in memory, as JSON instead of as
-    // C++ objects. Nothing here re-decides what a setting means; it decodes
-    // the same three arrays buildRunCommand already knows how to turn into
-    // argv.
+    // The POST /api/run body, in the shape console::RunRequest already
+    // defines (protocol/command.hpp) -- the browser sends exactly what the
+    // old wxWidgets form used to build in memory, as JSON instead of as C++
+    // objects. Nothing here re-decides what a setting means; it decodes the
+    // same three arrays buildRunCommand already knows how to turn into argv.
     //
-    auto buildRunRequest( const ui::Json & body) -> ui::RunRequest
+    auto buildRunRequest( const console::Json & body) -> console::RunRequest
     {
-        ui::RunRequest  request;
+        console::RunRequest  request;
 
         if ( const auto * selection = body.at( "selection"))
         {
@@ -82,7 +81,7 @@ namespace
         {
             for ( const auto & item : settings->items())
             {
-                ui::OptionSetting  setting;
+                console::OptionSetting  setting;
                 setting.Flag = item->textAt( "flag");
                 setting.Value = item->textAt( "value");
                 setting.Present = item->boolAt( "present", true);
@@ -121,13 +120,13 @@ auto main( int argc, char ** argv) -> int
         return 1;
     }
 
-    ui::Suite  suite;
+    console::Suite  suite;
     suite.Binary = config->RunScripts;
 
     console::RunSession  session;
     httplib::Server      server;
 
-    // The loopback-only access seam framework/ui/README.md Sec.5 calls for
+    // The loopback-only access seam README.md's "History" section calls for
     // before any routable bind address: reject anything whose Host header
     // does not name this exact loopback address and port. Not a defence
     // against a determined local user -- nothing on a shared machine is --
@@ -157,37 +156,37 @@ auto main( int argc, char ** argv) -> int
 
     server.Get( "/api/options", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
-        const auto  result = console::runBlocking( ui::buildDescribeCommand( suite));
+        const auto  result = console::runBlocking( console::buildDescribeCommand( suite));
         res.status = result.Started ? 200 : 500;
         res.set_content( result.Output, "application/json");
     });
 
     server.Get( "/api/tests", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
-        const auto  result = console::runBlocking( ui::buildListTestsCommand( suite));
+        const auto  result = console::runBlocking( console::buildListTestsCommand( suite));
         res.status = result.Started ? 200 : 500;
         res.set_content( result.Output, "text/plain");
     });
 
     // Never gated on session.active(): the whole point of this endpoint,
-    // per framework/ui/README.md Sec.4, is that it is never unavailable,
+    // per README.md's "What a run means", is that it is never unavailable,
     // including while a run is in progress and including after one has died.
     // framework/launcher's tray icon calls this exact path -- see
     // framework/launcher/src/rig_client.hpp -- so its spelling ("/safe", not
     // "/api/safe") is fixed by what has already shipped there.
     server.Post( "/safe", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
-        const auto  result = console::runBlocking( ui::buildSafeCommand( suite));
+        const auto  result = console::runBlocking( console::buildSafeCommand( suite));
         res.status = result.Started ? 200 : 500;
         res.set_content( result.Started ? R"({"ok":true})" : R"({"ok":false})", "application/json");
     });
 
     server.Post( "/api/run", [ &suite, &session]( const httplib::Request & req, httplib::Response & res)
     {
-        const auto      body = ui::Json::parse( req.body);
-        ui::RunRequest  request = body ? buildRunRequest( *body) : ui::RunRequest{};
+        const auto      body = console::Json::parse( req.body);
+        console::RunRequest  request = body ? buildRunRequest( *body) : console::RunRequest{};
 
-        if ( !session.start( ui::buildRunCommand( suite, request)))
+        if ( !session.start( console::buildRunCommand( suite, request)))
         {
             res.status = 409;
             res.set_content( R"({"error":"a run is already active"})", "application/json");

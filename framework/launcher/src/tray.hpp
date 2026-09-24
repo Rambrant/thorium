@@ -22,10 +22,10 @@ namespace launcher
             struct Handlers
             {
                 //
-                // Braced rather than bare, matching ui::ChildProcess::Handlers
-                // (framework/ui/src/app/process.hpp) and for the same reason:
-                // every call site uses designated initialisers and names only
-                // the handlers it cares about.
+                // Braced rather than bare, the same pattern
+                // framework/console/src/child_stream.hpp's Handlers uses and
+                // for the same reason: every call site uses designated
+                // initialisers and names only the handlers it cares about.
                 //
                 std::function<void()>  OnShowConsole{};
                 std::function<void()>  OnSafeTheRig{};
