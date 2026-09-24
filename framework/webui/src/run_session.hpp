@@ -58,6 +58,14 @@ namespace webui
             [[nodiscard]]
             auto waitForUpdate( std::size_t from) -> Update;
 
+            //
+            // Every line the current (or last) run has produced so far -- a
+            // snapshot, never blocking. For a caller that wants to look
+            // something up in the stream rather than follow it.
+            //
+            [[nodiscard]]
+            auto lines() const -> std::vector<std::string>;
+
         private:
             mutable std::mutex          mMutex;
             std::condition_variable     mCv;

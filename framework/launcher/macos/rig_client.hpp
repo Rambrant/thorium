@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 namespace launcher
 {
     //
@@ -19,4 +21,19 @@ namespace launcher
     //
     [[nodiscard]]
     auto postSafeTheRig( unsigned short port) -> bool;
+
+    //
+    // GET /api/status: how many console pages are open, and whether a run is
+    // in flight. main.cpp polls it to quit the console once its last window
+    // has closed -- but never during a run. Nothing when the server does not
+    // answer, which the caller treats as "don't know" rather than as "idle".
+    //
+    struct ConsoleStatus
+    {
+        int   Viewers{ 0 };
+        bool  Running{ false };
+    };
+
+    [[nodiscard]]
+    auto getConsoleStatus( unsigned short port) -> std::optional<ConsoleStatus>;
 }

@@ -1,11 +1,19 @@
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <optional>
+#include <sstream>
 #include <string>
+#include <string_view>
+#include <thread>
 
 #include <httplib.h>
 
 #include "protocol/command.hpp"
+#include "protocol/events.hpp"
 #include "protocol/json.hpp"
 #include "protocol/suite.hpp"
 
@@ -126,6 +134,9 @@ auto main( int argc, char ** argv) -> int
     webui::RunSession  session;
     httplib::Server      server;
 
+    // How many console pages are open right now -- see /api/presence.
+    std::atomic<int>     viewers{ 0 };
+
     // The loopback-only access seam README.md's "History" section calls for
     // before any routable bind address: reject anything whose Host header
     // does not name this exact loopback address and port. Not a defence
@@ -168,6 +179,28 @@ auto main( int argc, char ** argv) -> int
         res.set_content( result.Output, "text/plain");
     });
 
+    // The manifest.json cmake/GenerateManifest.cmake writes beside an
+    // installed run_scripts, passed through verbatim like the two queries
+    // above. The page wants it for one thing only -- the criteria variants,
+    // their default and the master they inherit from -- because no query the
+    // binary answers carries those; the catalog still comes from /api/tests,
+    // which cannot be stale. 404 for a build-tree run_scripts, which has no
+    // manifest, and the page falls back to a free-text --criteria field.
+    server.Get( "/api/manifest", [ &suite]( const httplib::Request &, httplib::Response & res)
+    {
+        std::ifstream  file( suite.Binary.parent_path() / "manifest.json");
+        if ( !file)
+        {
+            res.status = 404;
+            res.set_content( R"({"error":"no manifest.json beside run_scripts"})", "application/json");
+            return;
+        }
+
+        std::ostringstream  text;
+        text << file.rdbuf();
+        res.set_content( text.str(), "application/json");
+    });
+
     // Never gated on session.active(): the whole point of this endpoint,
     // per README.md's "What a run means", is that it is never unavailable,
     // including while a run is in progress and including after one has died.
@@ -194,6 +227,49 @@ auto main( int argc, char ** argv) -> int
         }
 
         res.set_content( R"({"ok":true})", "application/json");
+    });
+
+    // One of the last run's two report logs, as a download. Which file is
+    // looked up in the run's own runStart line -- run_scripts names the paths
+    // (see core::EventSink::LogFiles) -- so the browser picks "rtf" or
+    // "sarif" and never a path: nothing a request says can make this serve a
+    // file the run did not write. 409 while the run is still going, because
+    // the SARIF document only exists once runEnd has been written (see
+    // core::SarifSink) and half an RTF is not the record either.
+    server.Get( R"(/api/log/(rtf|sarif))", [ &session]( const httplib::Request & req, httplib::Response & res)
+    {
+        if ( session.active())
+        {
+            res.status = 409;
+            res.set_content( R"({"error":"the run is still in progress"})", "application/json");
+            return;
+        }
+
+        const bool   rtf = req.matches[ 1] == "rtf";
+        std::string  path;
+        for ( const auto & line : session.lines())
+        {
+            const auto  event = webui::parseEvent( line);
+            if ( event && event->Which == webui::RunEvent::Kind::RunStart)
+            {
+                path = rtf ? event->RtfLog : event->SarifLog;
+                break;
+            }
+        }
+
+        std::ifstream  file( path, std::ios::binary);
+        if ( path.empty() || !file)
+        {
+            res.status = 404;
+            res.set_content( R"({"error":"the last run wrote no such log"})", "application/json");
+            return;
+        }
+
+        std::ostringstream  text;
+        text << file.rdbuf();
+        res.set_header( "Content-Disposition",
+            "attachment; filename=\"" + std::filesystem::path( path).filename().string() + "\"");
+        res.set_content( text.str(), rtf ? "application/rtf" : "application/sarif+json");
     });
 
     server.Get( "/api/events", [ &session]( const httplib::Request &, httplib::Response & res)
@@ -231,6 +307,39 @@ auto main( int argc, char ** argv) -> int
                 }
                 return true;
             });
+    });
+
+    // One long-lived connection per open console page, held for as long as
+    // the page is. Counting them is how framework/launcher learns that the
+    // operator closed the window: on macOS, Chrome does not exit when its last
+    // window closes, so the launcher cannot watch the browser process -- but
+    // the socket a closed page held does close. A ping a second is what makes
+    // that visible here promptly: a write to a closed socket fails, and the
+    // releaser runs. The page's EventSource reconnects by itself after a
+    // reload, which is why the launcher gives the count a grace period rather
+    // than acting on the first zero.
+    server.Get( "/api/presence", [ &viewers]( const httplib::Request &, httplib::Response & res)
+    {
+        ++viewers;
+        res.set_header( "Cache-Control", "no-cache");
+        res.set_chunked_content_provider( "text/event-stream",
+            []( std::size_t, httplib::DataSink & sink) -> bool
+            {
+                std::this_thread::sleep_for( std::chrono::seconds( 1));
+                constexpr std::string_view  kPing = ": present\n\n";
+                return sink.write( kPing.data(), kPing.size());
+            },
+            [ &viewers]( bool) { --viewers; });
+    });
+
+    // What the launcher polls to decide whether closing the window may end
+    // the console: only with no page open and no run in flight -- a run
+    // must never die because a window closed (see framework/launcher/README.md).
+    server.Get( "/api/status", [ &viewers, &session]( const httplib::Request &, httplib::Response & res)
+    {
+        res.set_content( "{\"viewers\":" + std::to_string( viewers.load()) +
+                         ",\"running\":" + ( session.active() ? "true" : "false") + "}",
+                         "application/json");
     });
 
     std::printf( "thorium_webui listening on 127.0.0.1:%d (run_scripts: %s)\n",

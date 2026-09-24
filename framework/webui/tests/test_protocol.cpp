@@ -539,3 +539,48 @@ TEST( Manifest, ASingleInstallIsNamedForItsPrefixRatherThanItsBindir)
     ASSERT_TRUE( suite.has_value());
     EXPECT_EQ( suite->label(), "thorium");
 }
+
+// ---------------------------------------------------------------------------
+// Where the logs went
+// ---------------------------------------------------------------------------
+
+TEST( LogFiles, ALoggedRunNamesBothLogsAndTheyExist)
+{
+    //
+    // What the console's "Save log" rests on: run_scripts derives the file
+    // names from --log-dir and the start time, and this is the only place a
+    // watcher learns them. A replay of a skeleton rather than a real run,
+    // because a skeleton run writes no logs and a test machine has no rig.
+    //
+    const auto dir    = std::filesystem::temp_directory_path() / "thorium-ui-logs-test";
+    const auto replay = ( dir / "readings.tsv").string();
+
+    std::filesystem::remove_all( dir);
+    std::filesystem::create_directories( dir);
+
+    capture( kBinary + " --quiet --no-logs --skeleton=" + replay);
+
+    webui::EventStream reader;
+    const auto events = reader.consume( capture( kBinary + " --quiet --events=- --replay=" + replay +
+                                                  " --log-dir=" + ( dir / "logs").string()));
+
+    ASSERT_FALSE( events.empty());
+    ASSERT_EQ( events.front().Which, webui::RunEvent::Kind::RunStart);
+
+    const auto & start = events.front();
+
+    EXPECT_TRUE( std::filesystem::path( start.SarifLog).is_absolute());
+    EXPECT_TRUE( std::filesystem::path( start.RtfLog).is_absolute());
+    EXPECT_TRUE( std::filesystem::exists( start.SarifLog)) << start.SarifLog;
+    EXPECT_TRUE( std::filesystem::exists( start.RtfLog))   << start.RtfLog;
+
+    std::filesystem::remove_all( dir);
+}
+
+TEST_F( EventStream, AnUnloggedRunNamesNoLogs)
+{
+    ASSERT_FALSE( Events.empty());
+
+    EXPECT_TRUE( Events.front().SarifLog.empty());
+    EXPECT_TRUE( Events.front().RtfLog.empty());
+}

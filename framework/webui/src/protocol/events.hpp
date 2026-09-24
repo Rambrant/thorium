@@ -104,6 +104,15 @@ namespace webui
         };
 
         RunHeader  Header;
+
+        //
+        // Kind::RunStart only: where this run's two report logs are being
+        // written, absolute, as run_scripts itself resolved them -- or empty
+        // for a run that writes none (--no-logs, --skeleton). Beside the
+        // header rather than in it, as core::EventSink::LogFiles explains.
+        //
+        std::string  SarifLog;
+        std::string  RtfLog;
     };
 
     //

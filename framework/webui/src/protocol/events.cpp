@@ -147,6 +147,12 @@ namespace webui
             {
                 event.Header = readHeader( *info);
             }
+
+            if( const auto * logs = document->at( "logs"))
+            {
+                event.SarifLog = logs->textAt( "sarif");
+                event.RtfLog   = logs->textAt( "rtf");
+            }
         }
 
         return event;

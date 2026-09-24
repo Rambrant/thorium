@@ -1,0 +1,48 @@
+{\rtf1\ansi\ansicpg1252\deff0
+{\fonttbl{\f0\fmodern\fprq1\fcharset0 Courier New;}}
+{\colortbl ;\red0\green0\blue0;\red0\green128\blue0;\red192\green0\blue0;\red0\green51\blue153;\red112\green112\blue112;\red176\green112\blue0;}
+{\f0\fs22\b\cf4 DeviceX -- Thu 24 Sep 2026 16:06:05 CEST}\par
+{\f0\fs20\cf5 DUT serial        }\par
+{\f0\fs20\cf5 Operator          thomas}\par
+{\f0\fs20\cf5 Criteria          production}\par
+{\f0\fs20\cf5 Criteria master   production}\par
+{\f0\fs20\cf5 Bench             attached}\par
+{\f0\fs20\cf5 Framework         Thorium 0.1.0}\par
+{\f0\fs20\cf5 Suite/DUT/rig     7ee05a2}\par
+{\f0\fs20\cf5 Started (UTC)     2026-09-24T14:06:05.688Z}\par
+{\f0\fs20\cf5 Command line      /Users/thomas/Developer/thorium/build/install/bin/run_scripts --quiet --no-color --events=- --select=StatusRegister}\par
+{\f0\fs20\cf5 Instruments       Dmm1  keysight_edu34450a::EDU34450A                          Simulated            table  simulated -- no instrument at this address}\par
+{\f0\fs20\cf5                   Osc1  keysight_dsox1202g::DSOX1202G                          Simulated            table  simulated -- no instrument at this address}\par
+{\f0\fs20\cf5                   DcP5  keysight_edu36311a::EDU36311A<Output1, DirectWiring>   Simulated            table  simulated -- no instrument at this address}\par
+{\f0\fs20\cf5                   DcP6  keysight_edu36311a::EDU36311A<Output2, RelayIsolated>  Simulated            table  simulated -- no instrument at this address}\par
+{\f0\fs20\cf5                   DcP7  keysight_edu36311a::EDU36311A<Output3, RelayIsolated>  Simulated            table  simulated -- no instrument at this address}\par
+{\f0\fs20\cf5                   AcP1  keysight_ac6834b::Ac6834B                              Gpib 0::5            table  no session -- answers from its own hooks}\par
+{\f0\fs20\cf5                   Wfg1  keysight_33522b::Wfg33522B                             Simulated            table  simulated -- no instrument at this address}\par
+{\f0\fs20\cf5                   Ser1  racal1260::Racal1260                                   Serial /dev/ttyUSB0  table  no session -- answers from its own hooks}\par
+{\f0\fs20\cf5 --------------------------------------------------------------------------}\par
+\par
+{\f0\fs22\b\cf4 setup }{\f0\fs20\cf5 Bring the AC input and the three DC supplies up, checking each rail as it comes}\par
+{\f0\fs20\cf1 \tab measure AcP1.A.Voltage              115 V       (AcP1)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              115 V       = 115 V +/-2 V          [PASS]  }{\f0\fs20\cf5 Primary AC input at nominal, phase A}\par
+{\f0\fs20\cf1 \tab measure AcP1.B.Voltage              115 V       (AcP1)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              115 V       = 115 V +/-2 V          [PASS]  }{\f0\fs20\cf5 Primary AC input at nominal, phase B}\par
+{\f0\fs20\cf1 \tab measure AcP1.C.Voltage              115 V       (AcP1)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              115 V       = 115 V +/-2 V          [PASS]  }{\f0\fs20\cf5 Primary AC input at nominal, phase C}\par
+{\f0\fs20\cf1 \tab measure DcP6.Voltage                28 V        (DcP6)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              28 V        = 28 V +/-100 mV        [PASS]  }{\f0\fs20\cf5 Backup supply at nominal}\par
+{\f0\fs20\cf1 \tab measure DcP7.Voltage                24 V        (DcP7)  }{\f0\fs20\cf5 instrument readback}\par
+{\f0\fs20\b\cf2 \tab verify                              24 V        = 24 V +/-100 mV        [PASS]  }{\f0\fs20\cf5 Battery supply at nominal}\par
+\par
+{\f0\fs22\b\cf4 Console }{\f0\fs20\cf5 Tests validating the DUT's RS232 debug console}\par
+{\f0\fs22\b\cf4 \tab StatusRegister }{\f0\fs20\cf5 Verify the console acknowledges and reports a healthy status}\par
+{\f0\fs20\cf1 \tab read    Ser1.Data                   ""          (Ser1)  }{\f0\fs20\cf5 received}\par
+{\f0\fs20\b\cf3 \tab verify  FS_Console_1::FS_Console_Ack ""          = "ACK"                 [FAIL]  }{\f0\fs20\cf5 Console must acknowledge the status command}\par
+{\f0\fs20\b\cf3 \tab verify  FS_Console_1::FS_Console_Ready <unchecked> bit 3 set               [FAIL]  }{\f0\fs20\cf5 console reply is 0 bytes, too short to hold a status byte}\par
+{\f0\fs20\b\cf3 \tab verify  FS_Console_1::FS_Console_Fault <unchecked> bit 7 clear             [FAIL]  }{\f0\fs20\cf5 console reply is 0 bytes, too short to hold a status byte}\par
+{\f0\fs20\b\cf3 \tab RESULT  StatusRegister                                                  [FAIL]}\par
+\par
+{\f0\fs22\b\cf4 teardown }{\f0\fs20\cf5 Take the supplies back down in the inverse order and open the fabric}\par
+\par
+{\f0\fs20\cf5 --------------------------------------------------------------------------}\par
+{\f0\fs20\b\cf3 SOME SCRIPTS FAILED}\par
+}

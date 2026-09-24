@@ -5,6 +5,7 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "core/journal/json.hpp"
@@ -184,8 +185,9 @@ namespace core
         };
     } // namespace
 
-    EventSink::EventSink( std::ostream & out) :
-        mOut( &out)
+    EventSink::EventSink( std::ostream & out, LogFiles logs) :
+        mOut( &out),
+        mLogs( std::move( logs))
     {}
 
     auto EventSink::onRunStart( const RunInfo & info) -> void
@@ -218,6 +220,18 @@ namespace core
             .nested( "benchAttached",    info.BenchAttached)
             .nestedArray( "instruments", info.Instruments)
             .closeObject();
+
+        //
+        // Beside "info" rather than in it -- see LogFiles on why the paths
+        // are not part of the header.
+        //
+        if( !mLogs.Sarif.empty() || !mLogs.Rtf.empty())
+        {
+            line.openObject( "logs")
+                .nested( "sarif", mLogs.Sarif)
+                .nested( "rtf",   mLogs.Rtf)
+                .closeObject();
+        }
 
         line.writeTo( *mOut);
     }

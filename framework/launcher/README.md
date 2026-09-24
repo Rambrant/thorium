@@ -12,7 +12,7 @@ There are two of it: `src/` is the Windows launcher and `macos/` the macOS
 one. They take the same flags and offer the same three menu actions, and
 share no code -- see "Why one launcher per platform" below.
 
-It does four things, in order, every time it starts:
+It does four things, in order, every time it starts, and a fifth while it runs:
 
 1. **Refuses to be a second instance.** On Windows, a named mutex
    (`src/single_instance.hpp`), scoped `Local\` rather than `Global` -- one
@@ -62,6 +62,20 @@ It does four things, in order, every time it starts:
    `run_scripts --safe` could not even start). The Windows launcher discards
    the result -- worth bringing across, since a safe that silently did not
    happen is the worst way this action can fail.
+
+5. **Quits when the console is closed** -- macOS only so far
+   (`watchForClosedConsole` in `macos/main.cpp`). Closing the last console
+   window ends everything, the same as *Quit*, about three seconds later --
+   but never while a run is in flight: a window closed during a run leaves
+   the run, the server and *Safe the rig* going, and the console quits once
+   the run ends (unless *Show console* has brought a window back by then).
+   It cannot watch Chrome for this, because Chrome on macOS keeps running
+   when its last window closes. It asks the server instead: every open
+   console page holds `/api/presence` open, and `/api/status` reports how
+   many do and whether a run is active (see `framework/webui/README.md`).
+   The three seconds are what let a page reload -- which drops and reopens
+   that connection -- pass without being taken for a close. The Windows
+   launcher still stays in the tray until *Quit*.
 
 ## What this is not yet
 

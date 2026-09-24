@@ -1203,6 +1203,8 @@ namespace
         //
         const auto writingSkeleton = options.SkeletonPath.has_value();
 
+        core::EventSink::LogFiles  logFiles;   // for the event stream, below
+
         if ( !options.Quiet && !writingSkeleton)
         {
             logs.Console.emplace( std::cout, options.Colour);
@@ -1227,6 +1229,14 @@ namespace
 
                 core::journal().add( *logs.Sarif);
                 core::journal().add( *logs.Rtf);
+
+                //
+                // Absolute, because the watcher reading these is a different
+                // process with its own working directory, and a --log-dir of
+                // "logs" means this one's.
+                //
+                logFiles.Sarif = std::filesystem::absolute( sarifPath).string();
+                logFiles.Rtf   = std::filesystem::absolute( rtfPath).string();
             }
             catch ( const std::exception & e)
             {
@@ -1263,7 +1273,7 @@ namespace
             //
             if ( *options.EventsPath == "-")
             {
-                logs.Events.emplace( std::cout);
+                logs.Events.emplace( std::cout, logFiles);
             }
             else
             {
@@ -1280,7 +1290,7 @@ namespace
                         throw std::runtime_error( "could not open " + path.string());
                     }
 
-                    logs.Events.emplace( *logs.EventsFile);
+                    logs.Events.emplace( *logs.EventsFile, logFiles);
                 }
                 catch ( const std::exception & e)
                 {

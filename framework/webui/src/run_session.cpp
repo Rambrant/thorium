@@ -127,4 +127,10 @@ namespace webui
         result.StillRunning = mActive;
         return result;
     }
+
+    auto RunSession::lines() const -> std::vector<std::string>
+    {
+        std::lock_guard  lock( mMutex);
+        return mLines;
+    }
 }

@@ -1,0 +1,1003 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "Thorium",
+          "version": "0.1.0",
+          "semanticVersion": "0.1.0",
+          "informationUri": "https://github.com/thomasrambrant/thorium",
+          "rules": [
+            {
+              "id": "Thorium/Phase",
+              "shortDescription": { "text": "The run entered a catalog Phase of this name" }
+            },
+            {
+              "id": "Thorium/Connect",
+              "shortDescription": { "text": "Thorium Connect step" }
+            },
+            {
+              "id": "Thorium/Apply",
+              "shortDescription": { "text": "Thorium Apply step" }
+            },
+            {
+              "id": "Thorium/Measure",
+              "shortDescription": { "text": "Thorium Measure step" }
+            },
+            {
+              "id": "Thorium/Verify",
+              "shortDescription": { "text": "An inline check in a test script, with no criteria-table entry of its own" }
+            },
+            {
+              "id": "Thorium/Group",
+              "shortDescription": { "text": "The run entered a catalog Group of this name" }
+            },
+            {
+              "id": "Thorium/Test",
+              "shortDescription": { "text": "The run entered a catalog Test of this name" }
+            },
+            {
+              "id": "Thorium/Setup",
+              "shortDescription": { "text": "Thorium Setup step" }
+            },
+            {
+              "id": "Thorium/Write",
+              "shortDescription": { "text": "Thorium Write step" }
+            },
+            {
+              "id": "Thorium/Read",
+              "shortDescription": { "text": "Thorium Read step" }
+            },
+            {
+              "id": "FS_Console_1/FS_Console_Ack",
+              "shortDescription": { "text": "Console must acknowledge the status command" }
+            },
+            {
+              "id": "FS_Console_1/FS_Console_Ready",
+              "shortDescription": { "text": "console reply is 0 bytes, too short to hold a status byte" }
+            },
+            {
+              "id": "FS_Console_1/FS_Console_Fault",
+              "shortDescription": { "text": "console reply is 0 bytes, too short to hold a status byte" }
+            },
+            {
+              "id": "Thorium/Disconnect",
+              "shortDescription": { "text": "Thorium Disconnect step" }
+            },
+            {
+              "id": "Thorium/Remove",
+              "shortDescription": { "text": "Thorium Remove step" }
+            },
+            {
+              "id": "Thorium/Safe",
+              "shortDescription": { "text": "Thorium Safe step" }
+            }
+          ]
+        }
+      },
+      "invocations": [
+        {
+          "executionSuccessful": true,
+          "startTimeUtc": "2026-09-24T14:06:05.688Z",
+          "endTimeUtc": "2026-09-24T14:06:05.691Z",
+          "commandLine": "/Users/thomas/Developer/thorium/build/install/bin/run_scripts --quiet --no-color --events=- --select=StatusRegister",
+          "account": "thomas"
+        }
+      ],
+      "automationDetails": {
+        "id": "thorium/DeviceX/production/2026-09-24T14:06:05.688Z",
+        "description": { "text": "Thorium 0.1.0 run against DeviceX (criteria variant: production)" }
+      },
+      "properties": {
+        "frameworkName": "Thorium",
+        "frameworkVersion": "0.1.0",
+        "criteriaVariant": "production",
+        "criteriaMaster": "production",
+        "dutName": "DeviceX",
+        "rigName": "thorium-rig-1",
+        "operator": "thomas",
+        "commandLine": "/Users/thomas/Developer/thorium/build/install/bin/run_scripts --quiet --no-color --events=- --select=StatusRegister",
+        "benchAttached": true,
+        "instruments": ["Dmm1  keysight_edu34450a::EDU34450A                          Simulated            table  simulated -- no instrument at this address", "Osc1  keysight_dsox1202g::DSOX1202G                          Simulated            table  simulated -- no instrument at this address", "DcP5  keysight_edu36311a::EDU36311A<Output1, DirectWiring>   Simulated            table  simulated -- no instrument at this address", "DcP6  keysight_edu36311a::EDU36311A<Output2, RelayIsolated>  Simulated            table  simulated -- no instrument at this address", "DcP7  keysight_edu36311a::EDU36311A<Output3, RelayIsolated>  Simulated            table  simulated -- no instrument at this address", "AcP1  keysight_ac6834b::Ac6834B                              Gpib 0::5            table  no session -- answers from its own hooks", "Wfg1  keysight_33522b::Wfg33522B                             Simulated            table  simulated -- no instrument at this address", "Ser1  racal1260::Racal1260                                   Serial /dev/ttyUSB0  table  no session -- answers from its own hooks"],
+        "suiteVersion": "7ee05a2",
+        "dutVersion": "7ee05a2",
+        "rigVersion": "7ee05a2",
+        "startedUtc": "2026-09-24T14:06:05.688Z",
+        "startedLocal": "Thu 24 Sep 2026 16:06:05 CEST",
+        "endedUtc": "2026-09-24T14:06:05.691Z",
+        "allPassed": false
+      },
+      "results": [
+        {
+          "ruleId": "Thorium/Phase",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Phase setup -- Bring the AC input and the three DC supplies up, checking each rail as it comes" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "setup",
+                  "fullyQualifiedName": "setup",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "boundary": "Phase",
+            "phase": "setup",
+            "title": "Bring the AC input and the three DC supplies up, checking each rail as it comes",
+            "timeUtc": "2026-09-24T14:06:05.690Z"
+          }
+        },
+        {
+          "ruleId": "Thorium/Connect",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Connect AcP1" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "AcP1",
+                  "fullyQualifiedName": "AcP1",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Connect",
+            "phase": "setup",
+            "instrument": "AcP1",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "sequence": 0
+          }
+        },
+        {
+          "ruleId": "Thorium/Apply",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Apply AcP1 = 3-phase, phaseVoltage=115 V, frequency=400 Hz, currentLimit=2 A" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "AcP1",
+                  "fullyQualifiedName": "AcP1",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Apply",
+            "phase": "setup",
+            "instrument": "AcP1",
+            "value": "3-phase, phaseVoltage=115 V, frequency=400 Hz, currentLimit=2 A",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "sequence": 1
+          }
+        },
+        {
+          "ruleId": "Thorium/Measure",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Measure AcP1.A.Voltage = 115 V via AcP1 -- instrument readback" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "AcP1.A.Voltage",
+                  "fullyQualifiedName": "AcP1.A.Voltage",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Measure",
+            "phase": "setup",
+            "instrument": "AcP1",
+            "value": "115 V",
+            "unit": "V",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 115,
+            "sequence": 2
+          }
+        },
+        {
+          "ruleId": "Thorium/Verify",
+          "level": "none",
+          "kind": "pass",
+          "message": { "text": "Verify Primary AC input at nominal, phase A = 115 V [PASS]" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Primary AC input at nominal, phase A",
+                  "fullyQualifiedName": "Primary AC input at nominal, phase A",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Verify",
+            "phase": "setup",
+            "value": "115 V",
+            "unit": "V",
+            "criterion": "= 115 V +/-2 V",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 115,
+            "sequence": 3
+          }
+        },
+        {
+          "ruleId": "Thorium/Measure",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Measure AcP1.B.Voltage = 115 V via AcP1 -- instrument readback" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "AcP1.B.Voltage",
+                  "fullyQualifiedName": "AcP1.B.Voltage",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Measure",
+            "phase": "setup",
+            "instrument": "AcP1",
+            "value": "115 V",
+            "unit": "V",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 115,
+            "sequence": 4
+          }
+        },
+        {
+          "ruleId": "Thorium/Verify",
+          "level": "none",
+          "kind": "pass",
+          "message": { "text": "Verify Primary AC input at nominal, phase B = 115 V [PASS]" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Primary AC input at nominal, phase B",
+                  "fullyQualifiedName": "Primary AC input at nominal, phase B",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Verify",
+            "phase": "setup",
+            "value": "115 V",
+            "unit": "V",
+            "criterion": "= 115 V +/-2 V",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 115,
+            "sequence": 5
+          }
+        },
+        {
+          "ruleId": "Thorium/Measure",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Measure AcP1.C.Voltage = 115 V via AcP1 -- instrument readback" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "AcP1.C.Voltage",
+                  "fullyQualifiedName": "AcP1.C.Voltage",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Measure",
+            "phase": "setup",
+            "instrument": "AcP1",
+            "value": "115 V",
+            "unit": "V",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 115,
+            "sequence": 6
+          }
+        },
+        {
+          "ruleId": "Thorium/Verify",
+          "level": "none",
+          "kind": "pass",
+          "message": { "text": "Verify Primary AC input at nominal, phase C = 115 V [PASS]" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Primary AC input at nominal, phase C",
+                  "fullyQualifiedName": "Primary AC input at nominal, phase C",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Verify",
+            "phase": "setup",
+            "value": "115 V",
+            "unit": "V",
+            "criterion": "= 115 V +/-2 V",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 115,
+            "sequence": 7
+          }
+        },
+        {
+          "ruleId": "Thorium/Connect",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Connect DcP6" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP6",
+                  "fullyQualifiedName": "DcP6",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Connect",
+            "phase": "setup",
+            "instrument": "DcP6",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "sequence": 8
+          }
+        },
+        {
+          "ruleId": "Thorium/Apply",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Apply DcP6 = voltage=28 V, currentLimit=1 A, output 2 (30 V / 1 A)" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP6",
+                  "fullyQualifiedName": "DcP6",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Apply",
+            "phase": "setup",
+            "instrument": "DcP6",
+            "value": "voltage=28 V, currentLimit=1 A, output 2 (30 V / 1 A)",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "sequence": 9
+          }
+        },
+        {
+          "ruleId": "Thorium/Measure",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Measure DcP6.Voltage = 28 V via DcP6 -- instrument readback" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP6.Voltage",
+                  "fullyQualifiedName": "DcP6.Voltage",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Measure",
+            "phase": "setup",
+            "instrument": "DcP6",
+            "value": "28 V",
+            "unit": "V",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 28,
+            "sequence": 10
+          }
+        },
+        {
+          "ruleId": "Thorium/Verify",
+          "level": "none",
+          "kind": "pass",
+          "message": { "text": "Verify Backup supply at nominal = 28 V [PASS]" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Backup supply at nominal",
+                  "fullyQualifiedName": "Backup supply at nominal",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Verify",
+            "phase": "setup",
+            "value": "28 V",
+            "unit": "V",
+            "criterion": "= 28 V +/-100 mV",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 28,
+            "sequence": 11
+          }
+        },
+        {
+          "ruleId": "Thorium/Connect",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Connect DcP7" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP7",
+                  "fullyQualifiedName": "DcP7",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Connect",
+            "phase": "setup",
+            "instrument": "DcP7",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "sequence": 12
+          }
+        },
+        {
+          "ruleId": "Thorium/Apply",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Apply DcP7 = voltage=24 V, currentLimit=1 A, output 3 (30 V / 1 A)" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP7",
+                  "fullyQualifiedName": "DcP7",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Apply",
+            "phase": "setup",
+            "instrument": "DcP7",
+            "value": "voltage=24 V, currentLimit=1 A, output 3 (30 V / 1 A)",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "sequence": 13
+          }
+        },
+        {
+          "ruleId": "Thorium/Measure",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Measure DcP7.Voltage = 24 V via DcP7 -- instrument readback" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP7.Voltage",
+                  "fullyQualifiedName": "DcP7.Voltage",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Measure",
+            "phase": "setup",
+            "instrument": "DcP7",
+            "value": "24 V",
+            "unit": "V",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 24,
+            "sequence": 14
+          }
+        },
+        {
+          "ruleId": "Thorium/Verify",
+          "level": "none",
+          "kind": "pass",
+          "message": { "text": "Verify Battery supply at nominal = 24 V [PASS]" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Battery supply at nominal",
+                  "fullyQualifiedName": "Battery supply at nominal",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Verify",
+            "phase": "setup",
+            "value": "24 V",
+            "unit": "V",
+            "criterion": "= 24 V +/-100 mV",
+            "timeUtc": "2026-09-24T14:06:05.690Z",
+            "numericValue": 24,
+            "sequence": 15
+          }
+        },
+        {
+          "ruleId": "Thorium/Group",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Group Console -- Tests validating the DUT's RS232 debug console" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Console",
+                  "fullyQualifiedName": "Console",
+                  "kind": "namespace"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "boundary": "Group",
+            "group": "Console",
+            "title": "Tests validating the DUT's RS232 debug console",
+            "timeUtc": "2026-09-24T14:06:05.691Z"
+          }
+        },
+        {
+          "ruleId": "Thorium/Test",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Test StatusRegister -- Verify the console acknowledges and reports a healthy status" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "StatusRegister",
+                  "fullyQualifiedName": "Console/StatusRegister",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "boundary": "Test",
+            "group": "Console",
+            "test": "StatusRegister",
+            "title": "Verify the console acknowledges and reports a healthy status",
+            "timeUtc": "2026-09-24T14:06:05.691Z"
+          }
+        },
+        {
+          "ruleId": "Thorium/Connect",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Connect Ser1 = Console -- RS232 debug console" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Ser1",
+                  "fullyQualifiedName": "Console/StatusRegister/Ser1",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Connect",
+            "group": "Console",
+            "test": "StatusRegister",
+            "instrument": "Ser1",
+            "value": "Console",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 16
+          }
+        },
+        {
+          "ruleId": "Thorium/Setup",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Setup Ser1 = baud=9600, wordLength=8, parity=none, stopBits=1" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Ser1",
+                  "fullyQualifiedName": "Console/StatusRegister/Ser1",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Setup",
+            "group": "Console",
+            "test": "StatusRegister",
+            "instrument": "Ser1",
+            "value": "baud=9600, wordLength=8, parity=none, stopBits=1",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 17
+          }
+        },
+        {
+          "ruleId": "Thorium/Write",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Write Ser1 = \"RD 30\\r\" -- sent" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Ser1",
+                  "fullyQualifiedName": "Console/StatusRegister/Ser1",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Write",
+            "group": "Console",
+            "test": "StatusRegister",
+            "instrument": "Ser1",
+            "value": "\"RD 30\\r\"",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 18
+          }
+        },
+        {
+          "ruleId": "Thorium/Read",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Read Ser1.Data = \"\" via Ser1 -- received" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Ser1.Data",
+                  "fullyQualifiedName": "Console/StatusRegister/Ser1.Data",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Read",
+            "group": "Console",
+            "test": "StatusRegister",
+            "instrument": "Ser1",
+            "value": "\"\"",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 19
+          }
+        },
+        {
+          "ruleId": "FS_Console_1/FS_Console_Ack",
+          "level": "error",
+          "kind": "fail",
+          "message": { "text": "Verify FS_Console_Ack = \"\" [FAIL] -- Console must acknowledge the status command" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "FS_Console_Ack",
+                  "fullyQualifiedName": "Console/StatusRegister/FS_Console_Ack",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Verify",
+            "group": "Console",
+            "test": "StatusRegister",
+            "criteriaGroup": "FS_Console_1",
+            "value": "\"\"",
+            "criterion": "= \"ACK\"",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 20
+          }
+        },
+        {
+          "ruleId": "FS_Console_1/FS_Console_Ready",
+          "level": "error",
+          "kind": "fail",
+          "message": { "text": "Verify FS_Console_Ready = <unchecked> [FAIL] -- console reply is 0 bytes, too short to hold a status byte" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "FS_Console_Ready",
+                  "fullyQualifiedName": "Console/StatusRegister/FS_Console_Ready",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Verify",
+            "group": "Console",
+            "test": "StatusRegister",
+            "criteriaGroup": "FS_Console_1",
+            "value": "<unchecked>",
+            "criterion": "bit 3 set",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 21
+          }
+        },
+        {
+          "ruleId": "FS_Console_1/FS_Console_Fault",
+          "level": "error",
+          "kind": "fail",
+          "message": { "text": "Verify FS_Console_Fault = <unchecked> [FAIL] -- console reply is 0 bytes, too short to hold a status byte" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "FS_Console_Fault",
+                  "fullyQualifiedName": "Console/StatusRegister/FS_Console_Fault",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Verify",
+            "group": "Console",
+            "test": "StatusRegister",
+            "criteriaGroup": "FS_Console_1",
+            "value": "<unchecked>",
+            "criterion": "bit 7 clear",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 22
+          }
+        },
+        {
+          "ruleId": "Thorium/Disconnect",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Disconnect Ser1 = Console -- RS232 debug console" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "Ser1",
+                  "fullyQualifiedName": "Console/StatusRegister/Ser1",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Disconnect",
+            "group": "Console",
+            "test": "StatusRegister",
+            "instrument": "Ser1",
+            "value": "Console",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 23
+          }
+        },
+        {
+          "ruleId": "Thorium/Phase",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Phase teardown -- Take the supplies back down in the inverse order and open the fabric" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "teardown",
+                  "fullyQualifiedName": "teardown",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "boundary": "Phase",
+            "phase": "teardown",
+            "title": "Take the supplies back down in the inverse order and open the fabric",
+            "timeUtc": "2026-09-24T14:06:05.691Z"
+          }
+        },
+        {
+          "ruleId": "Thorium/Remove",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Remove DcP6" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP6",
+                  "fullyQualifiedName": "DcP6",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Remove",
+            "phase": "teardown",
+            "instrument": "DcP6",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 24
+          }
+        },
+        {
+          "ruleId": "Thorium/Remove",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Remove DcP7" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP7",
+                  "fullyQualifiedName": "DcP7",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Remove",
+            "phase": "teardown",
+            "instrument": "DcP7",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 25
+          }
+        },
+        {
+          "ruleId": "Thorium/Remove",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Remove AcP1" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "AcP1",
+                  "fullyQualifiedName": "AcP1",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Remove",
+            "phase": "teardown",
+            "instrument": "AcP1",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 26
+          }
+        },
+        {
+          "ruleId": "Thorium/Disconnect",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Disconnect DcP6" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP6",
+                  "fullyQualifiedName": "DcP6",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Disconnect",
+            "phase": "teardown",
+            "instrument": "DcP6",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 27
+          }
+        },
+        {
+          "ruleId": "Thorium/Disconnect",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Disconnect DcP7" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "DcP7",
+                  "fullyQualifiedName": "DcP7",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Disconnect",
+            "phase": "teardown",
+            "instrument": "DcP7",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 28
+          }
+        },
+        {
+          "ruleId": "Thorium/Disconnect",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Disconnect AcP1" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "AcP1",
+                  "fullyQualifiedName": "AcP1",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Disconnect",
+            "phase": "teardown",
+            "instrument": "AcP1",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 29
+          }
+        },
+        {
+          "ruleId": "Thorium/Safe",
+          "level": "none",
+          "kind": "informational",
+          "message": { "text": "Safe rig -- all instrument outputs off and zeroed, all relays opened" },
+          "locations": [
+            {
+              "logicalLocations": [
+                {
+                  "name": "rig",
+                  "fullyQualifiedName": "rig",
+                  "kind": "member"
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "verb": "Safe",
+            "timeUtc": "2026-09-24T14:06:05.691Z",
+            "sequence": 30
+          }
+        }
+      ]
+    }
+  ]
+}

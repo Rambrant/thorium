@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iosfwd>
+#include <string>
 
 #include "core/journal/journal.hpp"
 
@@ -50,8 +51,9 @@ namespace core
     // -------------------------------------------------------------------
     // Every line is an object with a "kind", and the kind decides the rest:
     //
-    //   {"kind":"runStart","info":{...}}        the whole RunInfo, incl.
-    //                                           instruments and benchAttached
+    //   {"kind":"runStart","info":{...},        the whole RunInfo, incl.
+    //    "logs":{"sarif":..,"rtf":..}}          instruments and benchAttached;
+    //                                           "logs" only when there are any
     //   {"kind":"groupStart","group":..,"description":..}
     //   {"kind":"groupEnd","group":..}
     //   {"kind":"testStart","test":..,"description":..}
@@ -79,7 +81,23 @@ namespace core
             // That matters more here than elsewhere: the stream is usually the
             // process's own stdout, which this must not close.
             //
-            explicit EventSink( std::ostream & out);
+            //
+            // Where this run's two report logs are being written, absolute --
+            // or empty, for a --no-logs or --skeleton run. Not part of
+            // RunInfo, and deliberately: RunInfo is the traceability header
+            // the logs themselves carry, and a log recording its own path is
+            // a log that is wrong the moment somebody moves it. A watcher is
+            // the one reader that needs the paths, because it did not choose
+            // them -- run_scripts derives them from --log-dir and the start
+            // time -- and is otherwise left guessing at a file name.
+            //
+            struct LogFiles
+            {
+                std::string  Sarif;
+                std::string  Rtf;
+            };
+
+            explicit EventSink( std::ostream & out, LogFiles logs = {});
 
         private:
             auto onRunStart( const RunInfo & info) -> void override;
@@ -93,5 +111,6 @@ namespace core
             auto onRunEnd( bool allPassed) -> void override;
 
             std::ostream *  mOut;
+            LogFiles        mLogs;
     };
 } // namespace core

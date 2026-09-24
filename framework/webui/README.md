@@ -17,9 +17,13 @@ the tray icon and the browser window; this owns the rig.
 |---|---|
 | `GET /` | the console page (embedded, see `static_content.hpp`) |
 | `GET /api/options` | `run_scripts --describe-options`, passed through verbatim (it is already JSON) |
+| `GET /api/manifest` | the `manifest.json` beside `run_scripts`, passed through verbatim; 404 when there is none (a build-tree binary). The page reads only the criteria variants from it -- the catalog still comes from `/api/tests` |
 | `GET /api/tests` | `run_scripts --list-tests`, passed through verbatim (`group\|id\|description` lines) |
 | `POST /api/run` | body is `{selection, settings, extra}` -- see `ui::RunRequest` -- starts a run; 409 if one is already active |
 | `GET /api/events` | Server-Sent Events: every line of the active run's stdout, from wherever this connection joined, plus any stderr line as `{"kind":"stderr","text":...}` |
+| `GET /api/log/rtf`, `GET /api/log/sarif` | the last run's report log, as a download. The path is taken from that run's own `runStart` line (`"logs":{"sarif":..,"rtf":..}`, see `core::EventSink::LogFiles`), never from the request; 409 while the run is still going, 404 if it wrote none (`--no-logs`, `--skeleton`). The page sends `HEAD` to both on load, so a reloaded window still offers the last run's logs |
+| `GET /api/presence` | held open by every console page for as long as it is open (a comment ping a second, nothing else) -- how many are open is what the next row reports |
+| `GET /api/status` | `{"viewers":N,"running":bool}`. `framework/launcher` polls it to quit the console once its last window has closed, but never during a run -- see its README |
 | `POST /safe` | `run_scripts --safe`. Never gated on whether a run is active -- see "What a run means" below. Path fixed by `framework/launcher/src/rig_client.hpp`, which already calls it. |
 
 `/api/run` and `/api/events` are deliberately two requests, not one: a
@@ -73,11 +77,14 @@ with only `Binary` set, from `--run-scripts=`. `ui::discoverSuites()` is
 already there, reused unchanged, for whenever a deployment has more than one
 installed suite to pick from.
 
-**No catalog or options-dialog UI.** `static_content.hpp` proves the pipe end
-to end -- Run, Safe, and a live log -- not the tree of tests and a generated
-form. `GET /api/tests` and `GET /api/options` already serve what that UI would
-be built from; see "Generating a form from `--describe-options`" below for the
-rules the old console followed, which still apply to whoever builds this one.
+**No options-dialog UI.** `static_content.hpp` has the header -- DUT serial,
+operator and criteria before a run, and the run's own `runStart` header once
+it has started -- and the catalog as a collapsible tree with checkboxes, where
+ticking a group ticks every test in it. It does not yet have the generated
+form for the rest of the flags; `GET /api/options` already serves what that
+would be built from, and see "Generating a form from `--describe-options`"
+below for the rules the old console followed, which still apply to whoever
+builds it.
 
 ### Generating a form from `--describe-options`
 
@@ -125,6 +132,14 @@ thorium_webui --run-scripts=<path to the installed run_scripts> --port=8420
 which is exactly what `framework/launcher` is for, on Windows and macOS
 alike: `--server=<path to thorium_webui> --server-arg=--run-scripts=<path>
 --server-arg=--port=8420`.
+
+`tools/run-webui.sh` does both for a developer: it finds the built
+`thorium_webui`, the installed `run_scripts` (`build/install/bin`, which has
+the `manifest.json` the criteria picker needs) and the launcher, and starts
+them on port 8420 -- `--no-launcher` runs the server alone and opens the page
+in the default browser, `--help` lists the rest. It starts everything from
+`build/`, so runs started from the console write their logs to `build/logs`
+(`run_scripts`' `--log-dir` defaults to `logs`, relative to where it runs).
 
 ### Tests
 
@@ -177,7 +192,7 @@ design exists to remove, or trades it for a Rust toolchain (Tauri). Chrome's
 `--app=` mode gets the same "not a browser tab" look with no embedding at
 all -- see `framework/launcher/README.md`.
 
-Three small additions to the rest of the framework exist because of this
+Four small additions to the rest of the framework exist because of this
 program, and would not otherwise:
 
 | Addition | Where | Would it exist anyway? |
@@ -185,5 +200,7 @@ program, and would not otherwise:
 | `core::EventSink` | `framework/core/include/core/journal/event_sink.hpp` | yes -- `journal.hpp` had already argued for a live stream as the example of what its fan-out design buys |
 | `cli::Query` + `cli::optionsModel` + `--describe-options` | `framework/runner/src/cli.hpp` | no -- this is the price of a UI not restating the flags `main.cpp` already owns |
 | `core::jsonEscape` | `framework/core/include/core/journal/json.hpp` | it is the escaper `SarifSink` already had, moved so a second JSON stream could not grow a second copy |
+| `core::EventSink::LogFiles` (`"logs"` on `runStart`) | `framework/core/include/core/journal/event_sink.hpp`, filled in by `framework/runner/src/main.cpp` | no -- a watcher did not choose the log paths and could otherwise only guess them; kept out of `RunInfo` so the logs do not record their own location |
 
-No verb changed, no script changed, no sink changed to add any of the three.
+No verb changed and no script changed to add any of the four. The one sink
+that changed is `EventSink`, by one optional object on its `runStart` line.

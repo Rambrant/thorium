@@ -1,4 +1,5 @@
 #include <cerrno>
+#include <chrono>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
@@ -20,6 +21,63 @@
 namespace
 {
     constexpr auto  kServerStartTimeoutMs = 10000u;
+
+    // How long no console page may be open, with no run in flight, before
+    // the launcher takes that as the operator having closed the console.
+    // Long enough to ride out a reload -- the page reconnects in well under
+    // a second -- and short enough that "I closed it" means closed.
+    constexpr auto  kClosedGraceSeconds = 3;
+
+    //
+    // Quits the console once its last window has closed -- the launcher's
+    // counterpart of the old wxWidgets console ending when its frame did.
+    //
+    // Watched through the server rather than through Chrome, because on
+    // macOS a Chrome whose last window closes keeps running: there is no
+    // process exit to see. Every open console page holds /api/presence
+    // open, and the server counts them (see framework/webui/src/main.cpp).
+    //
+    // Two things keep this from quitting when it must not:
+    //
+    //   - a run in flight. Closing the window during a run leaves the run
+    //     going, and the menu bar's Safe the rig with it -- a run must never
+    //     die because a window closed. The console quits once the run ends,
+    //     unless a window has been reopened by then.
+    //   - never having seen a page at all. Until the first window connects,
+    //     zero viewers means "not open yet", not "closed" -- a slow Chrome
+    //     start must not be read as the operator giving up.
+    //
+    // Only the decision is made here; quitting is StatusItem::stop on the
+    // main thread, the same path the menu's Quit takes, so the process
+    // group's watchdog tears everything down exactly as it does then.
+    //
+    auto watchForClosedConsole( unsigned short port) -> void
+    {
+        std::thread( [ port]
+        {
+            bool  seenAWindow = false;
+            int   idleSeconds = 0;
+
+            for ( ;;)
+            {
+                std::this_thread::sleep_for( std::chrono::seconds( 1));
+
+                const auto  status = launcher::getConsoleStatus( port);
+                if ( !status || status->Viewers > 0 || status->Running || !seenAWindow)
+                {
+                    seenAWindow = seenAWindow || ( status && status->Viewers > 0);
+                    idleSeconds = 0;
+                    continue;
+                }
+
+                if ( ++idleSeconds >= kClosedGraceSeconds)
+                {
+                    launcher::StatusItem::postToMain( [] { launcher::StatusItem::stop(); });
+                    return;
+                }
+            }
+        }).detach();
+    }
 
     // ~/Library/Application Support/Thorium -- where the Windows launcher
     // uses %LOCALAPPDATA%\Thorium. $HOME rather than NSHomeDirectory(): this
@@ -184,6 +242,8 @@ auto main( int argc, char ** argv) -> int
             },
             .OnQuit = [] { launcher::StatusItem::stop(); },
         });
+
+    watchForClosedConsole( config->Port);
 
     return statusItem.run();
 }
