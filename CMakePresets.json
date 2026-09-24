@@ -127,6 +127,104 @@
       "inherits": ["dev-deployment", "debug", "linux"],
       "binaryDir": "${sourceDir}/build/dev"
     }
-  ]
+  ],
 
+  "buildPresets": [
+    {
+      "name": "macos-build",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+
+    {
+      "name": "windows-build",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+
+    {
+      "name": "linux-build",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+
+    { "name": "macos-debug",     "inherits": "macos-build",   "configurePreset": "macos-debug" },
+    { "name": "macos-release",   "inherits": "macos-build",   "configurePreset": "macos-release" },
+    { "name": "macos-dev",       "inherits": "macos-build",   "configurePreset": "macos-dev" },
+
+    { "name": "windows-debug",   "inherits": "windows-build", "configurePreset": "windows-debug" },
+    { "name": "windows-release", "inherits": "windows-build", "configurePreset": "windows-release" },
+    { "name": "windows-dev",     "inherits": "windows-build", "configurePreset": "windows-dev" },
+
+    { "name": "linux-debug",     "inherits": "linux-build",   "configurePreset": "linux-debug" },
+    { "name": "linux-release",   "inherits": "linux-build",   "configurePreset": "linux-release" },
+    { "name": "linux-dev",       "inherits": "linux-build",   "configurePreset": "linux-dev" }
+  ],
+
+  "testPresets": [
+    {
+      "name": "test-defaults",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+
+    {
+      "name": "macos-test",
+      "hidden": true,
+      "inherits": "test-defaults",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+
+    {
+      "name": "windows-test",
+      "hidden": true,
+      "inherits": "test-defaults",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+
+    {
+      "name": "linux-test",
+      "hidden": true,
+      "inherits": "test-defaults",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+
+    { "name": "macos-debug",     "inherits": "macos-test",   "configurePreset": "macos-debug" },
+    { "name": "macos-release",   "inherits": "macos-test",   "configurePreset": "macos-release" },
+    { "name": "macos-dev",       "inherits": "macos-test",   "configurePreset": "macos-dev" },
+
+    { "name": "windows-debug",   "inherits": "windows-test", "configurePreset": "windows-debug" },
+    { "name": "windows-release", "inherits": "windows-test", "configurePreset": "windows-release" },
+    { "name": "windows-dev",     "inherits": "windows-test", "configurePreset": "windows-dev" },
+
+    { "name": "linux-debug",     "inherits": "linux-test",   "configurePreset": "linux-debug" },
+    { "name": "linux-release",   "inherits": "linux-test",   "configurePreset": "linux-release" },
+    { "name": "linux-dev",       "inherits": "linux-test",   "configurePreset": "linux-dev" }
+  ]
 }

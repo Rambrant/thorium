@@ -1364,6 +1364,21 @@ carries a `condition` on `${hostSystemName}`, so the Windows presets are
 invisible on macOS and vice versa, and naming the wrong host's preset explicitly
 is an error rather than an attempt to run MinGW paths through Homebrew's GCC.
 
+Every configure preset has a build preset of the same name, so
+`cmake --build --preset macos-debug` works the same as
+`cmake --build build/debug`. They exist mainly for IDEs: VS Code's CMake Tools
+lists configure and build presets side by side and only lets you build with a
+build preset that belongs to the selected configure preset. A build preset does
+not pick up its configure preset's `condition`, so each one inherits a hidden
+per-host half (`macos-build`, `windows-build`, `linux-build`) that repeats the
+host check. Without it, every host would list all nine.
+
+Test presets follow the same pattern: `ctest --preset macos-debug` runs that
+tree's tests with `--output-on-failure`, and VS Code's test explorer uses the
+test preset that matches the selected configure preset. Like `ctest --test-dir`,
+a test preset reads exactly one build tree. To run all of them, use
+`tools/run-ctest.sh` (see [Tests](#6-tests)).
+
 **Ninja is a prerequisite on both hosts**, and has to be on `PATH` when the
 preset is configured. CMake resolves a generator's build program before it reads
 a line of this project, so a missing ninja fails with `unable to find a build

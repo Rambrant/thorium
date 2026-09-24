@@ -19,5 +19,9 @@
         "CMAKE_CXX_COMPILER": "C:/mingw64/bin/g++.exe"
       }
     }
+  ],
+
+  "buildPresets": [
+    { "name": "windows-launcher", "configurePreset": "windows-launcher" }
   ]
 }
