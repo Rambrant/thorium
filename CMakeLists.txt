@@ -497,6 +497,18 @@ endif()
 add_subdirectory(framework/core)
 add_subdirectory(framework/hal)
 
+# --- The bench console's server ---
+# Added here rather than beside framework/runner below: unlike run_scripts,
+# thorium_console names no rig, DUT or suite at build time at all -- it takes
+# the installed run_scripts it should drive as a runtime flag (--run-scripts=),
+# the same way framework/launcher takes the console it should start as
+# --server=. So it has nothing to wait on and nothing to configure per
+# deployment; it belongs with core and hal, the other framework/ subdirectories
+# that build the same way regardless of which bench this is. See
+# framework/console/CMakeLists.txt for why it is part of this build at all,
+# where framework/ui and framework/launcher are not.
+add_subdirectory(framework/console)
+
 # --- Package export: core + hal + the drivers as the reusable "Thorium" framework ---
 # core, hal, hal_rig and every instrument driver register themselves into the
 # ThoriumTargets export set via their own install(TARGETS ... EXPORT
