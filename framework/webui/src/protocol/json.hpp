@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-namespace console
+namespace webui
 {
     //
     // A small JSON reader, for the three documents this program is handed:
@@ -43,7 +43,7 @@ namespace console
             // because the most likely producer of a malformed document is a
             // child process that died mid-line, and a half-written event is an
             // ordinary thing for this program to see rather than an error it
-            // should unwind for. See console::EventStream, which discards exactly
+            // should unwind for. See webui::EventStream, which discards exactly
             // that and keeps reading.
             //
             [[nodiscard]]
@@ -89,4 +89,4 @@ namespace console
             std::vector<std::unique_ptr<Json>>       mItems;
             std::map<std::string, std::size_t, std::less<>>  mKeys;   // key -> index into mItems
     };
-} // namespace console
+} // namespace webui

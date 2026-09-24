@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cstdio>
 
-namespace console
+namespace webui
 {
     namespace
     {
@@ -12,7 +12,7 @@ namespace console
         // travel the same SSE stream as run_scripts's real --events=- lines
         // without being mistaken for one -- see child_stream.hpp's Handlers
         // comment. Not core::jsonEscape: this server deliberately links
-        // neither core nor hal (see framework/console/README.md), and the
+        // neither core nor hal (see framework/webui/README.md), and the
         // input is one line of a diagnostic message, not the wider range of
         // text that escaper's own tests cover.
         //
@@ -109,7 +109,7 @@ namespace console
         // an SSE connection open with nothing crossing the wire for as long
         // as a test campaign takes between events, which is exactly the shape
         // of connection a reverse proxy or an idle-timeout in front of this
-        // server (there is none today, but see framework/console/README.md's
+        // server (there is none today, but see framework/webui/README.md's
         // "History" on why "today" is doing the work in that sentence) would decide is
         // dead. Waking up with nothing new lets the caller send an SSE
         // comment ping instead.

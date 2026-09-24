@@ -6,14 +6,14 @@
 #include "protocol/options.hpp"
 #include "protocol/suite.hpp"
 
-namespace console
+namespace webui
 {
     //
     // What the operator has set, in the terms the form collects it.
     //
     // One entry per control the operator has *touched*. A control left alone
     // produces nothing, and that is the design rather than an optimisation --
-    // see framework/console/README.md's "Generating a form from --describe-options"
+    // see framework/webui/README.md's "Generating a form from --describe-options"
     // and cli::optionsModel's comment: main.cpp depends in
     // two places on telling "the caller said nothing" from "the caller named
     // the default", and a form that emitted every default would erase the
@@ -92,4 +92,4 @@ namespace console
     //
     [[nodiscard]] auto buildListTestsCommand( const Suite & suite) -> std::vector<std::string>;
     [[nodiscard]] auto buildDescribeCommand( const Suite & suite) -> std::vector<std::string>;
-} // namespace console
+} // namespace webui

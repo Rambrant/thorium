@@ -59,15 +59,15 @@ namespace
     }
 
     //
-    // The POST /api/run body, in the shape console::RunRequest already
+    // The POST /api/run body, in the shape webui::RunRequest already
     // defines (protocol/command.hpp) -- the browser sends exactly what the
     // old wxWidgets form used to build in memory, as JSON instead of as C++
     // objects. Nothing here re-decides what a setting means; it decodes the
     // same three arrays buildRunCommand already knows how to turn into argv.
     //
-    auto buildRunRequest( const console::Json & body) -> console::RunRequest
+    auto buildRunRequest( const webui::Json & body) -> webui::RunRequest
     {
-        console::RunRequest  request;
+        webui::RunRequest  request;
 
         if ( const auto * selection = body.at( "selection"))
         {
@@ -81,7 +81,7 @@ namespace
         {
             for ( const auto & item : settings->items())
             {
-                console::OptionSetting  setting;
+                webui::OptionSetting  setting;
                 setting.Flag = item->textAt( "flag");
                 setting.Value = item->textAt( "value");
                 setting.Present = item->boolAt( "present", true);
@@ -120,10 +120,10 @@ auto main( int argc, char ** argv) -> int
         return 1;
     }
 
-    console::Suite  suite;
+    webui::Suite  suite;
     suite.Binary = config->RunScripts;
 
-    console::RunSession  session;
+    webui::RunSession  session;
     httplib::Server      server;
 
     // The loopback-only access seam README.md's "History" section calls for
@@ -151,19 +151,19 @@ auto main( int argc, char ** argv) -> int
 
     server.Get( "/", []( const httplib::Request &, httplib::Response & res)
     {
-        res.set_content( console::kIndexHtml, "text/html");
+        res.set_content( webui::kIndexHtml, "text/html");
     });
 
     server.Get( "/api/options", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
-        const auto  result = console::runBlocking( console::buildDescribeCommand( suite));
+        const auto  result = webui::runBlocking( webui::buildDescribeCommand( suite));
         res.status = result.Started ? 200 : 500;
         res.set_content( result.Output, "application/json");
     });
 
     server.Get( "/api/tests", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
-        const auto  result = console::runBlocking( console::buildListTestsCommand( suite));
+        const auto  result = webui::runBlocking( webui::buildListTestsCommand( suite));
         res.status = result.Started ? 200 : 500;
         res.set_content( result.Output, "text/plain");
     });
@@ -176,17 +176,17 @@ auto main( int argc, char ** argv) -> int
     // "/api/safe") is fixed by what has already shipped there.
     server.Post( "/safe", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
-        const auto  result = console::runBlocking( console::buildSafeCommand( suite));
+        const auto  result = webui::runBlocking( webui::buildSafeCommand( suite));
         res.status = result.Started ? 200 : 500;
         res.set_content( result.Started ? R"({"ok":true})" : R"({"ok":false})", "application/json");
     });
 
     server.Post( "/api/run", [ &suite, &session]( const httplib::Request & req, httplib::Response & res)
     {
-        const auto      body = console::Json::parse( req.body);
-        console::RunRequest  request = body ? buildRunRequest( *body) : console::RunRequest{};
+        const auto      body = webui::Json::parse( req.body);
+        webui::RunRequest  request = body ? buildRunRequest( *body) : webui::RunRequest{};
 
-        if ( !session.start( console::buildRunCommand( suite, request)))
+        if ( !session.start( webui::buildRunCommand( suite, request)))
         {
             res.status = 409;
             res.set_content( R"({"error":"a run is already active"})", "application/json");
@@ -233,7 +233,7 @@ auto main( int argc, char ** argv) -> int
             });
     });
 
-    std::printf( "thorium_console listening on 127.0.0.1:%d (run_scripts: %s)\n",
+    std::printf( "thorium_webui listening on 127.0.0.1:%d (run_scripts: %s)\n",
         config->Port, suite.Binary.string().c_str());
     std::fflush( stdout);
 

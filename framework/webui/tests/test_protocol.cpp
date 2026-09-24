@@ -1,11 +1,11 @@
 //
-// Tests over the protocol layer -- the half of framework/console/ that talks
+// Tests over the protocol layer -- the half of framework/webui/ that talks
 // to run_scripts and to nothing else (no httplib, no process spawning of its
 // own).
 //
 // Black-box against real output, not against hand-written fixtures wherever
-// that is possible: framework/console/CMakeLists.txt points
-// THORIUM_CONSOLE_TEST_BINARY at this same build's own run_scripts
+// that is possible: framework/webui/CMakeLists.txt points
+// THORIUM_WEBUI_TEST_BINARY at this same build's own run_scripts
 // ($<TARGET_FILE:run_scripts>), and the tests below drive it. A fixture
 // asserting on a schema nobody produces would pass forever after the schema
 // changed, which is the one failure this layer cannot afford -- it is the
@@ -33,7 +33,7 @@
 
 namespace
 {
-    const std::string kBinary = THORIUM_CONSOLE_TEST_BINARY;
+    const std::string kBinary = THORIUM_WEBUI_TEST_BINARY;
 
     //
     // Runs a command and returns its stdout. popen rather than argv-based
@@ -77,7 +77,7 @@ namespace
 
 TEST( Json, ReadsAWellFormedObject)
 {
-    const auto document = console::Json::parse( R"({"a":1,"b":"x\ny","c":[true,false],"d":null})");
+    const auto document = webui::Json::parse( R"({"a":1,"b":"x\ny","c":[true,false],"d":null})");
 
     ASSERT_NE( document, nullptr);
 
@@ -85,12 +85,12 @@ TEST( Json, ReadsAWellFormedObject)
     EXPECT_EQ( document->textAt( "b"), "x\ny");
     EXPECT_EQ( document->at( "c")->items().size(), 2u);
     EXPECT_TRUE( document->at( "c")->items()[ 0]->boolean());
-    EXPECT_EQ( document->at( "d")->type(), console::Json::Type::Null);
+    EXPECT_EQ( document->at( "d")->type(), webui::Json::Type::Null);
 }
 
 TEST( Json, AnAbsentKeyFallsBackRatherThanFailing)
 {
-    const auto document = console::Json::parse( R"({"a":1})");
+    const auto document = webui::Json::parse( R"({"a":1})");
 
     ASSERT_NE( document, nullptr);
 
@@ -104,7 +104,7 @@ TEST( Json, DecodesTheControlByteEscapeTheProducerEmits)
     // core::jsonEscape spells a control byte \u00XX and passes everything above
     // ASCII through untouched, so this is the only \u form that has to work.
     //
-    const auto document = console::Json::parse( R"("	")");
+    const auto document = webui::Json::parse( R"("	")");
 
     ASSERT_NE( document, nullptr);
     EXPECT_EQ( document->text(), "\t");
@@ -112,10 +112,10 @@ TEST( Json, DecodesTheControlByteEscapeTheProducerEmits)
 
 TEST( Json, MalformedInputIsRefusedRatherThanGuessedAt)
 {
-    EXPECT_EQ( console::Json::parse( R"({"a":1)"), nullptr) << "unterminated object";
-    EXPECT_EQ( console::Json::parse( R"({} {})"), nullptr) << "trailing content";
-    EXPECT_EQ( console::Json::parse( R"("a)"),    nullptr) << "unterminated string";
-    EXPECT_EQ( console::Json::parse( R"({"a":})"), nullptr) << "missing value";
+    EXPECT_EQ( webui::Json::parse( R"({"a":1)"), nullptr) << "unterminated object";
+    EXPECT_EQ( webui::Json::parse( R"({} {})"), nullptr) << "trailing content";
+    EXPECT_EQ( webui::Json::parse( R"("a)"),    nullptr) << "unterminated string";
+    EXPECT_EQ( webui::Json::parse( R"({"a":})"), nullptr) << "missing value";
 }
 
 // ---------------------------------------------------------------------------
@@ -127,14 +127,14 @@ class OptionModel : public ::testing::Test
     protected:
         void SetUp() override
         {
-            auto parsed = console::parseOptionModel( capture( kBinary + " --describe-options"));
+            auto parsed = webui::parseOptionModel( capture( kBinary + " --describe-options"));
 
             ASSERT_TRUE( parsed.has_value()) << "--describe-options did not parse";
 
             Model = std::move( *parsed);
         }
 
-        auto find( const std::string & flag) const -> const console::OptionInfo *
+        auto find( const std::string & flag) const -> const webui::OptionInfo *
         {
             for( const auto & option : Model)
             {
@@ -147,7 +147,7 @@ class OptionModel : public ::testing::Test
             return nullptr;
         }
 
-        std::vector<console::OptionInfo> Model;
+        std::vector<webui::OptionInfo> Model;
 };
 
 TEST_F( OptionModel, EveryOptionIsUsable)
@@ -158,7 +158,7 @@ TEST_F( OptionModel, EveryOptionIsUsable)
     {
         EXPECT_FALSE( option.Spellings.empty());
         EXPECT_FALSE( option.Help.empty())                     << option.flag() << " has no help";
-        EXPECT_NE( option.Kind, console::OptionKind::Unknown)       << option.flag() << " has an unknown kind";
+        EXPECT_NE( option.Kind, webui::OptionKind::Unknown)       << option.flag() << " has an unknown kind";
     }
 }
 
@@ -168,7 +168,7 @@ TEST_F( OptionModel, AListFlagIsDescribedAsOne)
 
     ASSERT_NE( select, nullptr);
 
-    EXPECT_EQ( select->Kind, console::OptionKind::List);
+    EXPECT_EQ( select->Kind, webui::OptionKind::List);
     EXPECT_FALSE( select->Repeatable) << "a test id cannot contain a comma, so --select is not repeatable";
     EXPECT_EQ( select->Placeholder, "ID[,ID...]");
 }
@@ -179,7 +179,7 @@ TEST_F( OptionModel, AClearingSwitchSaysSo)
 
     ASSERT_NE( noLogs, nullptr);
 
-    EXPECT_EQ( noLogs->Kind, console::OptionKind::Switch);
+    EXPECT_EQ( noLogs->Kind, webui::OptionKind::Switch);
     EXPECT_TRUE( noLogs->Clears) << "the form starts a clearing flag's box ticked";
 }
 
@@ -189,7 +189,7 @@ TEST_F( OptionModel, APositiveNumberCarriesItsNoun)
 
     ASSERT_NE( repeat, nullptr);
 
-    EXPECT_EQ( repeat->Kind, console::OptionKind::Number);
+    EXPECT_EQ( repeat->Kind, webui::OptionKind::Number);
     EXPECT_TRUE( repeat->Positive);
     EXPECT_EQ( repeat->Noun, "passes");
 }
@@ -226,7 +226,7 @@ TEST_F( OptionModel, AQueryFlagIsMarkedAndASafingFlagIsNot)
 
 TEST( Catalog, ListTestsYieldsUsableEntries)
 {
-    const auto tests = console::parseTestList( capture( kBinary + " --list-tests"));
+    const auto tests = webui::parseTestList( capture( kBinary + " --list-tests"));
 
     ASSERT_FALSE( tests.empty());
 
@@ -248,7 +248,7 @@ class EventStream : public ::testing::Test
         {
             const auto skeleton = ( std::filesystem::temp_directory_path() / "thorium-ui-test.tsv").string();
 
-            console::EventStream reader;
+            webui::EventStream reader;
 
             Events   = reader.consume( capture( kBinary + " --quiet --no-logs --events=- --skeleton=" + skeleton));
             Residue  = reader.residue();
@@ -256,7 +256,7 @@ class EventStream : public ::testing::Test
             std::filesystem::remove( skeleton);
         }
 
-        std::vector<console::RunEvent>  Events;
+        std::vector<webui::RunEvent>  Events;
         std::string                Residue;
 };
 
@@ -265,8 +265,8 @@ TEST_F( EventStream, ARunProducesAWholeStream)
     ASSERT_FALSE( Events.empty());
 
     EXPECT_TRUE( Residue.empty()) << "a complete run leaves no partial line";
-    EXPECT_EQ( Events.front().Which, console::RunEvent::Kind::RunStart);
-    EXPECT_EQ( Events.back().Which,  console::RunEvent::Kind::RunEnd);
+    EXPECT_EQ( Events.front().Which, webui::RunEvent::Kind::RunStart);
+    EXPECT_EQ( Events.back().Which,  webui::RunEvent::Kind::RunEnd);
     EXPECT_TRUE( Events.back().Passed.has_value()) << "runEnd carries the run's verdict";
 }
 
@@ -274,7 +274,7 @@ TEST_F( EventStream, EveryKindIsOneThisBuildKnows)
 {
     for( const auto & event : Events)
     {
-        EXPECT_NE( event.Which, console::RunEvent::Kind::Unknown);
+        EXPECT_NE( event.Which, webui::RunEvent::Kind::Unknown);
     }
 }
 
@@ -310,12 +310,12 @@ TEST_F( EventStream, TestEndNamesItsGroupAndNotItsDescription)
 
     for( const auto & event : Events)
     {
-        if( event.Which == console::RunEvent::Kind::GroupStart)
+        if( event.Which == webui::RunEvent::Kind::GroupStart)
         {
             openGroup = event.Group;
         }
 
-        if( event.Which == console::RunEvent::Kind::TestEnd)
+        if( event.Which == webui::RunEvent::Kind::TestEnd)
         {
             EXPECT_EQ( event.Group, openGroup);
             EXPECT_TRUE( event.Passed.has_value());
@@ -333,7 +333,7 @@ TEST_F( EventStream, AVerdictIsCarriedOnlyByAVerify)
 
     for( const auto & event : Events)
     {
-        if( event.Which != console::RunEvent::Kind::Event)
+        if( event.Which != webui::RunEvent::Kind::Event)
         {
             continue;
         }
@@ -371,8 +371,8 @@ TEST( EventStreaming, AByteAtATimeStreamYieldsWholeEvents)
         R"({"kind":"testStart","test":"T"})"    "\n"
         R"({"kind":"runEnd","allPassed":true})" "\n");
 
-    console::EventStream            reader;
-    std::vector<console::RunEvent>  events;
+    webui::EventStream            reader;
+    std::vector<webui::RunEvent>  events;
 
     //
     // The worst case a pipe can hand a reader, and the one that finds an
@@ -394,7 +394,7 @@ TEST( EventStreaming, AByteAtATimeStreamYieldsWholeEvents)
 
 TEST( EventStreaming, ARunKilledMidLineDeliversWhatWasCompleteAndHoldsTheRest)
 {
-    console::EventStream reader;
+    webui::EventStream reader;
 
     const auto events = reader.consume(
         R"({"kind":"testStart","test":"T"})" "\n" R"({"kind":"eve)");
@@ -405,7 +405,7 @@ TEST( EventStreaming, ARunKilledMidLineDeliversWhatWasCompleteAndHoldsTheRest)
 
 TEST( EventStreaming, AWindowsLineEndingParses)
 {
-    console::EventStream reader;
+    webui::EventStream reader;
 
     const auto events = reader.consume( R"({"kind":"runEnd","allPassed":false})" "\r\n");
 
@@ -422,12 +422,12 @@ class RunCommand : public ::testing::Test
     protected:
         void SetUp() override { Suite.Binary = "/opt/thorium/bin/run_scripts"; }
 
-        console::Suite Suite;
+        webui::Suite Suite;
 };
 
 TEST_F( RunCommand, TheStreamFlagsAreForcedAndTheBinaryComesFirst)
 {
-    const auto argv = console::buildRunCommand( Suite, console::RunRequest{});
+    const auto argv = webui::buildRunCommand( Suite, webui::RunRequest{});
 
     ASSERT_FALSE( argv.empty());
 
@@ -444,7 +444,7 @@ TEST_F( RunCommand, AnEmptySelectionIsAnAbsentFlagRatherThanEveryId)
     // ticked "all" means all, and a window that had frozen today's list into a
     // --select would silently keep running yesterday's suite.
     //
-    const auto argv = console::buildRunCommand( Suite, console::RunRequest{});
+    const auto argv = webui::buildRunCommand( Suite, webui::RunRequest{});
 
     EXPECT_TRUE( std::none_of( argv.begin(), argv.end(),
                                []( const std::string & arg) { return arg.starts_with( "--select"); }));
@@ -452,7 +452,7 @@ TEST_F( RunCommand, AnEmptySelectionIsAnAbsentFlagRatherThanEveryId)
 
 TEST_F( RunCommand, SettingsBecomeFlagsAndUntouchedControlsDoNot)
 {
-    console::RunRequest request;
+    webui::RunRequest request;
 
     request.Selection = { "SupplyRail", "AcDropout" };
     request.Settings  = {
@@ -463,7 +463,7 @@ TEST_F( RunCommand, SettingsBecomeFlagsAndUntouchedControlsDoNot)
     };
     request.Extra = { "--address=Dmm1=lan:dev-dmm-3" };
 
-    const auto argv = console::buildRunCommand( Suite, request);
+    const auto argv = webui::buildRunCommand( Suite, request);
 
     EXPECT_TRUE( contains( argv, "--select=SupplyRail,AcDropout")) << "one comma-separated flag";
     EXPECT_TRUE( contains( argv, "--criteria=stress"));
@@ -475,7 +475,7 @@ TEST_F( RunCommand, SettingsBecomeFlagsAndUntouchedControlsDoNot)
 
 TEST_F( RunCommand, SafingIsTheSameBinaryWithOneFlag)
 {
-    const auto safe = console::buildSafeCommand( Suite);
+    const auto safe = webui::buildSafeCommand( Suite);
 
     ASSERT_EQ( safe.size(), 2u);
     EXPECT_EQ( safe[ 1], "--safe");
@@ -487,7 +487,7 @@ TEST_F( RunCommand, SafingIsTheSameBinaryWithOneFlag)
 
 TEST( Manifest, IsReadIntoASuite)
 {
-    const auto suite = console::parseManifest( R"({
+    const auto suite = webui::parseManifest( R"({
         "criteriaVariants": ["production", "stress", "aged"],
         "defaultCriteriaVariant": "production",
         "masterCriteriaVariant": "production",
@@ -510,7 +510,7 @@ TEST( Manifest, IsReadIntoASuite)
 
 TEST( Manifest, NamingNoBinaryIsRefused)
 {
-    EXPECT_FALSE( console::parseManifest( R"({"tests":[]})", "/x/manifest.json").has_value());
+    EXPECT_FALSE( webui::parseManifest( R"({"tests":[]})", "/x/manifest.json").has_value());
 }
 
 TEST( Manifest, TwoSuitesUnderOneRootAreDistinguishable)
@@ -521,8 +521,8 @@ TEST( Manifest, TwoSuitesUnderOneRootAreDistinguishable)
     // <prefix>/bin.
     //
     const auto json  = R"({"binary":"run_scripts","tests":[]})";
-    const auto left  = console::parseManifest( json, "/opt/thorium/dut-a/bin/manifest.json", "/opt/thorium");
-    const auto right = console::parseManifest( json, "/opt/thorium/dut-b/bin/manifest.json", "/opt/thorium");
+    const auto left  = webui::parseManifest( json, "/opt/thorium/dut-a/bin/manifest.json", "/opt/thorium");
+    const auto right = webui::parseManifest( json, "/opt/thorium/dut-b/bin/manifest.json", "/opt/thorium");
 
     ASSERT_TRUE( left.has_value());
     ASSERT_TRUE( right.has_value());
@@ -533,7 +533,7 @@ TEST( Manifest, TwoSuitesUnderOneRootAreDistinguishable)
 
 TEST( Manifest, ASingleInstallIsNamedForItsPrefixRatherThanItsBindir)
 {
-    const auto suite = console::parseManifest( R"({"binary":"run_scripts","tests":[]})",
+    const auto suite = webui::parseManifest( R"({"binary":"run_scripts","tests":[]})",
                                           "/opt/thorium/bin/manifest.json", "/opt");
 
     ASSERT_TRUE( suite.has_value());

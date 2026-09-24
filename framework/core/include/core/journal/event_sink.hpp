@@ -8,7 +8,7 @@ namespace core
 {
     //
     // The run as a stream of JSON objects, one per line, flushed as each one
-    // happens -- what a supervising process (framework/console/, a CI agent)
+    // happens -- what a supervising process (framework/webui/, a CI agent)
     // reads to watch a run it started.
     //
     // This is the third rendering of the journal and needs no change to any

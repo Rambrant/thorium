@@ -2,7 +2,7 @@
 # The bench-console launcher -- Windows only, and a separate CMake project.
 #
 # It is under framework/ for the same reason framework/ui was (deleted; see
-# framework/console/README.md's "History"): it names no DUT point, no
+# framework/webui/README.md's "History"): it names no DUT point, no
 # criterion and no instrument, and drives whatever console server is installed
 # alongside it. It is NOT built by the framework's build, is not reachable
 # from its presets, and is not add_subdirectory'd from the top-level

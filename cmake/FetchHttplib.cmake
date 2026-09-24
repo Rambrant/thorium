@@ -1,5 +1,5 @@
 # Makes header-only cpp-httplib available as httplib::httplib, for
-# framework/console -- see framework/console/README.md's "History", which
+# framework/webui -- see framework/webui/README.md's "History", which
 # checked (rather than assumed) that cpp-httplib compiles clean under this
 # project's own compiler and flags, -freflection -fcontracts included.
 #
@@ -9,7 +9,7 @@
 # (std::string) this project's GCC cannot link against. cpp-httplib has no
 # such problem -- it is a single header, compiled by whichever translation
 # unit includes it, so there is no prebuilt-elsewhere ABI to clash with. It is
-# vendored anyway so that configuring framework/console touches the network
+# vendored anyway so that configuring framework/webui touches the network
 # never, matching the property framework/ already has (see FetchGTest.cmake's
 # own note on that).
 #
@@ -19,7 +19,7 @@
 #
 # Guarded rather than assumed single-include: unlike FetchGTest.cmake (one
 # include(), gated behind the top-level BUILD_TESTING_LAYERS option),
-# framework/console is the only consumer today, so it includes this itself
+# framework/webui is the only consumer today, so it includes this itself
 # rather than relying on the top-level file to have done so first. A second
 # add_subdirectory that also wants httplib::httplib will include this a
 # second time, and add_library would otherwise refuse the redefinition.
@@ -36,7 +36,7 @@ target_include_directories(httplib INTERFACE
 )
 
 # Plain HTTP only -- this server never binds anything but 127.0.0.1 (see
-# framework/console/README.md), so TLS buys nothing and OpenSSL/zlib are not
+# framework/webui/README.md), so TLS buys nothing and OpenSSL/zlib are not
 # dependencies this tree needs to acquire on three platforms for it.
 #
 # That means NOT defining CPPHTTPLIB_OPENSSL_SUPPORT / CPPHTTPLIB_ZLIB_SUPPORT

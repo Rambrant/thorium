@@ -1,4 +1,4 @@
-# console/ -- the bench console, as a server
+# webui/ -- the bench console, as a server
 
 The browser-facing successor to `framework/ui`'s wxWidgets console (deleted;
 see "History" below and git log for the original). Like that program, it does
@@ -110,18 +110,18 @@ cmake --preset windows-dev
 cmake --build build/dev
 ```
 
-Produces `thorium_console`, run as:
+Produces `thorium_webui`, run as:
 
 ```
-thorium_console --run-scripts=<path to the installed run_scripts> --port=8420
+thorium_webui --run-scripts=<path to the installed run_scripts> --port=8420
 ```
 
 which is exactly what `framework/launcher` is for: `--server=<path to
-thorium_console> --server-arg=--run-scripts=<path> --server-arg=--port=8420`.
+thorium_webui> --server-arg=--run-scripts=<path> --server-arg=--port=8420`.
 
 ### Tests
 
-`console_protocol_tests`, registered with `ctest` like every other layer's --
+`webui_protocol_tests`, registered with `ctest` like every other layer's --
 no second build tree, no separate `ctest --test-dir` invocation, because
 unlike the old console this one is not a separate CMake project. It points
 itself at the `run_scripts` this same build produces

@@ -29,7 +29,7 @@
 
 //
 // Runner for the test-script catalog (core/catalog/active_test_catalog.hpp). Six
-// modes, matching what tools/run-tests.sh and framework/console/ expect:
+// modes, matching what tools/run-tests.sh and framework/webui/ expect:
 //
 //   run_scripts                    run every test in the catalog
 //   run_scripts --list-tests       print "group|id|description", one per
@@ -37,7 +37,7 @@
 //   run_scripts --describe-options print every flag as JSON and exit -- what
 //                                  a supervising process builds a form from,
 //                                  generated from the same annotations --help
-//                                  is (see cli.hpp and framework/console/README.md)
+//                                  is (see cli.hpp and framework/webui/README.md)
 //   run_scripts --select=a,b,c     run only the named test ids (from any
 //                                  group), in catalog order
 //   run_scripts --safe             drop the rig to a known idle state and
@@ -311,7 +311,7 @@ namespace
         //
         // Every flag above and below, as JSON, so a supervising process can
         // build a form out of them instead of restating them (see cli.hpp's
-        // optionsModel and framework/console/README.md). The model is generated from the same
+        // optionsModel and framework/webui/README.md). The model is generated from the same
         // annotations --help is, which is the whole point: this cannot describe
         // a flag the parser does not accept, or miss one it does.
         //
@@ -1184,7 +1184,7 @@ namespace
         // stdout, the file under it. Two members because core::EventSink
         // references a std::ostream it does not own -- which is what lets the
         // same sink write to std::cout, the case the UI actually uses (see
-        // framework/console/README.md), where there is no file to hold.
+        // framework/webui/README.md), where there is no file to hold.
         //
         std::optional<std::ofstream>      EventsFile;
         std::optional<core::EventSink>    Events;

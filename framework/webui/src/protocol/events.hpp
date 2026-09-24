@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-namespace console
+namespace webui
 {
     //
     // One line of `run_scripts --events=-`, decoded.
@@ -110,7 +110,7 @@ namespace console
     // Nothing for a line that is not a complete JSON object.
     //
     // Which happens, and is not an error: a run killed mid-write leaves a
-    // partial last line. console::EventStream drops those and carries on, which it
+    // partial last line. webui::EventStream drops those and carries on, which it
     // can do safely precisely because the format is one object per line --
     // see core/journal/event_sink.hpp on why it is line-delimited.
     //
@@ -147,4 +147,4 @@ namespace console
         private:
             std::string  mPartial;
     };
-} // namespace console
+} // namespace webui

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace console
+namespace webui
 {
     //
     // The entire browser side of this program, for now: one file, embedded
@@ -11,7 +11,7 @@ namespace console
     // before this program existed.
     //
     // Embedded so the binary has no path to get wrong: wherever
-    // thorium_console.exe ends up -- built in place, copied to a bench,
+    // thorium_webui.exe ends up -- built in place, copied to a bench,
     // launched by framework/launcher from a shortcut -- this comes with it.
     // set_mount_point() and a real static/ directory are the obvious next
     // step once there is more than one file to serve.

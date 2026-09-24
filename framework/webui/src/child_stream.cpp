@@ -18,7 +18,7 @@
     #include <fcntl.h>
 #endif
 
-namespace console
+namespace webui
 {
     namespace
     {

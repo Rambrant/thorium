@@ -23,7 +23,7 @@
 // anyone compiles against. If a second consumer ever appears, that is the moment
 // to move it, not before.
 //
-// The UI (framework/console/, see its README) is pointedly *not* that second consumer, and the
+// The UI (framework/webui/, see its README) is pointedly *not* that second consumer, and the
 // option model below is what keeps it from becoming one. It needs to know what
 // the flags are, which is exactly what would have justified promoting this to a
 // public header -- so instead the model is emitted as JSON by

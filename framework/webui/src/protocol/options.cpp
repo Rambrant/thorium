@@ -2,7 +2,7 @@
 
 #include "protocol/json.hpp"
 
-namespace console
+namespace webui
 {
     auto optionKindFrom( const std::string_view name) -> OptionKind
     {
@@ -68,4 +68,4 @@ namespace console
 
         return model;
     }
-} // namespace console
+} // namespace webui

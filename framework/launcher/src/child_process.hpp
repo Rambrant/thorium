@@ -15,7 +15,7 @@ namespace launcher
     // the server talks HTTP (rig_client.hpp) and the browser talks nothing at
     // all. (framework/ui's old wx-based ChildProcess did read a pipe, because
     // it drove run_scripts directly; this program never does that itself --
-    // framework/console does, over its own pipe -- see its child_stream.hpp.)
+    // framework/webui does, over its own pipe -- see its child_stream.hpp.)
     //
     class ChildProcess
     {

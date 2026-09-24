@@ -24,7 +24,7 @@ is installed, to be read by somebody else's build.
 There used to be a seventh, `WxWidgets.cmake`, included not by the top-level
 `CMakeLists.txt` but by `framework/ui` — a CMake project of its own, built by
 a different compiler. It is gone along with that directory; see
-[`framework/console/README.md`](../framework/console/README.md)'s "History"
+[`framework/webui/README.md`](../framework/webui/README.md)'s "History"
 for why, and `FetchHttplib.cmake` below for what a dependency with none of
 wxWidgets' cross-compiler problem looks like instead.
 
@@ -192,14 +192,14 @@ next build with no manual reconfigure.
 
 ## `FetchHttplib.cmake` — a header-only dependency, vendored, no build of its own
 
-`framework/console`'s server needs cpp-httplib and nothing else. Unlike
+`framework/webui`'s server needs cpp-httplib and nothing else. Unlike
 GoogleTest, it has no ABI to clash with this project's compiler over: it is a
 single header, compiled by whichever translation unit includes it, so there
 is no prebuilt archive from somebody else's toolchain to link against.
 
 It is vendored into `third_party/cpp-httplib-0.18.5/` anyway — not because it
 has to be, the way GoogleTest does, but so that configuring
-`framework/console` touches the network never, matching the property the rest
+`framework/webui` touches the network never, matching the property the rest
 of `framework/` already has (see `FetchGTest.cmake`'s note on that).
 
 ```cmake
@@ -212,7 +212,7 @@ No `CMakeLists.txt` of cpp-httplib's own to `add_subdirectory` — a header has
 no build — so this defines the `INTERFACE` target directly rather than going
 through `FetchContent_MakeAvailable`. Guarded against a second `include()`
 (`if(TARGET httplib::httplib) return() endif()`), since `add_library` refuses
-to redefine an existing target and `framework/console` is not guaranteed to
+to redefine an existing target and `framework/webui` is not guaranteed to
 be the only consumer forever.
 
 **Deliberately does not define `CPPHTTPLIB_OPENSSL_SUPPORT` or
@@ -221,13 +221,13 @@ zlib in `httplib.h` is `#ifdef`, not `#if` — so defining either to `0` to be
 explicit about "off" turns the feature *on*, and the build then fails looking
 for OpenSSL. Absence is the only spelling of "off" that header understands.
 Plain HTTP is all this needs anyway: the server never binds anything but
-`127.0.0.1` (see `framework/console/README.md`).
+`127.0.0.1` (see `framework/webui/README.md`).
 
 This is what a dependency looks like once it has none of wxWidgets' problem
 (`cmake/README.md`'s git history has that module, and
-`framework/console/README.md`'s "History" has the fuller story): checked, not
+`framework/webui/README.md`'s "History" has the fuller story): checked, not
 assumed, to compile clean under this project's own experimental flags
-(`-freflection -fcontracts`), so `framework/console` could join the ordinary
+(`-freflection -fcontracts`), so `framework/webui` could join the ordinary
 build instead of becoming a second CMake project.
 
 ---

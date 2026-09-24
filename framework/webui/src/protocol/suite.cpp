@@ -6,7 +6,7 @@
 
 #include "protocol/json.hpp"
 
-namespace console
+namespace webui
 {
     namespace
     {
@@ -214,4 +214,4 @@ namespace console
 
         return suites;
     }
-} // namespace console
+} // namespace webui

@@ -8,7 +8,7 @@
 
 #include "child_stream.hpp"
 
-namespace console
+namespace webui
 {
     //
     // The one run this console is allowed to have in flight at a time, and

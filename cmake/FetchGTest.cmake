@@ -37,7 +37,7 @@ include(FetchContent)
 # Cocoa port needs at all. That pulled in the opposite direction from
 # GoogleTest's ABI requirement above, and each dependency sat where its own
 # constraint put it. framework/ui and its vcpkg dependency are gone (see
-# framework/console/README.md for what replaced it), so nothing here pulls
+# framework/webui/README.md for what replaced it), so nothing here pulls
 # the other way any more -- vendoring GoogleTest is simply the right answer to
 # its own ABI question, not one half of a contrast.
 #

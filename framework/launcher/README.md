@@ -1,7 +1,7 @@
 # launcher/ -- the thing with the tray icon
 
 The native half of the browser-based bench console -- see
-[`framework/console/README.md`](../console/README.md)'s "History" for why a
+[`framework/webui/README.md`](../webui/README.md)'s "History" for why a
 browser front end removes the two-compiler split the old wxWidgets console
 needed (GCC cannot build a GUI toolkit against macOS's Cocoa headers at all)
 and why the console should still not be a client-server product by default --
@@ -26,7 +26,7 @@ It does four things, in order, every time it starts:
    `http://127.0.0.1:<port>` -- `--app=`, not `--kiosk` and not an embedded
    `WebView2` control. No tab strip, no address bar, but a real, resizable,
    closable window. An embedded webview is the trap
-   `framework/console/README.md`'s "History" names explicitly: it re-fences a
+   `framework/webui/README.md`'s "History" names explicitly: it re-fences a
    per-platform native control behind the thing this redesign exists to get
    out from behind. `--app=` needs none of that, on any platform that has
    Chrome.
@@ -35,14 +35,14 @@ It does four things, in order, every time it starts:
    why this does not yet refocus an existing one), *Safe the rig* (posts to
    the server directly, over HTTP, so it works even if the browser window has
    been closed by mistake -- this is the one action
-   `framework/console/README.md`'s "What a run means" says must never be
+   `framework/webui/README.md`'s "What a run means" says must never be
    unavailable), and *Quit*.
 
 ## What this is not yet
 
-The server now exists -- `framework/console`'s `thorium_console` -- and this
+The server now exists -- `framework/webui`'s `thorium_webui` -- and this
 has been run against it end to end, including a real `run_scripts` on a real
-deployment: `--server=<path to thorium_console> --server-arg=--run-scripts=<path>
+deployment: `--server=<path to thorium_webui> --server-arg=--run-scripts=<path>
 --server-arg=--port=8420`. What is still missing:
 
 There is no config file. Command-line flags
@@ -59,14 +59,14 @@ search by title/class.
 
 Single *operator* session (only one browser talking to the server at a time)
 is a server-side concern, not this program's -- see
-`framework/console/README.md`'s "What it does not do yet". The launcher's
+`framework/webui/README.md`'s "What it does not do yet". The launcher's
 mutex only stops two *launchers*; a remote browser reaching the same server
 later would not go through this program at all.
 
 ## Why Windows-only, unlike framework/ui before it
 
 framework/ui was one wxWidgets program built by whichever compiler each of the
-three platforms had (deleted; see `framework/console/README.md`'s "History").
+three platforms had (deleted; see `framework/webui/README.md`'s "History").
 This is not that: everything this program does is Win32-specific by nature --
 `CreateMutexW`, a Job object, `Shell_NotifyIcon`, the `App Paths` registry
 key. A macOS or Linux bench gets its own small launcher against that

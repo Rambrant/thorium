@@ -267,7 +267,7 @@ that cannot be recovered from the code.
 | | |
 |---|---|
 | [`framework/hal`](framework/hal/README.md) | The two-target `hal`/`hal_rig` split, the static wiring facts and how a route is composed, adapter points, `hal/io/` (how bytes reach an instrument), and what is still a runtime check |
-| [`framework/console`](framework/console/README.md) | The bench console's server — why it could join the ordinary build where its wxWidgets predecessor could not, the four ways a run can end, and what replacing that predecessor took |
+| [`framework/webui`](framework/webui/README.md) | The bench console's server — why it could join the ordinary build where its wxWidgets predecessor could not, the four ways a run can end, and what replacing that predecessor took |
 | [`framework/launcher`](framework/launcher/README.md) | The native tray icon and Chrome app-mode window that make the console feel like a desktop app rather than a browser tab, and why it is Windows-only by design |
 | [`instruments`](instruments/README.md) | Why each driver is its own packageable directory, and what a driver may assume |
 | [`cmake`](cmake/README.md) | The four build helpers: generated criteria tables, the per-layer test target, the install-time manifest, and the installed CMake package |
@@ -1411,7 +1411,7 @@ fails that build rather than being reported.
 |---|---|
 | *(none)* | run every test in the catalog |
 | `--list-tests` | print `group\|id\|description` per test, run nothing |
-| `--describe-options` | print every flag as JSON, run nothing — what [`framework/console/`](framework/console/README.md) builds its form from |
+| `--describe-options` | print every flag as JSON, run nothing — what [`framework/webui/`](framework/webui/README.md) builds its form from |
 | `--select=a,b` | run only these test ids, in catalog order |
 | `--criteria=NAME` | apply that tolerance variant — `production`, `stress`, `aged` |
 | `--repeat=N` | run the selection N times over |
@@ -1965,8 +1965,8 @@ untested. There used to be a second kind of absence this script treated as a
 hard failure instead: `framework/ui`'s own `build/ui`, a separate CMake
 project with its own tests nothing else ran, because GCC could not build its
 wxWidgets toolkit on macOS. That directory is gone (see
-[`framework/console/README.md`](framework/console/README.md)'s "History") and
-its successor, `framework/console`, joined the ordinary build — its tests are
+[`framework/webui/README.md`](framework/webui/README.md)'s "History") and
+its successor, `framework/webui`, joined the ordinary build — its tests are
 already inside `build/debug`, `build/dev` and `build/release` like any other
 layer's, so there is nothing left for this script to special-case.
 

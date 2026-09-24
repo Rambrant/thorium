@@ -23,7 +23,7 @@ namespace launcher
             {
                 //
                 // Braced rather than bare, the same pattern
-                // framework/console/src/child_stream.hpp's Handlers uses and
+                // framework/webui/src/child_stream.hpp's Handlers uses and
                 // for the same reason: every call site uses designated
                 // initialisers and names only the handlers it cares about.
                 //

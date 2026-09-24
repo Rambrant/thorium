@@ -44,7 +44,7 @@
 # There used to be a second kind of tree here, framework/ui's own
 # `build/ui` -- a separate CMake project, because wxWidgets could not be built
 # by this framework's compiler on macOS. It is gone along with that directory
-# (see framework/console/README.md's "History"): framework/console joined the
+# (see framework/webui/README.md's "History"): framework/webui joined the
 # ordinary build, so its tests are already inside build/debug, build/dev and
 # build/release like any other layer's, and this script needed no console-
 # specific case once that was true.
