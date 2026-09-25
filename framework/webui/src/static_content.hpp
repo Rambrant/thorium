@@ -16,6 +16,10 @@ namespace webui
     //     ticks its tests; groups start collapsed and carry their tests'
     //     verdict, so hundreds of tests still fit on one screen.
     //
+    //   - the results list, in the human log's columns and colours: each
+    //     Verify green or red, each reading plain, stderr as a red ERROR.
+    //     The raw event stream is one tab away.
+    //
     // A finished run's RTF or SARIF log can be saved from the bar (see
     // GET /api/log/ in main.cpp). Still not here: the generated options
     // form README.md's "Generating a form from --describe-options" describes.
@@ -91,6 +95,27 @@ namespace webui
 
   #log { color: #9f9; font-family: ui-monospace, monospace; font-size: 0.8rem; padding: 0.75rem;
          overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; flex: 1; margin: 0; }
+  #log[hidden], #results[hidden] { display: none; }
+
+  /* --- the results table: the old console's columns and colours ---- */
+  .tab.active { background: #4a4a4f; border-color: #6a6a70; }
+  .pane-bar label.filter { color: var(--quiet); font-size: 0.8rem; display: flex; gap: 0.3rem; align-items: center; margin-left: 0.6rem; }
+  #results { overflow: auto; flex: 1; }
+  #results table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+  #results th { position: sticky; top: 0; background: var(--panel); text-align: left; font-weight: 600;
+                color: var(--quiet); padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--line); }
+  #results td { padding: 0.15rem 0.5rem; border-bottom: 1px solid #2c2c2c; vertical-align: top; }
+  #results td.num, #results th.num { text-align: right; font-family: ui-monospace, monospace; white-space: nowrap; }
+  #results td.tid, #results td.subject { white-space: nowrap; }
+  /* Detail takes what is left and is cut short rather than wrapped: a
+     wrapped detail makes every row three lines tall. Hover for all of it. */
+  #results td.detail { width: 100%; max-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #results td.verdict { text-align: left; }
+  #results tr.pass td { color: var(--pass); }
+  #results tr.fail td, #results tr.error td { color: var(--fail); }
+  #results tr.error td.detail { white-space: pre-wrap; max-width: none; }
+  #results tr.section td { color: var(--quiet); background: #2a2a2d; font-size: 0.78rem; padding-top: 0.3rem; }
+  #results.failures-only tbody tr:not(.fail):not(.error) { display: none; }
 
   /* --- the bar ------------------------------------------------------- */
   #bar { display: flex; gap: 0.5rem; align-items: center; }
@@ -130,7 +155,19 @@ namespace webui
       <div id="tree"><div class="note" style="padding:0.5rem">Loading the catalog...</div></div>
     </div>
     <div class="pane">
-      <pre id="log"></pre>
+      <div class="pane-bar">
+        <button class="small tab active" id="showResults">Results</button>
+        <button class="small tab" id="showRaw">Raw events</button>
+        <label class="filter"><input type="checkbox" id="failuresOnly"> Failures only</label>
+        <span class="note" id="resultCount"></span>
+      </div>
+      <div id="results">
+        <table>
+          <thead><tr><th>Test</th><th>Subject</th><th class="num">Value</th><th>Verdict</th><th>Detail</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <pre id="log" hidden></pre>
     </div>
   </div>
 
@@ -170,6 +207,101 @@ function append(text) {
   log.textContent += text + "\n";
   log.scrollTop = log.scrollHeight;
 }
+
+// --- the results table ------------------------------------------------
+//
+// The old console's results list: what was read and what was concluded,
+// in the human log's columns and order (see core/src/journal/report.cpp),
+// so an operator who has read one recognises the other. Coloured only where
+// there is a verdict -- an unset "passed" is not false, it is an event with
+// no pass/fail notion at all, and painting it is how an Apply would come to
+// look like a check that succeeded (see core::JournalRecord::Passed). Every
+// Connect and Apply is still in Raw events, and in the SARIF log.
+
+const resultsBox = $('results');
+const rows = $('rows');
+const counts = { checks: 0, failed: 0 };
+
+// Follows the run only while the operator is looking at its end, so
+// scrolling back to read a failure is not yanked away by the next reading.
+function addRow(className, cells, tooltip) {
+  const follow = resultsBox.scrollTop + resultsBox.clientHeight >= resultsBox.scrollHeight - 30;
+  const row = el('tr', { className });
+  if (tooltip) row.title = tooltip;
+  for (const [text, cls] of cells) {
+    const cell = el('td', { textContent: text || '', className: cls || '' });
+    if (cls === 'detail' && text) cell.title = text;
+    row.append(cell);
+  }
+  rows.append(row);
+  if (follow) resultsBox.scrollTop = resultsBox.scrollHeight;
+}
+
+function addSection(text) {
+  const row = el('tr', { className: 'section' }, el('td', { colSpan: 5, textContent: text }));
+  rows.append(row);
+}
+
+function updateResultCount() {
+  $('resultCount').textContent = counts.checks
+    ? plural(counts.checks, 'check') + (counts.failed ? ', ' + counts.failed + ' failed' : '')
+    : '';
+}
+
+function clearResults() {
+  rows.replaceChildren();
+  counts.checks = 0;
+  counts.failed = 0;
+  updateResultCount();
+}
+
+// The rows one event contributes, if any.
+function resultRows(e) {
+  switch (e.kind) {
+    case 'groupStart':
+      addSection(e.group + (e.description ? ' -- ' + e.description : ''));
+      break;
+    case 'phaseStart':
+      // A hook's own bracket, shown because a run that fails in its setup
+      // never reaches a test and would otherwise leave the table empty.
+      run.current = e.group ? e.group + ' ' + e.phase : e.phase;
+      break;
+    case 'testStart':
+      run.current = e.test;
+      break;
+    case 'event':
+      if (e.verb === 'Verify') {
+        const passed = e.passed === true;
+        counts.checks += 1;
+        if (!passed) counts.failed += 1;
+        updateResultCount();
+        const subject = e.subjectGroup ? e.subjectGroup + '::' + e.subject : (e.subject || e.detail);
+        addRow(passed ? 'pass' : 'fail', [
+          [run.current, 'tid'], [subject, 'subject'], [e.value, 'num'], [passed ? 'PASS' : 'FAIL', 'verdict'],
+          [e.criterionText || e.detail, 'detail'],
+        ], e.subject && e.detail ? e.detail : '');
+      } else if (e.verb === 'Measure' || e.verb === 'Read' || e.verb === 'Fetch') {
+        // The observation verbs only, as the human log does. Value alone,
+        // never Value plus Unit: Value is already the printable form with
+        // the unit in it ("0 V V" is what appending one produced).
+        addRow('', [[run.current, 'tid'], [e.subject, 'subject'], [e.value, 'num'], [''], [e.detail, 'detail']]);
+      }
+      break;
+  }
+}
+
+$('showResults').addEventListener('click', () => {
+  resultsBox.hidden = false; log.hidden = true;
+  $('showResults').classList.add('active'); $('showRaw').classList.remove('active');
+});
+$('showRaw').addEventListener('click', () => {
+  resultsBox.hidden = true; log.hidden = false;
+  $('showRaw').classList.add('active'); $('showResults').classList.remove('active');
+  log.scrollTop = log.scrollHeight;
+});
+$('failuresOnly').addEventListener('change', () => {
+  resultsBox.classList.toggle('failures-only', $('failuresOnly').checked);
+});
 
 // --- the catalog ------------------------------------------------------
 
@@ -493,11 +625,15 @@ function watchEvents() {
     let parsed = null;
     try { parsed = JSON.parse(event.data); } catch (e) { /* not JSON -- show it raw */ }
     if (parsed && parsed.kind === 'stderr') {
+      // Shown in the table rather than swallowed: everything run_scripts
+      // writes there is a reason a run did not happen, and in every such
+      // case there are no events at all, so this is all the operator sees.
       run.errors.push(parsed.text);
+      addRow('error', [[''], [''], [''], ['ERROR', 'verdict'], [parsed.text, 'detail']]);
       append('[stderr] ' + parsed.text);
       return;
     }
-    if (parsed) onEvent(parsed);
+    if (parsed) { onEvent(parsed); resultRows(parsed); }
     append(event.data);
   };
   // The server ends the stream when the run ends; EventSource reports that
@@ -508,11 +644,12 @@ function watchEvents() {
 $('run').addEventListener('click', async () => {
   const request = { selection: selection(), settings: headerSettings(), extra: [] };
   log.textContent = '';
+  clearResults();
   $('runinfo').hidden = true;
   for (const { verdict } of testBoxes.values()) { verdict.textContent = ''; verdict.className = 'verdict'; }
   groups.forEach(refreshGroupVerdict);
   savableLogs = {};
-  run = { sawRunStart: false, passed: undefined, finished: 0, failed: 0, errors: [],
+  run = { sawRunStart: false, passed: undefined, finished: 0, failed: 0, errors: [], current: '',
           expected: request.selection.length || catalog.length };
 
   setRunning(true);

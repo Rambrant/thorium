@@ -79,8 +79,9 @@ installed suite to pick from.
 
 **No options-dialog UI.** `static_content.hpp` has the header -- DUT serial,
 operator and criteria before a run, and the run's own `runStart` header once
-it has started -- and the catalog as a collapsible tree with checkboxes, where
-ticking a group ticks every test in it. It does not yet have the generated
+it has started -- the catalog as a collapsible tree with checkboxes, where
+ticking a group ticks every test in it, and the old console's colour-coded
+results list (with the raw event stream one tab away). It does not yet have the generated
 form for the rest of the flags; `GET /api/options` already serves what that
 would be built from, and see "Generating a form from `--describe-options`"
 below for the rules the old console followed, which still apply to whoever
