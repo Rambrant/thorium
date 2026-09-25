@@ -67,6 +67,11 @@ namespace launcher
         return static_cast<int>( msg.wParam);
     }
 
+    auto TrayIcon::postQuit() const -> void
+    {
+        PostMessageW( mWindow, WM_COMMAND, MAKEWPARAM( kIdQuit, 0), 0);
+    }
+
     auto CALLBACK TrayIcon::windowProc(
         HWND window, UINT message, WPARAM wParam, LPARAM lParam) -> LRESULT
     {

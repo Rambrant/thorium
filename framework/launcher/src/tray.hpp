@@ -45,6 +45,14 @@ namespace launcher
             //
             auto run() -> int;
 
+            //
+            // Asks the loop to quit exactly as the menu's Quit does, from
+            // any thread. PostQuitMessage only reaches the calling thread's
+            // queue, so a background thread posts the menu command to the
+            // tray window instead, and OnQuit runs on the loop's own thread.
+            //
+            auto postQuit() const -> void;
+
         private:
             static auto CALLBACK windowProc(
                 HWND window, UINT message, WPARAM wParam, LPARAM lParam) -> LRESULT;

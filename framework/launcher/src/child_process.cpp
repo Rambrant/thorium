@@ -48,12 +48,19 @@ namespace launcher
         // CREATE_SUSPENDED so the job assignment below cannot lose a race
         // against the child spawning grandchildren of its own before it is a
         // job member -- resumed via ResumeThread once assign() has run.
+        //
+        // CREATE_NO_WINDOW because the launcher is a GUI program with no
+        // console of its own, so a console child -- thorium_webui -- would
+        // otherwise get a fresh console window, an extra black window beside
+        // the real one. The child still has a (hidden) console, which
+        // run_scripts then inherits instead of opening one per run. Windows
+        // ignores the flag for GUI children, which is what Chrome is.
         const auto created = CreateProcessW(
             nullptr,
             commandLine.data(),
             nullptr, nullptr,
             FALSE,
-            CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT,
+            CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW,
             nullptr, nullptr,
             &startup, &mInfo);
 

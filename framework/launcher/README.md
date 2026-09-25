@@ -68,14 +68,19 @@ It does four things, in order, every time it starts, and a fifth while it runs:
    `framework/webui/README.md`'s "What a run means" says must never be
    unavailable), and *Quit*.
 
-   One difference in *Safe the rig*: the macOS launcher shows an alert if the
-   server does not answer 2xx (`thorium_webui` answers 500 when
-   `run_scripts --safe` could not even start). The Windows launcher discards
-   the result -- worth bringing across, since a safe that silently did not
-   happen is the worst way this action can fail.
+   If *Safe the rig* does not get a 2xx answer, both launchers say so --
+   an alert on macOS, a message box on Windows -- since a safe that silently
+   did not happen is the worst way this action can fail. `thorium_webui`
+   answers 500 when `run_scripts --safe` could not even start, and no
+   answer at all counts as a failure too.
 
-5. **Quits when the console is closed** -- macOS only so far
-   (`watchForClosedConsole` in `macos/main.cpp`). Closing the last console
+   On Windows 11 a new tray icon starts out in the notification area's
+   overflow (the `^` beside the clock), not on the taskbar itself, and there
+   is no API to promote it. The menu is on a right-click of the icon there;
+   drag it onto the taskbar to keep it in sight.
+
+5. **Quits when the console is closed** (`watchForClosedConsole` in
+   `src/main.cpp` and `macos/main.cpp`, the same logic on both). Closing the last console
    window ends everything, the same as *Quit*, about three seconds later --
    but never while a run is in flight: a window closed during a run leaves
    the run, the server and *Safe the rig* going, and the console quits once
@@ -85,8 +90,14 @@ It does four things, in order, every time it starts, and a fifth while it runs:
    console page holds `/api/presence` open, and `/api/status` reports how
    many do and whether a run is active (see `framework/webui/README.md`).
    The three seconds are what let a page reload -- which drops and reopens
-   that connection -- pass without being taken for a close. The Windows
-   launcher still stays in the tray until *Quit*.
+   that connection -- pass without being taken for a close. Windows asks
+   the server too, although watching the Chrome process would be enough
+   there, so that the two launchers cannot disagree about when to quit.
+
+   The Windows launcher starts its children with `CREATE_NO_WINDOW`
+   (`src/child_process.cpp`). It is a GUI program with no console, so
+   without that flag `thorium_webui` -- a console program -- would open a
+   console window of its own beside the real one.
 
 ## What this is not yet
 
