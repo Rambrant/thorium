@@ -1,0 +1,75 @@
+// --- the results table, as rows ---------------------------------------
+//
+// The old console's results list: what was read and what was concluded,
+// in the human log's columns and order (see core/src/journal/report.cpp),
+// so an operator who has read one recognises the other. Coloured only where
+// there is a verdict -- an unset "passed" is not false, it is an event with
+// no pass/fail notion at all, and painting it is how an Apply would come to
+// look like a check that succeeded (see core::JournalRecord::Passed). Every
+// Connect and Apply is still in Raw events, and in the SARIF log.
+//
+// A row is { className, cells: [[text, cls], ...], tooltip }, or { section }
+// for a group's heading. The view draws them; nothing here knows how.
+
+import { plural } from './format.js';
+
+// What one event contributes. `current` is what the Test column says --
+// the running test, or a hook's bracket -- and is handed back, changed or
+// not, because the event that changes it is never the one that shows it.
+export function rowsFor(e, current) {
+  const rows = [];
+  switch (e.kind) {
+    case 'groupStart':
+      rows.push({ section: e.group + (e.description ? ' -- ' + e.description : '') });
+      break;
+    case 'phaseStart':
+      // A hook's own bracket, shown because a run that fails in its setup
+      // never reaches a test and would otherwise leave the table empty.
+      current = e.group ? e.group + ' ' + e.phase : e.phase;
+      break;
+    case 'testStart':
+      current = e.test;
+      break;
+    case 'event':
+      if (e.verb === 'Verify') {
+        const passed = e.passed === true;
+        const subject = e.subjectGroup ? e.subjectGroup + '::' + e.subject : (e.subject || e.detail);
+        rows.push({
+          className: passed ? 'pass' : 'fail',
+          cells: [[current, 'tid'], [subject, 'subject'], [e.value, 'num'], [passed ? 'PASS' : 'FAIL', 'verdict'],
+                  [e.criterionText || e.detail, 'detail']],
+          tooltip: e.subject && e.detail ? e.detail : '',
+        });
+      } else if (e.verb === 'Measure' || e.verb === 'Read' || e.verb === 'Fetch') {
+        // The observation verbs only, as the human log does. Value alone,
+        // never Value plus Unit: Value is already the printable form with
+        // the unit in it ("0 V V" is what appending one produced).
+        rows.push({
+          className: '',
+          cells: [[current, 'tid'], [e.subject, 'subject'], [e.value, 'num'], [''], [e.detail, 'detail']],
+          tooltip: '',
+        });
+      }
+      break;
+  }
+  return { current, rows };
+}
+
+// Shown in the table rather than swallowed: everything run_scripts writes to
+// stderr is a reason a run did not happen, and in every such case there are
+// no events at all, so this is all the operator sees.
+export function stderrRow(text) {
+  return { className: 'error', cells: [[''], [''], [''], ['ERROR', 'verdict'], [text, 'detail']], tooltip: '' };
+}
+
+// Counts checks -- Verify rows -- and not readings or stderr.
+export function tally(counts, row) {
+  if (row.className !== 'pass' && row.className !== 'fail') return counts;
+  return { checks: counts.checks + 1, failed: counts.failed + (row.className === 'fail' ? 1 : 0) };
+}
+
+export function countText(counts) {
+  return counts.checks
+    ? plural(counts.checks, 'check') + (counts.failed ? ', ' + counts.failed + ' failed' : '')
+    : '';
+}

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!--
+  The console page's JavaScript unit tests. Run by ctest (webui_js_tests,
+  through cmake/RunJsTests.cmake) in headless Chrome; open it in Chrome by
+  hand with allow-file-access-from-files to see the same report.
+
+  Only static/js/model/ is tested, and only it can be: those modules never
+  touch the page, so they load here without the console around them. See
+  static/js/model/format.js on that split.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Thorium console -- JavaScript tests</title>
+<script>
+  // Before any module, so a module that fails to load or parse is reported
+  // rather than leaving an empty report and nothing to say why. Capturing,
+  // because a failed <script> fetch fires on the element and does not bubble.
+  window.addEventListener('error', (event) => {
+    const where = event.target && event.target.src ? 'could not load ' + event.target.src
+                                                   : (event.message + ' (' + event.filename + ':' + event.lineno + ')');
+    document.getElementById('errors').textContent += where + '\n';
+  }, true);
+</script>
+</head>
+<body>
+<pre id="report"></pre>
+<pre id="errors"></pre>
+<script type="module" src="all.js"></script>
+</body>
+</html>

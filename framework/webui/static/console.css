@@ -1,0 +1,95 @@
+:root { --bg: #1e1e1e; --panel: #252526; --line: #3a3a3a; --text: #ddd; --quiet: #8a8a8a;
+        --pass: #4ec27a; --fail: #f05a5a; --run: #e0b84c; }
+* { box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem 1.25rem; background: var(--bg); color: var(--text);
+       height: 100vh; display: flex; flex-direction: column; gap: 0.75rem; }
+h1 { font-size: 1.2rem; margin: 0; }
+button { font-size: 0.95rem; padding: 0.45rem 0.9rem; cursor: pointer; border-radius: 4px;
+         border: 1px solid var(--line); background: #333; color: var(--text); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.small { font-size: 0.8rem; padding: 0.2rem 0.55rem; }
+#safe { background: #7a1f1f; color: white; border: none; }
+#run { background: #1f5c3a; color: white; border: none; }
+input[type=text], select { font: inherit; padding: 0.35rem 0.5rem; background: #111; color: var(--text);
+                           border: 1px solid var(--line); border-radius: 4px; width: 100%; }
+input:disabled, select:disabled { opacity: 0.6; }
+
+/* --- the header ---------------------------------------------------- */
+/* Label above its field, and each field only as wide as what goes in it:
+   a serial number or a name, not half the window. */
+#setup { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: flex-end; }
+#setup .field { display: flex; flex-direction: column; gap: 0.2rem; }
+#setup label { color: var(--quiet); font-size: 0.85rem; white-space: nowrap; }
+#setup .field.serial   { width: 12rem; }
+#setup .field.operator { width: 14rem; }
+#setup .field.criteria { width: 11rem; }
+@media (max-width: 760px) { #panes { grid-template-columns: 1fr; } }
+.note { color: var(--quiet); font-size: 0.8rem; white-space: nowrap; }
+
+#runinfo { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.5rem 0.75rem;
+           display: flex; flex-wrap: wrap; gap: 0.3rem 1.5rem; font-size: 0.85rem; }
+#runinfo[hidden] { display: none; }
+#runinfo .k { color: var(--quiet); margin-right: 0.35rem; }
+#runinfo .warn { color: white; background: #7a1f1f; padding: 0 0.4rem; border-radius: 3px; font-weight: 600; }
+
+/* --- the two panes ------------------------------------------------- */
+/* The tree takes a fifth of any extra width, up to 30rem, so widening the
+   window mostly widens the results -- which is where the long lines are. */
+#panes { flex: 1; min-height: 0; display: grid; grid-template-columns: clamp(18rem, 12rem + 20%, 30rem) 1fr; gap: 0.75rem; }
+.pane { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.pane-bar { display: flex; gap: 0.35rem; align-items: center; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.pane-bar .note { margin-left: auto; }
+.pane-bar [hidden], .pane-bar label.filter[hidden] { display: none; }
+
+#tree { overflow-y: auto; padding: 0.25rem 0; flex: 1; }
+.group-row, .test-row { display: flex; align-items: center; gap: 0.35rem; padding: 0.15rem 0.5rem; }
+.group-row:hover, .test-row:hover { background: #2d2d30; }
+.group-row { font-weight: 600; }
+.caret { width: 1.4rem; height: 1.4rem; padding: 0; border: none; background: none; color: var(--quiet);
+         font-size: 0.8rem; transition: transform 0.1s; }
+.group.collapsed .caret { transform: rotate(-90deg); }
+.group.collapsed .tests { display: none; }
+/* Indented past the group's checkbox, with a guide line under the caret,
+   so an open group's tests read as belonging to it. */
+.tests { list-style: none; margin: 0 0 0 1.2rem; padding: 0 0 0 2.2rem; border-left: 1px solid #4a4a4f; }
+.row-label { display: flex; align-items: baseline; gap: 0.5rem; flex: 1; min-width: 0; cursor: pointer; }
+.row-label input { align-self: center; }
+.count { color: var(--quiet); font-weight: normal; font-size: 0.8rem; }
+.tid { font-family: ui-monospace, monospace; font-size: 0.88rem; white-space: nowrap; }
+.desc { color: var(--quiet); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.verdict { font-size: 0.75rem; font-weight: 700; min-width: 2.6rem; text-align: right; white-space: nowrap; }
+.verdict.pass { color: var(--pass); }
+.verdict.fail { color: var(--fail); }
+.verdict.running { color: var(--run); }
+
+#log { color: #9f9; font-family: ui-monospace, monospace; font-size: 0.8rem; padding: 0.75rem;
+       overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; flex: 1; margin: 0; }
+#log[hidden], #results[hidden] { display: none; }
+
+/* --- the results table: the old console's columns and colours ---- */
+.tab.active { background: #4a4a4f; border-color: #6a6a70; }
+.pane-bar label.filter { color: var(--quiet); font-size: 0.8rem; display: flex; gap: 0.3rem; align-items: center; margin-left: 0.6rem; }
+#results { overflow: auto; flex: 1; }
+#results table { border-collapse: collapse; width: 100%; font-size: 0.82rem; }
+#results th { position: sticky; top: 0; background: var(--panel); text-align: left; font-weight: 600;
+              color: var(--quiet); padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--line); }
+#results td { padding: 0.15rem 0.5rem; border-bottom: 1px solid #2c2c2c; vertical-align: top; }
+#results td.num, #results th.num { text-align: right; font-family: ui-monospace, monospace; white-space: nowrap; }
+#results td.tid, #results td.subject { white-space: nowrap; }
+/* Detail takes what is left and is cut short rather than wrapped: a
+   wrapped detail makes every row three lines tall. Hover for all of it. */
+#results td.detail { width: 100%; max-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#results td.verdict { text-align: left; }
+#results tr.pass td { color: var(--pass); }
+#results tr.fail td, #results tr.error td { color: var(--fail); }
+#results tr.error td.detail { white-space: pre-wrap; max-width: none; }
+#results tr.section td { color: var(--quiet); background: #2a2a2d; font-size: 0.78rem; padding-top: 0.3rem; }
+#results.failures-only tbody tr:not(.fail):not(.error) { display: none; }
+
+/* --- the bar ------------------------------------------------------- */
+#bar { display: flex; gap: 0.5rem; align-items: center; }
+#bar #safe { margin-left: 1.25rem; }
+#bar #logKind { width: auto; margin-left: 1.25rem; }
+#status { margin-left: auto; color: var(--quiet); }
+#status.pass { color: var(--pass); font-weight: 600; }
+#status.fail { color: var(--fail); font-weight: 600; }

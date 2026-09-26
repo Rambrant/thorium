@@ -15,7 +15,7 @@ the tray icon and the browser window; this owns the rig.
 
 | | |
 |---|---|
-| `GET /` | the console page (embedded, see `static_content.hpp`) |
+| `GET /`, `GET /console.css`, `GET /js/*.js` | the console page -- `static/`, compiled into the binary by `cmake/EmbedFiles.cmake` (see `src/static_content.hpp`). `/` is `index.html`; the script is ES modules, entered at `js/main.js` |
 | `GET /api/options` | `run_scripts --describe-options`, passed through verbatim (it is already JSON) |
 | `GET /api/manifest` | the `manifest.json` beside `run_scripts`, passed through verbatim; 404 when there is none (a build-tree binary). The page reads only the criteria variants from it -- the catalog still comes from `/api/tests` |
 | `GET /api/tests` | `run_scripts --list-tests`, passed through verbatim (`group\|id\|description` lines) |
@@ -77,7 +77,7 @@ with only `Binary` set, from `--run-scripts=`. `ui::discoverSuites()` is
 already there, reused unchanged, for whenever a deployment has more than one
 installed suite to pick from.
 
-**No options-dialog UI.** `static_content.hpp` has the header -- DUT serial,
+**No options-dialog UI.** The page in `static/` has the header -- DUT serial,
 operator and criteria before a run, and the run's own `runStart` header once
 it has started -- the catalog as a collapsible tree with checkboxes, where
 ticking a group ticks every test in it, and the old console's colour-coded
@@ -150,6 +150,26 @@ unlike the old console this one is not a separate CMake project. It points
 itself at the `run_scripts` this same build produces
 (`$<TARGET_FILE:run_scripts>`), so there is nothing to configure by hand the
 way `THORIUM_UI_TEST_BINARY` once had to be.
+
+`webui_js_tests` is the page's JavaScript, and it is testable because the page
+is split in two:
+
+- `static/js/model/` is the page's logic with no page in it -- no `document`,
+  no `fetch`, plain values in and out: parsing the catalog, what a tick
+  selects, which rows an event adds, the header's flags, the four ways a run
+  ends. Everything worth testing is here.
+- `static/js/*.js` is the view: it reads the page, calls the model, and draws
+  what comes back. Kept thin enough that there is nothing in it to test but
+  wiring -- anything it starts deciding for itself belongs in a model module.
+
+`tests/js/run.html` imports the model modules straight from the source tree,
+so a test edit or a model edit needs no rebuild. `cmake/RunJsTests.cmake` opens
+it in headless Chrome and fails unless the report the page writes says every
+test passed -- Chrome rather than Node, because Chrome is already on every
+machine the console runs on and Node would be one more thing to install. A
+build that finds no Chrome still registers the test, which then fails saying
+so. A new test module is a `*.test.js` beside the others and one more import in
+`tests/js/all.js`.
 
 ## cpp-httplib
 

@@ -13,8 +13,8 @@
 #
 #   --run-scripts=PATH  the run_scripts to drive
 #                       (default: build/install/bin/run_scripts)
-#   --webui=PATH        the thorium_webui server to start (default: the first
-#                       one built, of build/dev, build/release, build/debug)
+#   --webui=PATH        the thorium_webui server to start (default: the most
+#                       recently built of build/dev, build/release, build/debug)
 #   --port=N            the loopback port the server listens on (default: 8420)
 #   --no-launcher       run the server in this terminal and open the page in
 #                       the default browser instead; Ctrl-C stops it. The
@@ -122,12 +122,16 @@ for arg in "$@"; do
     esac
 done
 
+# The newest rather than the first of a fixed order: a tree that has not been
+# built for days must not win over the one just rebuilt, or the page is quietly
+# the old one -- which is exactly what a fixed dev-first order did while
+# CLion was rebuilding build/release. -nt compares modification times, and is a
+# bash builtin on both hosts, unlike stat, whose flags differ between them.
 if [[ -z "$webui" ]]; then
     for tree in dev release debug; do
         candidate="$repo/build/$tree/framework/webui/thorium_webui$exe"
-        if [[ -x "$candidate" ]]; then
+        if [[ -x "$candidate" && ( -z "$webui" || "$candidate" -nt "$webui" ) ]]; then
             webui="$candidate"
-            break
         fi
     done
 fi
