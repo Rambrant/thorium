@@ -160,11 +160,6 @@ auto main( int argc, char ** argv) -> int
             return httplib::Server::HandlerResponse::Unhandled;
         });
 
-    server.Get( "/", []( const httplib::Request &, httplib::Response & res)
-    {
-        res.set_content( webui::kIndexHtml, "text/html");
-    });
-
     server.Get( "/api/options", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
         const auto  result = webui::runBlocking( webui::buildDescribeCommand( suite));
@@ -340,6 +335,26 @@ auto main( int argc, char ** argv) -> int
         res.set_content( "{\"viewers\":" + std::to_string( viewers.load()) +
                          ",\"running\":" + ( session.active() ? "true" : "false") + "}",
                          "application/json");
+    });
+
+    // The page's own files (see static_content.hpp), each at its own path,
+    // and index.html at / too. Registered last and matching any path, so it
+    // must stay after every route above: httplib takes the first handler
+    // whose pattern matches, and this one would otherwise answer /api/tests.
+    // The pattern only gets a request here; the lookup itself is exact.
+    server.Get( R"(/.*)", []( const httplib::Request & req, httplib::Response & res)
+    {
+        const auto  path = req.path == "/" ? std::string_view{ "/index.html"} : std::string_view{ req.path};
+        for ( const auto & file : webui::staticFiles())
+        {
+            if ( file.Path == path)
+            {
+                res.set_content( file.Body.data(), file.Body.size(), std::string{ file.ContentType});
+                return;
+            }
+        }
+        res.status = 404;
+        res.set_content( "not found\n", "text/plain");
     });
 
     std::printf( "thorium_webui listening on 127.0.0.1:%d (run_scripts: %s)\n",

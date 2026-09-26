@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<!--
+  The browser side of thorium_webui. It carries the two things the old
+  wxWidgets console had on its face and the first version of this page did not:
+
+    - the header. DUT serial, operator and criteria before a run, because
+      they are what makes the resulting report traceable to a unit and a
+      person; and the run's own traceability header (runStart's "info")
+      once it has started, because that is what the logs will say, not
+      what the fields said.
+    - the catalog, as a two-level tree with checkboxes. Ticking a group
+      ticks its tests; groups start collapsed and carry their tests'
+      verdict, so hundreds of tests still fit on one screen.
+    - the results list, in the human log's columns and colours: each
+      Verify green or red, each reading plain, stderr as a red ERROR.
+      The raw event stream is one tab away.
+
+  A finished run's RTF or SARIF log can be saved from the bar (see
+  GET /api/log/ in main.cpp). Still not here: the generated options
+  form README.md's "Generating a form from --describe-options" describes.
+
+  Compiled into the binary rather than served from disk -- see
+  src/static_content.hpp.
+-->
+<html lang="en" translate="no">
+<head>
+<meta charset="utf-8">
+<meta name="google" content="notranslate">
+<title>Thorium Bench Console</title>
+<link rel="stylesheet" href="console.css">
+</head>
+<body>
+  <h1>Thorium Bench Console</h1>
+
+  <div id="setup">
+    <div class="field serial">
+      <label for="dutSerial">DUT serial</label>
+      <input type="text" id="dutSerial" placeholder="SN-000123" autocomplete="off">
+    </div>
+    <div class="field operator">
+      <label for="operator">Operator</label>
+      <input type="text" id="operator" placeholder="recorded in both logs" autocomplete="off">
+    </div>
+    <div class="field criteria">
+      <label for="criteria">Criteria</label>
+      <input type="text" id="criteria" placeholder="the build's default" autocomplete="off">
+    </div>
+  </div>
+
+  <div id="runinfo" hidden></div>
+
+  <div id="panes">
+    <div class="pane">
+      <div class="pane-bar">
+        <button class="small" id="selAll">All</button>
+        <button class="small" id="selNone">None</button>
+        <button class="small" id="expandAll">Expand</button>
+        <button class="small" id="collapseAll">Collapse</button>
+        <span class="note" id="selCount"></span>
+      </div>
+      <div id="tree"><div class="note" style="padding:0.5rem">Loading the catalog...</div></div>
+    </div>
+    <div class="pane">
+      <div class="pane-bar">
+        <button class="small tab active" id="showResults">Results</button>
+        <button class="small tab" id="showRaw">Raw events</button>
+        <label class="filter"><input type="checkbox" id="failuresOnly"> Failures only</label>
+        <button class="small" id="rawFormat" hidden>Show JSON</button>
+        <span class="note" id="resultCount"></span>
+      </div>
+      <div id="results">
+        <table>
+          <thead><tr><th>Test</th><th>Subject</th><th class="num">Value</th><th>Verdict</th><th>Detail</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <pre id="log" hidden></pre>
+    </div>
+  </div>
+
+  <div id="bar">
+    <button id="run" disabled>Run</button>
+    <button id="safe">Safe the rig</button>
+    <select id="logKind" title="Which of the run's two logs to save">
+      <option value="rtf">RTF report</option>
+      <option value="sarif">SARIF log</option>
+    </select>
+    <button id="saveLog" disabled title="Save the last run's log">Save log</button>
+    <span id="status"></span>
+  </div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

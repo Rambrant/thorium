@@ -27,10 +27,43 @@ add_library(webui_protocol STATIC
 )
 target_include_directories(webui_protocol PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+#
+# The console page, as the files a browser asks for. Compiled into
+# thorium_webui by cmake/EmbedFiles.cmake -- see src/static_content.hpp on why
+# embedded rather than served from a directory. Listed rather than globbed, so
+# a new file is a change to this list and a reconfigure is never forgotten;
+# index.html is also what GET / serves.
+set(WEBUI_STATIC_FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/index.html
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/console.css
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/main.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/dom.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/state.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/raw.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/results.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/catalog.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/header.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/logs.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/run.js
+)
+set(WEBUI_STATIC_CPP ${CMAKE_CURRENT_BINARY_DIR}/generated/static_content.cpp)
+add_custom_command(
+    OUTPUT  ${WEBUI_STATIC_CPP}
+    COMMAND ${CMAKE_COMMAND}
+            -DEMBED_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/static
+            "-DEMBED_INPUTS=${WEBUI_STATIC_FILES}"
+            -DEMBED_OUTPUT=${WEBUI_STATIC_CPP}
+            -P ${CMAKE_SOURCE_DIR}/cmake/EmbedFiles.cmake
+    DEPENDS ${WEBUI_STATIC_FILES} ${CMAKE_SOURCE_DIR}/cmake/EmbedFiles.cmake
+    COMMENT "Embedding the console page"
+    VERBATIM
+)
+
 add_executable(thorium_webui
     src/main.cpp
     src/child_stream.cpp
     src/run_session.cpp
+    ${WEBUI_STATIC_CPP}
 )
 target_link_libraries(thorium_webui PRIVATE webui_protocol httplib::httplib)
 

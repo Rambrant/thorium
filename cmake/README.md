@@ -12,16 +12,21 @@ is the useful part of the file.
 | `FetchGTest.cmake` | module, `include()`d | configure | `add_layer_tests()` |
 | `FetchHttplib.cmake` | module, `include()`d | configure | inclusion defines `httplib::httplib` |
 | `GenerateManifest.cmake` | script, `install(SCRIPT)` | **install** | the whole file |
+| `EmbedFiles.cmake` | script, `add_custom_command(... -P)` | **build** | the whole file |
 | `ThoriumConfig.cmake.in` | template, `configure_package_config_file()` | configure → install | `find_package(Thorium)` |
 
 The distinction in the *Kind* column matters. Four are modules included into a
 project's scope, so their macros and functions are callable from a
 `CMakeLists.txt`. One is a standalone script executed in a fresh interpreter at
 install time, with no access to project variables except what the surrounding
-`install(CODE ...)` calls put in scope. One is never executed here at all — it
+`install(CODE ...)` calls put in scope. Another is the same kind of script run
+at build time instead, by `framework/webui`, with its inputs passed as `-D`
+arguments — it compiles the console page's HTML, CSS and JavaScript into the
+server (see `framework/webui/src/static_content.hpp`), and runs again whenever
+one of them changes. One is never executed here at all — it
 is installed, to be read by somebody else's build.
 
-There used to be a seventh, `WxWidgets.cmake`, included not by the top-level
+There used to be another, `WxWidgets.cmake`, included not by the top-level
 `CMakeLists.txt` but by `framework/ui` — a CMake project of its own, built by
 a different compiler. It is gone along with that directory; see
 [`framework/webui/README.md`](../framework/webui/README.md)'s "History"

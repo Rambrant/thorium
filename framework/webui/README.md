@@ -15,7 +15,7 @@ the tray icon and the browser window; this owns the rig.
 
 | | |
 |---|---|
-| `GET /` | the console page (embedded, see `static_content.hpp`) |
+| `GET /`, `GET /console.css`, `GET /js/*.js` | the console page -- `static/`, compiled into the binary by `cmake/EmbedFiles.cmake` (see `src/static_content.hpp`). `/` is `index.html`; the script is ES modules, entered at `js/main.js` |
 | `GET /api/options` | `run_scripts --describe-options`, passed through verbatim (it is already JSON) |
 | `GET /api/manifest` | the `manifest.json` beside `run_scripts`, passed through verbatim; 404 when there is none (a build-tree binary). The page reads only the criteria variants from it -- the catalog still comes from `/api/tests` |
 | `GET /api/tests` | `run_scripts --list-tests`, passed through verbatim (`group\|id\|description` lines) |
@@ -77,7 +77,7 @@ with only `Binary` set, from `--run-scripts=`. `ui::discoverSuites()` is
 already there, reused unchanged, for whenever a deployment has more than one
 installed suite to pick from.
 
-**No options-dialog UI.** `static_content.hpp` has the header -- DUT serial,
+**No options-dialog UI.** The page in `static/` has the header -- DUT serial,
 operator and criteria before a run, and the run's own `runStart` header once
 it has started -- the catalog as a collapsible tree with checkboxes, where
 ticking a group ticks every test in it, and the old console's colour-coded
