@@ -72,7 +72,9 @@ namespace webui
   #runinfo .warn { color: white; background: #7a1f1f; padding: 0 0.4rem; border-radius: 3px; font-weight: 600; }
 
   /* --- the two panes ------------------------------------------------- */
-  #panes { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(18rem, 38%) 1fr; gap: 0.75rem; }
+  /* The tree takes a fifth of any extra width, up to 30rem, so widening the
+     window mostly widens the results -- which is where the long lines are. */
+  #panes { flex: 1; min-height: 0; display: grid; grid-template-columns: clamp(18rem, 12rem + 20%, 30rem) 1fr; gap: 0.75rem; }
   .pane { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .pane-bar { display: flex; gap: 0.35rem; align-items: center; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .pane-bar .note { margin-left: auto; }
@@ -86,7 +88,9 @@ namespace webui
            font-size: 0.8rem; transition: transform 0.1s; }
   .group.collapsed .caret { transform: rotate(-90deg); }
   .group.collapsed .tests { display: none; }
-  .tests { list-style: none; margin: 0; padding: 0 0 0 1.75rem; }
+  /* Indented past the group's checkbox, with a guide line under the caret,
+     so an open group's tests read as belonging to it. */
+  .tests { list-style: none; margin: 0 0 0 1.2rem; padding: 0 0 0 2.2rem; border-left: 1px solid #4a4a4f; }
   .row-label { display: flex; align-items: baseline; gap: 0.5rem; flex: 1; min-width: 0; cursor: pointer; }
   .row-label input { align-self: center; }
   .count { color: var(--quiet); font-weight: normal; font-size: 0.8rem; }
