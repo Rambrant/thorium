@@ -52,7 +52,34 @@ if [[ $windows -eq 1 ]]; then
     # trailing space keeps port 842 from matching 8420.
     port_in_use() { netstat -ano | grep "LISTENING" | grep -q ":$1 "; }
     is_running()  { tasklist //FI "IMAGENAME eq $1.exe" //NH 2>/dev/null | grep -qi "^$1.exe"; }
-    open_url()    { cmd.exe //c start "" "$1"; }
+    # Chrome in app mode, found the way framework/launcher's findChrome()
+    # finds it -- the App Paths key, per-user then per-machine -- so that
+    # running without the launcher still gives the console Chrome and its own
+    # profile, not whatever the system default browser is (Edge, on a fresh
+    # Windows). The default browser only if there is no Chrome at all.
+    find_chrome() {
+        local key='SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe'
+        local root path
+        for root in HKCU HKLM; do
+            path="$(reg query "$root"'\'"$key" //ve 2>/dev/null | sed -n 's/.*REG_SZ[[:space:]]*//p' | tr -d '\r')"
+            if [[ -n "$path" && -f "$(cygpath -u "$path")" ]]; then
+                printf '%s\n' "$path"
+                return 0
+            fi
+        done
+        return 1
+    }
+    open_url() {
+        local chrome
+        if chrome="$(find_chrome)"; then
+            "$(cygpath -u "$chrome")" --app="$1" \
+                --user-data-dir="$(cygpath -w "$LOCALAPPDATA")\\Thorium\\chrome-profile" \
+                --window-size=1024,768 --no-first-run --no-default-browser-check >/dev/null 2>&1 &
+        else
+            echo "Chrome not found -- opening the default browser instead." >&2
+            cmd.exe //c start "" "$1"
+        fi
+    }
     stop_hint="taskkill //IM thorium_webui.exe //F"
 
     # The binaries are native Windows programs, so they get C:/dev/... rather

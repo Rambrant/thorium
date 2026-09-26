@@ -54,12 +54,15 @@ namespace webui
   input:disabled, select:disabled { opacity: 0.6; }
 
   /* --- the header ---------------------------------------------------- */
-  #setup { display: grid; grid-template-columns: auto 1fr auto 1fr auto 1fr; gap: 0.4rem 0.6rem; align-items: center; }
-  #setup label { color: var(--quiet); font-size: 0.9rem; white-space: nowrap; }
-  @media (max-width: 760px) { #setup { grid-template-columns: auto 1fr; } #panes { grid-template-columns: 1fr; } }
-  .with-note { display: flex; gap: 0.5rem; align-items: center; }
-  .with-note > input, .with-note > select { flex: 1; min-width: 7rem; }
-  .with-note > .note { white-space: normal; flex: 0 1 auto; }
+  /* Label above its field, and each field only as wide as what goes in it:
+     a serial number or a name, not half the window. */
+  #setup { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: flex-end; }
+  #setup .field { display: flex; flex-direction: column; gap: 0.2rem; }
+  #setup label { color: var(--quiet); font-size: 0.85rem; white-space: nowrap; }
+  #setup .field.serial   { width: 12rem; }
+  #setup .field.operator { width: 14rem; }
+  #setup .field.criteria { width: 11rem; }
+  @media (max-width: 760px) { #panes { grid-template-columns: 1fr; } }
   .note { color: var(--quiet); font-size: 0.8rem; white-space: nowrap; }
 
   #runinfo { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.5rem 0.75rem;
@@ -73,6 +76,7 @@ namespace webui
   .pane { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .pane-bar { display: flex; gap: 0.35rem; align-items: center; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .pane-bar .note { margin-left: auto; }
+  .pane-bar [hidden], .pane-bar label.filter[hidden] { display: none; }
 
   #tree { overflow-y: auto; padding: 0.25rem 0; flex: 1; }
   .group-row, .test-row { display: flex; align-items: center; gap: 0.35rem; padding: 0.15rem 0.5rem; }
@@ -130,14 +134,17 @@ namespace webui
   <h1>Thorium Bench Console</h1>
 
   <div id="setup">
-    <label for="dutSerial">DUT serial</label>
-    <input type="text" id="dutSerial" placeholder="SN-000123" autocomplete="off">
-    <label for="operator">Operator</label>
-    <input type="text" id="operator" placeholder="recorded in both logs" autocomplete="off">
-    <label for="criteria">Criteria</label>
-    <div class="with-note" id="criteriaCell">
+    <div class="field serial">
+      <label for="dutSerial">DUT serial</label>
+      <input type="text" id="dutSerial" placeholder="SN-000123" autocomplete="off">
+    </div>
+    <div class="field operator">
+      <label for="operator">Operator</label>
+      <input type="text" id="operator" placeholder="recorded in both logs" autocomplete="off">
+    </div>
+    <div class="field criteria">
+      <label for="criteria">Criteria</label>
       <input type="text" id="criteria" placeholder="the build's default" autocomplete="off">
-      <span class="note" id="master"></span>
     </div>
   </div>
 
@@ -159,6 +166,7 @@ namespace webui
         <button class="small tab active" id="showResults">Results</button>
         <button class="small tab" id="showRaw">Raw events</button>
         <label class="filter"><input type="checkbox" id="failuresOnly"> Failures only</label>
+        <button class="small" id="rawFormat" hidden>Show JSON</button>
         <span class="note" id="resultCount"></span>
       </div>
       <div id="results">
@@ -203,10 +211,68 @@ function setStatus(text, tone) {
   statusEl.className = tone || '';
 }
 
-function append(text) {
-  log.textContent += text + "\n";
+// --- Raw events -------------------------------------------------------
+//
+// Every line the stream carried, kept so the tab can be redrawn in either
+// form: a text log, one aligned line per event, or each event as indented
+// JSON. The text form leaves out only what repeats the line's own start --
+// the kind or verb, the time -- and bookkeeping no reader wants inline
+// (sequence, wallClockMs, and numeric/unit, which value already says).
+let rawLines = [];
+let rawAsJson = false;
+
+const kQuietKeys = new Set(['kind', 'verb', 'sequence', 'timeUtc', 'wallClockMs', 'numeric', 'unit']);
+
+function rawValue(value) {
+  if (Array.isArray(value)) return '[' + value.map(rawValue).join(', ') + ']';
+  const text = typeof value === 'string' ? value : JSON.stringify(value);
+  return /[\s"]/.test(text) ? JSON.stringify(text) : text;
+}
+
+function eventText(e) {
+  const time = e.timeUtc ? e.timeUtc.slice(11, 23) : ''.padEnd(12);
+  const what = (e.kind === 'event' ? e.verb : e.kind) || '?';
+  const fields = [];
+  for (const [key, value] of Object.entries(e)) {
+    if (kQuietKeys.has(key)) continue;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      // runStart's info: one level, flattened, rather than a JSON blob.
+      for (const [inner, v] of Object.entries(value)) fields.push(inner + '=' + rawValue(v));
+    } else {
+      fields.push(key + '=' + rawValue(value));
+    }
+  }
+  return time + '  ' + what.padEnd(11) + ' ' + fields.join('  ');
+}
+
+function rawText(line) {
+  if (line.stderr !== undefined) return '[stderr] ' + line.stderr;
+  if (!line.parsed) return line.data;
+  return rawAsJson ? JSON.stringify(line.parsed, null, 2) : eventText(line.parsed);
+}
+
+function append(line) {
+  rawLines.push(line);
+  const follow = log.scrollTop + log.clientHeight >= log.scrollHeight - 4;
+  log.textContent += rawText(line) + "\n";
+  if (follow) log.scrollTop = log.scrollHeight;
+}
+
+function redrawRaw() {
+  log.textContent = rawLines.map(rawText).join("\n") + (rawLines.length ? "\n" : '');
   log.scrollTop = log.scrollHeight;
 }
+
+function clearRaw() {
+  rawLines = [];
+  log.textContent = '';
+}
+
+$('rawFormat').addEventListener('click', () => {
+  rawAsJson = !rawAsJson;
+  $('rawFormat').textContent = rawAsJson ? 'Show text' : 'Show JSON';
+  redrawRaw();
+});
 
 // --- the results table ------------------------------------------------
 //
@@ -292,10 +358,12 @@ function resultRows(e) {
 
 $('showResults').addEventListener('click', () => {
   resultsBox.hidden = false; log.hidden = true;
+  $('failuresOnly').parentElement.hidden = false; $('rawFormat').hidden = true;
   $('showResults').classList.add('active'); $('showRaw').classList.remove('active');
 });
 $('showRaw').addEventListener('click', () => {
   resultsBox.hidden = true; log.hidden = false;
+  $('failuresOnly').parentElement.hidden = true; $('rawFormat').hidden = false;
   $('showRaw').classList.add('active'); $('showResults').classList.remove('active');
   log.scrollTop = log.scrollHeight;
 });
@@ -457,11 +525,6 @@ function applyManifest(doc) {
   for (const variant of variants) select.append(el('option', { value: variant, textContent: variant }));
   select.value = variants.includes(doc.defaultCriteriaVariant) ? doc.defaultCriteriaVariant : variants[0];
   $('criteria').replaceWith(select);
-
-  // The master, quiet and beside the picker rather than in it: not
-  // selectable, but the applied variant alone does not say which table the
-  // unchanged tolerances came from. See webui::Suite::MasterCriteria.
-  if (doc.masterCriteriaVariant) $('master').textContent = 'unchanged rows from ' + doc.masterCriteriaVariant;
 }
 
 // The three header fields, as settings. A field left empty contributes no
@@ -630,11 +693,11 @@ function watchEvents() {
       // case there are no events at all, so this is all the operator sees.
       run.errors.push(parsed.text);
       addRow('error', [[''], [''], [''], ['ERROR', 'verdict'], [parsed.text, 'detail']]);
-      append('[stderr] ' + parsed.text);
+      append({ stderr: parsed.text });
       return;
     }
     if (parsed) { onEvent(parsed); resultRows(parsed); }
-    append(event.data);
+    append({ data: event.data, parsed });
   };
   // The server ends the stream when the run ends; EventSource reports that
   // as an error and would reconnect, which would replay the run from the top.
@@ -643,7 +706,7 @@ function watchEvents() {
 
 $('run').addEventListener('click', async () => {
   const request = { selection: selection(), settings: headerSettings(), extra: [] };
-  log.textContent = '';
+  clearRaw();
   clearResults();
   $('runinfo').hidden = true;
   for (const { verdict } of testBoxes.values()) { verdict.textContent = ''; verdict.className = 'verdict'; }
