@@ -103,7 +103,7 @@
         "THORIUM_DUT_DIR": "${sourceDir}/dev/dut",
         "THORIUM_SUITE_DIR": "${sourceDir}/dev/suite",
         "THORIUM_KNOWN_CRITERIA_VARIANTS": "production",
-        "THORIUM_INSTRUMENT_PACKAGES": "keysight_edu34450a;keysight_edu36311a",
+        "THORIUM_INSTRUMENT_PACKAGES": "keysight_edu34450a;keysight_edu36311a;keysight_dsox1202g",
         "THORIUM_DUT_NAME": "DevBench",
         "THORIUM_RIG_NAME": "dev-desk",
         "THORIUM_ACCEPTANCE_TESTS": "OFF"

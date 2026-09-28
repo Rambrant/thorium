@@ -1,10 +1,10 @@
-# dev/ -- the desk bench: a PC, a meter, a supply, and nothing else
+# dev/ -- the desk bench: a PC, a meter, a supply, a scope, and nothing else
 
 This is a second **deployment**, not a second framework. `framework/` and
 `instruments/` are shared unchanged with the bench — including `framework/runner`,
 which is the whole runner, so this directory brings no `main()` of its own; what
 it holds is the same three kinds of content `rig/`, `dut/` and `suite/` hold, for
-a rig that is a meter and a supply on a desk with LAN cables to them.
+a rig that is a meter, a supply and a scope on a desk with USB cables to them.
 
 It exists for the work the bench cannot host: developing an instrument driver
 against real hardware. Doing that on the rack means booking the rack.
@@ -27,11 +27,11 @@ ctest --test-dir build/dev
 
 ```
 dev/
-    rig/     one EDU34450A from a pool of three, one EDU36311A's three outputs,
-             no switching hardware, no wiring
+    rig/     one EDU34450A (pooled), one EDU36311A's three outputs, one
+             DSOX1202G, no switching hardware, no wiring
     dut/     an adapter with no points, one criteria table per instrument
-    suite/   three groups: the meter's sanity check, each of its functions,
-             and each of the supply's outputs
+    suite/   the meter's sanity check, each of its functions, each of the
+             supply's outputs, and the scope against its probe-comp output
 ```
 
 Every file is the ordinary form of its table with the rows a desk bench has. One of them has no counterpart on the
@@ -306,6 +306,29 @@ way — `usb:` on one and `lan:` on another is two sessions to one supply.
 That sharing is also the half of a supply pool that now exists. The other half
 is preflight's claim rule, which still refuses to hand one serial to three
 pooled rows.
+
+**ScopeProbeComp** is the DSOX1202G against the 1 kHz square wave on its own
+probe-compensation terminal: both probes' tips on it, both grounds on its lug,
+and the group runs whole. All eight amplitude readings and all six timing
+readings on each channel, a single-shot capture with both traces fetched and
+checked against the same levels, the four acquisition types, and AC coupling
+and the bandwidth limit. The comp output is meant for adjusting probes rather
+than calibrating a scope, so its levels in `DEV_Osc_1` are placeholders
+(`TODO(desk)`) to be read off this scope once and written in; its timing is the
+part worth trusting, and the rows are tighter for it.
+
+The scope's row carries a placeholder serial, `Usb( "CN00000000")`, until the
+real one is written in -- and until then **every attached run fails at
+startup**, the meter's and the supply's included, because preflight opens every
+row. Set `THORIUM_ADDRESS_Osc1=usb:<serial>` or edit the row.
+
+One thing about the scope's keys worth knowing before replaying a run: a
+point-free scope reading keys as `Osc1.<measurement>.<quantity>` --
+`Osc1.Vpp.Voltage` -- with no channel in it, so channel 1's and channel 2's
+readings of the same measurement share a key. Each script reads one channel,
+so nothing collides within a test; a recording of the whole group is a
+sequence per key, in run order. A fetched trace does key by channel
+(`Osc1.Channel1`).
 
 ## Adding to it
 

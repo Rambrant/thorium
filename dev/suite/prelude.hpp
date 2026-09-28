@@ -11,9 +11,10 @@
 // through it, which puts a conditional in the header every script includes to
 // save four lines.
 //
-// Shorter than the bench's by exactly what this bench does not have. No
-// hal/verbs/acquire.hpp or hal/verbs/trace.hpp: Arm/Await/Fetch are the triggered-capture
-// verbs, and there is no scope here. hal/verbs/route.hpp is included even though
+// The same verbs as the bench's, now that the desk has a scope:
+// hal/verbs/acquire.hpp and hal/verbs/trace.hpp are Arm/Await/Fetch, the
+// triggered-capture verbs, which were left out while there was nothing here to
+// capture with. hal/verbs/route.hpp is included even though
 // nothing can be routed -- Connect/Disconnect are what a script would reach for
 // first when a card does arrive, and the include is what makes that a wiring
 // question rather than a prelude question.
@@ -24,6 +25,8 @@
 #include "hal/verbs/measure.hpp"
 #include "hal/verbs/source.hpp"
 #include "hal/verbs/route.hpp"
+#include "hal/verbs/acquire.hpp"
+#include "hal/verbs/trace.hpp"
 
 #include "core/criteria/verify.hpp"
 

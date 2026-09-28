@@ -24,3 +24,12 @@ auto dmmCapacitance() -> void;
 auto psuOutput1Check() -> void;
 auto psuOutput2Check() -> void;
 auto psuOutput3Check() -> void;
+
+// ScopeProbeComp -- dev/suite/scripts/scope_probe_comp.cpp
+auto scopeAmplitudeCh1() -> void;
+auto scopeAmplitudeCh2() -> void;
+auto scopeTimingCh1() -> void;
+auto scopeTimingCh2() -> void;
+auto scopeCapture() -> void;
+auto scopeAcquisitionTypes() -> void;
+auto scopeCouplingAndBandwidth() -> void;

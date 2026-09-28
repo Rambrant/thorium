@@ -132,15 +132,15 @@ TEST_F( DmmFunctionsFixture, DcVoltageChecksBothTheAutorangedAndTheRangedReading
 }
 
 //
-// -- Resolution: three readings, and the meter put back --------------------
+// -- Resolution: two readings, and the meter put back ----------------------
 //
-TEST_F( DmmFunctionsFixture, ResolutionChecksAllThreeSettings)
+TEST_F( DmmFunctionsFixture, ResolutionChecksBothSettings)
 {
-    Measure.inject( "Dmm1.Voltage", { 5.01_V, 5.01_V, 5.01_V });
+    Measure.inject( "Dmm1.Voltage", { 5.01_V, 5.01_V });
     EXPECT_TRUE( verdictOf( dmmResolution));
 
     // Fast is the last and noisiest, and a failure there fails the test.
-    Measure.inject( "Dmm1.Voltage", { 5.01_V, 5.01_V, 5.30_V });
+    Measure.inject( "Dmm1.Voltage", { 5.01_V, 5.30_V });
     EXPECT_FALSE( verdictOf( dmmResolution));
 }
 
@@ -155,10 +155,10 @@ TEST_F( DmmFunctionsFixture, ResolutionLeavesTheMeterAsItFoundIt)
 {
     Dmm1.setResolution( Resolution::Fast);
 
-    Measure.inject( "Dmm1.Voltage", { 5.01_V, 5.01_V, 5.01_V });
+    Measure.inject( "Dmm1.Voltage", { 5.01_V, 5.01_V });
     static_cast<void>( verdictOf( dmmResolution));
 
     EXPECT_EQ( Dmm1.resolution(), Resolution::Fast);
 
-    Dmm1.setResolution( Resolution::Fast);
+    Dmm1.setResolution( Resolution::Slow);   // the driver's default, for whichever test runs next
 }

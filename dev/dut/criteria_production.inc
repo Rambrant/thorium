@@ -87,3 +87,43 @@ CRITERIA( DEV_Psu_1, "The bench supply's outputs, set and read back with nothing
     CRIT( DEV_Psu_Idle,  EQ( 0.0_mA).epsilon( 5.0_mA),    "An open output must draw no current, within 5mA")
     CRIT( DEV_Psu_Off,   EQ( 0.0_V).epsilon( 0.05_V),     "A removed output must read back zero, within 50mV")
 END_CRITERIA
+
+//
+// The scope, against its own front-panel probe-compensation output -- read by
+// the ScopeProbeComp group (dev/suite/scripts/scope_probe_comp.cpp). A 1 kHz
+// square wave from base to top, with both probes' tips on the comp terminal
+// and their grounds on its ground lug.
+//
+// TODO(desk): the levels are placeholders. The comp output is meant for
+// adjusting a probe's compensation, not for calibrating a scope, so its
+// amplitude is loosely specified -- read it once off this scope's own front
+// panel (Meas > Amplitude, Top, Base) and write those in, with the epsilons
+// sized to how much it moves between runs rather than to the scope's own
+// accuracy. What is *not* a placeholder is the shape of the table: a 50% duty
+// square from 0 to Vtop has an average of Vtop/2 and a DC RMS of Vtop/sqrt(2),
+// and the rows below are written in those terms so that changing Vtop means
+// changing them together.
+//
+// Frequency, period and the two widths are tighter than the levels because
+// they are: a comp output is a divided-down crystal, and its timing is the part
+// of it worth trusting. The edge rows are an upper bound only -- a probe
+// compensated well or badly changes a rise time by a lot, and "fast" is the
+// claim a comp edge can support.
+//
+CRITERIA( DEV_Osc_1, "The scope, against its own 1 kHz probe-compensation square wave")
+    CRIT( DEV_Osc_Vpp,        EQ( 2.5_V).epsilon( 0.3_V),      "Peak to peak, overshoot included")
+    CRIT( DEV_Osc_Vamplitude, EQ( 2.5_V).epsilon( 0.2_V),      "Top minus base, the settled amplitude")
+    CRIT( DEV_Osc_Vtop,       EQ( 2.5_V).epsilon( 0.2_V),      "The settled high level")
+    CRIT( DEV_Osc_Vbase,      EQ( 0.0_V).epsilon( 0.1_V),      "The settled low level")
+    CRIT( DEV_Osc_Vmax,       EQ( 2.5_V).epsilon( 0.4_V),      "The highest sample -- overshoot moves it, so wider than Vtop")
+    CRIT( DEV_Osc_Vmin,       EQ( 0.0_V).epsilon( 0.3_V),      "The lowest sample -- undershoot moves it, so wider than Vbase")
+    CRIT( DEV_Osc_Vaverage,   EQ( 1.25_V).epsilon( 0.15_V),    "Half of Vtop, for a 50% duty square")
+    CRIT( DEV_Osc_Vrms,       EQ( 1.77_V).epsilon( 0.15_V),    "Vtop over root two, DC RMS of a 50% duty square")
+    CRIT( DEV_Osc_AcAverage,  EQ( 0.0_V).epsilon( 0.1_V),      "AC coupled, the square sits around zero")
+    CRIT( DEV_Osc_Frequency,  EQ( 1000.0_Hz).epsilon( 10.0_Hz), "The comp output runs at 1 kHz within 1%")
+    CRIT( DEV_Osc_Period,     EQ( 1.0_ms).epsilon( 10.0_us),   "One period is 1 ms within 1%")
+    CRIT( DEV_Osc_Width,      EQ( 0.5_ms).epsilon( 25.0_us),   "Each half of a 50% duty square, within 5%")
+    CRIT( DEV_Osc_Edge,       LT( 5.0_us),                     "The comp edge is fast -- well under 5 us, 10% to 90%")
+    CRIT( DEV_Osc_Captured,   EQ( true),                       "A single-shot capture completed")
+    CRIT( DEV_Osc_HasSamples, EQ( true),                       "The fetched trace has samples in it")
+END_CRITERIA

@@ -42,8 +42,8 @@ auto dmmDcVoltage() -> void
 //
 // The resolution setting, which is instrument state rather than a per-reading
 // port setting (see EDU34450A::setResolution) -- so this is the one script
-// that changes the meter and has to put it back. The 5 V cell, read at each of
-// the three resolutions; each must still meet the same criterion, which is the
+// that changes the meter and has to put it back. The 5 V cell, read at
+// both resolutions; each must still meet the same criterion, which is the
 // claim worth checking: a faster reading is a noisier one, not a different one.
 //
 auto dmmResolution() -> void

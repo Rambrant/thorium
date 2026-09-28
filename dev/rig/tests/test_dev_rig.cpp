@@ -4,6 +4,7 @@
 #include "hal/driver/instrument.hpp"
 #include "hal/keysight_edu34450a.hpp"
 #include "hal/keysight_edu36311a.hpp"
+#include "hal/keysight_dsox1202g.hpp"
 #include "hal/fabric/switch_device.hpp"
 #include "hal/fabric/switch_fabric.hpp"
 #include "hal/topology/address_tables.hpp"
@@ -38,20 +39,21 @@
 namespace
 {
     //
-    // -- The bench is a meter and a supply -----------------------------------
+    // -- The bench is a meter, a supply and a scope --------------------------
     //
     // hal::InstrumentId's enumerators come from dev/rig/instrument.inc, so this
     // is that file's row count stated where a reader of the tests will see it.
     // Another INSTRUMENT() row fails here, which is the intent: it is not
     // forbidden, it is a change to what this deployment is, and it should be a
-    // deliberate edit to this line rather than a silent widening. This line was
-    // that edit once already, when the supply's three outputs arrived.
+    // deliberate edit to this line rather than a silent widening. This line has
+    // been that edit twice: the supply's three outputs, then the scope.
     //
-    static_assert( core::meta::values<hal::InstrumentId>.size() == 4);
+    static_assert( core::meta::values<hal::InstrumentId>.size() == 5);
     static_assert( core::meta::values<hal::InstrumentId>[0] == hal::InstrumentId::Dmm1);
     static_assert( core::meta::values<hal::InstrumentId>[1] == hal::InstrumentId::DcP5);
     static_assert( core::meta::values<hal::InstrumentId>[2] == hal::InstrumentId::DcP6);
     static_assert( core::meta::values<hal::InstrumentId>[3] == hal::InstrumentId::DcP7);
+    static_assert( core::meta::values<hal::InstrumentId>[4] == hal::InstrumentId::Osc1);
 
     //
     // -- And no switching hardware at all ------------------------------------
@@ -100,6 +102,7 @@ namespace
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::DcP5));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::DcP6));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::DcP7));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Osc1));
 
     //
     // -- Each driver still owes the framework what every driver owes ----------
@@ -115,6 +118,7 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput1> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput2> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput3> );
+    static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::DSOX1202G> );
 } // namespace
 
 //
@@ -162,10 +166,12 @@ TEST( DevRig, TheDeskDeclaresItsShelfOfMetersInPreferenceOrder)
     // first that answers, so a reshuffle of these rows is a change to which
     // meter a run prefers and should not pass silently.
     //
-    ASSERT_EQ( candidates.size(), 3u);
-    EXPECT_EQ( candidates[ 0], hal::Address{ hal::Lan{ "dev-dmm-1" } });
-    EXPECT_EQ( candidates[ 1], hal::Address{ hal::Lan{ "dev-dmm-2" } });
-    EXPECT_EQ( candidates[ 2], hal::Address{ hal::Lan{ "dev-dmm-3" } });
+    // One candidate today, the desk's own meter over USB -- the shelf is down
+    // to one, and the row is still a pool so that a second meter is one more
+    // POOL row rather than a change of table.
+    //
+    ASSERT_EQ( candidates.size(), 1u);
+    EXPECT_EQ( candidates[ 0], hal::Address{ hal::Usb{ "CN65510018" } });
 }
 
 //
@@ -181,7 +187,7 @@ TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 4u);
+    ASSERT_EQ( bindings.size(), 5u);
     EXPECT_EQ( bindings[ 0].Id,     hal::InstrumentId::Dmm1);
     EXPECT_EQ( bindings[ 0].Source, hal::AddressSource::Pool);
 }
@@ -191,18 +197,18 @@ TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
 // a decision rather than an omission: preflight claims a pooled box by serial,
 // and three rows that are one chassis would each want a chassis of their own
 // (see dev/rig/instrument.inc). So all three outputs bind from the table, to
-// the same host -- one box, three endpoints behind it.
+// the same serial -- one box, three endpoints behind it.
 //
 TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 4u);
+    ASSERT_EQ( bindings.size(), 5u);
     EXPECT_TRUE( hal::poolFor( hal::InstrumentId::DcP5).empty());
 
-    for( std::size_t row = 1; row < bindings.size(); ++row)
+    for( std::size_t row = 1; row <= 3; ++row)
     {
         EXPECT_EQ( bindings[ row].Source, hal::AddressSource::Table) << "row " << row;
-        EXPECT_EQ( bindings[ row].Value,  hal::Address{ hal::Lan{ "dev-psu" } }) << "row " << row;
+        EXPECT_EQ( bindings[ row].Value,  hal::Address{ hal::Usb{ "CN65100272" } }) << "row " << row;
     }
 }

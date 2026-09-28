@@ -1,7 +1,7 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// The dev bench's instrument list: one meter and one supply.
+// The dev bench's instrument list: a meter, a supply and a scope.
 //
 // Read exactly the way rig/instrument.inc is -- twice, once by
 // hal/topology/active_instruments.hpp to declare the global and once by
@@ -104,9 +104,23 @@
 // or THORIUM_ADDRESS_DcP5/6/7 in the shell, which a desk with one supply sets
 // once and forgets.
 //
+// -- The scope ----------------------------------------------------------------
+//
+// Osc1, the bench's name for it: a DSOX1202G, two channels, USB and nothing
+// else (see hal::keysight_dsox1202g::DSOX1202G::Buses -- this model has no LAN
+// connector, so a Lan( ...) here would not compile). Its scripts read the
+// front-panel probe-compensation output, see dev/suite/scripts/scope_probe_comp.cpp.
+//
+// TODO(desk): CN00000000 is a placeholder, and an attached run fails at
+// startup until it is replaced -- preflight opens every row in this table,
+// so a scope nobody can find stops the meter's and the supply's tests too.
+// Write the serial in (the third field of *IDN?, or Utility > I/O on the
+// front panel), or set THORIUM_ADDRESS_Osc1=usb:<serial> in the shell.
+//
 INSTRUMENTS
     INSTRUMENT( keysight_edu34450a::EDU34450A,     Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
     INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Usb( "CN65100272"))   // 6 V / 5 A
     INSTRUMENT( keysight_edu36311a::DirectOutput2, DcP6, Usb( "CN65100272"))   // 30 V / 1 A
     INSTRUMENT( keysight_edu36311a::DirectOutput3, DcP7, Usb( "CN65100272"))   // 30 V / 1 A
+    INSTRUMENT( keysight_dsox1202g::DSOX1202G,     Osc1, Usb( "CN00000000"))   // TODO(desk): the scope's own serial, off *IDN? -- see below
 END_INSTRUMENTS
