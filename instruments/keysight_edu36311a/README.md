@@ -46,6 +46,37 @@ Reachable over `hal::Lan` or `hal::Usb` and nothing else — that is this model'
 back panel, the same as its Smart Bench Essentials sibling the EDU34450A. A row
 addressing one over GPIB does not compile.
 
+### One session per chassis, though
+
+Three instances, but **one connection**: every output whose address names the
+same box talks through one SCPI session (`detail::Chassis`), found by address
+the first time any of them needs the wire. Three sockets to one LXI box is
+three connections it may refuse after the first; three USBTMC sessions is three
+error queues drained by whichever output happened to open last. So:
+
+- **opened once, prepared once.** The error-queue drain and the `*IDN?` check
+  happen when the first output of the box speaks, and the second finds the
+  session ready. A per-output drain would swallow an error the first output's
+  last command had just queued.
+- **closed together.** `closeSession()` on any output closes the box's session,
+  and its siblings reopen it on their next command. Recovering a wedged box is
+  closing its one connection, not one of three.
+- **safed through it.** `safe()` uses the box's session if *any* output opened
+  it, so an output that never spoke this run still gets its own channel turned
+  off. It still never opens one.
+- **`useTransport()` installs on the box**, so a test hands one fake to one
+  output and all outputs on that address use it.
+
+Nothing on the wire changed for this, and nothing had to: every command already
+names its channel (`(@2)`) and nothing sends `*RST` or `INST:SEL`, precisely so
+that several drivers could share a box — see "Channels by number" and "No
+`*RST`, ever" below.
+
+The box is keyed by the address as `hal::to_string()` spells it, so a rig that
+names one supply two ways (`Lan` on one row, `Usb` on another) gets two
+sessions to it — the old behaviour, not a new failure. `hal::Simulated` names
+no box, so a simulated output shares nothing with anything.
+
 ## Isolation is a type parameter
 
 `Connect`/`Disconnect` exist only where there is a relay to move. A
@@ -217,7 +248,7 @@ SYST:ERR?
 *OPC?
 ```
 
-preceded once per session by `SYST:ERR?` (drain whatever the last user left) and
+preceded once per session — once per box, see above — by `SYST:ERR?` (drain whatever the last user left) and
 `*IDN?` (and refused if the model is not this one).
 
 ### The order is the safety argument

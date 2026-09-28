@@ -1,7 +1,8 @@
 #pragma once
 
 //
-// The dev suite's catalog -- one group, one test. Read exactly as
+// The dev suite's catalog -- three groups: the meter's sanity check, each of
+// its functions, and the supply's outputs. Read exactly as
 // suite/test_catalog.inc is; see suite/README.md for GROUP/TEST and the
 // RUN_SETUP/RUN_TEARDOWN and per-group SETUP/TEARDOWN hooks.
 //
@@ -14,4 +15,33 @@
 //
 GROUP( BenchSanity, "Checks that the bench meter itself is behaving")
     TEST( DmmSelfCheck, dmmSelfCheck, "The meter reads a known reference within tolerance")
+END_GROUP
+
+//
+// One test per function, each needing its own reference across the meter's
+// terminals -- so this group is run a test at a time, not as a whole: connect
+// the reference, tick the one test. See dev/suite/scripts/dmm_functions.cpp,
+// and dev/dut/criteria_production.inc for what each reference is.
+//
+GROUP( DmmFunctions, "Each of the meter's functions against its own reference -- run one at a time")
+    TEST( DmmDcVoltage,          dmmDcVoltage,          "DC volts, autoranged and on a fixed range, off the 5 V cell")
+    TEST( DmmResolution,         dmmResolution,         "DC volts at slow, medium and fast resolution, off the 5 V cell")
+    TEST( DmmAcVoltage,          dmmAcVoltage,          "AC volts off a 1 V rms, 1 kHz sine")
+    TEST( DmmDcCurrent,          dmmDcCurrent,          "DC current off a 100 mA reference")
+    TEST( DmmAcCurrent,          dmmAcCurrent,          "AC current off a 100 mA rms reference")
+    TEST( DmmResistance,         dmmResistance,         "2-wire ohms off the 1 kOhm resistor")
+    TEST( DmmFourWireResistance, dmmFourWireResistance, "4-wire ohms off the same resistor, sense leads connected")
+    TEST( DmmFrequency,          dmmFrequency,          "The frequency counter off a 1 kHz signal")
+    TEST( DmmCapacitance,        dmmCapacitance,        "Capacitance off the 470 uF reference capacitor")
+END_GROUP
+
+//
+// The supply with its terminals open, so unlike DmmFunctions this group runs
+// whole: nothing has to be connected for any of it. Each output is set twice,
+// read back, and removed; safing turns everything off afterwards regardless.
+//
+GROUP( SupplyOutputs, "Each output of the bench supply, set and read back with nothing connected")
+    TEST( PsuOutput1, psuOutput1Check, "Output 1 (6 V / 5 A) follows two setpoints, draws nothing, and turns off")
+    TEST( PsuOutput2, psuOutput2Check, "Output 2 (30 V / 1 A) follows two setpoints, draws nothing, and turns off")
+    TEST( PsuOutput3, psuOutput3Check, "Output 3 (30 V / 1 A) follows two setpoints, draws nothing, and turns off")
 END_GROUP

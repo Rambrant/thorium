@@ -956,3 +956,204 @@ TEST( Edu36311AWire, ARatingRefusalSendsNothing)
 
     EXPECT_TRUE( wire->sent().empty());
 }
+
+//
+// -- One box, one session ---------------------------------------------------
+//
+// DcP5, DcP6 and DcP7 are three drivers and one EDU36311A, so they share the
+// box's one connection (see detail::Chassis). These tests hand a fake to one
+// output and watch the others use it -- which only works because a transport
+// is installed on the chassis, and the chassis is found by address.
+//
+// Every address here is a .invalid hostname, and each test's own: nothing
+// below ever opens a transport from an address (the fake is always installed
+// first), and a name nothing resolves means a test that got that wrong fails
+// with a transport error rather than reaching whatever was on the network.
+// Distinct per test because the registry is process-wide, and a box one test
+// left behind -- it does not, every output here is a local -- must not be
+// found by the next.
+//
+namespace
+{
+    struct Chassis
+    {
+        //
+        // A string_view of a literal, and not a std::string: hal::Lan views
+        // its host rather than owning it, so the text has to outlive the
+        // outputs -- as a rig table's literals do.
+        //
+        explicit Chassis( const std::string_view host) :
+            One( anyId(), hal::Lan( host)),
+            Two( anyId(), hal::Lan( host)),
+            Three( anyId(), hal::Lan( host))
+        {
+            auto fake = std::make_unique<FakeSupply>();
+
+            Wire = fake.get();
+
+            One.useTransport( std::move( fake));
+        }
+
+        DirectOutput1  One;
+        RelayOutput2   Two;
+        RelayOutput3   Three;
+        FakeSupply *   Wire{};
+    };
+} // namespace
+
+TEST( Edu36311AChassis, OutputsOnOneAddressTalkThroughOneSession)
+{
+    Chassis box{ "one-session.invalid" };
+
+    EXPECT_FALSE( box.Two.isSimulated());
+    EXPECT_FALSE( box.Three.isSimulated());
+
+    box.Two.applyOutput( 12.0_V, std::nullopt, std::nullopt);
+    box.Three.applyOutput( 5.0_V, std::nullopt, std::nullopt);
+
+    //
+    // Both outputs' commands on the one wire, each carrying its own channel --
+    // the property the .cpp's channel-list rule exists to make safe, now
+    // relied on for real rather than in principle.
+    //
+    EXPECT_EQ( afterOpening( *box.Wire),
+               ( std::vector<std::string>{
+                   "VOLT 12, (@2)", "SYST:ERR?", "OUTP 1, (@2)", "SYST:ERR?", "*OPC?",
+                   "VOLT 5, (@3)",  "SYST:ERR?", "OUTP 1, (@3)", "SYST:ERR?", "*OPC?" }));
+}
+
+//
+// The once-per-session exchange happens once per *box*. Were it per output,
+// the second output to speak would drain the error queue -- and with it any
+// error the first output's last command had just queued, which is exactly
+// the evidence the drain exists to keep from being misattributed.
+//
+TEST( Edu36311AChassis, TheBoxIsPreparedOnceNotOncePerOutput)
+{
+    Chassis box{ "prepared-once.invalid" };
+
+    static_cast<void>( box.One.session());
+    static_cast<void>( box.Two.session());
+    static_cast<void>( box.Three.session());
+
+    EXPECT_EQ( box.Wire->sent(), ( std::vector<std::string>{ "SYST:ERR?", "*IDN?" }));
+}
+
+//
+// And each output's identity() is still its own question, asked down the
+// shared session: preflight calls it per row, and each row records what the
+// box answered.
+//
+TEST( Edu36311AChassis, EveryOutputReportsTheBoxsIdentity)
+{
+    Chassis box{ "identity.invalid" };
+
+    EXPECT_EQ( box.One.identity(),   box.Wire->Identity);
+    EXPECT_EQ( box.Two.identity(),   box.Wire->Identity);
+    EXPECT_EQ( box.Three.identity(), box.Wire->Identity);
+}
+
+//
+// Closing is the box's, because the session is: a close that left the other
+// two outputs holding it would recover nothing on a wedged connection.
+//
+TEST( Edu36311AChassis, ClosingOneOutputsSessionClosesTheBoxs)
+{
+    Chassis box{ "close.invalid" };
+
+    static_cast<void>( box.One.session());
+
+    box.Two.closeSession();
+
+    const auto shared = hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "close.invalid"));
+
+    EXPECT_EQ( shared->Session, nullptr);
+    EXPECT_FALSE( shared->Prepared);
+}
+
+//
+// Safing reaches an output that never spoke this run, as long as its box has
+// a session open -- so a rail another driver's session could turn off is
+// turned off. It still opens nothing (SafeOnANeverUsedSupplyOpensNothing
+// above holds as it did).
+//
+TEST( Edu36311AChassis, SafeUsesTheBoxsSessionEvenForAnOutputThatNeverSpoke)
+{
+    Chassis box{ "safe.invalid" };
+
+    box.One.applyOutput( 5.0_V, std::nullopt, std::nullopt);
+
+    const auto before = box.Wire->sent().size();
+
+    box.Three.safe();
+
+    auto safing = box.Wire->sent();
+
+    safing.erase( safing.begin(), safing.begin() + static_cast<long>( before));
+
+    EXPECT_EQ( safing, ( std::vector<std::string>{ "OUTP 0, (@3)", "VOLT 0, (@3)" }));
+}
+
+//
+// Two addresses are two boxes -- and a simulated address is no box at all, so
+// two simulated outputs share nothing: a fake handed to one leaves the other
+// simulating. Every single-output test above depends on that.
+//
+TEST( Edu36311AChassis, DifferentAddressesAndSimulatedOutputsShareNothing)
+{
+    Chassis box{ "first-box.invalid" };
+
+    RelayOutput2 elsewhere{ anyId(), hal::Lan( "second-box.invalid") };
+
+    EXPECT_NE( hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "first-box.invalid")),
+               hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "second-box.invalid")));
+
+    RelayOutput2 simulatedA{ anyId(), hal::Simulated{} };
+    RelayOutput3 simulatedB{ anyId(), hal::Simulated{} };
+
+    simulatedA.useTransport( std::make_unique<FakeSupply>());
+
+    EXPECT_FALSE( simulatedA.isSimulated());
+    EXPECT_TRUE(  simulatedB.isSimulated());
+}
+
+//
+// The registry holds boxes weakly, so it never keeps a connection open by
+// itself: once the last output on an address is gone, so is its session.
+//
+TEST( Edu36311AChassis, ABoxLivesOnlyAsLongAsAnOutputHoldsIt)
+{
+    std::weak_ptr<hal::keysight_edu36311a::detail::Chassis> remembered;
+
+    {
+        Chassis box{ "lifetime.invalid" };
+
+        static_cast<void>( box.One.session());
+
+        remembered = hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "lifetime.invalid"));
+
+        EXPECT_FALSE( remembered.expired());
+    }
+
+    EXPECT_TRUE( remembered.expired());
+}
+
+//
+// useAddress moves one output and leaves the others where they were: the
+// output joins whatever box the new address names, and its old box -- still
+// held by its siblings -- keeps its session.
+//
+TEST( Edu36311AChassis, MovingOneOutputLeavesItsSiblingsOnTheOldBox)
+{
+    Chassis box{ "old-box.invalid" };
+
+    static_cast<void>( box.One.session());
+
+    box.Two.useAddress( hal::Lan( "new-box.invalid"));
+
+    EXPECT_NE( hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "old-box.invalid"))->Session, nullptr);
+
+    box.Three.applyOutput( 5.0_V, std::nullopt, std::nullopt);
+
+    EXPECT_EQ( afterOpening( *box.Wire).front(), "VOLT 5, (@3)");
+}

@@ -8,3 +8,19 @@
 // prelude a script body includes.
 //
 auto dmmSelfCheck() -> void;
+
+// DmmFunctions -- dev/suite/scripts/dmm_functions.cpp
+auto dmmDcVoltage() -> void;
+auto dmmResolution() -> void;
+auto dmmAcVoltage() -> void;
+auto dmmDcCurrent() -> void;
+auto dmmAcCurrent() -> void;
+auto dmmResistance() -> void;
+auto dmmFourWireResistance() -> void;
+auto dmmFrequency() -> void;
+auto dmmCapacitance() -> void;
+
+// SupplyOutputs -- dev/suite/scripts/supply_outputs.cpp
+auto psuOutput1Check() -> void;
+auto psuOutput2Check() -> void;
+auto psuOutput3Check() -> void;

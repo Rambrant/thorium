@@ -1,10 +1,10 @@
-# dev/ -- the desk bench: a PC, one instrument, and nothing else
+# dev/ -- the desk bench: a PC, a meter, a supply, and nothing else
 
 This is a second **deployment**, not a second framework. `framework/` and
 `instruments/` are shared unchanged with the bench — including `framework/runner`,
 which is the whole runner, so this directory brings no `main()` of its own; what
 it holds is the same three kinds of content `rig/`, `dut/` and `suite/` hold, for
-a rig that is one meter on a desk with a LAN cable to it.
+a rig that is a meter and a supply on a desk with LAN cables to them.
 
 It exists for the work the bench cannot host: developing an instrument driver
 against real hardware. Doing that on the rack means booking the rack.
@@ -27,13 +27,14 @@ ctest --test-dir build/dev
 
 ```
 dev/
-    rig/     one EDU34450A from a pool of three, no switching hardware, no wiring
-    dut/     an adapter with no points, one criteria table
-    suite/   one group, one test, one script
+    rig/     one EDU34450A from a pool of three, one EDU36311A's three outputs,
+             no switching hardware, no wiring
+    dut/     an adapter with no points, one criteria table per instrument
+    suite/   three groups: the meter's sanity check, each of its functions,
+             and each of the supply's outputs
 ```
 
-Sixty-odd lines of content in total, and every file is the ordinary form of its
-table with the rows a desk bench has. One of them has no counterpart on the
+Every file is the ordinary form of its table with the rows a desk bench has. One of them has no counterpart on the
 bench: `rig/pools.inc`, the shelf of interchangeable meters this desk draws
 Dmm1 from. That is not a special case in the mechanism — it is the fifth rig
 table, optional and read the same way as the others — but it is the one table
@@ -260,6 +261,51 @@ because the others would fail. It is a CMake *cache* variable, which matters
 when that line changes: editing the preset does not reach an existing build
 directory. Reconfigure it, or the build fails on a driver header the include
 path no longer has.
+
+## What the suite checks
+
+Three groups, and they are run differently -- which is the one thing about
+them worth knowing before opening the console.
+
+**BenchSanity** is `DmmSelfCheck`: DC volts and capacitance, the chain end to
+end.
+
+**DmmFunctions** is every function the EDU34450A has, one test each: DC and AC
+volts, DC and AC current, 2- and 4-wire ohms, the frequency counter,
+capacitance, plus DC volts on a fixed range and at each of the three
+resolutions. Each needs its own reference across the terminals, and the desk
+has no switching to present them in turn, so this group is run **a test at a
+time**: connect that test's reference, tick that one test. Running the whole
+group is expected to fail. The references are in
+`dev/dut/criteria_production.inc`'s `DEV_Dmm_Fn` table, and all but the 5 V
+cell and the 470 uF capacitor are placeholders (`TODO(desk)`) until the parts
+on this desk are written in.
+
+**SupplyOutputs** is each of the EDU36311A's three outputs -- `DcP5`, `DcP6`,
+`DcP7`, the bench's names for them -- set to two setpoints, read back, checked
+for drawing nothing, removed, and checked for reading zero. The terminals stay
+open, so this group needs no fixture and runs whole.
+
+The supply is **not pooled**, unlike the meter. Its three outputs are three
+rows and one box, and preflight claims a pooled box by serial -- so three
+pooled rows would each want a supply of their own. All three rows say
+`Lan( "dev-psu")`; a desk whose supply is called something else says so once
+per output, or sets `THORIUM_ADDRESS_DcP5`/`6`/`7`:
+
+```bash
+run_scripts --address DcP5=lan:<host> --address DcP6=lan:<host> --address DcP7=lan:<host>
+```
+
+The three rows share one connection to the box: the driver keys its session on
+the address, so `DcP5`, `DcP6` and `DcP7` on one host or one USB serial are one
+SCPI session, opened and prepared once (see
+`instruments/keysight_edu36311a/README.md`, "One session per chassis"). Which
+also means the three `--address` overrides above must name the box the same
+way — `usb:` on one and `lan:` on another is two sessions to one supply.
+
+That sharing is also the half of a supply pool that now exists. The other half
+is preflight's claim rule, which still refuses to hand one serial to three
+pooled rows.
 
 ## Adding to it
 

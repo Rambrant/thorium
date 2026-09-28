@@ -3,6 +3,7 @@
 #include "hal/topology/active_instruments.hpp"
 #include "hal/driver/instrument.hpp"
 #include "hal/keysight_edu34450a.hpp"
+#include "hal/keysight_edu36311a.hpp"
 #include "hal/fabric/switch_device.hpp"
 #include "hal/fabric/switch_fabric.hpp"
 #include "hal/topology/address_tables.hpp"
@@ -37,16 +38,20 @@
 namespace
 {
     //
-    // -- The bench is one instrument -----------------------------------------
+    // -- The bench is a meter and a supply -----------------------------------
     //
     // hal::InstrumentId's enumerators come from dev/rig/instrument.inc, so this
     // is that file's row count stated where a reader of the tests will see it.
-    // A second INSTRUMENT() row fails here, which is the intent: it is not
+    // Another INSTRUMENT() row fails here, which is the intent: it is not
     // forbidden, it is a change to what this deployment is, and it should be a
-    // deliberate edit to this line rather than a silent widening.
+    // deliberate edit to this line rather than a silent widening. This line was
+    // that edit once already, when the supply's three outputs arrived.
     //
-    static_assert( core::meta::values<hal::InstrumentId>.size() == 1);
+    static_assert( core::meta::values<hal::InstrumentId>.size() == 4);
     static_assert( core::meta::values<hal::InstrumentId>[0] == hal::InstrumentId::Dmm1);
+    static_assert( core::meta::values<hal::InstrumentId>[1] == hal::InstrumentId::DcP5);
+    static_assert( core::meta::values<hal::InstrumentId>[2] == hal::InstrumentId::DcP6);
+    static_assert( core::meta::values<hal::InstrumentId>[3] == hal::InstrumentId::DcP7);
 
     //
     // -- And no switching hardware at all ------------------------------------
@@ -92,16 +97,24 @@ namespace
     //
     static_assert( ! hal::isTapWired( hal::VpcLocation{ hal::VpcRack::A, 1, 3 }));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Dmm1));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::DcP5));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::DcP6));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::DcP7));
 
     //
-    // -- The one driver still owes the framework what every driver owes -------
+    // -- Each driver still owes the framework what every driver owes ----------
     //
     // safeRig() static_asserts this per instance it finds, so a driver without
     // safe() cannot reach a run -- repeated here per *type*, exactly as
     // rig/tests/test_safing.cpp does for the bench's five, so that the
-    // requirement is visible in the deployment that has only one.
+    // requirement is visible in the deployment that has only a few. The
+    // supply's is the one that matters: it is the only instrument here that
+    // sources anything, so it is the only one safing has anything to do to.
     //
     static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::EDU34450A> );
+    static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput1> );
+    static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput2> );
+    static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput3> );
 } // namespace
 
 //
@@ -168,7 +181,28 @@ TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 1u);
+    ASSERT_EQ( bindings.size(), 4u);
     EXPECT_EQ( bindings[ 0].Id,     hal::InstrumentId::Dmm1);
     EXPECT_EQ( bindings[ 0].Source, hal::AddressSource::Pool);
+}
+
+//
+// And the supply is not pooled, which is the other half of the same table and
+// a decision rather than an omission: preflight claims a pooled box by serial,
+// and three rows that are one chassis would each want a chassis of their own
+// (see dev/rig/instrument.inc). So all three outputs bind from the table, to
+// the same host -- one box, three endpoints behind it.
+//
+TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
+{
+    const auto bindings = hal::bindAddresses( hal::AddressPlan{});
+
+    ASSERT_EQ( bindings.size(), 4u);
+    EXPECT_TRUE( hal::poolFor( hal::InstrumentId::DcP5).empty());
+
+    for( std::size_t row = 1; row < bindings.size(); ++row)
+    {
+        EXPECT_EQ( bindings[ row].Source, hal::AddressSource::Table) << "row " << row;
+        EXPECT_EQ( bindings[ row].Value,  hal::Address{ hal::Lan{ "dev-psu" } }) << "row " << row;
+    }
 }

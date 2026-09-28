@@ -60,10 +60,14 @@
 //
 #include "hal/keysight_edu36311a.hpp"
 
+#include <algorithm>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "hal/io/transport.hpp"
 
@@ -124,6 +128,86 @@ namespace hal::keysight_edu36311a::detail
     auto openSession( const Address & address) -> std::unique_ptr<io::ScpiSession>
     {
         return std::make_unique<io::ScpiSession>( io::openTransport( address));
+    }
+
+    namespace
+    {
+        //
+        // Every box some output holds, by address.
+        //
+        // Weak, so the registry never keeps a box open by itself: the chassis
+        // lives exactly as long as some output holds it, and an address nobody
+        // names any more costs one expired entry until the next lookup sweeps
+        // it. A vector, because a rig has a handful of these.
+        //
+        // Keyed on hal::to_string( address), an owned string, and not on a
+        // copy of the Address: hal::Lan and hal::Usb hold their host and
+        // serial as string_views into whoever built them. The output that
+        // first registered a box may move to another address or be destroyed
+        // while its siblings still hold the box, and a key viewing that
+        // output's text would then compare against whatever the memory holds
+        // next.
+        //
+        // Function-local, so it is constructed on first use and never during
+        // static initialisation -- the rig's instrument globals are
+        // constructed then, and none of them calls this until a session is
+        // wanted (see EDU36311A::chassis()).
+        //
+        // Locked, although a run drives its instruments from one thread: the
+        // console and preflight are not the only possible callers, and a
+        // registry two threads could corrupt is not worth the one mutex it
+        // takes to rule out. The chassis it hands back is not locked -- one
+        // box's SCPI exchanges are as sequential as they were when each output
+        // had a session of its own.
+        //
+        struct Registry
+        {
+            std::mutex                                                 Guard;
+            std::vector<std::pair<std::string, std::weak_ptr<Chassis>>> Boxes;
+
+            // The live entry for this key, sweeping expired ones on the way.
+            auto find( const std::string & key) -> std::shared_ptr<Chassis>
+            {
+                std::erase_if( Boxes, []( const auto & entry) { return entry.second.expired(); });
+
+                const auto found = std::ranges::find( Boxes, key, &std::pair<std::string, std::weak_ptr<Chassis>>::first);
+
+                return found != Boxes.end() ? found->second.lock() : nullptr;
+            }
+        };
+
+        auto registry() -> Registry &
+        {
+            static Registry instance;
+
+            return instance;
+        }
+    } // namespace
+
+    auto chassisAt( const Address & address) -> std::shared_ptr<Chassis>
+    {
+        auto &                reg = registry();
+        const std::lock_guard lock( reg.Guard);
+        const auto            key = to_string( address);
+
+        if( auto box = reg.find( key))
+        {
+            return box;
+        }
+
+        auto box = std::make_shared<Chassis>();
+
+        reg.Boxes.emplace_back( key, box);
+
+        return box;
+    }
+
+    auto existingChassisAt( const Address & address) -> std::shared_ptr<Chassis>
+    {
+        auto &                reg = registry();
+        const std::lock_guard lock( reg.Guard);
+
+        return reg.find( to_string( address));
     }
 
     auto prepare( io::ScpiSession & session) -> void

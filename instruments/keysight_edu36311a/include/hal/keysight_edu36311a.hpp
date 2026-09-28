@@ -336,6 +336,54 @@ namespace hal::keysight_edu36311a
         auto openSession( const Address & address) -> std::unique_ptr<io::ScpiSession>;
 
         //
+        // -- One box, one connection -----------------------------------------
+        //
+        // The connection to one EDU36311A, shared by every output driver whose
+        // address names that box. DcP5, DcP6 and DcP7 are three objects and one
+        // instrument (see rig/instrument.inc), and it is the instrument that has
+        // a socket or a USBTMC session, not the output: three sessions to one
+        // box is three sockets an LXI instrument may well refuse after the
+        // first, three error queues drained by whichever output happened to
+        // open last, and three identity checks of the same serial number.
+        //
+        // Session is null until the first output needs the wire, and closed for
+        // all of them together -- see EDU36311A::closeSession(). Prepared is the
+        // once-per-session exchange (the error-queue drain and the identity
+        // check), kept here beside the session rather than in each output, so
+        // that the second output to speak does not drain an error the first
+        // output's command has just queued.
+        //
+        struct Chassis
+        {
+            std::unique_ptr<io::ScpiSession>  Session;
+            bool                              Prepared{ false };
+        };
+
+        //
+        // The chassis at this address: the same object for every caller that
+        // names the same address, for as long as any of them holds it, and a
+        // fresh one once none does. Keyed on the address as hal::to_string()
+        // spells it, so Lan( "dev-psu") and Usb( "CN61130007") are two boxes
+        // even when they are the same one -- this cannot know that, and a rig
+        // naming one supply two ways gets two sessions to it, which is the old
+        // behaviour rather than a new failure.
+        //
+        // Never called for a hal::Simulated address, which names no box and so
+        // has nothing to share: see EDU36311A::chassis().
+        //
+        [[nodiscard]]
+        auto chassisAt( const Address & address) -> std::shared_ptr<Chassis>;
+
+        //
+        // The chassis at this address if some output already holds one, and
+        // null otherwise -- chassisAt() without the creating. For safe(), which
+        // may use a session another output of the box opened but must never
+        // cause one to be opened (see EDU36311A::safe()).
+        //
+        [[nodiscard]]
+        auto existingChassisAt( const Address & address) -> std::shared_ptr<Chassis>;
+
+        //
         // The once-per-session exchange: drain whatever the last user left in
         // the error queue, then ask *IDN? and refuse a model this driver is
         // not for.
@@ -526,6 +574,17 @@ namespace hal::keysight_edu36311a
             EDU36311A( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
 
             //
+            // Non-copyable, and correct rather than incidental: a copy of a
+            // driver would be a second object claiming the same output. It used
+            // to follow from holding its session in a unique_ptr; now that the
+            // session belongs to the box and is shared, it has to be said.
+            // Nothing copies one -- a rig's instruments are globals and
+            // core::Port holds a reference -- so the restriction costs nothing.
+            //
+            EDU36311A( const EDU36311A &)                    = delete;
+            auto operator=( const EDU36311A &) -> EDU36311A & = delete;
+
+            //
             // Where the PC reaches this supply -- and, since this driver has a
             // transport, the column that decides whether an Apply reaches
             // hardware or the simulation state below. See isSimulated().
@@ -587,7 +646,7 @@ namespace hal::keysight_edu36311a
             [[nodiscard]]
             auto isSimulated() const -> bool
             {
-                return !mSession && std::holds_alternative<Simulated>( mAddress);
+                return !hasSession() && std::holds_alternative<Simulated>( mAddress);
             }
 
             //
@@ -606,10 +665,19 @@ namespace hal::keysight_edu36311a
             // the first *use* (see session()), so handing in a fake transport
             // is not a thing that can throw.
             //
+            // Installed on the chassis, not on this output: every output whose
+            // address names the same box talks through it from now on, because
+            // a transport is a connection to the box. A test wanting three
+            // outputs on one fake gives them one address and hands it in once.
+            // On a hal::Simulated address the chassis is this output's alone
+            // (see chassis()), which is what every single-output test relies on.
+            //
             auto useTransport( std::unique_ptr<io::ITransport> transport) -> void
             {
-                mSession  = std::make_unique<io::ScpiSession>( std::move( transport));
-                mPrepared = false;
+                auto & box = chassis();
+
+                box.Session  = std::make_unique<io::ScpiSession>( std::move( transport));
+                box.Prepared = false;
             }
 
             //
@@ -620,11 +688,15 @@ namespace hal::keysight_edu36311a
             // have, and drops any open session so that nothing goes on
             // talking to the previous box.
             //
+            // Drops only this output's hold on the old box: its other outputs
+            // may still be on it, and their session is theirs to close. The
+            // new address is looked up on the next use, so an output moved
+            // onto a box another output already has open joins that session.
+            //
             auto useAddress( const Address & address) -> void
             {
-                mAddress  = address;
-                mSession.reset();
-                mPrepared = false;
+                mAddress = address;
+                mChassis.reset();
             }
 
             //
@@ -648,10 +720,17 @@ namespace hal::keysight_edu36311a
             // hal::io::ScpiFault if it answers *IDN? with a model this driver
             // is not for.
             //
+            // Shared with this box's other outputs -- see detail::Chassis. So
+            // "opened on first use" means the first use by *any* output of the
+            // box, and the exchange below happens once per box, not once per
+            // output: the second output to speak finds the session prepared.
+            //
             [[nodiscard]]
             auto session() -> io::ScpiSession &
             {
-                if( !mSession)
+                auto & box = chassis();
+
+                if( !box.Session)
                 {
                     //
                     // Opened from the address the rig table wrote down. A
@@ -666,12 +745,12 @@ namespace hal::keysight_edu36311a
                     // the difference between a missing dependency and a
                     // missing instrument.
                     //
-                    mSession = detail::openSession( mAddress);
+                    box.Session = detail::openSession( mAddress);
                 }
 
-                if( mPrepared)
+                if( box.Prepared)
                 {
-                    return *mSession;
+                    return *box.Session;
                 }
 
                 //
@@ -688,11 +767,11 @@ namespace hal::keysight_edu36311a
                 // run started may be on now, and the run has already failed
                 // whatever it tried meanwhile.
                 //
-                detail::prepare( *mSession);
+                detail::prepare( *box.Session);
 
-                mPrepared = true;
+                box.Prepared = true;
 
-                return *mSession;
+                return *box.Session;
             }
 
             //
@@ -724,10 +803,23 @@ namespace hal::keysight_edu36311a
             // one -- on a raw socket, closing and reopening is the whole of
             // the recovery vocabulary. Not called by safe(): see there.
             //
+            // Closes the box's session, not this output's -- there is only the
+            // one (see detail::Chassis) -- so the box's other outputs reopen it
+            // on their next command too. Which is what recovering a wedged box
+            // needs: a close that left two more sockets open would recover
+            // nothing.
+            //
+            // Found the way safe() finds it, so an output that has not spoken
+            // yet still closes the box a sibling opened -- and, like safe(),
+            // never creates one to close.
+            //
             auto closeSession() -> void
             {
-                mSession.reset();
-                mPrepared = false;
+                if( auto * box = heldChassis())
+                {
+                    box->Session.reset();
+                    box->Prepared = false;
+                }
             }
 
             //
@@ -874,9 +966,15 @@ namespace hal::keysight_edu36311a
                 // queue is the best evidence of what went wrong, and dropping
                 // it is closeSession()'s job and the caller's call.
                 //
-                if( mSession)
+                // Open means open to the box, by any of its outputs: a
+                // supply whose output 1 was used this run has a session this
+                // output can safe its own channel down, even if this output
+                // never spoke. That is a rail that gets turned off where it
+                // used to be skipped, and it opens nothing new.
+                //
+                if( auto * box = openChassis())
                 {
-                    detail::sendSafe( *mSession, Output::Channel);
+                    detail::sendSafe( *box->Session, Output::Channel);
                 }
             }
 
@@ -1083,32 +1181,69 @@ namespace hal::keysight_edu36311a
                 }
             }
 
+            //
+            // The box this output talks through, found on first need rather
+            // than in the constructor -- a rig's instruments are globals, and
+            // the registry detail::chassisAt() keeps is not something to touch
+            // before main() (see session() on the same argument for sockets).
+            //
+            // A hal::Simulated address names no box, so it gets one of its own
+            // rather than one shared with every other simulated output: there
+            // is nothing behind it to share, and three simulated outputs
+            // pooling one fake transport a test handed to one of them would be
+            // a coincidence of spelling, not a fact about any hardware.
+            //
+            auto chassis() -> detail::Chassis &
+            {
+                if( !mChassis)
+                {
+                    mChassis = std::holds_alternative<Simulated>( mAddress)
+                                 ? std::make_shared<detail::Chassis>()
+                                 : detail::chassisAt( mAddress);
+                }
+
+                return *mChassis;
+            }
+
+            [[nodiscard]]
+            auto hasSession() const -> bool
+            {
+                return mChassis && mChassis->Session;
+            }
+
+            //
+            // This output's box if one exists, found without creating anything:
+            // an output that has never spoken looks its address up rather than
+            // assuming it has no box, because a sibling may have opened one.
+            // Null when no output of this box holds it.
+            //
+            auto heldChassis() -> detail::Chassis *
+            {
+                if( !mChassis && !std::holds_alternative<Simulated>( mAddress))
+                {
+                    mChassis = detail::existingChassisAt( mAddress);
+                }
+
+                return mChassis.get();
+            }
+
+            // The same, and only if its session is open -- what safe() may use.
+            auto openChassis() -> detail::Chassis *
+            {
+                auto * box = heldChassis();
+
+                return box && box->Session ? box : nullptr;
+            }
+
             InstrumentId                      mId;
             Address                           mAddress;
 
             //
-            // Null until the first command that needs hardware, and null
-            // forever on a simulated instrument -- see session() on why it
-            // cannot be opened in the constructor, and isSimulated() on what
-            // its being null means.
+            // Null until this output first needs its box, and shared with the
+            // box's other outputs from then on -- see detail::Chassis for what
+            // it holds and chassis() for how it is found.
             //
-            // A unique_ptr, which makes this class non-copyable, and that is
-            // correct rather than incidental: a copy of a driver would be a
-            // second object claiming the same output, and one of the two would
-            // hold the socket. Nothing copies one -- a rig's instruments are
-            // globals and core::Port holds a reference -- so the restriction
-            // costs nothing and removes a mistake.
-            //
-            std::unique_ptr<io::ScpiSession>  mSession;
-
-            //
-            // Whether mSession has had the once-per-session exchange: the
-            // error-queue drain and the identity check. A flag beside the
-            // pointer rather than something done where the session is created,
-            // because a session arrives two ways -- opened from the address,
-            // or handed in by useTransport() -- and both have to be prepared.
-            //
-            bool                              mPrepared{ false };
+            std::shared_ptr<detail::Chassis>  mChassis;
 
             core::quantities::Voltage                 mOutputVoltage{};
             core::quantities::Current                 mSimOutputCurrent{};
