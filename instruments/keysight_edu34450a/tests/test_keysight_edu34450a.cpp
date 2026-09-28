@@ -608,7 +608,6 @@ TEST( Edu34450AWire, ARangeAndTheResolutionGoInSeparateCommands)
         "CONF:VOLT:DC 10",
         "SYST:ERR?",
         "SENS:VOLT:DC:RES MAX",
-        "SYST:ERR?",
         "READ?" }));
 }
 
@@ -648,7 +647,6 @@ TEST( Edu34450AWire, AutorangingAtANonDefaultResolutionSetsItSeparately)
         "CONF:VOLT:DC",
         "SYST:ERR?",
         "SENS:VOLT:DC:RES MAX",
-        "SYST:ERR?",
         "READ?" }));
 }
 

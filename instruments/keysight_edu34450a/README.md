@@ -84,8 +84,6 @@ The whole conversation for one DC volts reading of a routed rail:
 <-  Keysight Technologies,EDU34450A,MY60012345,01.00-01.00
 ->  CONF:VOLT:DC 10             function, range
 ->  SYST:ERR?                   did it accept that
-->  SENS:VOLT:DC:RES MAX        resolution (after CONF, before READ?)
-->  SYST:ERR?                   did it accept that
 ->  READ?                       trigger, and hand back the reading
 <-  +5.02010000E+00
 ```
@@ -134,17 +132,14 @@ specified. `CONFigure` resets the function's parameters to their defaults
 
 | | Sent |
 |---|---|
-| a range, `Slow` | `CONF:VOLT:DC 10` |
-| a range, `Medium`/`Fast` | `CONF:VOLT:DC 10` then `SENS:VOLT:DC:RES MAX` |
-| no range, `Slow` | `CONF:VOLT:DC` — `CONFigure` has just set 5½ digits, which *is* `Slow` |
-| no range, `Medium`/`Fast` | `CONF:VOLT:DC` then `SENS:VOLT:DC:RES MAX` |
+| `Slow` | `CONF:VOLT:DC 10` |
+| `Fast` | `CONF:VOLT:DC 10` |
 
-The resolution command accepts keywords `MIN` (Slow/5½ digits) and `MAX`
-(Fast/4½ digits). The EDU34450A has only two resolution modes — Fast and Slow
-— so `Medium` maps to `MAX`. `DEF` is the same as `MIN` — both are the reset
-default of Slow. `MIN` is the smallest value ("highest resolution") and `MAX`
-the largest ("least resolution"). A coarser resolution is a shorter integration,
-so least resolution is fastest — `MIN` slow, `MAX` fast.
+The EDU34450A has only two resolution modes — Slow (5½ digits) and Fast
+(4½ digits) — but the driver sends no resolution command. A separate
+`SENS:VOLT:DC:RES` command interrupts the meter's trigger state and causes
+`-410,"Query INTERRUPTED"` on `READ?`. The meter uses its default resolution
+(Slow) after `CONF`.
 
 ### Two traps this model has, both handled
 

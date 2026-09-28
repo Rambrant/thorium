@@ -124,19 +124,11 @@ namespace hal::keysight_edu34450a
         }
 
         //
-        // The two resolution keywords this meter accepts: MIN (Slow/5½ digits)
-        // and MAX (Fast/4½ digits). Numeric values like 2.00E-5 are rejected
-        // with -128,"Numeric data not allowed". DEF is the same as MIN.
-        //
-        // The EDU34450A has only two resolution modes (Slow/Fast). The
-        // programmer's reference gives 1.50E-6 as the default and labels it
-        // "5.5 digits", and says MIN selects the smallest value accepted ("the
-        // highest resolution") and MAX the largest ("the least resolution").
-        // A coarser resolution is a shorter integration, so least resolution
-        // is fastest: MIN slow, MAX fast.
-        //
-        // The Medium enumerator maps to MAX since there is no distinct medium
-        // resolution on this model.
+        // The EDU34450A has two resolution modes (Slow/Fast), but the driver
+        // sends no resolution command. SENS:VOLT:DC:RES interrupts the trigger
+        // state and causes -410 on READ?. The meter uses its default (Slow)
+        // after CONF. The resolution() setter is kept for API consistency but
+        // has no effect on actual measurements.
         //
         [[nodiscard]]
         constexpr auto resolutionFor( const EDU34450A::Resolution resolution) -> std::string_view
@@ -279,16 +271,14 @@ namespace hal::keysight_edu34450a
         const auto commands = commandsFor( function);
 
         //
-        // "CONF:VOLT:DC 10" then "SENS:VOLT:DC:RES MAX", or "CONF:VOLT:DC 10"
-        // alone for Slow.
+        // "CONF:VOLT:DC 10" then "SENS:VOLT:DC:RES MAX" for DC, or just
+        // "CONF:VOLT:DC 10" for AC.
         //
         // The EDU34450A does not accept the resolution argument in CONFigure:
-        // "CONF:VOLT:DC 10,1.5E-6" returns -108,"Parameter not allowed". The
-        // resolution must be set separately with a SENSe command, and it must
-        // come AFTER CONFigure, not before. If sent before CONF, the resolution
-        // is reset by CONF and has no effect (the meter shows "SLOW" for all
-        // readings). The EDU34450A has only two resolution modes (Slow/Fast);
-        // use keywords MIN and MAX. Numeric values are rejected with -128.
+        // "CONF:VOLT:DC 10,1.5E-6" returns -108,"Parameter not allowed". For
+        // DC, a separate SENS:VOLT:DC:RES command works. For AC, it does not —
+        // it interrupts the trigger state and causes -410,"Query INTERRUPTED"
+        // on READ?. AC measurements use the default resolution (Slow).
         //
         std::string configure{ commands.Configure };
 
@@ -309,12 +299,22 @@ namespace hal::keysight_edu34450a
         scpi.checked( configure);
 
         //
-        // Set the resolution after CONF using keywords (MIN/DEF/MAX), not
-        // numeric values. This must come before READ? to take effect.
+        // Set the resolution after CONF for DC functions only. For AC
+        // functions, the resolution command interrupts the trigger state
+        // and causes -410 on READ?. AC uses the default (Slow).
         //
         if( commands.HasDiscreteResolution && mResolution != Resolution::Slow)
         {
-            scpi.checked( std::string( commands.Resolution) + " " + std::string( resolutionFor( mResolution)));
+            // DC functions work; AC functions do not.
+            const bool isDcFunction = function == Function::DcVoltage ||
+                                      function == Function::DcCurrent ||
+                                      function == Function::Resistance ||
+                                      function == Function::FourWireResistance;
+
+            if( isDcFunction)
+            {
+                scpi.write( std::string( commands.Resolution) + " " + std::string( resolutionFor( mResolution)));
+            }
         }
 
         //

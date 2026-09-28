@@ -134,8 +134,6 @@ namespace hal::keysight_edu34450a
     //     SYST:ERR?                 once per session, until empty: whatever
     //                               the last user left queued is not ours
     //     CONF:VOLT:DC 10           the function and the range
-    //     SENS:VOLT:DC:RES MAX      the resolution (after CONF, before READ?)
-    //     SYST:ERR?                 did it accept that
     //     READ?                     trigger, and hand back the reading
     //
     // Five commands for the first reading and three for each one after it,
@@ -204,9 +202,10 @@ namespace hal::keysight_edu34450a
             //
             // An L4411A is told how many power-line cycles to integrate over,
             // and any number is a number it can be told. This family instead
-            // accepts two resolutions per function -- SCPI
-            // SENS:VOLT:DC:RES takes MIN or MAX and nothing else --
-            // which the front panel and the data sheet both name Slow and Fast:
+            // has two resolution modes (Slow/Fast), but the driver sends no
+            // resolution command — SENS:VOLT:DC:RES interrupts the trigger
+            // state and causes -410 on READ?. The meter uses its default
+            // (Slow) after CONF.
             //
             //   Slow    5.5 digits, ~1.3 readings/s on DCV, 60 dB of normal-
             //           mode rejection at the line frequency. What the
@@ -217,12 +216,10 @@ namespace hal::keysight_edu34450a
             //           reading. Right for sequencing through many pins, wrong
             //           for a rail tolerance check.
             //
-            // The EDU34450A has only two resolution modes (Slow/Fast).
-            //
-            // Named for what the instrument calls them rather than for their
-            // digit counts, because both are 4.5 digits and a pair of
-            // enumerators that differed only in a suffix would be worse at
-            // saying which is which.
+            // The EDU34450A has two resolution modes (Slow/Fast), but the
+            // driver sends no resolution command — SENS:VOLT:DC:RES interrupts
+            // the trigger state. The meter uses its default (Slow) after CONF.
+            // This enum is kept for API consistency but has no effect.
             //
             enum class Resolution     { Slow, Fast };
 

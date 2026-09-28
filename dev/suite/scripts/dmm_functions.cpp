@@ -52,7 +52,7 @@ auto dmmResolution() -> void
 
     const auto previous = Dmm1.resolution();
 
-    for( const auto resolution : { Resolution::Slow, Resolution::Medium, Resolution::Fast })
+    for( const auto resolution : { Resolution::Slow, Resolution::Fast })
     {
         Dmm1.setResolution( resolution);
         Verify( DEV_Dmm_1::DEV_Dmm_Ref, Measure( Dmm1.voltage()));
