@@ -106,7 +106,5 @@
 // edit rather than a reshape.
 //
 ADDRESS_POOLS
-    POOL( Dmm1, Lan( "dev-dmm-1"))      // the desk's own meter, free unless somebody borrowed it
-    POOL( Dmm1, Lan( "dev-dmm-2"))
-    POOL( Dmm1, Lan( "dev-dmm-3"))      // the shared one on the end of the bench, usually taken
+    POOL( Dmm1, Usb( "CN65510018"))      // the desk's own meter, free unless somebody borrowed it
 END_ADDRESS_POOLS

@@ -105,8 +105,8 @@
 // once and forgets.
 //
 INSTRUMENTS
-    INSTRUMENT( keysight_edu34450a::EDU34450A,     Dmm1, Lan( "dev-dmm"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
-    INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Lan( "dev-psu"))   // 6 V / 5 A
-    INSTRUMENT( keysight_edu36311a::DirectOutput2, DcP6, Lan( "dev-psu"))   // 30 V / 1 A
-    INSTRUMENT( keysight_edu36311a::DirectOutput3, DcP7, Lan( "dev-psu"))   // 30 V / 1 A
+    INSTRUMENT( keysight_edu34450a::EDU34450A,     Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
+    INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Usb( "CN65100272"))   // 6 V / 5 A
+    INSTRUMENT( keysight_edu36311a::DirectOutput2, DcP6, Usb( "CN65100272"))   // 30 V / 1 A
+    INSTRUMENT( keysight_edu36311a::DirectOutput3, DcP7, Usb( "CN65100272"))   // 30 V / 1 A
 END_INSTRUMENTS
