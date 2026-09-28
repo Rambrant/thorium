@@ -333,12 +333,12 @@ TEST( Edu34450A, SafeLeavesTheMetersOwnStateAlone)
 {
     EDU34450A dmm{ anyId(), hal::Simulated{} };
     (void)dmm.acVoltage();
-    dmm.setResolution( EDU34450A::Resolution::Medium);
+    dmm.setResolution( EDU34450A::Resolution::Fast);
 
     dmm.safe();
 
     EXPECT_EQ( dmm.mode(),       EDU34450A::Mode::Ac);
-    EXPECT_EQ( dmm.resolution(), EDU34450A::Resolution::Medium);
+    EXPECT_EQ( dmm.resolution(), EDU34450A::Resolution::Fast);
 }
 
 //
@@ -592,12 +592,11 @@ TEST( Edu34450AWire, OpensTheSessionOnceAndReconfiguresPerReading)
 
 //
 // A range from the port becomes the CONFigure command's <range> argument, and
-// the resolution rides along with it -- which is the instrument's own rule
-// rather than a preference: <resolution> may only accompany an explicit
-// <range>, since the meter cannot fix an integration time for a range it has
-// not chosen yet.
+// the resolution follows as its own SENSe command -- the EDU34450A does not
+// accept the resolution in CONFigure: "CONF:VOLT:DC 10,3.0E-5" returns
+// -108,"Parameter not allowed".
 //
-TEST( Edu34450AWire, ARangeAndTheResolutionGoInOneConfigureCommand)
+TEST( Edu34450AWire, ARangeAndTheResolutionGoInSeparateCommands)
 {
     auto bench = attachedMeter();
 
@@ -605,7 +604,12 @@ TEST( Edu34450AWire, ARangeAndTheResolutionGoInOneConfigureCommand)
 
     static_cast<void>( bench.Dmm.voltage().range( 10.0_V).rawMeasure());
 
-    EXPECT_EQ( commandsAfterOpening( *bench.Meter).front(), "CONF:VOLT:DC 10,3.0E-5");
+    EXPECT_EQ( commandsAfterOpening( *bench.Meter), ( std::vector<std::string>{
+        "CONF:VOLT:DC 10",
+        "SYST:ERR?",
+        "SENS:VOLT:DC:RES MAX",
+        "SYST:ERR?",
+        "READ?" }));
 }
 
 //
@@ -636,14 +640,14 @@ TEST( Edu34450AWire, AutorangingAtANonDefaultResolutionSetsItSeparately)
 {
     auto bench = attachedMeter();
 
-    bench.Dmm.setResolution( EDU34450A::Resolution::Medium);
+    bench.Dmm.setResolution( EDU34450A::Resolution::Fast);
 
     static_cast<void>( bench.Dmm.voltage().rawMeasure());
 
     EXPECT_EQ( commandsAfterOpening( *bench.Meter), ( std::vector<std::string>{
         "CONF:VOLT:DC",
         "SYST:ERR?",
-        "VOLT:DC:RES 2.0E-5",
+        "SENS:VOLT:DC:RES MAX",
         "SYST:ERR?",
         "READ?" }));
 }
@@ -816,7 +820,7 @@ TEST( Edu34450AWire, ARefusedConfigurationThrowsNamingTheCommandAndTheInstrument
     }
     catch( const hal::io::ScpiFault & fault)
     {
-        EXPECT_EQ( fault.command(), "CONF:VOLT:DC 5000,1.5E-6");
+        EXPECT_EQ( fault.command(), "CONF:VOLT:DC 5000");
         EXPECT_EQ( fault.error(),   ( hal::io::ScpiError{ -222, "Data out of range" }));
     }
 

@@ -153,12 +153,12 @@ TEST_F( DmmFunctionsFixture, ResolutionChecksAllThreeSettings)
 //
 TEST_F( DmmFunctionsFixture, ResolutionLeavesTheMeterAsItFoundIt)
 {
-    Dmm1.setResolution( Resolution::Medium);
+    Dmm1.setResolution( Resolution::Fast);
 
     Measure.inject( "Dmm1.Voltage", { 5.01_V, 5.01_V, 5.01_V });
     static_cast<void>( verdictOf( dmmResolution));
 
-    EXPECT_EQ( Dmm1.resolution(), Resolution::Medium);
+    EXPECT_EQ( Dmm1.resolution(), Resolution::Fast);
 
-    Dmm1.setResolution( Resolution::Slow);
+    Dmm1.setResolution( Resolution::Fast);
 }

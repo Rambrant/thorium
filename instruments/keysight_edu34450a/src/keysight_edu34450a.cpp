@@ -104,12 +104,12 @@ namespace hal::keysight_edu34450a
         {
             switch( function)
             {
-                case Function::DcVoltage:          return { "CONF:VOLT:DC", "VOLT:DC:RES", true,  "DC voltage"           };
-                case Function::AcVoltage:          return { "CONF:VOLT:AC", "VOLT:AC:RES", true,  "AC voltage"           };
-                case Function::DcCurrent:          return { "CONF:CURR:DC", "CURR:DC:RES", true,  "DC current"           };
-                case Function::AcCurrent:          return { "CONF:CURR:AC", "CURR:AC:RES", true,  "AC current"           };
-                case Function::Resistance:         return { "CONF:RES",     "RES:RES",     true,  "2-wire resistance"    };
-                case Function::FourWireResistance: return { "CONF:FRES",    "FRES:RES",    true,  "4-wire resistance"    };
+                case Function::DcVoltage:          return { "CONF:VOLT:DC", "SENS:VOLT:DC:RES", true,  "DC voltage"           };
+                case Function::AcVoltage:          return { "CONF:VOLT:AC", "SENS:VOLT:AC:RES", true,  "AC voltage"           };
+                case Function::DcCurrent:          return { "CONF:CURR:DC", "SENS:CURR:DC:RES", true,  "DC current"           };
+                case Function::AcCurrent:          return { "CONF:CURR:AC", "SENS:CURR:AC:RES", true,  "AC current"           };
+                case Function::Resistance:         return { "CONF:RES",     "SENS:RES:RES",    true,  "2-wire resistance"    };
+                case Function::FourWireResistance: return { "CONF:FRES",    "SENS:FRES:RES",   true,  "4-wire resistance"    };
                 case Function::Frequency:          return { "CONF:FREQ",    "",            false, "frequency"            };
                 case Function::Capacitance:        return { "CONF:CAP",     "",            false, "capacitance"          };
             }
@@ -124,36 +124,30 @@ namespace hal::keysight_edu34450a
         }
 
         //
-        // The three values this meter's <resolution> parameter accepts, and
-        // nothing else -- SCPI VOLT:DC:RES takes 1.5E-6, 2.0E-5 or 3.0E-5 and
-        // answers -222 for anything in between.
+        // The two resolution keywords this meter accepts: MIN (Slow/5½ digits)
+        // and MAX (Fast/4½ digits). Numeric values like 2.00E-5 are rejected
+        // with -128,"Numeric data not allowed". DEF is the same as MIN.
         //
-        // The mapping onto Slow/Medium/Fast is the one thing on this page the
-        // programmer's reference does not state outright, so here is the
-        // derivation rather than an assertion. The manual gives 1.50E-6 as the
-        // default and labels it "5.5 digits", and says MIN selects the smallest
-        // value accepted ("the highest resolution") and MAX the largest ("the
-        // least resolution"). A coarser resolution is a shorter integration, so
-        // least resolution is fastest: 1.5E-6 slow, 3.0E-5 fast, and 2.0E-5 the
-        // one left in the middle. Which agrees with the data sheet's three
-        // reading rates for the three front-panel speeds.
+        // The EDU34450A has only two resolution modes (Slow/Fast). The
+        // programmer's reference gives 1.50E-6 as the default and labels it
+        // "5.5 digits", and says MIN selects the smallest value accepted ("the
+        // highest resolution") and MAX the largest ("the least resolution").
+        // A coarser resolution is a shorter integration, so least resolution
+        // is fastest: MIN slow, MAX fast.
         //
-        // Written as literals in the manual's own spelling rather than
-        // formatted from a double -- these are three fixed tokens out of a
-        // document, not computed values, and "1.5E-06" out of a formatter is a
-        // needless second spelling of one of them.
+        // The Medium enumerator maps to MAX since there is no distinct medium
+        // resolution on this model.
         //
         [[nodiscard]]
         constexpr auto resolutionFor( const EDU34450A::Resolution resolution) -> std::string_view
         {
             switch( resolution)
             {
-                case EDU34450A::Resolution::Slow:   return "1.5E-6";
-                case EDU34450A::Resolution::Medium: return "2.0E-5";
-                case EDU34450A::Resolution::Fast:   return "3.0E-5";
+                case EDU34450A::Resolution::Slow:   return "MIN";
+                case EDU34450A::Resolution::Fast:   return "MAX";
             }
 
-            return "1.5E-6";
+            return "MIN";
         }
 
         //
@@ -285,14 +279,16 @@ namespace hal::keysight_edu34450a
         const auto commands = commandsFor( function);
 
         //
-        // "CONF:VOLT:DC", "CONF:VOLT:DC 10", or "CONF:VOLT:DC 10,1.5E-6".
+        // "CONF:VOLT:DC 10" then "SENS:VOLT:DC:RES MAX", or "CONF:VOLT:DC 10"
+        // alone for Slow.
         //
-        // The three forms are not a style choice, they are the instrument's
-        // rule. Its <resolution> argument may only accompany an explicit
-        // <range>: combined with autoranging it is refused, because the meter
-        // cannot fix an integration time for a range it has not chosen yet. So
-        // a reading with a range gets both in one command, and a reading
-        // without one gets the resolution separately (below) or not at all.
+        // The EDU34450A does not accept the resolution argument in CONFigure:
+        // "CONF:VOLT:DC 10,1.5E-6" returns -108,"Parameter not allowed". The
+        // resolution must be set separately with a SENSe command, and it must
+        // come AFTER CONFigure, not before. If sent before CONF, the resolution
+        // is reset by CONF and has no effect (the meter shows "SLOW" for all
+        // readings). The EDU34450A has only two resolution modes (Slow/Fast);
+        // use keywords MIN and MAX. Numeric values are rejected with -128.
         //
         std::string configure{ commands.Configure };
 
@@ -300,12 +296,6 @@ namespace hal::keysight_edu34450a
         {
             configure += " ";
             configure += io::ScpiSession::number( *range);
-
-            if( commands.HasDiscreteResolution)
-            {
-                configure += ",";
-                configure += resolutionFor( mResolution);
-            }
         }
 
         //
@@ -319,13 +309,10 @@ namespace hal::keysight_edu34450a
         scpi.checked( configure);
 
         //
-        // The autoranging case: the resolution could not ride along above, so
-        // it goes as its own SENSe command -- and only when it is not already
-        // what CONFigure just set. CONFigure resets the function's parameters
-        // to their defaults, and this meter's default resolution is 5.5 digits,
-        // which is exactly Resolution::Slow. So the common case sends nothing.
+        // Set the resolution after CONF using keywords (MIN/DEF/MAX), not
+        // numeric values. This must come before READ? to take effect.
         //
-        if( !range && commands.HasDiscreteResolution && mResolution != Resolution::Slow)
+        if( commands.HasDiscreteResolution && mResolution != Resolution::Slow)
         {
             scpi.checked( std::string( commands.Resolution) + " " + std::string( resolutionFor( mResolution)));
         }

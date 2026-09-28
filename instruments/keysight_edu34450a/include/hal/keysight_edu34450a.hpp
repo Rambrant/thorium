@@ -133,7 +133,8 @@ namespace hal::keysight_edu34450a
     //                               model is not this one (verifyIdentity)
     //     SYST:ERR?                 once per session, until empty: whatever
     //                               the last user left queued is not ours
-    //     CONF:VOLT:DC 10,1.5E-6    the function, the range and the resolution
+    //     CONF:VOLT:DC 10           the function and the range
+    //     SENS:VOLT:DC:RES MAX      the resolution (after CONF, before READ?)
     //     SYST:ERR?                 did it accept that
     //     READ?                     trigger, and hand back the reading
     //
@@ -203,27 +204,27 @@ namespace hal::keysight_edu34450a
             //
             // An L4411A is told how many power-line cycles to integrate over,
             // and any number is a number it can be told. This family instead
-            // accepts exactly three resolutions per function -- SCPI
-            // VOLT:DC:RES takes 1.50E-6, 2.00E-5 or 3.00E-5 and nothing else --
-            // which the front panel and the data sheet both name Slow, Medium
-            // and Fast:
+            // accepts two resolutions per function -- SCPI
+            // SENS:VOLT:DC:RES takes MIN or MAX and nothing else --
+            // which the front panel and the data sheet both name Slow and Fast:
             //
             //   Slow    5.5 digits, ~1.3 readings/s on DCV, 60 dB of normal-
             //           mode rejection at the line frequency. What the
             //           instrument resets to, and what its accuracy
             //           specifications are quoted at.
-            //   Medium  4.5 digits, ~49 readings/s, still 60 dB rejection.
             //   Fast    4.5 digits, up to 110 readings/s, and no normal-mode
             //           rejection at all (0 dB) -- line hum lands in the
             //           reading. Right for sequencing through many pins, wrong
             //           for a rail tolerance check.
             //
-            // Named for what the instrument calls them rather than for their
-            // digit counts, because Medium and Fast are both 4.5 digits and a
-            // pair of enumerators that differed only in a suffix would be worse
-            // at saying which is which.
+            // The EDU34450A has only two resolution modes (Slow/Fast).
             //
-            enum class Resolution     { Slow, Medium, Fast };
+            // Named for what the instrument calls them rather than for their
+            // digit counts, because both are 4.5 digits and a pair of
+            // enumerators that differed only in a suffix would be worse at
+            // saying which is which.
+            //
+            enum class Resolution     { Slow, Fast };
 
             //
             // LAN or USB, and nothing else: gigabit LAN and a USB device port

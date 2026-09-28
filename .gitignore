@@ -1,5 +1,6 @@
 .idea
 .vscode/*
+dev/.vscode/*
 !.vscode/settings.json
 build/
 cmake-build-*/
@@ -7,5 +8,6 @@ tools/__pycache__/
 *.o
 *.out
 .DS_Store
+logs/
 compile_commands.json
 CMakeUserPresets.json

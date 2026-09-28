@@ -82,9 +82,10 @@ The whole conversation for one DC volts reading of a routed rail:
 <-  +0,"No error"                 last user left queued is not this run's
 ->  *IDN?                       once per session
 <-  Keysight Technologies,EDU34450A,MY60012345,01.00-01.00
-->  CONF:VOLT:DC 10,1.5E-6      function, range, resolution
+->  CONF:VOLT:DC 10             function, range
 ->  SYST:ERR?                   did it accept that
-<-  +0,"No error"
+->  SENS:VOLT:DC:RES MAX        resolution (after CONF, before READ?)
+->  SYST:ERR?                   did it accept that
 ->  READ?                       trigger, and hand back the reading
 <-  +5.02010000E+00
 ```
@@ -125,25 +126,25 @@ reading.
 
 ### The instrument's own rule about resolution
 
-`<resolution>` may only accompany an explicit `<range>`: combined with
-autoranging it is refused, because the meter cannot fix an integration time for
-a range it has not chosen yet. So there are three forms, and which one is sent
-follows from the port rather than from a preference:
+The EDU34450A does not accept resolution in the `CONFigure` command:
+`CONF:VOLT:DC 10,1.5E-6` returns `-108,"Parameter not allowed"`. The resolution
+must always be set separately with a `SENSe` command, whether or not a range is
+specified. `CONFigure` resets the function's parameters to their defaults
+(5½ digits = Slow), so the Slow case needs no follow-up:
 
 | | Sent |
 |---|---|
-| a range, any resolution | `CONF:VOLT:DC 10,1.5E-6` |
+| a range, `Slow` | `CONF:VOLT:DC 10` |
+| a range, `Medium`/`Fast` | `CONF:VOLT:DC 10` then `SENS:VOLT:DC:RES MAX` |
 | no range, `Slow` | `CONF:VOLT:DC` — `CONFigure` has just set 5½ digits, which *is* `Slow` |
-| no range, `Medium`/`Fast` | `CONF:VOLT:DC` then `VOLT:DC:RES 2.0E-5` |
+| no range, `Medium`/`Fast` | `CONF:VOLT:DC` then `SENS:VOLT:DC:RES MAX` |
 
-The three resolution values are the only three the meter accepts. The mapping
-onto Slow/Medium/Fast is the one thing on this subject the programmer's
-reference does not state outright, so: it gives `1.50E-6` as the default and
-labels it 5½ digits, and says `MIN` is the smallest value accepted ("the
-highest resolution") and `MAX` the largest ("the least resolution"). A coarser
-resolution is a shorter integration, so least resolution is fastest —
-`1.5E-6` slow, `3.0E-5` fast, `2.0E-5` the one left in the middle, which agrees
-with the data sheet's three reading rates.
+The resolution command accepts keywords `MIN` (Slow/5½ digits) and `MAX`
+(Fast/4½ digits). The EDU34450A has only two resolution modes — Fast and Slow
+— so `Medium` maps to `MAX`. `DEF` is the same as `MIN` — both are the reset
+default of Slow. `MIN` is the smallest value ("highest resolution") and `MAX`
+the largest ("least resolution"). A coarser resolution is a shorter integration,
+so least resolution is fastest — `MIN` slow, `MAX` fast.
 
 ### Two traps this model has, both handled
 
