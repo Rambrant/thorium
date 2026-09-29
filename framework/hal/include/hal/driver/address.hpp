@@ -237,8 +237,8 @@ namespace hal
     //
     // The runtime half is not a weakening. It is checked before any session
     // is opened, before the first script, and it fails the run there (see
-    // hal::bindAddresses()) rather than letting a Lan address reach a scope
-    // that has no network connector.
+    // hal::bindAddresses()) rather than letting a GPIB address reach a scope
+    // that has no GPIB connector.
     //
     //
     // One driver's panel, type-erased -- so that a resolver walking a rig's

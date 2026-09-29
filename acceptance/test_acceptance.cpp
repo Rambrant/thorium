@@ -2523,15 +2523,15 @@ TEST_F( AcceptanceBench, TheMachineLogCarriesTheInstrumentsAsAnArray)
 // saying a run happened.
 //
 // Osc1 is the row to try it on, and the choice is the point: a DSOX1202G has
-// a USB device port and no network connector at all, so a Lan address for it
-// is refused whatever its table row currently says.
+// LAN and USB and no GPIB connector at all, so a GPIB address for it is
+// refused whatever its table row currently says.
 //
 TEST_F( AcceptanceBench, ARefusedAddressFailsBeforeAnythingIsWritten)
 {
-    EXPECT_EQ( run( { "--address=Osc1=lan:nowhere" } ), 1);
+    EXPECT_EQ( run( { "--address=Osc1=gpib:0,7" } ), 1);
 
     EXPECT_TRUE( containsText( errPath(), mErr, "Preflight failed"));
-    EXPECT_TRUE( containsText( errPath(), mErr, "back panel has: Usb"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "back panel has: Lan, Usb"));
     EXPECT_TRUE( findArtifact( ".rtf").empty());
     EXPECT_TRUE( findArtifact( ".sarif").empty());
 }

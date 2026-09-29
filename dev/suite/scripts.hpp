@@ -33,3 +33,17 @@ auto scopeTimingCh2() -> void;
 auto scopeCapture() -> void;
 auto scopeAcquisitionTypes() -> void;
 auto scopeCouplingAndBandwidth() -> void;
+
+// WfgIntoScope -- dev/suite/scripts/wfg_into_scope.cpp
+auto wfgSineCh1() -> void;
+auto wfgSineCh2() -> void;
+auto wfgFrequencySteps() -> void;
+auto wfgAmplitudeAndOffset() -> void;
+auto wfgSquareDutyCycle() -> void;
+auto wfgRampAndTriangle() -> void;
+auto wfgPulse() -> void;
+auto wfgDcLevels() -> void;
+auto wfgNoise() -> void;
+auto wfgTermination() -> void;
+auto wfgOutputOff() -> void;
+auto wfgChannelsIndependent() -> void;

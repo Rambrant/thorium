@@ -5,6 +5,7 @@
 #include "hal/keysight_edu34450a.hpp"
 #include "hal/keysight_edu36311a.hpp"
 #include "hal/keysight_dsox1202g.hpp"
+#include "hal/keysight_33522b.hpp"
 #include "hal/fabric/switch_device.hpp"
 #include "hal/fabric/switch_fabric.hpp"
 #include "hal/topology/address_tables.hpp"
@@ -39,21 +40,22 @@
 namespace
 {
     //
-    // -- The bench is a meter, a supply and a scope --------------------------
+    // -- The bench is a meter, a supply, a scope and a generator -------------
     //
     // hal::InstrumentId's enumerators come from dev/rig/instrument.inc, so this
     // is that file's row count stated where a reader of the tests will see it.
     // Another INSTRUMENT() row fails here, which is the intent: it is not
     // forbidden, it is a change to what this deployment is, and it should be a
     // deliberate edit to this line rather than a silent widening. This line has
-    // been that edit twice: the supply's three outputs, then the scope.
+    // been that edit three times: the supply's outputs, the scope, the generator.
     //
-    static_assert( core::meta::values<hal::InstrumentId>.size() == 5);
+    static_assert( core::meta::values<hal::InstrumentId>.size() == 6);
     static_assert( core::meta::values<hal::InstrumentId>[0] == hal::InstrumentId::Dmm1);
     static_assert( core::meta::values<hal::InstrumentId>[1] == hal::InstrumentId::DcP5);
     static_assert( core::meta::values<hal::InstrumentId>[2] == hal::InstrumentId::DcP6);
     static_assert( core::meta::values<hal::InstrumentId>[3] == hal::InstrumentId::DcP7);
     static_assert( core::meta::values<hal::InstrumentId>[4] == hal::InstrumentId::Osc1);
+    static_assert( core::meta::values<hal::InstrumentId>[5] == hal::InstrumentId::Wfg1);
 
     //
     // -- And no switching hardware at all ------------------------------------
@@ -103,6 +105,7 @@ namespace
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::DcP6));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::DcP7));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Osc1));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Wfg1));
 
     //
     // -- Each driver still owes the framework what every driver owes ----------
@@ -119,6 +122,7 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput2> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput3> );
     static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::DSOX1202G> );
+    static_assert( hal::SafeableInstrument< hal::keysight_33522b::Wfg33522B> );
 } // namespace
 
 //
@@ -187,7 +191,7 @@ TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 5u);
+    ASSERT_EQ( bindings.size(), 6u);
     EXPECT_EQ( bindings[ 0].Id,     hal::InstrumentId::Dmm1);
     EXPECT_EQ( bindings[ 0].Source, hal::AddressSource::Pool);
 }
@@ -203,7 +207,7 @@ TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 5u);
+    ASSERT_EQ( bindings.size(), 6u);
     EXPECT_TRUE( hal::poolFor( hal::InstrumentId::DcP5).empty());
 
     for( std::size_t row = 1; row <= 3; ++row)

@@ -304,9 +304,9 @@ namespace
     }
 
     //
-    // And the check is still a check: an EDU34450A has LAN and USB, a
-    // DSOX1202G has USB and no network connector at all, and being Simulated
-    // today does not lend either of them a connector it does not have.
+    // And the check is still a check: an EDU34450A and a DSOX1202G both have
+    // LAN and USB and neither has GPIB, and being Simulated today does not
+    // lend either of them a connector it does not have.
     //
     TEST( Preflight, ASimulatedRowStillOnlyAcceptsItsOwnConnectors)
     {
@@ -320,7 +320,7 @@ namespace
 
         AddressPlan refused;
 
-        refused.Overrides.push_back( parseOverride( "Osc1=lan:dev-scope"));
+        refused.Overrides.push_back( parseOverride( "Osc1=gpib:0,7"));
 
         EXPECT_THROW( ( void) bindAddresses( refused), AddressKindMismatch);
     }

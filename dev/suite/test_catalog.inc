@@ -60,3 +60,23 @@ GROUP( ScopeProbeComp, "The scope against its own 1 kHz probe-compensation squar
     TEST( ScopeAcquisitionTypes,     scopeAcquisitionTypes,     "Normal, high-resolution, peak-detect and averaged acquisitions all read the square")
     TEST( ScopeCouplingAndBandwidth, scopeCouplingAndBandwidth, "AC coupling centres the square on zero; the bandwidth limit leaves it alone")
 END_GROUP
+
+//
+// The waveform generator, measured by the scope: generator CH1 to scope CH1 and
+// CH2 to CH2 on BNC cables, 1:1. Runs whole -- nothing is reconnected, and each
+// test turns off what it turned on. See dev/suite/scripts/wfg_into_scope.cpp.
+//
+GROUP( WfgIntoScope, "The waveform generator, each setting checked by the scope on the other end of the cable")
+    TEST( WfgSineCh1,             wfgSineCh1,             "Channel 1: a 1 kHz, 2 Vpp sine's level, frequency, centre and RMS")
+    TEST( WfgSineCh2,             wfgSineCh2,             "Channel 2: a 1 kHz, 2 Vpp sine's level, frequency, centre and RMS")
+    TEST( WfgFrequencySteps,      wfgFrequencySteps,      "A sine at 100 Hz, 1 kHz, 10 kHz and 1 MHz")
+    TEST( WfgAmplitudeAndOffset,  wfgAmplitudeAndOffset,  "4 Vpp on a +1 V offset peaks at +3 V and troughs at -1 V")
+    TEST( WfgSquareDutyCycle,     wfgSquareDutyCycle,     "A 25% square: top, base and both widths")
+    TEST( WfgRampAndTriangle,     wfgRampAndTriangle,     "A rising sawtooth and a triangle, by their edge times")
+    TEST( WfgPulse,               wfgPulse,               "A 10% pulse is 100 us wide at 1 kHz")
+    TEST( WfgDcLevels,            wfgDcLevels,            "DC at +1.5 V and -2 V")
+    TEST( WfgNoise,               wfgNoise,               "1 Vpp of noise: an RMS in band and a mean of zero")
+    TEST( WfgTermination,         wfgTermination,         "Told 50 Ohm it doubles into the scope; told high-Z it does not")
+    TEST( WfgOutputOff,           wfgOutputOff,           "Remove turns an output off -- the scope sees only its own noise")
+    TEST( WfgChannelsIndependent, wfgChannelsIndependent, "A 1 kHz sine on channel 1 and a 5 kHz square on channel 2 at once")
+END_GROUP

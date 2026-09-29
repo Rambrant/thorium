@@ -29,19 +29,18 @@
 // for hal::SafeableInstrument, and hal/tests/driver/test_address.cpp for the
 // hal::ReachableOver mechanism itself).
 //
-// One connector, and this is the assertion that carries the most weight in this
-// file. The 1000 X-Series has a USB device port and nothing else: the
-// programmer's guide says "There is no LAN interface (only USB is supported)",
-// and it is the four-channel DSOX1204A/G in the next series that gained one. So
-// Lan( "bench-osc1") -- which is exactly what this rig's instrument.inc said
-// while an Infiniium was on this row -- does not compile against this driver,
-// which is the whole job hal::ReachableOver exists to do.
+// Two connectors, LAN and USB. The programmer's guide says the two-channel
+// 1000 X-Series has no LAN interface, and this list once followed it; the
+// DSOX1202G on the dev desk has a LAN port, and the list follows the hardware
+// (see DSOX1202G::Buses). GPIB and serial are still sentences about connectors
+// this box does not have, and still do not compile -- which is the job
+// hal::ReachableOver exists to do, checked here in the direction that refuses.
 //
 namespace
 {
     static_assert(   std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Lan> );
     static_assert(   std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Simulated> );
-    static_assert( ! std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Lan> );
     static_assert( ! std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Gpib> );
     static_assert( ! std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Serial> );
     static_assert( ! std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId> );
@@ -1119,7 +1118,8 @@ TEST( Dsox1202G, ATriggerSetupSendsEdgeModeFirstAndTheLevelAfterItsSource)
                    ":TRIGger:SWEep AUTO",
                    ":TRIGger:EDGE:COUPling DC",
                    ":TRIGger:EDGE:REJect HFReject",
-                   ":TRIGger:HOLDoff 0.001" }));
+                   ":TRIGger:HOLDoff 0.001",
+                   ":RUN" }));    // acquiring again, last -- see configureTrigger
 }
 
 TEST( Dsox1202G, ASetupSendsOnlyWhatItNamed)
@@ -1135,7 +1135,7 @@ TEST( Dsox1202G, ASetupSendsOnlyWhatItNamed)
     setupDriver( scope->Scope.trigger().level( 2.5_V).config());
 
     EXPECT_EQ( afterHandshake( scope->Wire->sent()),
-               ( std::vector<std::string>{ ":TRIGger:MODE EDGE", ":TRIGger:EDGE:LEVel 2.5" }));
+               ( std::vector<std::string>{ ":TRIGger:MODE EDGE", ":TRIGger:EDGE:LEVel 2.5", ":RUN" }));
 }
 
 TEST( Dsox1202G, AChannelSetupSendsTheProbeRatioBeforeAnythingScaledByIt)

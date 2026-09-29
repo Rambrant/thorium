@@ -706,7 +706,7 @@ namespace hal::keysight_33522b
             // Series unit; GPIB is the factory- or user-installed option
             // (guide, "USB, GPIB, and LAN remote interfaces (GPIB is optional
             // on some models)"), so it is in the list because the back panel
-            // can genuinely have it -- unlike the DSOX1202G's absent LAN
+            // can genuinely have it -- unlike the DSOX1202G's absent GPIB
             // connector, which no option adds and which its driver therefore
             // rejects at compile time. A rig whose unit has no GPIB module
             // finds that out when openTransport fails to reach it, which is

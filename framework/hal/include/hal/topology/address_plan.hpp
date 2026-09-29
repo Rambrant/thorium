@@ -42,9 +42,9 @@ namespace hal
     // hal/driver/address.hpp, which is the list its constructor is already
     // constrained by, in a form this can ask at run time.
     //
-    // A DSOX1202G has a USB device port and no network connector, so
-    // Lan( ...) on the Osc1 row is a sentence about hardware that does not
-    // exist. In the table that is a compile error. Arriving from --address it
+    // A DSOX1202G has LAN and USB and no GPIB connector, so Gpib( ...) on
+    // the Osc1 row is a sentence about hardware that does not exist. In the
+    // table that is a compile error. Arriving from --address it
     // is caught here instead, before any session is opened and before the
     // first script -- same list, same answer, one spelling.
     //
@@ -67,8 +67,8 @@ namespace hal
     //
     // -- confirm it answers, and *then* write the row, with the serial the
     // banner printed. The check has not been skipped: an EDU34450A has LAN
-    // and USB, so that flag is accepted and Osc1=lan:... would still be
-    // refused on a scope that has no network connector.
+    // and USB, so that flag is accepted and Osc1=gpib:... would still be
+    // refused on a scope that has no GPIB connector.
     //
     // One honest constraint remains, and it is about fleets rather than about
     // types. If bench 2 reaches its scope over LAN where bench 1 uses USB,

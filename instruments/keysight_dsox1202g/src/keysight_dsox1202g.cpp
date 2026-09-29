@@ -647,6 +647,14 @@ namespace hal::keysight_dsox1202g
             scpi.checked( ":TRIGger:HOLDoff " + io::ScpiSession::number( config.Holdoff->value()));
         }
 
+        //
+        // And acquiring again, whatever state the scope was left in. A
+        // :SINGle leaves it stopped once its capture completes, and a scope
+        // that is stopped answers every :MEASure from the frozen record -- so
+        // after a single-shot, a script that set up a new trigger and measured
+        // would be measuring the old capture, with no error to say so. Sent
+        // last, once the trigger it will run against is complete.
+        //
         scpi.checked( ":RUN");
     }
 

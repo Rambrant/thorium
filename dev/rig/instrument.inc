@@ -1,7 +1,7 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// The dev bench's instrument list: a meter, a supply and a scope.
+// The dev bench's instrument list: a meter, a supply, a scope and a generator.
 //
 // Read exactly the way rig/instrument.inc is -- twice, once by
 // hal/topology/active_instruments.hpp to declare the global and once by
@@ -106,9 +106,8 @@
 //
 // -- The scope ----------------------------------------------------------------
 //
-// Osc1, the bench's name for it: a DSOX1202G, two channels, USB and nothing
-// else (see hal::keysight_dsox1202g::DSOX1202G::Buses -- this model has no LAN
-// connector, so a Lan( ...) here would not compile). Its scripts read the
+// Osc1, the bench's name for it: a DSOX1202G, two channels, LAN or USB (see
+// hal::keysight_dsox1202g::DSOX1202G::Buses). Its scripts read the
 // front-panel probe-compensation output, see dev/suite/scripts/scope_probe_comp.cpp.
 //
 // TODO(desk): CN00000000 is a placeholder, and an attached run fails at
@@ -117,10 +116,24 @@
 // Write the serial in (the third field of *IDN?, or Utility > I/O on the
 // front panel), or set THORIUM_ADDRESS_Osc1=usb:<serial> in the shell.
 //
+// -- The waveform generator ---------------------------------------------------
+//
+// Wfg1, the bench's name for it: a Keysight (formerly Agilent) 33522B, two
+// channels, LAN, USB or GPIB (see hal::keysight_33522b::Wfg33522B::Buses). USB
+// to start with; LAN is one --address away. Its scripts are checked by the
+// scope -- generator channel 1 cabled to scope channel 1, 2 to 2 -- see
+// dev/suite/scripts/wfg_into_scope.cpp.
+//
+// TODO(desk): MY00000000 is a placeholder with the same consequence as the
+// scope's: an attached run fails at startup until it is replaced, or
+// THORIUM_ADDRESS_Wfg1=usb:<serial> is set. The serial is the third field of
+// *IDN?, or System > Help > About on the front panel.
+//
 INSTRUMENTS
     INSTRUMENT( keysight_edu34450a::EDU34450A,     Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
     INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Usb( "CN65100272"))   // 6 V / 5 A
     INSTRUMENT( keysight_edu36311a::DirectOutput2, DcP6, Usb( "CN65100272"))   // 30 V / 1 A
     INSTRUMENT( keysight_edu36311a::DirectOutput3, DcP7, Usb( "CN65100272"))   // 30 V / 1 A
     INSTRUMENT( keysight_dsox1202g::DSOX1202G,     Osc1, Usb( "CN00000000"))   // TODO(desk): the scope's own serial, off *IDN? -- see below
+    INSTRUMENT( keysight_33522b::Wfg33522B,        Wfg1, Usb( "MY00000000"))   // TODO(desk): the generator's own serial, off *IDN? -- see below
 END_INSTRUMENTS

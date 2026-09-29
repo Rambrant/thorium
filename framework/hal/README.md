@@ -338,8 +338,8 @@ time and the best evidence for it: it was a four-channel Infiniium DSO8064A
 while the model was a reconstruction from a legacy script, and naming the class
 after the model is what made swapping in the two-channel InfiniiVision that
 actually turned up a compile-time event rather than a set of readings that
-quietly meant something else (its inputs are 1 MOhm only, and it has no LAN
-port, so rows and settings the old driver accepted stopped compiling). The
+quietly meant something else (its inputs are 1 MOhm only and it has no GPIB,
+so rows and settings the old driver accepted stopped compiling). The
 Infiniium driver has since been deleted along with the rest of the hardware
 this bench does not have -- see `rig/instrument.inc`.
 
@@ -451,11 +451,12 @@ USBTMC port and no GPIB option -- so the two boxes on this bench that *can* be
 reached over GPIB are both ones with no transport to use it: the Ac6834B and the
 Racal1260.
 
-`hal::keysight_dsox1202g::DSOX1202G` is the only row with *one*, and that is the
-table's sharpest entry: the 1000 X-Series has a USB device port and no network
-connector, so `Lan( ... )` on `Osc1`'s row does not compile. The row above it
-accepted three buses, `Osc1` used to say `Lan`, and swapping the driver is what
-turned that into a build failure instead of a connection timeout.
+`hal::keysight_dsox1202g::DSOX1202G` is LAN and USB, and has an entry here for
+the history rather than the list: it was USB alone, on the programmer's guide's
+word that the two-channel 1000 X-Series has no LAN interface, until the unit on
+the dev desk turned out to have a LAN port. The list follows the hardware in
+hand; a panel written from a document is a claim, and the instrument is the
+check.
 
 `hal::keysight_34980a::Chassis` is the only row with *three*, and it is the
 boring end of this table for a good reason: GPIB, LAN and USB are all standard

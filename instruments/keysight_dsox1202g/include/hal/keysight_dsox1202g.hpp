@@ -1101,25 +1101,28 @@ namespace hal::keysight_dsox1202g
             static constexpr core::quantities::Time kDefaultArmTimeout{ 1.0 };
 
             //
-            // USB, and only USB.
+            // LAN or USB, and nothing else: no GPIB connector and no serial
+            // port, so a row addressing it over either fails to compile.
             //
-            // This is the one place where the difference between the 1000
-            // X-Series and its 1200 X-Series successor is enforced rather than
-            // described. The DSOX1202A/G has a single rear USB device port and
-            // no network connector at all -- the programmer's guide says it in
-            // as many words, "There is no LAN interface (only USB is
-            // supported)", and lists :HARDcopy:NETWork:ADDRess among the
-            // commands that exist on other models and not on this one. The
-            // four-channel DSOX1204A/G is the model in that family that gained
-            // a LAN interface.
+            // LAN is here because the instrument in hand has it, and that
+            // overrides the document this list first followed. The 1000
+            // X-Series programmer's guide says of the two-channel models
+            // "There is no LAN interface (only USB is supported)", and for a
+            // while this list said Usb alone on that authority -- until the
+            // DSOX1202G on the dev desk turned out to have a LAN connector on
+            // its back panel. A back panel is a fact about hardware, and the
+            // hardware is the better witness.
             //
-            // So Lan( "bench-osc1") on this driver's row is not a
-            // configuration mistake to be discovered when a connection times
-            // out; it is a sentence about a socket this box does not have, and
-            // it fails to compile. That is the whole point of hal::ReachableOver
-            // (see hal/driver/address.hpp) -- and this instrument is the
-            // sharpest example of it in the tree, because the scope it
-            // replaces accepted Gpib, Lan and Usb and this rig's row said Lan.
+            // What that costs is worth stating: a unit that really has no LAN
+            // port -- an early one, if the guide was right about those -- now
+            // accepts Lan( ...) at compile time and fails when the socket does
+            // not connect, rather than failing to build. The failure is still
+            // at startup, before the first script, because preflight opens
+            // every row (see hal/verbs/preflight.hpp); it just says "cannot
+            // reach" where it used to say "does not compile".
+            //
+            // Port 5025, the SCPI socket every Keysight instrument in this tree
+            // listens on and hal::Lan's default -- nothing to write in a row.
             //
             // This model's back panel, written once and read twice: the
             // constructor below is constrained by it, and
@@ -1128,7 +1131,7 @@ namespace hal::keysight_dsox1202g
             // spelling of these connectors could disagree with this one,
             // and only the bench would ever find out.
             //
-            using Buses = BackPanel<Usb>;
+            using Buses = BackPanel<Lan, Usb>;
 
             template<typename AddressT>
                 requires Buses::allows<AddressT>

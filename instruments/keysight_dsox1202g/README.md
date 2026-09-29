@@ -54,20 +54,19 @@ On this rig the two are already allocated (`rig/wiring.inc`):
 So a script measuring a rail says `channel<2>()`. This is the only reason the
 suite's scope calls moved from channel 3 to channel 2 rather than to channel 1.
 
-## One connector
+## Two connectors
 
-`Lan( "bench-osc1")` does not compile against this driver, and that is the
-instrument rather than an omission. The programmer's guide lists, among the
-differences from the models around it, *"There is no LAN interface (only USB is
-supported)"*, and gives `:HARDcopy:NETWork:ADDRess` as a command the 1000
-X-Series does not have. It is the four-channel `DSOX1204A/G` that gained a LAN
-interface.
+LAN or USB — `hal::Lan` and `hal::Usb` (plus `hal::Simulated`, which every
+driver accepts — see `hal/driver/address.hpp`). GPIB and serial do not compile.
 
-So the constructor is constrained to `hal::Usb` (plus `hal::Simulated`, which
-every driver accepts — see `hal/driver/address.hpp`). The row this driver
-replaced accepted GPIB, LAN and USB and this rig's table said `Lan`, which is
-exactly the sentence about hardware that does not exist that `hal::ReachableOver`
-exists to reject.
+LAN was added after the fact, and the history is worth one paragraph. The
+programmer's guide lists among the two-channel models' differences *"There is
+no LAN interface (only USB is supported)"*, and this driver's constructor was
+constrained to `hal::Usb` alone on that authority. The DSOX1202G on the dev desk
+has a LAN connector on its back panel, so the list now follows the hardware. The
+cost: a unit that really has no LAN port compiles a `Lan( ...)` row and fails at
+startup when preflight cannot connect, instead of failing to build. Over LAN it
+listens on the usual SCPI socket, port 5025, which is `hal::Lan`'s default.
 
 **The row currently says `Simulated{}`,** and that is now about the *serial
 number* rather than about this driver: it opens a real session, and a
@@ -308,7 +307,8 @@ That is the order those two changes go in.
 
 ## Bringing one up
 
-The instrument has a USB device port and no LAN, so its address is a
+Over LAN its address is a hostname or IP (`Lan( "dev-scope")`) and needs nothing
+installed. Over USB its address is a
 `hal::Usb` written with the instrument's own serial number — which
 `hal::io::openTransport` routes through whatever VISA the bench has (see
 `hal/io/visa_transport.hpp` for why VISA rather than libusb, and note that no

@@ -244,7 +244,7 @@ namespace hal
             //
             // Names the connectors the instrument actually has, because that
             // is the answer and the person reading it is at a bench. Naming
-            // the driver too, since "a DSOX1202G has no network connector" is
+            // the driver too, since "a DSOX1202G has no GPIB connector" is
             // the fact behind the refusal, and a reader who disagrees with it
             // needs to know which datasheet to check.
             //
