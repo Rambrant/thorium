@@ -646,6 +646,8 @@ namespace hal::keysight_dsox1202g
         {
             scpi.checked( ":TRIGger:HOLDoff " + io::ScpiSession::number( config.Holdoff->value()));
         }
+
+        scpi.checked( ":RUN");
     }
 
     auto DSOX1202G::configureTimebase( const TimebaseConfig & config) -> void
