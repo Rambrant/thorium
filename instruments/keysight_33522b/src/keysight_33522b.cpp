@@ -406,6 +406,7 @@ namespace hal::keysight_33522b::detail
         try
         {
             session.write( output( channel) + " OFF");
+            session.waitForComplete();
             session.write( prefix + "VOLT MIN");
             session.write( prefix + "VOLT:OFFS 0");
         }

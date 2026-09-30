@@ -94,7 +94,7 @@ else
     icon="menu-bar icon"
 
     port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
-    is_running()  { pgrep -f "$1 --" >/dev/null 2>&1; }
+    is_running()  { pgrep -f "$1" >/dev/null 2>&1; }
     open_url() {
         if command -v open >/dev/null; then
             open "$1"

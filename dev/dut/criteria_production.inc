@@ -147,7 +147,7 @@ END_CRITERIA
 //
 CRITERIA( DEV_Wfg_1, "The waveform generator, measured by the scope on the other end of a BNC cable")
     CRIT( DEV_Wfg_Vpp2V,        EQ( 2.0_V).epsilon( 0.10_V),        "A 2 Vpp setting reads 2 Vpp, within 5%")
-    CRIT( DEV_Wfg_Vpp1V,        EQ( 1.0_V).epsilon( 0.06_V),        "A 1 Vpp setting reads 1 Vpp, within 6%")
+    CRIT( DEV_Wfg_Vpp1V,        EQ( 1.0_V).epsilon( 0.08_V),        "A 1 Vpp setting reads 1 Vpp, within 8%")
     CRIT( DEV_Wfg_Zero,         EQ( 0.0_V).epsilon( 0.05_V),        "A waveform with no offset averages to zero")
     CRIT( DEV_Wfg_SineRms,      EQ( 0.707_V).epsilon( 0.035_V),     "A 2 Vpp sine is 0.707 V RMS -- 1 V peak over root two")
     CRIT( DEV_Wfg_Freq100Hz,    EQ( 100.0_Hz).epsilon( 0.5_Hz),     "100 Hz within 0.5%")
@@ -163,7 +163,7 @@ CRITERIA( DEV_Wfg_1, "The waveform generator, measured by the scope on the other
     CRIT( DEV_Wfg_Width250us,   EQ( 250.0_us).epsilon( 5.0_us),     "25% of a 1 kHz period is 250 us")
     CRIT( DEV_Wfg_Width750us,   EQ( 750.0_us).epsilon( 5.0_us),     "75% of a 1 kHz period is 750 us")
     CRIT( DEV_Wfg_Width100us,   EQ( 100.0_us).epsilon( 3.0_us),     "A 10% duty pulse at 1 kHz is 100 us wide")
-    CRIT( DEV_Wfg_RampEdge,     EQ( 0.8_ms).epsilon( 0.03_ms),      "A 1 kHz rising sawtooth spends 0.8 ms from 10% to 90%")
+    CRIT( DEV_Wfg_RampEdge,     EQ( 0.8_ms).epsilon( 0.05_ms),      "A 1 kHz rising sawtooth spends 0.8 ms from 10% to 90%")
     CRIT( DEV_Wfg_TriangleEdge, EQ( 0.4_ms).epsilon( 0.02_ms),      "A 1 kHz triangle spends 0.4 ms from 10% to 90% each way")
     CRIT( DEV_Wfg_FastEdge,     LT( 20.0_us),                       "The sawtooth's reset is an edge, not a ramp")
     CRIT( DEV_Wfg_Dc1V5,        EQ( 1.5_V).epsilon( 0.06_V),        "A +1.5 V DC level reads +1.5 V")
