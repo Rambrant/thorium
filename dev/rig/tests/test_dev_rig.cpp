@@ -6,6 +6,7 @@
 #include "hal/keysight_edu36311a.hpp"
 #include "hal/keysight_dsox1202g.hpp"
 #include "hal/keysight_33522b.hpp"
+#include "hal/keysight_34980a.hpp"
 #include "hal/fabric/switch_device.hpp"
 #include "hal/fabric/switch_fabric.hpp"
 #include "hal/topology/address_tables.hpp"
@@ -14,7 +15,15 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <memory>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include "hal/io/transport.hpp"
 
 //
 // The dev bench, checked against what it claims to be.
@@ -40,22 +49,24 @@
 namespace
 {
     //
-    // -- The bench is a meter, a supply, a scope and a generator -------------
+    // -- The bench: a meter, a supply, a scope, a generator and a switch unit --
     //
     // hal::InstrumentId's enumerators come from dev/rig/instrument.inc, so this
     // is that file's row count stated where a reader of the tests will see it.
     // Another INSTRUMENT() row fails here, which is the intent: it is not
     // forbidden, it is a change to what this deployment is, and it should be a
     // deliberate edit to this line rather than a silent widening. This line has
-    // been that edit three times: the supply's outputs, the scope, the generator.
+    // been that edit four times: the supply's outputs, the scope, the
+    // generator, the switch unit.
     //
-    static_assert( core::meta::values<hal::InstrumentId>.size() == 6);
+    static_assert( core::meta::values<hal::InstrumentId>.size() == 7);
     static_assert( core::meta::values<hal::InstrumentId>[0] == hal::InstrumentId::Dmm1);
     static_assert( core::meta::values<hal::InstrumentId>[1] == hal::InstrumentId::DcP5);
     static_assert( core::meta::values<hal::InstrumentId>[2] == hal::InstrumentId::DcP6);
     static_assert( core::meta::values<hal::InstrumentId>[3] == hal::InstrumentId::DcP7);
     static_assert( core::meta::values<hal::InstrumentId>[4] == hal::InstrumentId::Osc1);
     static_assert( core::meta::values<hal::InstrumentId>[5] == hal::InstrumentId::Wfg1);
+    static_assert( core::meta::values<hal::InstrumentId>[6] == hal::InstrumentId::Swu1);
 
     //
     // -- And no switching hardware at all ------------------------------------
@@ -106,6 +117,7 @@ namespace
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::DcP7));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Osc1));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Wfg1));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Swu1));
 
     //
     // -- Each driver still owes the framework what every driver owes ----------
@@ -123,6 +135,8 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput3> );
     static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::DSOX1202G> );
     static_assert( hal::SafeableInstrument< hal::keysight_33522b::Wfg33522B> );
+    static_assert( hal::SafeableInstrument< hal::keysight_34980a::Chassis> );
+    static_assert( hal::RelayHoldingInstrument< hal::keysight_34980a::Chassis> );
 } // namespace
 
 //
@@ -191,7 +205,7 @@ TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 6u);
+    ASSERT_EQ( bindings.size(), 7u);
     EXPECT_EQ( bindings[ 0].Id,     hal::InstrumentId::Dmm1);
     EXPECT_EQ( bindings[ 0].Source, hal::AddressSource::Pool);
 }
@@ -207,7 +221,7 @@ TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 6u);
+    ASSERT_EQ( bindings.size(), 7u);
     EXPECT_TRUE( hal::poolFor( hal::InstrumentId::DcP5).empty());
 
     for( std::size_t row = 1; row <= 3; ++row)
@@ -215,4 +229,115 @@ TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
         EXPECT_EQ( bindings[ row].Source, hal::AddressSource::Table) << "row " << row;
         EXPECT_EQ( bindings[ row].Value,  hal::Address{ hal::Usb{ "CN65100272" } }) << "row " << row;
     }
+}
+
+//
+// -- Safing order: sources off, then relays open ------------------------------
+//
+// The one ordering rule the switch unit's joining the instrument table had to
+// keep: its relays move after every source is off (see
+// hal::RelayHoldingInstrument). Asserted here, on this deployment's real
+// globals and the real hal::safeRig(), because this is the deployment that has
+// both a supply and a chassis to get the order wrong between.
+//
+// Both boxes get a fake transport writing to one shared log, so the order is
+// one list to read. The supply's fake stands in for the box behind all three of
+// DcP5-DcP7 (they share one session, see detail::Chassis), so all three
+// outputs' safing lands in it.
+//
+namespace
+{
+    class Recorder final : public hal::io::ITransport
+    {
+        public:
+            Recorder( std::shared_ptr<std::vector<std::string>> log, std::string tag, std::string identity)
+                : mLog( std::move( log)), mTag( std::move( tag)), mIdentity( std::move( identity)) {}
+
+            auto send( const std::string_view command) -> void override
+            {
+                mLog->push_back( mTag + ": " + std::string( command));
+
+                if( command == "*IDN?")
+                {
+                    mReplies.push_back( mIdentity);
+                }
+                else if( command == "SYST:ERR?")
+                {
+                    mReplies.emplace_back( "+0,\"No error\"");
+                }
+                else if( !command.empty() && command.back() == '?')
+                {
+                    mReplies.emplace_back( "1");
+                }
+            }
+
+            auto receive() -> std::string override
+            {
+                if( mReplies.empty())
+                {
+                    throw hal::io::TransportTimeout( "nothing queued on " + mTag);
+                }
+
+                auto reply = mReplies.front();
+
+                mReplies.erase( mReplies.begin());
+
+                return reply;
+            }
+
+            [[nodiscard]]
+            auto description() const -> std::string override
+            {
+                return "recording fake " + mTag;
+            }
+
+        private:
+            std::shared_ptr<std::vector<std::string>> mLog;
+            std::string                               mTag;
+            std::string                               mIdentity;
+            std::vector<std::string>                  mReplies;
+    };
+
+    [[nodiscard]]
+    auto firstIndexOf( const std::vector<std::string> & log, const std::string_view prefix) -> std::ptrdiff_t
+    {
+        const auto found = std::ranges::find_if( log, [ prefix]( const std::string & line) { return line.starts_with( prefix); });
+
+        return found == log.end() ? -1 : std::distance( log.begin(), found);
+    }
+} // namespace
+
+TEST( DevRig, SafingTurnsTheSupplyOffBeforeItOpensTheSwitchUnitsRelays)
+{
+    auto log = std::make_shared<std::vector<std::string>>();
+
+    DcP5.useTransport( std::make_unique<Recorder>( log, "psu", "Keysight Technologies,EDU36311A,CN65100272,1.0.2"));
+    Swu1.useTransport( std::make_unique<Recorder>( log, "swu", "Agilent Technologies,34980A,MY44000001,2.43"));
+
+    // Open both sessions, so safing has something to use -- it never opens one.
+    static_cast<void>( DcP5.session());
+    static_cast<void>( Swu1.session());
+
+    log->clear();
+
+    hal::safeRig();
+
+    const auto supplyOff  = firstIndexOf( *log, "psu: OUTP 0");
+    const auto relaysOpen = firstIndexOf( *log, "swu: ROUT:OPEN:ALL");
+
+    ASSERT_GE( supplyOff,  0) << "the supply was never turned off";
+    ASSERT_GE( relaysOpen, 0) << "the switch unit's relays were never opened";
+    EXPECT_LT( supplyOff, relaysOpen) << "a relay moved while a source was still on";
+
+    //
+    // And every one of the three outputs was off before any relay moved -- not
+    // just the first.
+    //
+    for( std::ptrdiff_t line = relaysOpen; line < static_cast<std::ptrdiff_t>( log->size()); ++line)
+    {
+        EXPECT_FALSE( ( *log)[ line].starts_with( "psu: OUTP 0")) << "an output went off after the relays opened";
+    }
+
+    DcP5.closeSession();
+    Swu1.closeSession();
 }

@@ -75,9 +75,10 @@
 //
 // The switching hardware is not in this table at all and never was: see
 // rig/devices.inc, which also records this rack's migration onto a Keysight
-// 34980A. That mainframe has a driver (instruments/keysight_34980a) and no row
-// anywhere, because it is a switching device rather than an instrument -- that
-// package's own README has the argument.
+// 34980A. That mainframe has a driver (instruments/keysight_34980a), and when it
+// arrives on this bench it is a row here -- a switching device, but an
+// instrument row, so preflight, --address and safing reach it (dev/ already has
+// one; see that package's README). Its modules are devices.inc's business.
 //
 // -- DcP5..DcP7 are one box, and a differently shaped one -------------------
 //

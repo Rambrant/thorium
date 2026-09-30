@@ -874,15 +874,18 @@ TEST( Wfg33522BWire, SafeTurnsBothOutputsOffThenCollapsesTheirSignals)
 
     const auto commands = commandsOnly( *bench->Wire);
 
-    ASSERT_GE( commands.size(), 6u);
+    ASSERT_GE( commands.size(), 8u);
 
-    // Off first on each channel, then the amplitude and offset -- see
-    // sendSafe(), which is deliberately the reverse of the guide's
-    // glitch-avoidance advice.
-    EXPECT_EQ( commands[ commands.size() - 6], "OUTP1 OFF");
-    EXPECT_EQ( commands[ commands.size() - 5], "SOUR1:VOLT MIN");
-    EXPECT_EQ( commands[ commands.size() - 4], "SOUR1:VOLT:OFFS 0");
-    EXPECT_EQ( commands[ commands.size() - 3], "OUTP2 OFF");
+    // Off first on each channel, waited for, then the amplitude and offset --
+    // see sendSafe(), which is deliberately the reverse of the guide's
+    // glitch-avoidance advice. The *OPC? makes the output actually be off
+    // before the signal is collapsed behind it.
+    EXPECT_EQ( commands[ commands.size() - 8], "OUTP1 OFF");
+    EXPECT_EQ( commands[ commands.size() - 7], "*OPC?");
+    EXPECT_EQ( commands[ commands.size() - 6], "SOUR1:VOLT MIN");
+    EXPECT_EQ( commands[ commands.size() - 5], "SOUR1:VOLT:OFFS 0");
+    EXPECT_EQ( commands[ commands.size() - 4], "OUTP2 OFF");
+    EXPECT_EQ( commands[ commands.size() - 3], "*OPC?");
     EXPECT_EQ( commands[ commands.size() - 2], "SOUR2:VOLT MIN");
     EXPECT_EQ( commands[ commands.size() - 1], "SOUR2:VOLT:OFFS 0");
 }

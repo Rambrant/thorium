@@ -5,22 +5,17 @@
 // what keeps this directory independently packageable (see
 // instruments/README.md).
 //
-// And the one test file here that names no hal::InstrumentId at all, because a
-// chassis has none: it is a switching device, not an instrument (see the
-// header's preamble). Which is why this file needs no anyId() helper, where
-// every other package in instruments/ has one -- the coupling the top-level
-// CMakeLists.txt describes, and the deployment-agnostic ids that answer it,
-// simply do not arise here.
+// A chassis is an instrument row now (see the header's preamble), so this file
+// has the anyId() helper every other package in instruments/ has: the
+// deployment-agnostic id the top-level CMakeLists.txt describes, because what
+// is under test is a driver rather than any rig's chassis.
 //
 #include "hal/keysight_34980a.hpp"
 
-//
-// For the two assertions that this class is NOT an instrument -- see the
-// namespace below. hal/keysight_34980a.hpp deliberately does not include this,
-// because a chassis needs nothing from it; the test does, precisely in order to
-// say so.
-//
 #include "hal/driver/instrument.hpp"
+#include "hal/verbs/preflight.hpp"
+
+#include "core/meta.hpp"
 
 #include <gtest/gtest.h>
 
@@ -55,36 +50,47 @@ using hal::keysight_34980a::kSlots;
 //
 namespace
 {
-    static_assert(   std::constructible_from< Chassis, hal::Gpib> );
-    static_assert(   std::constructible_from< Chassis, hal::Lan> );
-    static_assert(   std::constructible_from< Chassis, hal::Usb> );
-    static_assert(   std::constructible_from< Chassis, hal::Simulated> );
-    static_assert( ! std::constructible_from< Chassis, hal::Serial> );
+    //
+    // Some id of this deployment, since every deployment has at least one row
+    // and what is under test is a driver rather than any rig's chassis -- the
+    // same helper the other driver packages' tests use.
+    //
+    [[nodiscard]]
+    auto anyId() -> hal::InstrumentId
+    {
+        return core::meta::values<hal::InstrumentId>[ 0];
+    }
+
+    static_assert(   std::constructible_from< Chassis, hal::InstrumentId, hal::Gpib> );
+    static_assert(   std::constructible_from< Chassis, hal::InstrumentId, hal::Lan> );
+    static_assert(   std::constructible_from< Chassis, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< Chassis, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< Chassis, hal::InstrumentId, hal::Serial> );
 
     //
-    // An address is not optional: a chassis the PC cannot reach is not a
-    // chassis a rig has.
+    // An address is not optional, and neither is the id: a chassis is a row in
+    // instrument.inc now, and a row has both.
     //
     static_assert( ! std::constructible_from< Chassis> );
+    static_assert( ! std::constructible_from< Chassis, hal::Lan> );
 
     //
-    // And no id of any kind is accepted, which is the assertion that pins down
-    // the header's central claim -- a mainframe is neither an instrument nor a
-    // card, so nothing identifies it but its address. If a later change gives
-    // this class an id, it should be because the fabric grew somewhere to put
-    // one, and this line should fail and be deleted deliberately.
+    // An instrument, and every contract that makes one: the tag safeRig() and
+    // preflight reflect over, safe(), the address/id pair preflight binds, and
+    // the identity it contacts through. These used to be the opposite
+    // assertions -- "not an instrument" -- and were reversed deliberately; see
+    // the header's preamble on why.
     //
-    static_assert( ! std::constructible_from< Chassis, hal::InstrumentId, hal::Lan> );
+    static_assert( std::derived_from< Chassis, hal::InstrumentTag> );
+    static_assert( hal::SafeableInstrument< Chassis> );
+    static_assert( hal::AddressableInstrument< Chassis> );
+    static_assert( hal::ContactableInstrument< Chassis> );
 
     //
-    // Not safeable, and not an instrument. Both deliberate, both argued in the
-    // header's preamble, and both worth an assertion because "add
-    // InstrumentTag so safeRig() picks it up" is exactly the plausible-looking
-    // change that would fold a switching device into the instrument list and
-    // hand every Measure overload a chassis.
+    // And the one contract only a relay-holding instrument has: its relays are
+    // opened in safeRig()'s second pass, after every output, not in safe().
     //
-    static_assert( ! std::derived_from< Chassis, hal::InstrumentTag> );
-    static_assert( ! hal::SafeableInstrument< Chassis> );
+    static_assert( hal::RelayHoldingInstrument< Chassis> );
 
     static_assert( kSlots == 8);
 
@@ -197,7 +203,7 @@ TEST( Keysight34980AChannels, MatrixModulesUseBankTwosAnalogBusRelays)
 
 TEST( Keysight34980ASlots, ASlotTheChassisDoesNotHaveIsRefusedAtRuntime)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( chassis.close( ChannelAddress{ 0, 3 }), NoSuchSlot);
     EXPECT_THROW( chassis.close( ChannelAddress{ 9, 3 }), NoSuchSlot);
@@ -217,7 +223,7 @@ TEST( Keysight34980ASlots, ASlotTheChassisDoesNotHaveIsRefusedAtRuntime)
 //
 TEST( Keysight34980ASlots, TheRefusalNamesTheSlotAndTheRange)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     try
     {
@@ -241,7 +247,7 @@ TEST( Keysight34980ASlots, TheRefusalNamesTheSlotAndTheRange)
 //
 TEST( Keysight34980ASlots, AListWithOneBadSlotClosesNoneOfIt)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( chassis.close( std::vector<ChannelAddress>{ { 1, 3 }, { 9, 3 }, { 2, 4 } }), NoSuchSlot);
 
@@ -254,7 +260,7 @@ TEST( Keysight34980ASlots, AListWithOneBadSlotClosesNoneOfIt)
 
 TEST( Keysight34980A, CloseAndOpenTrackStateOnASimulatedChassis)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_FALSE( chassis.isClosed( ChannelAddress{ 1, 3 }));
 
@@ -277,7 +283,7 @@ TEST( Keysight34980A, CloseAndOpenTrackStateOnASimulatedChassis)
 //
 TEST( Keysight34980A, ARelayIsNotAUseCount)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     chassis.close( ChannelAddress{ 1, 3 });
     chassis.close( ChannelAddress{ 1, 3 });
@@ -288,7 +294,7 @@ TEST( Keysight34980A, ARelayIsNotAUseCount)
 
 TEST( Keysight34980A, OpenAllClearsOneSlotOrTheWholeChassis)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     chassis.close( std::vector<ChannelAddress>{ { 1, 3 }, { 1, 4 }, { 2, 5 } });
 
@@ -311,7 +317,7 @@ TEST( Keysight34980A, OpenAllClearsOneSlotOrTheWholeChassis)
 //
 TEST( Keysight34980A, CloseExclusivelyDropsEveryOtherChannelInThatSlotOnly)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     chassis.close( std::vector<ChannelAddress>{ { 1, 3 }, { 1, 4 }, { 2, 5 } });
 
@@ -327,7 +333,7 @@ TEST( Keysight34980A, CloseExclusivelyDropsEveryOtherChannelInThatSlotOnly)
 
 TEST( Keysight34980A, AnEmptyChannelListIsANoOpRatherThanAMalformedCommand)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_NO_THROW( chassis.close( std::vector<ChannelAddress>{}));
     EXPECT_NO_THROW( chassis.open( std::vector<ChannelAddress>{}));
@@ -337,7 +343,7 @@ TEST( Keysight34980A, AnEmptyChannelListIsANoOpRatherThanAMalformedCommand)
 
 TEST( Keysight34980A, ASimulatedChassisReportsEverySlotEmptyUntilToldOtherwise)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_TRUE( chassis.moduleIn( 4).Empty);
 
@@ -362,7 +368,7 @@ TEST( Keysight34980A, ASimulatedChassisReportsEverySlotEmptyUntilToldOtherwise)
 //
 TEST( Keysight34980A, ASimulatedChassisHasNoInternalDmmUnlessGivenOne)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_FALSE( chassis.internalDmmInstalled());
     EXPECT_FALSE( chassis.internalDmmEnabled());
@@ -390,7 +396,7 @@ TEST( Keysight34980A, ASimulatedChassisHasNoInternalDmmUnlessGivenOne)
 //
 TEST( Keysight34980A, WaitingOnASimulatedChassisTouchesNothing)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_NO_THROW( chassis.waitForSwitching());
     EXPECT_NO_THROW( chassis.waitForSwitching( 3));
@@ -486,6 +492,10 @@ namespace
                 {
                     mReplies.emplace_back( DmmEnabledReply);
                 }
+                else if( command.starts_with( "DIAG:REL:CYCL?"))
+                {
+                    mReplies.emplace_back( CyclesReply);
+                }
                 else if( !command.empty() && command.back() == '?')
                 {
                     mReplies.emplace_back( "0");
@@ -545,6 +555,7 @@ namespace
             std::string              ClosedReply{ "1" };
             std::string              DmmInstalledReply{ "1" };
             std::string              DmmEnabledReply{ "1" };
+            std::string              CyclesReply{ "+1234" };
             std::vector<std::string> Errors;
 
         private:
@@ -560,7 +571,7 @@ namespace
     //
     struct Bench
     {
-        Chassis       Unit{ hal::Simulated{} };
+        Chassis       Unit{ anyId(), hal::Simulated{} };
         FakeChassis * Wire{};
 
         //
@@ -604,7 +615,7 @@ namespace
 
 TEST( Keysight34980AWire, AnInjectedTransportMakesTheDriverStopSimulating)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_TRUE( chassis.isSimulated());
 
@@ -1027,7 +1038,7 @@ TEST( Keysight34980AWire, OpeningAnRfMultiplexerChannelIsRefusedByTheInstrument)
 //
 TEST( Keysight34980AWire, ASlotRefusalSendsNothing)
 {
-    Chassis chassis{ hal::Simulated{} };
+    Chassis chassis{ anyId(), hal::Simulated{} };
 
     auto  fake = std::make_unique<FakeChassis>();
     auto *wire = fake.get();
@@ -1037,4 +1048,135 @@ TEST( Keysight34980AWire, ASlotRefusalSendsNothing)
     EXPECT_THROW( chassis.close( ChannelAddress{ 9, 3 }), NoSuchSlot);
 
     EXPECT_TRUE( wire->sent().empty());
+}
+
+//
+// -- An instrument row: safing, relay health, and the address -----------------
+//
+
+//
+// safe() is empty on purpose -- the relays are safeRelays()'s, in safeRig()'s
+// second pass -- so it sends nothing, even down an open session.
+//
+TEST( Keysight34980ASafing, SafeSendsNothingTheRelaysAreTheSecondPasss)
+{
+    const auto bench = attached();
+
+    bench->Unit.close( { 1, 3 });
+
+    const auto before = bench->Wire->sent().size();
+
+    bench->Unit.safe();
+
+    EXPECT_EQ( bench->Wire->sent().size(), before);
+}
+
+//
+// safeRelays() opens every slot, with write() rather than checked(): no
+// SYST:ERR? after it, because a safing pass must not wait on -- or throw
+// because of -- a box that has stopped answering, or an RF module refusing to
+// open.
+//
+TEST( Keysight34980ASafing, SafeRelaysOpensEverySlotWithoutWaitingForAnAnswer)
+{
+    const auto bench = attached();
+
+    bench->Unit.close( { 1, 3 });
+
+    const auto before = bench->Wire->sent().size();
+
+    bench->Unit.safeRelays();
+
+    auto safing = bench->Wire->sent();
+
+    safing.erase( safing.begin(), safing.begin() + static_cast<long>( before));
+
+    EXPECT_EQ( safing, ( std::vector<std::string>{ "ROUT:OPEN:ALL ALL" }));
+}
+
+//
+// The rule every driver's safing keeps: use a session, never open one. A
+// hostname nothing answers to would throw out of the safing pass if it did.
+//
+TEST( Keysight34980ASafing, SafeRelaysOnANeverUsedChassisOpensNothing)
+{
+    Chassis chassis{ anyId(), hal::Lan( "no-such-host.invalid") };
+
+    EXPECT_NO_THROW( chassis.safeRelays());
+}
+
+TEST( Keysight34980ASafing, SafeRelaysOnASimulatedChassisForgetsWhatWasClosed)
+{
+    Chassis chassis{ anyId(), hal::Simulated{} };
+
+    chassis.close( { { 1, 3 }, { 2, 15 } });
+    chassis.safeRelays();
+
+    EXPECT_TRUE( chassis.simulatedClosedChannels().empty());
+}
+
+//
+// DIAG:REL:CYCL? for one channel, and the count as a number.
+//
+TEST( Keysight34980ARelayHealth, RelayCyclesAsksTheMainframeForOneChannel)
+{
+    const auto bench = attached();
+
+    bench->Wire->CyclesReply = "+1234";
+
+    EXPECT_EQ( bench->Unit.relayCycles( { 1, 3 }), 1234);
+    EXPECT_EQ( afterOpening( *bench->Wire).back(), "DIAG:REL:CYCL? (@1003)");
+}
+
+//
+// A simulated chassis counts one cycle per close of an open channel -- and a
+// close of a channel already closed is no cycle, which is what the real relay
+// does too: its drive does not change.
+//
+TEST( Keysight34980ARelayHealth, ASimulatedChassisCountsACyclePerCloseOfAnOpenChannel)
+{
+    Chassis chassis{ anyId(), hal::Simulated{} };
+
+    EXPECT_EQ( chassis.relayCycles( { 1, 3 }), 0);
+
+    chassis.close( { 1, 3 });
+    chassis.close( { 1, 3 });
+    EXPECT_EQ( chassis.relayCycles( { 1, 3 }), 1);
+
+    chassis.open( { 1, 3 });
+    chassis.close( { 1, 3 });
+    EXPECT_EQ( chassis.relayCycles( { 1, 3 }), 2);
+
+    EXPECT_EQ( chassis.relayCycles( { 1, 4 }), 0);
+}
+
+TEST( Keysight34980ARelayHealth, RelayCyclesRefusesASlotTheChassisDoesNotHave)
+{
+    Chassis chassis{ anyId(), hal::Simulated{} };
+
+    EXPECT_THROW( static_cast<void>( chassis.relayCycles( { 9, 3 })), NoSuchSlot);
+}
+
+//
+// useAddress, which is what preflight calls with an --address: the id stays,
+// the address moves, and the old box's session goes -- without opening a relay
+// on the way, since a latching module keeps its state when the connection
+// drops.
+//
+TEST( Keysight34980AAddress, UseAddressMovesTheRowAndDropsTheSessionSendingNothing)
+{
+    auto bench  = attached();
+    auto record = bench->Wire->record();
+
+    bench->Unit.close( { 1, 3 });
+
+    const auto before = record->size();
+    const auto id     = bench->Unit.id();
+
+    bench->Unit.useAddress( hal::Lan( "elsewhere.invalid"));
+
+    EXPECT_EQ( record->size(), before);
+    EXPECT_EQ( bench->Unit.id(), id);
+    EXPECT_EQ( bench->Unit.address(), hal::Address{ hal::Lan( "elsewhere.invalid") });
+    EXPECT_FALSE( bench->Unit.isSimulated());
 }

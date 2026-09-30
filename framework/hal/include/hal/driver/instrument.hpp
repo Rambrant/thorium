@@ -136,4 +136,30 @@ namespace hal
     {
         instrument.safe();
     };
+
+    //
+    // An instrument that holds relays of its own -- a switching mainframe such
+    // as hal::keysight_34980a::Chassis -- and so has a second thing to put
+    // right when a run fails, which safe() must not do.
+    //
+    // Why not safe(): hal::safeRig() calls every instrument's safe() in
+    // whatever order the global namespace declares them, and that is only
+    // harmless because safe() drops *outputs*, which can go in any order. A
+    // relay is different. It must move on a dead path -- after every source is
+    // off (see core/verbs/source.hpp) -- and an instrument's position in
+    // instrument.inc is no guarantee of that. So a relay-holding instrument's
+    // safe() leaves its relays alone, and safeRig() calls safeRelays() in a
+    // second pass, once every safe() has run: "every output off, then every
+    // relay open" by structure, as it already is for hal::fabric.
+    //
+    // safeRelays() has safe()'s contract otherwise -- no arguments, no state
+    // read, and only down a session that is already open, never opening one
+    // (see instruments/README.md): a run that failed because the box is
+    // unreachable must not fail its safing for the same reason.
+    //
+    template<typename InstrumentT>
+    concept RelayHoldingInstrument = requires( InstrumentT & instrument)
+    {
+        instrument.safeRelays();
+    };
 } // namespace hal

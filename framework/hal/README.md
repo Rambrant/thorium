@@ -148,19 +148,21 @@ call site -- moving a driver out changed its build location and nothing else.
 | `hal::keysight_edu36311a::EDU36311A` | `instruments/keysight_edu36311a/` |
 | `hal::keysight_ac6834b::Ac6834B` | `instruments/keysight_ac6834b/` |
 | `hal::racal1260::Racal1260` | `instruments/racal1260/` |
-| `hal::keysight_34980a::Chassis` | `instruments/keysight_34980a/` (a switching mainframe, not an instrument -- see below) |
+| `hal::keysight_34980a::Chassis` | `instruments/keysight_34980a/` (a switching mainframe -- see below) |
 
-One row there is not an instrument at all. `hal::keysight_34980a::Chassis` is a
-34980A switch/measure *mainframe*: it measures nothing, sources nothing, carries
-no `hal::InstrumentId`, and does not inherit `hal::InstrumentTag`, so
-`hal::safeRig()` never sees it. It lives under `instruments/` because
+One row there measures and sources nothing. `hal::keysight_34980a::Chassis` is a
+34980A switch/measure *mainframe*, and an instrument row all the same: it has an
+`hal::InstrumentId` and inherits `hal::InstrumentTag`, so preflight and
+`--address` reach it, and `hal::safeRig()` opens its relays -- in a second pass,
+after every source is off (`hal::RelayHoldingInstrument`). It lives under `instruments/` because
 `hal/fabric/switch_device.hpp` named that directory as the destination for
-switch-card drivers before there were any. Two consequences worth knowing here
-rather than in that package's README: no `INSTRUMENT()` row names it, so it
-contributes no code to a rig binary; and nothing in `hal::SwitchFabric` calls it
+switch-card drivers before there were any. One consequence worth knowing here
+rather than in that package's README: nothing in `hal::SwitchFabric` calls it
 yet, because the fabric has no transport seam -- its `close()`/`open()`
-increment a use count. That seam is the change that would make a failed run's
-safing reach the switching.
+increment a use count. So a script switches a chassis by calling it directly
+(`Swu1.close(...)`), not through `Connect`, and the relay moves are not journal
+events. Safing does reach its relays, through the chassis row rather than the
+fabric.
 
 A rig's own instrument list, wiring data, and concrete instrument
 identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP7`/`AcP1`/`Ser1`/`fabric`

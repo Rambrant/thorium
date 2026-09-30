@@ -114,10 +114,12 @@ namespace hal
         // This is why there is no SAFING_ORDER table alongside
         // rig/wiring.inc: the one ordering constraint that matters is
         // structural here, so a table would exist only to be kept in sync
-        // with something that cannot drift. If some future instrument turns
-        // out to need to go strictly first or last relative to its peers --
-        // a real constraint this loop cannot express -- that is when an
-        // explicit order earns its place.
+        // with something that cannot drift. The one instrument that did turn
+        // out to need to go last -- a switching mainframe, whose relays are
+        // an instrument's own rather than the fabric's -- got a second pass
+        // below rather than a table: still no order to keep in sync, just
+        // "outputs, then relays" with one more kind of relay in it (see
+        // hal::RelayHoldingInstrument).
         //
         template for( constexpr auto member : detail::members<^^::>)
         {
@@ -132,6 +134,26 @@ namespace hal
                         " see hal::SafeableInstrument in hal/driver/instrument.hpp");
 
                     [: member :].safe();
+                }
+            }
+        }
+
+        //
+        // The second pass: relays an instrument holds itself, opened now that
+        // every output above is off -- see hal::RelayHoldingInstrument on why
+        // this cannot be done inside safe(). The order within this pass does
+        // not matter, for the same reason the first one's does not: nothing
+        // left is live.
+        //
+        template for( constexpr auto member : detail::members<^^::>)
+        {
+            if constexpr( std::meta::is_variable( member))
+            {
+                using InstrumentT = [: std::meta::type_of( member) :];
+
+                if constexpr( std::derived_from<InstrumentT, InstrumentTag> && RelayHoldingInstrument<InstrumentT>)
+                {
+                    [: member :].safeRelays();
                 }
             }
         }

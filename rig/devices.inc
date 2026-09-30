@@ -188,8 +188,8 @@
 // inside the command.
 //
 // One structural question that driver's arrival makes concrete, and this table
-// is where it will be answered: there is no row for a chassis, and no
-// hal::SwitchDeviceId for one. Five module rows in one 34980A would be five
+// is where it will be answered: the chassis is a row in instrument.inc, but
+// there is no hal::SwitchDeviceId for one. Five module rows in one 34980A would be five
 // rows repeating one address -- which is exactly the case rig/instrument.inc
 // has already predicted an answer for, about its own second shared box: "a
 // named constant above this table per chassis, not a slot field on the

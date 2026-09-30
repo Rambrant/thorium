@@ -1,7 +1,8 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// The dev bench's instrument list: a meter, a supply, a scope and a generator.
+// The dev bench's instrument list: a meter, a supply, a scope, a generator
+// and a switch unit.
 //
 // Read exactly the way rig/instrument.inc is -- twice, once by
 // hal/topology/active_instruments.hpp to declare the global and once by
@@ -129,6 +130,24 @@
 // THORIUM_ADDRESS_Wfg1=usb:<serial> is set. The serial is the third field of
 // *IDN?, or System > Help > About on the front panel.
 //
+// -- The switch unit ----------------------------------------------------------
+//
+// Swu1: a Keysight (formerly Agilent) 34980A mainframe, GPIB, LAN or USB (see
+// hal::keysight_34980a::Chassis::Buses) -- USB to start with. Four 34921A
+// multiplexers in slots 1-4 and a coaxial module in slot 5 whose model the
+// first inventory run will name. Its scripts need nothing wired to it, see
+// dev/suite/scripts/swu_self_check.cpp.
+//
+// An instrument row, which a chassis was not until this desk needed it to be:
+// preflight checks its identity, --address and THORIUM_ADDRESS_Swu1 reach it,
+// and safing opens its relays -- after every source, in safeRig()'s second
+// pass (see hal::RelayHoldingInstrument). Declared last anyway, which costs
+// nothing and reads the way safing runs.
+//
+// TODO(desk): MY00000000 is a placeholder with the scope's consequence -- an
+// attached run fails at startup until the serial is written in or
+// THORIUM_ADDRESS_Swu1=usb:<serial> is set.
+//
 INSTRUMENTS
     INSTRUMENT( keysight_edu34450a::EDU34450A,     Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
     INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Usb( "CN65100272"))   // 6 V / 5 A
@@ -136,4 +155,5 @@ INSTRUMENTS
     INSTRUMENT( keysight_edu36311a::DirectOutput3, DcP7, Usb( "CN65100272"))   // 30 V / 1 A
     INSTRUMENT( keysight_dsox1202g::DSOX1202G,     Osc1, Usb( "CN00000000"))   // TODO(desk): the scope's own serial, off *IDN? -- see below
     INSTRUMENT( keysight_33522b::Wfg33522B,        Wfg1, Usb( "MY00000000"))   // TODO(desk): the generator's own serial, off *IDN? -- see below
+    INSTRUMENT( keysight_34980a::Chassis,          Swu1, Usb( "MY00000000"))   // TODO(desk): the mainframe's own serial, off *IDN? -- see below
 END_INSTRUMENTS

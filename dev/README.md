@@ -1,4 +1,4 @@
-# dev/ -- the desk bench: a PC, a meter, a supply, a scope, a generator, and nothing else
+# dev/ -- the desk bench: a PC, a meter, a supply, a scope, a generator, a switch unit
 
 This is a second **deployment**, not a second framework. `framework/` and
 `instruments/` are shared unchanged with the bench — including `framework/runner`,
@@ -29,11 +29,12 @@ ctest --test-dir build/dev
 ```
 dev/
     rig/     one EDU34450A (pooled), one EDU36311A's three outputs, one
-             DSOX1202G, one 33522B, no switching hardware, no wiring
+             DSOX1202G, one 33522B, one 34980A (not yet in the fabric),
+             no wiring
     dut/     an adapter with no points, one criteria table per instrument
     suite/   the meter's sanity check, each of its functions, each of the
              supply's outputs, the scope against its probe-comp output, and
-             the generator as the scope measures it
+             the generator as the scope measures it, and the switch unit
 ```
 
 Every file is the ordinary form of its table with the rows a desk bench has. One of them has no counterpart on the
@@ -348,6 +349,23 @@ run_scripts --select=WfgSineCh1,... --address=Dmm1=sim --address=DcP5=sim --addr
 
 Every script fails its readings there (a simulated scope reads zero) but runs to
 its end; a setting out of range would stop it with `SettingOutOfRange`.
+
+**SwitchUnit** is the 34980A with nothing wired to it: every check is a question
+the mainframe answers about itself. An inventory of all eight slots (1-4 must be
+34921As and 5 fitted; each slot's `SYST:CTYP?` answer is posted as a Note, which
+is how the coaxial module in slot 5 gets named), then on each 34921A a close, an
+open, a list across both banks, `closeExclusively`, the Analog Bus relays and
+`openAll` -- each checked by asking `ROUT:CLOS?` -- plus a missing channel that
+the mainframe must refuse, and a relay's life count (`DIAG:REL:CYCL?`) moving
+when it is driven. The one thing it cannot check is contact: that needs a short
+on a channel's terminals and the desk meter on the other side.
+
+The chassis is an **instrument row**, `Swu1`, which it was not until this desk
+needed one: preflight checks it, `THORIUM_ADDRESS_Swu1` reaches it, and safing
+opens its relays after every source is off (`hal::RelayHoldingInstrument`, and
+`DevRig.SafingTurnsTheSupplyOffBeforeItOpensTheSwitchUnitsRelays`, which fails if
+the order is ever reversed). Its row carries a placeholder serial,
+`Usb( "MY00000000")`, with the same startup consequence as the scope's did.
 
 One thing about the scope's keys worth knowing before replaying a run: a
 point-free scope reading keys as `Osc1.<measurement>.<quantity>` --

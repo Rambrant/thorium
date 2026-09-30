@@ -172,3 +172,21 @@ CRITERIA( DEV_Wfg_1, "The waveform generator, measured by the scope on the other
     CRIT( DEV_Wfg_OpenCircuit,  EQ( 2.0_V).epsilon( 0.10_V),        "1 Vpp told to expect 50 Ohm doubles into the scope's open circuit")
     CRIT( DEV_Wfg_Off,          LT( 0.10_V),                        "A removed output is gone -- nothing but the scope's own noise")
 END_CRITERIA
+
+//
+// The switch unit, with nothing wired to it -- read by the SwitchUnit group
+// (dev/suite/scripts/swu_self_check.cpp). Every row is a yes-or-no the
+// mainframe answers about itself, so every row is EQ( true): the value is in
+// the description, which says what the yes means.
+//
+// None is a placeholder except the module check, which names what this desk
+// has in slots 1-4 -- change it when the rack changes.
+//
+CRITERIA( DEV_Swu_1, "The switch unit's relays and inventory, with nothing wired to it")
+    CRIT( DEV_Swu_Module34921A, EQ( true), "Slots 1-4 each hold a 34921A multiplexer")
+    CRIT( DEV_Swu_SlotFitted,   EQ( true), "Slot 5 holds a module -- the coaxial one")
+    CRIT( DEV_Swu_Closed,       EQ( true), "A relay told to close reports closed")
+    CRIT( DEV_Swu_Open,         EQ( true), "A relay told to open, or never closed, reports open")
+    CRIT( DEV_Swu_Refused,      EQ( true), "A channel the module does not have is refused, not ignored")
+    CRIT( DEV_Swu_CycleCounted, EQ( true), "Closing and opening a relay moves its life count by one or two")
+END_CRITERIA

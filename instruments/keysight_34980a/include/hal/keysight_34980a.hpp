@@ -12,6 +12,7 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/api_version.hpp"
+#include "hal/driver/instrument.hpp"
 #include "hal/io/scpi.hpp"
 
 //
@@ -89,11 +90,12 @@ namespace hal::keysight_34980a
     //
     // -- The structural gap this exposes, stated rather than papered over ----
     //
-    // There is no id for a chassis. hal::SwitchDeviceId's enumerators come from
-    // a rig's devices.inc, one per *card*, and a mainframe is not a card: it
-    // has no channels of its own. So this class carries no id at all -- no
-    // hal::InstrumentId (it measures nothing, see below) and no
-    // hal::SwitchDeviceId (it switches nothing by itself).
+    // There is no *switch-device* id for a chassis. hal::SwitchDeviceId's
+    // enumerators come from a rig's devices.inc, one per *card*, and a
+    // mainframe is not a card: it has no channels of its own. What it has is
+    // an hal::InstrumentId -- a row in instrument.inc, see below -- which is
+    // what preflight, --address and safing are keyed on. The cards still have
+    // no rows, and that is the gap this heading is about.
     //
     // That is not an oversight in this driver, it is the next question for the
     // fabric, and this repo has already predicted the answer -- in
@@ -111,22 +113,32 @@ namespace hal::keysight_34980a
     // writes will go through; nothing calls it from the fabric yet, and making
     // that call is a change to generic hal rather than to this directory.
     //
-    // -- Not an InstrumentTag, and that is deliberate ------------------------
+    // -- An instrument row, and why it became one ----------------------------
     //
-    // hal::InstrumentTag is what hal::safeRig() reflects over, and inheriting
-    // it is how a driver opts into being safed. This class does not, for the
-    // reason hal/fabric/switch_device.hpp gives at length: a switching device
-    // is plumbing, and hal::InstrumentId is what a *reading* is identified by.
-    // Adding the tag to get safing would make every script-facing Measure and
-    // Apply overload accept a chassis.
+    // This class inherits hal::InstrumentTag and takes an hal::InstrumentId,
+    // so a rig names it in instrument.inc like anything else it talks to:
     //
-    // Which leaves a real gap, and it is worth naming precisely because it is
-    // the one thing a bench engineer would ask about. hal::safeRig() ends by
-    // calling hal::fabric.openAll(), and that is bookkeeping -- so on a rig
-    // whose switching is a 34980A, a failed run leaves the actual relays where
-    // it left them. openAll() below is the command that fixes it, and the day
-    // the fabric talks is the day safing reaches the switching. See that
-    // member.
+    //     INSTRUMENT( keysight_34980a::Chassis, Swu1, Usb( "MY12345678"))
+    //
+    // It did not start that way. The first version argued that a switching
+    // device is plumbing, that hal::InstrumentId is what a reading is
+    // identified by, and that the tag would make every Measure and Apply
+    // overload accept a chassis. The last of those was never true -- Measure
+    // takes a core::Port and Apply a builder, and a chassis has neither, so
+    // nothing script-facing can be handed one -- and the cost of staying out
+    // was real: no preflight identity check, no --address, and, worst, safing
+    // that never reached the relays. A failed run left them where it left them.
+    //
+    // What joining costs is one ordering rule, and it is the reason for
+    // safeRelays() rather than an openAll() inside safe(): relays have to move
+    // after every source is off, and hal::safeRig() calls safe() in
+    // declaration order. So safe() is empty and safeRelays() opens everything,
+    // in a second pass safeRig() makes once every output is down -- see
+    // hal::RelayHoldingInstrument.
+    //
+    // What it does not change: a chassis is still not an hal::SwitchDeviceId.
+    // Those are one per *card*, and when module rows arrive in devices.inc
+    // they will name this row's instrument rather than repeat its address.
     //
     // -- The Janus half that is not here yet ---------------------------------
     //
@@ -428,8 +440,8 @@ namespace hal::keysight_34980a
     // every module in it is driven by.
     //
     // See this file's own preamble for what this is and is not -- in one line:
-    // the thing that talks, where a module is the thing that has channels, and
-    // neither an instrument nor, yet, anything a rig table has a row for.
+    // the thing that talks, where a module is the thing that has channels. An
+    // instrument row, so preflight, --address and safing all reach it.
     //
     // -- What the chassis is told, in full, to close one crosspoint ----------
     //
@@ -443,7 +455,7 @@ namespace hal::keysight_34980a
     //
     // Three commands for the first close and two for each one after it.
     //
-    class Chassis
+    class Chassis : public InstrumentTag
     {
         public:
             //
@@ -456,10 +468,9 @@ namespace hal::keysight_34980a
             // "this box has no serial port" is a fact worth stating and worth
             // failing to compile on.
             //
-            // No id argument, and that is the interesting part of this
-            // signature rather than an omission -- see this file's preamble on
-            // why a chassis has neither an hal::InstrumentId nor an
-            // hal::SwitchDeviceId. What identifies one is its address.
+            // An hal::InstrumentId like every row in instrument.inc -- see this
+            // file's preamble on why a chassis became one. Still not an
+            // hal::SwitchDeviceId: those are the cards in its slots.
             //
             // This model's back panel, written once and read twice: the
             // constructor below is constrained by it, and
@@ -472,7 +483,13 @@ namespace hal::keysight_34980a
 
             template<typename AddressT>
                 requires Buses::allows<AddressT>
-            explicit Chassis( const AddressT address) : mAddress( address) {}
+            Chassis( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+
+            [[nodiscard]]
+            auto id() const -> InstrumentId
+            {
+                return mId;
+            }
 
             //
             // Where the PC reaches this mainframe -- and, since this driver
@@ -515,6 +532,23 @@ namespace hal::keysight_34980a
             auto useTransport( std::unique_ptr<io::ITransport> transport) -> void
             {
                 mSession  = std::make_unique<io::ScpiSession>( std::move( transport));
+                mPrepared = false;
+            }
+
+            //
+            // Point this driver at a different mainframe -- what preflight does
+            // with an --address, THORIUM_ADDRESS_<id> or a site row. Startup
+            // only, validates nothing (hal::bindAddresses() already checked the
+            // address against Buses), and drops any open session so that
+            // nothing goes on switching the previous box.
+            //
+            // Closing that session opens no relay, for the reason
+            // closeSession() gives: a latching module keeps its state.
+            //
+            auto useAddress( const Address & address) -> void
+            {
+                mAddress = address;
+                mSession.reset();
                 mPrepared = false;
             }
 
@@ -793,6 +827,56 @@ namespace hal::keysight_34980a
             //
             auto setInternalDmm( bool enabled) -> void;
 
+            // --- Relay health ---
+
+            //
+            // DIAG:REL:CYCL? -- how many times this relay has operated in its
+            // life, as the mainframe counts it.
+            //
+            // Worth having beside isClosed(), because the two answer different
+            // questions. ROUT:CLOS? reports what the mainframe *told* the relay
+            // to do; the cycle count goes up when the relay's drive actually
+            // changed state. A close/open pair that moves the count by one is
+            // a relay that was driven -- which is as far as a check can go
+            // without a meter on the contacts. And the count is the wear
+            // figure a relay is replaced on.
+            //
+            // A simulated chassis counts one cycle per close of an open channel.
+            //
+            [[nodiscard]]
+            auto relayCycles( ChannelAddress channel) -> long;
+
+            // --- Safing ---
+
+            //
+            // Nothing -- deliberately, and unlike every other driver's safe().
+            // This is a switching device, and its relays have to move after
+            // every source in the rig is off; hal::safeRig() calls safe() in
+            // declaration order, which cannot promise that. The relays are
+            // safeRelays()'s, in the pass after this one. See
+            // hal::RelayHoldingInstrument.
+            //
+            auto safe() -> void
+            {
+            }
+
+            //
+            // ROUT:OPEN:ALL ALL -- every relay in every slot, called by
+            // hal::safeRig() once every output is off.
+            //
+            // safe()'s contract, carried over whole: only down a session that
+            // is already open, never opening one, and never throwing. Sent with
+            // write() rather than checked(), so a mainframe that has stopped
+            // answering does not abandon the rest of the safing pass -- and an
+            // RF module's refusal to open (see open()) does not either. A
+            // simulated chassis simply forgets what it had closed.
+            //
+            // Not a latching-relay cure-all: an RF bank has no open state, and
+            // stays on whichever channel it was left on. A rig wires that
+            // bank's idle channel to somewhere harmless (see open()).
+            //
+            auto safeRelays() -> void;
+
             // --- Test/simulation hooks ---
 
             //
@@ -859,6 +943,7 @@ namespace hal::keysight_34980a
             auto simulatedClose( const std::vector<ChannelAddress> & channels) -> void;
             auto simulatedOpen( const std::vector<ChannelAddress> & channels) -> void;
 
+            InstrumentId                      mId;
             Address                           mAddress;
 
             //
@@ -892,6 +977,7 @@ namespace hal::keysight_34980a
             std::vector<ChannelAddress>       mSimClosed;
 
             std::map<int, ModuleIdentity>     mSimModules;
+            std::map<ChannelAddress, long>    mSimCycles;
             bool                              mSimDmmInstalled{ false };
             bool                              mSimDmmEnabled{ false };
     };

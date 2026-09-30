@@ -80,3 +80,18 @@ GROUP( WfgIntoScope, "The waveform generator, each setting checked by the scope 
     TEST( WfgOutputOff,           wfgOutputOff,           "Remove turns an output off -- the scope sees only its own noise")
     TEST( WfgChannelsIndependent, wfgChannelsIndependent, "A 1 kHz sine on channel 1 and a 5 kHz square on channel 2 at once")
 END_GROUP
+
+//
+// The 34980A switch unit with nothing wired to it -- every check is a question
+// the mainframe answers about itself. Runs whole. See
+// dev/suite/scripts/swu_self_check.cpp.
+//
+GROUP( SwitchUnit, "The 34980A switch unit, tested in isolation: inventory, relays, refusal and relay life")
+    TEST( SwuInventory,              swuInventory,              "Slots 1-4 hold 34921As, slot 5 is fitted; every slot's module noted")
+    TEST( SwuRelaysSlot1,            swuRelaysSlot1,            "Slot 1: close, open, a list across both banks, exclusive, bus relays, open all")
+    TEST( SwuRelaysSlot2,            swuRelaysSlot2,            "Slot 2: close, open, a list across both banks, exclusive, bus relays, open all")
+    TEST( SwuRelaysSlot3,            swuRelaysSlot3,            "Slot 3: close, open, a list across both banks, exclusive, bus relays, open all")
+    TEST( SwuRelaysSlot4,            swuRelaysSlot4,            "Slot 4: close, open, a list across both banks, exclusive, bus relays, open all")
+    TEST( SwuRefusesAMissingChannel, swuRefusesAMissingChannel, "A channel a 34921A does not have is refused by the mainframe")
+    TEST( SwuRelayCycles,            swuRelayCycles,            "A close and an open move the relay's life count")
+END_GROUP

@@ -8,9 +8,10 @@ included as `"hal/keysight_34980a.hpp"`.
 Target: `hal_keysight_34980a` / `Thorium::hal_keysight_34980a`. Depends on
 `Thorium::hal` only. `STATIC`.
 
-**The first thing under `instruments/` that is not an instrument.** It measures
-nothing and sources nothing — it is switching hardware, and it carries no
-`hal::InstrumentId`. `hal/fabric/switch_device.hpp` named this directory as the
+**The first switching device under `instruments/`.** It measures nothing and
+sources nothing — it is switching hardware — and it is an instrument *row* all
+the same: `INSTRUMENT( keysight_34980a::Chassis, Swu1, Usb( ...))`, so preflight,
+`--address` and safing reach it (see **An instrument row** below). `hal/fabric/switch_device.hpp` named this directory as the
 destination for switch-card drivers before there were any:
 
 > The seam if it stops being deliberate is the one `instruments/` already
@@ -241,45 +242,60 @@ wants to send a command the driver has no accessor for — a scan, a DAC output,
 the 34945A's drive settings — without that becoming a reason to widen the
 driver).
 
-## Not an `InstrumentTag`, and one gap that follows
+## An instrument row
 
-`hal::InstrumentTag` is what `hal::safeRig()` reflects over, and inheriting it is
-how a driver opts into being safed. This class does not, for the reason
-`hal/fabric/switch_device.hpp` gives at length: a switching device is plumbing,
-and `hal::InstrumentId` is what a *reading* is identified by. Adding the tag to
-get safing would make every script-facing `Measure` and `Apply` overload accept a
-chassis. Both facts are asserted in the tests, because "add `InstrumentTag` so
-`safeRig()` picks it up" is exactly the plausible-looking change that would
-undo it.
+`Chassis` inherits `hal::InstrumentTag` and takes an `hal::InstrumentId`, so a rig
+names it in `instrument.inc` like anything else it talks to:
 
-Which leaves a real gap, and it is worth naming precisely because it is the
-first thing a bench engineer would ask. `hal::safeRig()` ends by calling
-`hal::fabric.openAll()`, and that is **bookkeeping** — so on a rig whose
-switching is a 34980A, a script that died with a rail routed to a DUT pin leaves
-that relay closed. `openAll()` is the command that fixes it, and the day the
-fabric talks is the day safing reaches the switching.
+```cpp
+INSTRUMENT( keysight_34980a::Chassis, Swu1, Usb( "MY12345678"))
+```
 
-`closeSession()` does not open anything either: a latching matrix keeps every
-crosspoint exactly where it was when the connection drops. That is hardware, not
-something to paper over.
+It started out as the opposite — no tag, no id — on the argument that a switching
+device is plumbing and that the tag would make every `Measure` and `Apply`
+overload accept a chassis. That last part was never true: `Measure` takes a
+`core::Port` and `Apply` a builder, and a chassis has neither. What staying out
+cost was real: no preflight identity check, no `--address`, and safing that never
+reached the relays, so a failed run left them where it left them.
 
-## No id, and what that says
+What joining costs is one ordering rule. Relays must move after every source is
+off, and `hal::safeRig()` calls each instrument's `safe()` in declaration order,
+which cannot promise that. So:
 
-A `Chassis` carries no id at all — no `hal::InstrumentId` (it measures nothing)
-and no `hal::SwitchDeviceId` (whose enumerators are one per *card*, and a
-mainframe is not a card: it has no channels of its own). What identifies one is
-its address, and the tests assert that no id is accepted.
+| | does | when |
+|---|---|---|
+| `safe()` | nothing | safeRig's first pass, with every other instrument |
+| `safeRelays()` | `ROUT:OPEN:ALL ALL` | safeRig's **second** pass, after every output is off |
 
-That is not an omission in this driver, it is the next question for the fabric,
-and this repo has already predicted the answer — in `rig/instrument.inc`, about
-the equivalent case on the instrument side:
+`safeRelays()` is what `hal::RelayHoldingInstrument` asks for. It keeps every
+driver's safing rule — only down a session that is already open, never opening
+one, `write()` rather than `checked()`, and a transport error swallowed — so an
+unreachable mainframe, or an RF module refusing to open, cannot abandon the rest
+of the safing. `dev/rig/tests/test_dev_rig.cpp` asserts the order on a deployment
+with both a supply and a chassis, and fails if the relays are opened first.
+
+`closeSession()` still opens nothing: a latching matrix keeps every crosspoint
+exactly where it was when the connection drops. That is hardware, not something
+to paper over — and it is why safing does the opening, not the disconnect.
+
+## Relay health
+
+`relayCycles( channel)` sends `DIAG:REL:CYCL?` — how many times the relay has
+operated, as the mainframe counts it. It answers a different question from
+`isClosed()`: `ROUT:CLOS?` reports what the relay was *told*, the cycle count that
+its drive changed state. A close/open pair that moves the count is a relay that
+was driven, which is as far as a check can go without a meter on the contacts;
+and the count is the wear figure a relay is replaced on. A simulated chassis
+counts one cycle per close of an open channel.
+
+## A chassis is not a card
+
+A `Chassis` has an `hal::InstrumentId` and no `hal::SwitchDeviceId` — those are one
+per *card*, and a mainframe has no channels of its own. When module rows arrive in
+`devices.inc` they will name the chassis row rather than repeat its address, which
+is the answer `rig/instrument.inc` already predicted for shared boxes:
 
 > a named constant above this table per chassis, not a slot field on the address
-
-A rig with a 34980A writes one address constant, and every module row in that
-chassis repeats it — precisely as `DcP1..DcP4` repeat their mainframe's address
-today, and `DcP5..DcP7` repeat theirs. `rig/devices.inc` now records this rack's
-migration to a 34980A as its destination, including the module mapping.
 
 ## What is deliberately not here
 

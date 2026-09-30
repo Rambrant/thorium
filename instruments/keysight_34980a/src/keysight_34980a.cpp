@@ -2,10 +2,11 @@
 // hal::keysight_34980a::Chassis's real I/O: what this mainframe is actually
 // told, and what its answers mean.
 //
-// The fourth .cpp in instruments/ and the first belonging to something that is
-// not an instrument -- see the header's preamble on why a switch/measure
-// mainframe lands in this directory at all, and on why the mainframe rather
-// than its modules is the thing with a driver.
+// The fourth .cpp in instruments/ and the first belonging to a switching
+// device -- an instrument row that measures and sources nothing. See the
+// header's preamble on why a switch/measure mainframe lands in this directory
+// at all, why the mainframe rather than its modules is the thing with a
+// driver, and why it became an instrument row.
 //
 // -- The document this is written against ---------------------------------
 //
@@ -623,6 +624,58 @@ namespace hal::keysight_34980a
 
     // ---------------------------------------------------------------------
     // The simulated half
+    auto Chassis::relayCycles( const ChannelAddress channel) -> long
+    {
+        validate( channel.Slot);
+
+        if( isSimulated())
+        {
+            const auto found = mSimCycles.find( channel);
+
+            return found == mSimCycles.end() ? 0 : found->second;
+        }
+
+        //
+        // One channel, one count back. The list form would answer a
+        // comma-separated count per channel, which nothing here asks for.
+        //
+        return static_cast<long>( session().queryNumber( "DIAG:REL:CYCL? " + channelList( channel)));
+    }
+
+    auto Chassis::safeRelays() -> void
+    {
+        if( isSimulated())
+        {
+            mSimClosed.clear();
+
+            return;
+        }
+
+        //
+        // Only down a session that is already open -- a chassis nobody used
+        // this run has nothing closed by this run, and one that cannot be
+        // reached must not turn safing into a transport error. See the
+        // header's comment, and hal::keysight_edu36311a::detail::sendSafe for
+        // the same rule on a supply.
+        //
+        if( !mSession)
+        {
+            return;
+        }
+
+        try
+        {
+            mSession->write( "ROUT:OPEN:ALL " + std::string( kAllSlots));
+        }
+        catch( const io::TransportError &)
+        {
+            //
+            // Gone, which on a safing pass is the one outcome to survive:
+            // the instruments after this one still need their turn.
+            //
+        }
+    }
+
     // ---------------------------------------------------------------------
 
     auto Chassis::simulatedClose( const std::vector<ChannelAddress> & channels) -> void
@@ -632,6 +685,7 @@ namespace hal::keysight_34980a
             if( std::ranges::find( mSimClosed, channel) == mSimClosed.end())
             {
                 mSimClosed.push_back( channel);
+                ++mSimCycles[ channel];
             }
         }
 

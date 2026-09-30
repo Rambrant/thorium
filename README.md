@@ -281,7 +281,7 @@ that cannot be recovered from the code.
 | [`instruments/keysight_edu36311a`](instruments/keysight_edu36311a/README.md) | DC supply, triple output — `DcP5`..`DcP7`; **talks to real hardware**, and the first source that does |
 | [`instruments/keysight_ac6834b`](instruments/keysight_ac6834b/README.md) | Three-phase AC source — `AcP1`, balanced vs per-phase |
 | [`instruments/racal1260`](instruments/racal1260/README.md) | RS232 port — `Ser1`, routed to a DUT interface through the matrix |
-| [`instruments/keysight_34980a`](instruments/keysight_34980a/README.md) | Switch/measure **mainframe** — not an instrument at all; the first switch-device driver, and where this rack's switching is heading |
+| [`instruments/keysight_34980a`](instruments/keysight_34980a/README.md) | Switch/measure **mainframe** — an instrument row that measures nothing; the first switch-device driver, safed after every source, and where this rack's switching is heading |
 
 **This deployment's content**
 

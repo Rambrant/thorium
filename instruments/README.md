@@ -32,7 +32,7 @@ instruments/
         include/hal/keysight_33522b.hpp
         src/keysight_33522b.cpp      #   the SCPI: the Apply ordering, why not APPLy, safing
         tests/test_keysight_33522b.cpp
-    keysight_34980a/            # switch/measure MAINFRAME -- not an instrument at all
+    keysight_34980a/            # switch/measure MAINFRAME -- a row that measures nothing
         CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
         README.md
         include/hal/keysight_34980a.hpp

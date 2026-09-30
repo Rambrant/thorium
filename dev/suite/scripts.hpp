@@ -47,3 +47,12 @@ auto wfgNoise() -> void;
 auto wfgTermination() -> void;
 auto wfgOutputOff() -> void;
 auto wfgChannelsIndependent() -> void;
+
+// SwitchUnit -- dev/suite/scripts/swu_self_check.cpp
+auto swuInventory() -> void;
+auto swuRelaysSlot1() -> void;
+auto swuRelaysSlot2() -> void;
+auto swuRelaysSlot3() -> void;
+auto swuRelaysSlot4() -> void;
+auto swuRefusesAMissingChannel() -> void;
+auto swuRelayCycles() -> void;

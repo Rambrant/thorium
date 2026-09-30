@@ -134,8 +134,8 @@ ALLOWED = {
         'contrast -- "include/hal/keysight_edu36311a.hpp, not include/keysight_edu36311a.hpp"',
     ( 'instruments/racal1260/CMakeLists.txt', 'include/racal1260.hpp'):
         'contrast -- "include/hal/racal1260.hpp, not include/racal1260.hpp"',
-    ( 'cmake/WxWidgets.cmake', 'scripts/buildsystems/vcpkg.cmake'):
-        "a path inside somebody else's vcpkg checkout, not in this tree",
+    ( 'framework/webui/CMakeLists.txt', 'generated/static_content.cpp'):
+        'generated into the build tree by cmake/EmbedFiles.cmake, never in the source tree',
 
     #
     # The three below are real gaps rather than deliberate spellings, listed so
