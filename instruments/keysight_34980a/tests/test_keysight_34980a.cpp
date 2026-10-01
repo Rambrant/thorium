@@ -16,9 +16,12 @@
 #include "hal/verbs/preflight.hpp"
 
 #include "core/meta.hpp"
+#include "core/session/bench.hpp"
+#include "core/quantities/quantity.hpp"
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <concepts>
 #include <memory>
 #include <string>
@@ -29,11 +32,14 @@
 using hal::keysight_34980a::AnalogBus;
 using hal::keysight_34980a::ChannelAddress;
 using hal::keysight_34980a::Chassis;
+using hal::keysight_34980a::InternalDmm;
 using hal::keysight_34980a::ModuleIdentity;
 using hal::keysight_34980a::NoSuchSlot;
 using hal::keysight_34980a::analogBus;
 using hal::keysight_34980a::channelList;
 using hal::keysight_34980a::kSlots;
+
+using namespace core::literals;
 
 //
 // This mainframe's back panel, as the constructor constraint actually sees it
@@ -496,6 +502,23 @@ namespace
                 {
                     mReplies.emplace_back( CyclesReply);
                 }
+                else if( command.starts_with( "MEAS:"))
+                {
+                    //
+                    // The internal DMM's readings. A refused one queues the
+                    // instrument's error and sends no reply, as a SCPI
+                    // instrument does -- which is what InternalDmm::read()
+                    // has to turn into something better than a timeout.
+                    //
+                    if( RefuseMeasure)
+                    {
+                        Errors.emplace_back( "-113,\"Undefined header\"");
+                    }
+                    else
+                    {
+                        mReplies.emplace_back( MeasureReply);
+                    }
+                }
                 else if( !command.empty() && command.back() == '?')
                 {
                     mReplies.emplace_back( "0");
@@ -556,6 +579,8 @@ namespace
             std::string              DmmInstalledReply{ "1" };
             std::string              DmmEnabledReply{ "1" };
             std::string              CyclesReply{ "+1234" };
+            std::string              MeasureReply{ "+5.00100000E+00" };
+            bool                     RefuseMeasure{ false };
             std::vector<std::string> Errors;
 
         private:
@@ -1179,4 +1204,258 @@ TEST( Keysight34980AAddress, UseAddressMovesTheRowAndDropsTheSessionSendingNothi
     EXPECT_EQ( bench->Unit.id(), id);
     EXPECT_EQ( bench->Unit.address(), hal::Address{ hal::Lan( "elsewhere.invalid") });
     EXPECT_FALSE( bench->Unit.isSimulated());
+}
+
+//
+// -- The internal DMM: the box's other face -----------------------------------
+//
+
+namespace
+{
+    static_assert( std::derived_from< InternalDmm, hal::InstrumentTag> );
+    static_assert( hal::SafeableInstrument< InternalDmm> );
+    static_assert( hal::AddressableInstrument< InternalDmm> );
+    static_assert( hal::ContactableInstrument< InternalDmm> );
+
+    //
+    // A meter holds no relays -- its signal path is the chassis's, and so is
+    // the safing of it.
+    //
+    static_assert( ! hal::RelayHoldingInstrument< InternalDmm> );
+
+    //
+    // Reached over whatever the mainframe is reached over.
+    //
+    static_assert(   std::constructible_from< InternalDmm, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< InternalDmm, hal::InstrumentId, hal::Lan> );
+    static_assert(   std::constructible_from< InternalDmm, hal::InstrumentId, hal::Gpib> );
+    static_assert( ! std::constructible_from< InternalDmm, hal::InstrumentId, hal::Serial> );
+
+    //
+    // A meter with a fake mainframe behind it, and the fake still reachable.
+    //
+    struct Meter
+    {
+        InternalDmm   Dmm{ anyId(), hal::Simulated{} };
+        FakeChassis * Wire{};
+    };
+
+    [[nodiscard]]
+    auto meter() -> std::unique_ptr<Meter>
+    {
+        auto bench = std::make_unique<Meter>();
+        auto fake  = std::make_unique<FakeChassis>();
+
+        bench->Wire = fake.get();
+        bench->Dmm.useTransport( std::move( fake));
+
+        return bench;
+    }
+} // namespace
+
+//
+// The meter's own once-per-session exchange: the queue drained, the box
+// checked to be a 34980A, and then the two facts a meter depends on -- in that
+// order, and nothing else. In particular, never INST:DMM ON.
+//
+TEST( Keysight34980ADmm, PreparingChecksTheBoxThenThatTheMeterIsFittedAndEnabled)
+{
+    const auto bench = meter();
+
+    static_cast<void>( bench->Dmm.session());
+
+    EXPECT_EQ( bench->Wire->sent(),
+               ( std::vector<std::string>{ "SYST:ERR?", "*IDN?", "INST:DMM:INST?", "INST:DMM?" }));
+}
+
+TEST( Keysight34980ADmm, AMainframeWithNoMeterFittedIsRefusedSayingSo)
+{
+    const auto bench = meter();
+
+    bench->Wire->DmmInstalledReply = "0";
+
+    try
+    {
+        static_cast<void>( bench->Dmm.session());
+
+        FAIL() << "expected a mainframe with no meter to be refused";
+    }
+    catch( const hal::io::ScpiFault & refused)
+    {
+        EXPECT_NE( std::string( refused.what()).find( "no internal DMM fitted"), std::string::npos) << refused.what();
+    }
+}
+
+//
+// Disabled is refused, not fixed: enabling the meter makes the mainframe issue
+// a factory reset, which would take the switching face's configuration with it.
+//
+TEST( Keysight34980ADmm, ADisabledMeterIsRefusedAndNeverEnabled)
+{
+    const auto bench  = meter();
+    const auto record = bench->Wire->record();
+
+    bench->Wire->DmmEnabledReply = "0";
+
+    EXPECT_THROW( static_cast<void>( bench->Dmm.session()), hal::io::ScpiFault);
+
+    for( const auto & command : *record)
+    {
+        EXPECT_FALSE( command.starts_with( "INST:DMM ")) << command;
+    }
+}
+
+//
+// One MEASure query per reading, with no channel list -- the Analog Bus.
+//
+TEST( Keysight34980ADmm, EachFunctionIsOneMeasureQueryOnTheAnalogBus)
+{
+    const auto bench = meter();
+
+    EXPECT_DOUBLE_EQ( bench->Dmm.voltage().rawMeasure().value(), 5.001);
+    EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:VOLT:DC?");
+
+    static_cast<void>( bench->Dmm.acVoltage().rawMeasure());
+    EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:VOLT:AC?");
+
+    static_cast<void>( bench->Dmm.resistance().rawMeasure());
+    EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:RES?");
+
+    static_cast<void>( bench->Dmm.fourWireResistance().rawMeasure());
+    EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:FRES?");
+
+    static_cast<void>( bench->Dmm.frequency().rawMeasure());
+    EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:FREQ?");
+
+    //
+    // And every reading is followed by the error check -- a reading that
+    // answered may still have queued a reason it is not what was asked for.
+    //
+    EXPECT_EQ( bench->Wire->sent().back(), "SYST:ERR?");
+}
+
+TEST( Keysight34980ADmm, ARangeIsTheQuerysArgumentAndFrequencyTakesNone)
+{
+    const auto bench = meter();
+
+    static_cast<void>( bench->Dmm.voltage().range( 10_V).rawMeasure());
+    EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:VOLT:DC? 10");
+
+    //
+    // FREQ's range argument is the counted signal's *voltage* range, not a
+    // frequency -- so a Frequency port's range is not sent as one.
+    //
+    static_cast<void>( bench->Dmm.frequency().range( 1_kHz).rawMeasure());
+    EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:FREQ?");
+}
+
+TEST( Keysight34980ADmm, AnOverloadIsUnmeasurableNotANumber)
+{
+    const auto bench = meter();
+
+    bench->Wire->MeasureReply = "+9.90000000E+37";
+
+    EXPECT_THROW( static_cast<void>( bench->Dmm.resistance().rawMeasure()), core::UnmeasurableReading);
+}
+
+//
+// The case the header calls unconfirmed on hardware: a mainframe that refuses
+// the bare MEASure form sends no reply. That must arrive as the instrument's
+// own reason against the query that caused it, not as a timeout.
+//
+TEST( Keysight34980ADmm, ARefusedQueryIsReportedWithTheInstrumentsReasonNotAsATimeout)
+{
+    const auto bench = meter();
+
+    bench->Wire->RefuseMeasure = true;
+
+    try
+    {
+        static_cast<void>( bench->Dmm.voltage().rawMeasure());
+
+        FAIL() << "expected a refused query to be reported";
+    }
+    catch( const hal::io::ScpiFault & refused)
+    {
+        const std::string message{ refused.what() };
+
+        EXPECT_NE( message.find( "MEAS:VOLT:DC?"),    std::string::npos) << message;
+        EXPECT_NE( message.find( "Undefined header"), std::string::npos) << message;
+    }
+}
+
+//
+// The point of the face: the meter and the switching share the chassis's one
+// session, each preparing it as its own family. The chassis prepares for its
+// close; the meter's first reading then prepares for itself -- its own
+// identity check and its fitted/enabled checks -- down the same wire.
+//
+TEST( Keysight34980ADmm, TheMeterSharesTheChassissSessionAndPreparesItForItself)
+{
+    Chassis     chassis{ anyId(), hal::Lan( "dmm-shares-chassis.invalid") };
+    InternalDmm dmm{ anyId(), hal::Lan( "dmm-shares-chassis.invalid") };
+
+    auto  fake   = std::make_unique<FakeChassis>();
+    auto  record = fake->record();
+
+    chassis.useTransport( std::move( fake));
+
+    chassis.close( { 1, 3 });
+
+    EXPECT_DOUBLE_EQ( dmm.voltage().rawMeasure().value(), 5.001);
+
+    EXPECT_EQ( std::ranges::count( *record, std::string( "*IDN?")),          2) << "one identity check per family";
+    EXPECT_EQ( std::ranges::count( *record, std::string( "INST:DMM:INST?")), 1);
+    EXPECT_EQ( std::ranges::count( *record, std::string( "ROUT:CLOS (@1003)")), 1);
+    EXPECT_EQ( std::ranges::count( *record, std::string( "MEAS:VOLT:DC?")),   1);
+
+    chassis.closeSession();
+}
+
+TEST( Keysight34980ADmm, ASimulatedMeterReadsItsHooksAndAnOpenBusIsAnOverload)
+{
+    InternalDmm dmm{ anyId(), hal::Simulated{} };
+
+    dmm.setSimulatedVoltage( 2.5_V);
+    EXPECT_EQ( dmm.voltage().rawMeasure(), 2.5_V);
+
+    EXPECT_THROW( static_cast<void>( dmm.resistance().rawMeasure()), core::UnmeasurableReading);
+
+    dmm.setSimulatedResistance( 1.0_kOhm);
+    EXPECT_EQ( dmm.resistance().rawMeasure(), 1.0_kOhm);
+}
+
+TEST( Keysight34980ADmm, SafeSendsNothing)
+{
+    const auto bench = meter();
+
+    static_cast<void>( bench->Dmm.session());
+
+    const auto before = bench->Wire->sent().size();
+
+    bench->Dmm.safe();
+
+    EXPECT_EQ( bench->Wire->sent().size(), before);
+}
+
+
+//
+// A detached run -- --skeleton, --replay, --inject -- must not reach the
+// hardware, and a script calling the chassis directly asks no verb whether it
+// may. So the chassis asks for it: detached, a close is bookkeeping and an
+// isClosed() answers from it. A hostname nothing answers to would throw if
+// anything were sent.
+//
+TEST( Keysight34980ADetached, ADetachedBenchSwitchesNothingAndAnswersFromItsBookkeeping)
+{
+    Chassis chassis{ anyId(), hal::Lan( "detached.invalid") };
+
+    core::bench().detach();
+
+    EXPECT_NO_THROW( chassis.close( { 1, 101 }));
+    EXPECT_TRUE( chassis.isClosed( { 1, 101 }));
+    EXPECT_NO_THROW( chassis.openAll( 1));
+    EXPECT_FALSE( chassis.isClosed( { 1, 101 }));
+
+    core::bench().attach();
 }

@@ -57,3 +57,9 @@ auto swuMatrixSlot4() -> void;
 auto swuRefusesMissingChannels() -> void;
 auto swuRfMultiplexer() -> void;
 auto swuRelayCycles() -> void;
+
+// SwitchUnitDmm, SwitchUnitWired -- dev/suite/scripts/swu_dmm.cpp
+auto swuDmmFitted() -> void;
+auto swuDmmOpenBus() -> void;
+auto swuDmmPathOntoNothing() -> void;
+auto swuDmmThroughTheMatrix() -> void;

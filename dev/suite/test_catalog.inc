@@ -96,3 +96,21 @@ GROUP( SwitchUnit, "The 34980A switch unit, tested in isolation: inventory, matr
     TEST( SwuRfMultiplexer,          swuRfMultiplexer,          "Each 34941A bank selects 1-of-4 and refuses to be opened")
     TEST( SwuRelayCycles,            swuRelayCycles,            "A close and an open move a crosspoint's life count")
 END_GROUP
+
+//
+// The switch unit's internal DMM, Dmm2, with nothing wired -- runs whole. See
+// dev/suite/scripts/swu_dmm.cpp.
+//
+GROUP( SwitchUnitDmm, "The 34980A's internal DMM on the Analog Bus, nothing wired")
+    TEST( SwuDmmFitted,          swuDmmFitted,          "The internal DMM is fitted and enabled")
+    TEST( SwuDmmOpenBus,         swuDmmOpenBus,         "An open bus reads no voltage and an overload for resistance")
+    TEST( SwuDmmPathOntoNothing, swuDmmPathOntoNothing, "A crosspoint and a bus relay closed onto nothing leave the bus open")
+END_GROUP
+
+//
+// The whole chain, which needs a cable: DcP7 onto Matrix 2 column 1 of the
+// 34932A in slot 1. Run on its own. See dev/suite/scripts/swu_dmm.cpp.
+//
+GROUP( SwitchUnitWired, "Supply, matrix and internal DMM through real copper -- needs DcP7 cabled to slot 1, Matrix 2 column 1")
+    TEST( SwuDmmThroughTheMatrix, swuDmmThroughTheMatrix, "5 V from DcP7 arrives through crosspoint 501 and bus relay 921")
+END_GROUP

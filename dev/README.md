@@ -363,6 +363,18 @@ driven. Channel numbers come from hal's own module models, so a numbering
 mistake there shows here. The one thing it cannot check is contact: that needs
 a short across a crosspoint and the desk meter on the other side.
 
+**SwitchUnitDmm** is the mainframe's internal DMM, `Dmm2` -- the same box,
+`Swu1`, sharing its one session -- with nothing wired: the meter is fitted and
+enabled, an open Analog Bus reads no voltage and an *overload* for resistance
+(which `whenUnmeasurable` turns into "beyond 100 MOhm"), and closing a crosspoint
+and a bus relay onto nothing leaves the bus open. **SwitchUnitWired** is the whole
+chain and needs one cable -- `DcP7` onto Matrix 2 column 1 of the 34932A in slot
+1 -- and is run on its own: the meter must read the supply's 5 V through
+crosspoint 501 and bus relay 921, with the path closed before the supply comes
+on and opened after it goes off. Whether the meter accepts the bare `MEASure`
+form it uses is the one thing the first run confirms; see
+`instruments/keysight_34980a/README.md`.
+
 Its unit tests hand `Swu1` a fake of this rack built from the same hal models,
 because the driver's own simulation knows the slots and not the modules -- it
 would accept any channel, and would not select 1-of-4.

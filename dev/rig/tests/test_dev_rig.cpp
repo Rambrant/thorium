@@ -58,10 +58,10 @@ namespace
     // Another INSTRUMENT() row fails here, which is the intent: it is not
     // forbidden, it is a change to what this deployment is, and it should be a
     // deliberate edit to this line rather than a silent widening. This line has
-    // been that edit four times: the supply's outputs, the scope, the
-    // generator, the switch unit.
+    // been that edit five times: the supply's outputs, the scope, the
+    // generator, the switch unit, and the switch unit's own meter.
     //
-    static_assert( core::meta::values<hal::InstrumentId>.size() == 7);
+    static_assert( core::meta::values<hal::InstrumentId>.size() == 8);
     static_assert( core::meta::values<hal::InstrumentId>[0] == hal::InstrumentId::Dmm1);
     static_assert( core::meta::values<hal::InstrumentId>[1] == hal::InstrumentId::DcP5);
     static_assert( core::meta::values<hal::InstrumentId>[2] == hal::InstrumentId::DcP6);
@@ -69,6 +69,7 @@ namespace
     static_assert( core::meta::values<hal::InstrumentId>[4] == hal::InstrumentId::Osc1);
     static_assert( core::meta::values<hal::InstrumentId>[5] == hal::InstrumentId::Wfg1);
     static_assert( core::meta::values<hal::InstrumentId>[6] == hal::InstrumentId::Swu1);
+    static_assert( core::meta::values<hal::InstrumentId>[7] == hal::InstrumentId::Dmm2);
 
     //
     // -- And no switching hardware at all ------------------------------------
@@ -120,6 +121,7 @@ namespace
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Osc1));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Wfg1));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Swu1));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Dmm2));
 
     //
     // -- Each driver still owes the framework what every driver owes ----------
@@ -139,6 +141,8 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_33522b::Wfg33522B> );
     static_assert( hal::SafeableInstrument< hal::keysight_34980a::Chassis> );
     static_assert( hal::RelayHoldingInstrument< hal::keysight_34980a::Chassis> );
+    static_assert( hal::SafeableInstrument< hal::keysight_34980a::InternalDmm> );
+    static_assert( ! hal::RelayHoldingInstrument< hal::keysight_34980a::InternalDmm> );
 } // namespace
 
 //
@@ -207,7 +211,7 @@ TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 7u);
+    ASSERT_EQ( bindings.size(), 8u);
     EXPECT_EQ( bindings[ 0].Id,     hal::InstrumentId::Dmm1);
     EXPECT_EQ( bindings[ 0].Source, hal::AddressSource::Pool);
 }
@@ -222,7 +226,7 @@ TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 7u);
+    ASSERT_EQ( bindings.size(), 8u);
     EXPECT_TRUE( hal::poolFor( "Psu1").empty());
 
     for( std::size_t row = 1; row <= 3; ++row)
@@ -357,6 +361,10 @@ TEST( DevRig, EachInstrumentIsAFaceOfTheBoxItIsOn)
     EXPECT_EQ( hal::boxOf( hal::InstrumentId::Osc1), "Scope1");
     EXPECT_EQ( hal::boxOf( hal::InstrumentId::Wfg1), "Wfg1");
     EXPECT_EQ( hal::boxOf( hal::InstrumentId::Swu1), "Swu1");
+    EXPECT_EQ( hal::boxOf( hal::InstrumentId::Dmm2), "Swu1");
+
+    EXPECT_EQ( hal::instrumentsIn( "Swu1"),
+               ( std::vector{ hal::InstrumentId::Swu1, hal::InstrumentId::Dmm2 }));
 
     EXPECT_EQ( hal::instrumentsIn( "Psu1"),
                ( std::vector{ hal::InstrumentId::DcP5, hal::InstrumentId::DcP6, hal::InstrumentId::DcP7 }));
@@ -382,6 +390,7 @@ namespace
         hal::Address Osc1Address = Osc1.address();
         hal::Address Wfg1Address = Wfg1.address();
         hal::Address Swu1Address = Swu1.address();
+        hal::Address Dmm2Address = Dmm2.address();
 
         ~RestoreAddresses()
         {
@@ -392,6 +401,7 @@ namespace
             Osc1.useAddress( Osc1Address);
             Wfg1.useAddress( Wfg1Address);
             Swu1.useAddress( Swu1Address);
+            Dmm2.useAddress( Dmm2Address);
         }
     };
 
@@ -508,3 +518,36 @@ TEST( DevRig, TwoBoxesAnsweringWithOneSerialAreRefused)
     Osc1.closeSession();
 }
 
+
+//
+// The switch unit's two faces, Swu1 and Dmm2, on one box: one session, two
+// families each preparing it for themselves -- the chassis's identity check,
+// and the meter's identity check plus its fitted-and-enabled checks. Asserted
+// through startup's own contact pass, on this deployment's real globals, with
+// one fake standing in for the mainframe.
+//
+TEST( DevRig, TheSwitchUnitsTwoFacesShareOneSessionAndPrepareItEach)
+{
+    const RestoreAddresses restore;
+
+    auto bindings = hal::bindAddresses( planWithOnly( { { "Swu1", hal::Usb{ "MY53154781" } } }));
+
+    auto log = std::make_shared<std::vector<std::string>>();
+
+    Swu1.useTransport( std::make_unique<Recorder>( log, "swu", "Agilent Technologies,34980A,MY53154781,2.43-2.42-1.19"));
+
+    ASSERT_NO_THROW( hal::contactInstruments( bindings));
+
+    //
+    // Every command went down the one fake -- Dmm2 never opened a session of
+    // its own -- and the meter's checks were made, once.
+    //
+    EXPECT_FALSE( log->empty());
+    EXPECT_EQ( std::ranges::count( *log, std::string( "swu: INST:DMM:INST?")), 1);
+    EXPECT_EQ( std::ranges::count( *log, std::string( "swu: INST:DMM?")), 1);
+
+    EXPECT_TRUE( Dmm2.address() == Swu1.address());
+    EXPECT_FALSE( Dmm2.isSimulated());
+
+    Swu1.closeSession();
+}

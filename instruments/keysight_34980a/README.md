@@ -221,26 +221,58 @@ which is a fact about the switching topology and the reason these live here.
 > configuration does not. This is a bring-up operation, not something a script
 > calls mid-run.
 
-## A Janus, and the seam for its other face
+## Two faces: `Chassis` and `InternalDmm`
 
-The 34980A is a switch **and** a measure unit, so one box belongs in both of the
-tables this repo deliberately keeps apart — `rig/devices.inc` for its modules,
-`rig/instrument.inc` for its internal DMM. When that second face arrives it will
-be a type in *this* package, named by an `INSTRUMENT()` row: one directory
-holding a switch-device driver and an instrument driver, because one box is
-both.
+The 34980A is a switch **and** a measure unit, and this package has a type for
+each face: `Chassis`, the switching, and `InternalDmm`, the meter fitted inside
+the mainframe. Both are instrument rows on one **box**:
 
-The one thing that must not happen then: **a second session.** Two objects
-opening two connections to one mainframe is two error queues, two identity
-checks, and a `*RST` from one arriving in the middle of the other's switching.
-So the seam is already drawn — this class owns the session and hands out a
-reference (`session()`), and the DMM face will be constructed from a
-`Chassis &` rather than from an `hal::Address`.
+```cpp
+INSTRUMENT( Swu1, keysight_34980a::Chassis,     Swu1, Usb( "MY53154781"))
+INSTRUMENT( Swu1, keysight_34980a::InternalDmm, Dmm2, Usb( "MY53154781"))
+```
 
-`session()` is public for that reason as well as the usual one (a bring-up run
-wants to send a command the driver has no accessor for — a scan, a DAC output,
-the 34945A's drive settings — without that becoming a reason to widen the
-driver).
+The one thing that must not happen with two faces is **a second session**: two
+error queues, two identity checks, and a `*RST` from one arriving in the middle
+of the other's switching. It does not, because neither face owns the session:
+the box does (`hal::BoxConnection`). Each face prepares it as its own family --
+the chassis checks the box is a 34980A; the meter checks that too, and then
+that the meter is fitted (`INST:DMM:INST?`) and enabled (`INST:DMM?`). A
+disabled meter fails at the first reading, or at startup, saying so. The meter
+never enables itself: `INST:DMM ON` issues a factory reset, which would wipe the
+switching face's configuration.
+
+### What the meter measures: the Analog Bus
+
+Every reading is a `MEASure` query **without a channel list** -- `MEAS:VOLT:DC?`,
+`MEAS:VOLT:AC?`, `MEAS:RES?`, `MEAS:FRES?`, `MEAS:FREQ?` -- which measures what is
+on the Analog Buses (ABus1 the input, ABus2 a 4-wire reading's sense). Not a
+channel, because a 34932A matrix's crosspoints are not scan channels: a signal
+reaches the meter by closing a crosspoint onto a Matrix 2 row and that row's bus
+relay (921 for row 5 onto ABus1), then measuring the bus. A range is the query's
+argument (`MEAS:VOLT:DC? 10`); frequency takes none, because FREQ's range
+argument is the counted signal's *voltage* range. Every reading is followed by
+an error check, and an overload is a `core::UnmeasurableReading`.
+
+> **Unconfirmed on hardware** until the first run on the dev desk: that this
+> firmware accepts the bare `MEASure` form. If it does not, the instrument
+> refuses the query and sends no reply -- and `read()` turns the resulting
+> timeout into an `hal::io::ScpiFault` naming the query and the instrument's own
+> error, so a wrong assumption costs one clear failure.
+
+No current: the meter's current input is reached through a 34921A's current
+channels (041-044), not the buses. No capacitance or temperature either.
+
+### Detached runs
+
+A script calls `Chassis` directly (`Swu1.close()`) until the fabric drives this
+box, and a direct call asks no verb whether the bench is attached. So the chassis
+asks for itself: on a detached bench (`--skeleton`, `--replay`, `--inject`) every
+switching call answers from its own bookkeeping and nothing is sent.
+
+`session()` is public on both faces for the usual reason: a bring-up run wants to
+send a command no accessor covers -- a scan, a DAC output -- without that becoming
+a reason to widen the driver.
 
 ## An instrument row
 

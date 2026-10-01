@@ -194,3 +194,23 @@ CRITERIA( DEV_Swu_1, "The switch unit's relays and inventory, with nothing wired
     CRIT( DEV_Swu_RfNoOpen,     EQ( true), "An RF channel cannot be opened, only switched away from")
     CRIT( DEV_Swu_CycleCounted, EQ( true), "Closing and opening a relay moves its life count by one or two")
 END_CRITERIA
+
+//
+// The switch unit's internal DMM -- Dmm2, on box Swu1 -- read by the
+// SwitchUnitDmm and SwitchUnitWired groups (dev/suite/scripts/swu_dmm.cpp).
+//
+// With nothing wired, the Analog Bus is an open circuit, and an open circuit has
+// two honest readings: a DC voltage near zero (the input floats, so "near" is a
+// few tens of millivolts, not microvolts), and a resistance the meter cannot
+// measure at all -- an overload, which the script turns into "beyond 100 MOhm"
+// rather than into a number. Wired, the supply's 5 V through a crosspoint and a
+// bus relay has to arrive as 5 V: both instruments are good to a fraction of a
+// percent, so the window is the supply's own.
+//
+CRITERIA( DEV_SwuDmm_1, "The switch unit's internal DMM, on the Analog Bus")
+    CRIT( DEV_SwuDmm_Fitted,    EQ( true),                                        "The mainframe has its internal DMM fitted")
+    CRIT( DEV_SwuDmm_Enabled,   EQ( true),                                        "The internal DMM is enabled, and so on the Analog Buses")
+    CRIT( DEV_SwuDmm_OpenVolts, EQ( 0.0_V).epsilon( 0.05_V),                      "An open bus reads no DC voltage, within 50 mV")
+    CRIT( DEV_SwuDmm_OpenOhms,  GT( core::quantities::Resistance{ 1.0e8 }),       "An open bus is beyond 100 MOhm -- an overload, not a resistance")
+    CRIT( DEV_SwuDmm_Through,   EQ( 5.0_V).epsilon( 0.05_V),                      "5 V from the supply arrives through the matrix and the bus at 5 V")
+END_CRITERIA

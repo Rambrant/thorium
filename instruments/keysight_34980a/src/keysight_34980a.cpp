@@ -52,6 +52,8 @@
 
 #include "hal/io/transport.hpp"
 
+#include "core/session/bench.hpp"
+
 namespace hal::keysight_34980a
 {
     namespace
@@ -233,6 +235,11 @@ namespace hal::keysight_34980a
 
     auto Chassis::verifyIdentity( io::ScpiSession & opened) -> std::string
     {
+        return detail::verifyMainframe( opened);
+    }
+
+    auto detail::verifyMainframe( io::ScpiSession & opened) -> std::string
+    {
         const std::string identity = opened.identify();
         const auto        fields   = fieldsOf( identity);
 
@@ -284,6 +291,11 @@ namespace hal::keysight_34980a
     // The switching face
     // ---------------------------------------------------------------------
 
+    auto Chassis::simulating() const -> bool
+    {
+        return isSimulated() || !core::bench().isAttached();
+    }
+
     auto Chassis::close( const ChannelAddress channel) -> void
     {
         close( std::vector<ChannelAddress>{ channel });
@@ -298,7 +310,7 @@ namespace hal::keysight_34980a
             return;
         }
 
-        if( isSimulated())
+        if( simulating())
         {
             simulatedClose( channels);
 
@@ -322,7 +334,7 @@ namespace hal::keysight_34980a
             return;
         }
 
-        if( isSimulated())
+        if( simulating())
         {
             simulatedOpen( channels);
 
@@ -353,7 +365,7 @@ namespace hal::keysight_34980a
             return;
         }
 
-        if( isSimulated())
+        if( simulating())
         {
             //
             // "Exclusive" is per module, so the simulation has to drop every
@@ -390,7 +402,7 @@ namespace hal::keysight_34980a
     {
         validate( channel.Slot);
 
-        if( isSimulated())
+        if( simulating())
         {
             return std::ranges::find( mSimClosed, channel) != mSimClosed.end();
         }
@@ -409,7 +421,7 @@ namespace hal::keysight_34980a
 
     auto Chassis::openAll() -> void
     {
-        if( isSimulated())
+        if( simulating())
         {
             mSimClosed.clear();
 
@@ -423,7 +435,7 @@ namespace hal::keysight_34980a
     {
         validate( slot);
 
-        if( isSimulated())
+        if( simulating())
         {
             std::erase_if( mSimClosed,
                 [ slot]( const ChannelAddress closed) { return closed.Slot == slot; });
@@ -436,7 +448,7 @@ namespace hal::keysight_34980a
 
     auto Chassis::waitForSwitching() -> void
     {
-        if( isSimulated())
+        if( simulating())
         {
             //
             // Nothing to wait for, and nothing to pretend: a simulated relay
@@ -461,7 +473,7 @@ namespace hal::keysight_34980a
     {
         validate( slot);
 
-        if( isSimulated())
+        if( simulating())
         {
             return;
         }
@@ -477,7 +489,7 @@ namespace hal::keysight_34980a
     {
         validate( slot);
 
-        if( isSimulated())
+        if( simulating())
         {
             if( const auto found = mSimModules.find( slot); found != mSimModules.end())
             {
@@ -548,7 +560,7 @@ namespace hal::keysight_34980a
 
     auto Chassis::internalDmmInstalled() -> bool
     {
-        if( isSimulated())
+        if( simulating())
         {
             return mSimDmmInstalled;
         }
@@ -558,7 +570,7 @@ namespace hal::keysight_34980a
 
     auto Chassis::internalDmmEnabled() -> bool
     {
-        if( isSimulated())
+        if( simulating())
         {
             return mSimDmmEnabled;
         }
@@ -568,7 +580,7 @@ namespace hal::keysight_34980a
 
     auto Chassis::setInternalDmm( const bool enabled) -> void
     {
-        if( isSimulated())
+        if( simulating())
         {
             //
             // A simulated chassis with no DMM fitted cannot enable one, which
@@ -599,7 +611,7 @@ namespace hal::keysight_34980a
     {
         validate( channel.Slot);
 
-        if( isSimulated())
+        if( simulating())
         {
             const auto found = mSimCycles.find( channel);
 
@@ -677,5 +689,160 @@ namespace hal::keysight_34980a
         {
             std::erase( mSimClosed, channel);
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // InternalDmm
+    // ---------------------------------------------------------------------
+
+    namespace
+    {
+        //
+        // The MEASure query for each function, and its name for a message.
+        // No channel list: the bare form measures the Analog Buses -- see the
+        // header's comment on InternalDmm, including what is not yet confirmed
+        // about it.
+        //
+        struct DmmCommand
+        {
+            std::string_view Query;
+            std::string_view Name;
+            bool             TakesRange;
+        };
+
+        constexpr auto commandFor( const InternalDmm::Function function) -> DmmCommand
+        {
+            switch( function)
+            {
+                case InternalDmm::Function::DcVoltage:          return { "MEAS:VOLT:DC?", "DC voltage",       true  };
+                case InternalDmm::Function::AcVoltage:          return { "MEAS:VOLT:AC?", "AC voltage",       true  };
+                case InternalDmm::Function::Resistance:         return { "MEAS:RES?",     "resistance",       true  };
+                case InternalDmm::Function::FourWireResistance: return { "MEAS:FRES?",    "4-wire resistance", true  };
+
+                //
+                // No range: FREQ's range argument on this meter is the
+                // *voltage* range of the signal being counted, not a frequency,
+                // and a Frequency port's range() is a frequency. Sending one as
+                // the other would be a unit error the instrument cannot see.
+                //
+                case InternalDmm::Function::Frequency:          return { "MEAS:FREQ?",    "frequency",        false };
+            }
+
+            return { "", "", false };
+        }
+
+        //
+        // "1" or "0", checked -- INST:DMM:INST? and INST:DMM? both answer so.
+        //
+        [[nodiscard]]
+        auto answersYes( io::ScpiSession & session, const std::string_view question) -> bool
+        {
+            return session.queryNumber( question) != 0.0;
+        }
+    } // namespace
+
+    auto InternalDmm::prepare( io::ScpiSession & session) -> void
+    {
+        session.clearErrors();
+
+        static_cast<void>( detail::verifyMainframe( session));
+
+        //
+        // The two facts a meter on this box depends on, asked before the
+        // first reading rather than discovered by one: a box with no meter
+        // fitted answers every MEASure with an error that says less than this.
+        //
+        if( !answersYes( session, "INST:DMM:INST?"))
+        {
+            throw io::ScpiFault( session.description(), "INST:DMM:INST?",
+                io::ScpiError{ 0,
+                    "this 34980A has no internal DMM fitted -- a row naming keysight_34980a::InternalDmm"
+                    " needs the optional DMM assembly" });
+        }
+
+        //
+        // Disabled is not refused here by enabling it: INST:DMM ON makes the
+        // mainframe issue a factory reset, and this face shares the box with
+        // the switching (see Chassis::setInternalDmm). So it says so and stops.
+        //
+        if( !answersYes( session, "INST:DMM?"))
+        {
+            throw io::ScpiFault( session.description(), "INST:DMM?",
+                io::ScpiError{ 0,
+                    "this 34980A's internal DMM is disabled, so it is not on the Analog Buses. Enable"
+                    " it from the front panel or a bring-up session (INST:DMM ON) -- this driver"
+                    " will not, because enabling it issues a factory reset" });
+        }
+    }
+
+    auto InternalDmm::session() -> io::ScpiSession &
+    {
+        return mConnection.session( "keysight_34980a.dmm", []( io::ScpiSession & opened)
+        {
+            prepare( opened);
+        });
+    }
+
+    auto InternalDmm::identity() -> std::string
+    {
+        return session().identify();
+    }
+
+    auto InternalDmm::read( const Function function, const std::optional<double> range) -> double
+    {
+        auto &     scpi    = session();
+        const auto command = commandFor( function);
+
+        std::string query{ command.Query };
+
+        if( range && command.TakesRange)
+        {
+            query += " " + io::ScpiSession::number( *range);
+        }
+
+        //
+        // A query the instrument refuses gets no reply, so the refusal shows
+        // up first as a timeout -- and a timeout alone says nothing about why.
+        // So on one, ask the error queue: an entry there is the instrument's
+        // own reason, reported against the query that caused it; an empty
+        // queue is a real timeout, rethrown as it was.
+        //
+        double reading = 0.0;
+
+        try
+        {
+            reading = scpi.queryNumbers( query).front();
+        }
+        catch( const io::TransportTimeout &)
+        {
+            if( const auto refusal = scpi.nextError())
+            {
+                throw io::ScpiFault( scpi.description(), query, *refusal);
+            }
+
+            throw;
+        }
+
+        //
+        // And one that did answer may still have queued an error -- a range
+        // the meter clamped, say -- which is the reading being of something
+        // other than what was asked for.
+        //
+        if( const auto error = scpi.nextError())
+        {
+            throw io::ScpiFault( scpi.description(), query, *error);
+        }
+
+        if( io::ScpiSession::isOverload( reading))
+        {
+            const std::string where = range && command.TakesRange
+                ? "the " + io::ScpiSession::number( *range) + " range"
+                : "autoranging";
+
+            throw core::UnmeasurableReading(
+                std::string( command.Name) + " overload on the Analog Bus -- the input is beyond " + where);
+        }
+
+        return reading;
     }
 } // namespace hal::keysight_34980a

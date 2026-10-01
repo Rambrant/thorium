@@ -23,16 +23,23 @@
 #include "hal/io/transport.hpp"
 #include "hal/keysight_34980a.hpp"
 #include "hal/topology/active_instruments.hpp"
+#include "hal/verbs/measure.hpp"
+#include "core/session/bench.hpp"
+#include "core/quantities/quantity.hpp"
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <limits>
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
+
+using core::quantities::Resistance;
+using namespace core::literals;
 
 namespace
 {
@@ -52,6 +59,12 @@ namespace
             // exists to catch.
             //
             bool AcceptsAnything{ false };
+
+            //
+            // The internal DMM: fitted and enabled, as on this desk's unit.
+            //
+            bool DmmFitted{ true };
+            bool DmmEnabled{ true };
 
             auto send( const std::string_view command) -> void override
             {
@@ -127,6 +140,14 @@ namespace
                 else if( text.starts_with( "ROUT:MOD:WAIT? "))
                 {
                     reply( "1");
+                }
+                else if( text == "INST:DMM:INST?")
+                {
+                    reply( DmmFitted ? "1" : "0");
+                }
+                else if( text == "INST:DMM?")
+                {
+                    reply( DmmEnabled ? "1" : "0");
                 }
                 else if( text.starts_with( "DIAG:REL:CYCL? "))
                 {
@@ -406,3 +427,98 @@ TEST_F( SwitchUnitFixture, ADrivenCrosspointMovesItsLifeCount)
 {
     EXPECT_TRUE( verdictOf( swuRelayCycles));
 }
+
+//
+// -- The internal DMM -------------------------------------------------------------
+//
+// Dmm2's readings are injected by key -- "Dmm2.Voltage", "Dmm2.Resistance" --
+// as every meter's are, so these never reach a MEASure; the rack fake answers
+// Swu1's relay moves and its fitted/enabled questions around them.
+//
+
+namespace
+{
+    struct SwitchUnitDmmFixture : SwitchUnitFixture
+    {
+        protected:
+
+            void TearDown() override
+            {
+                Measure.useLive();
+
+                core::bench().attach();
+
+                SwitchUnitFixture::TearDown();
+            }
+    };
+} // namespace
+
+TEST_F( SwitchUnitDmmFixture, TheMeterIsFittedAndEnabled)
+{
+    EXPECT_TRUE( verdictOf( swuDmmFitted));
+}
+
+TEST_F( SwitchUnitDmmFixture, AMeterThatIsDisabledFails)
+{
+    Rack->DmmEnabled = false;
+
+    EXPECT_FALSE( verdictOf( swuDmmFitted));
+}
+
+TEST_F( SwitchUnitDmmFixture, AnOpenBusReadsAsOpen)
+{
+    Measure.inject( "Dmm2.Voltage",    0.004_V);
+    Measure.inject( "Dmm2.Resistance", Resistance{ std::numeric_limits<double>::infinity() });
+
+    EXPECT_TRUE( verdictOf( swuDmmOpenBus));
+}
+
+//
+// Something on the bus that nothing put there -- a kilohm where there should
+// be an open circuit -- fails, which is the short the path script exists to
+// catch.
+//
+TEST_F( SwitchUnitDmmFixture, ABusWithSomethingOnItFails)
+{
+    Measure.inject( "Dmm2.Voltage",    0.004_V);
+    Measure.inject( "Dmm2.Resistance", 1.0_kOhm);
+
+    EXPECT_FALSE( verdictOf( swuDmmPathOntoNothing));
+    EXPECT_EQ( Rack->closedCount(), 0u) << "the path script leaves the slot open even when it fails";
+}
+
+TEST_F( SwitchUnitDmmFixture, AClosedPathOntoNothingStaysOpen)
+{
+    Measure.inject( "Dmm2.Voltage",    0.002_V);
+    Measure.inject( "Dmm2.Resistance", Resistance{ std::numeric_limits<double>::infinity() });
+
+    EXPECT_TRUE( verdictOf( swuDmmPathOntoNothing));
+}
+
+//
+// The wired chain, detached so the Apply to DcP7 reaches no supply: open,
+// 5 V through the path, open again -- three readings of one key, in order.
+//
+TEST_F( SwitchUnitDmmFixture, TheSupplyArrivesThroughTheMatrix)
+{
+    core::bench().detach();
+
+    Measure.inject( "Dmm2.Voltage", { 0.003_V, 5.002_V, 0.001_V });
+
+    EXPECT_TRUE( verdictOf( swuDmmThroughTheMatrix));
+    EXPECT_EQ( Rack->closedCount(), 0u);
+}
+
+//
+// A path that did not close -- the meter still reads the open bus with the
+// supply on -- fails on the middle reading.
+//
+TEST_F( SwitchUnitDmmFixture, ASupplyThatDoesNotArriveFails)
+{
+    core::bench().detach();
+
+    Measure.inject( "Dmm2.Voltage", { 0.003_V, 0.003_V, 0.001_V });
+
+    EXPECT_FALSE( verdictOf( swuDmmThroughTheMatrix));
+}
+

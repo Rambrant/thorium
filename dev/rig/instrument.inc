@@ -132,6 +132,15 @@
 // pass (see hal::RelayHoldingInstrument). Declared last anyway, which costs
 // nothing and reads the way safing runs.
 //
+//
+// Dmm2 is the same box's other face: the 34980A's internal DMM, fitted on this
+// desk's unit. Same box name and address as Swu1, which the build holds them to
+// (hal/topology/boxes.hpp), so the two share one session -- the switching and
+// the meter as two families on one connection (see hal::BoxConnection). It
+// measures the Analog Buses; a signal reaches it by closing a matrix crosspoint
+// onto a Matrix 2 row and that row's bus relay. See
+// dev/suite/scripts/swu_dmm.cpp.
+//
 INSTRUMENTS
     INSTRUMENT( DeskDmm, keysight_edu34450a::EDU34450A,     Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
     INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput1, DcP5, Usb( "CN65100272"))   // 6 V / 5 A
@@ -140,4 +149,5 @@ INSTRUMENTS
     INSTRUMENT( Scope1,  keysight_dsox1202g::DSOX1202G,     Osc1, Usb( "CN64504143"))   // 
     INSTRUMENT( Wfg1,    keysight_33522b::Wfg33522B,        Wfg1, Usb( "MY52803613"))   //
     INSTRUMENT( Swu1,    keysight_34980a::Chassis,          Swu1, Usb( "MY53154781"))   // 
+    INSTRUMENT( Swu1,    keysight_34980a::InternalDmm,      Dmm2, Usb( "MY53154781"))   // the same box's internal DMM -- see above
 END_INSTRUMENTS
