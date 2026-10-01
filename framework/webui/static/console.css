@@ -83,8 +83,14 @@ input:disabled, select:disabled { opacity: 0.6; }
 #results tr.pass td { color: var(--pass); }
 #results tr.fail td, #results tr.error td { color: var(--fail); }
 #results tr.error td.detail { white-space: pre-wrap; max-width: none; }
-#results tr.section td { color: var(--quiet); background: #2a2a2d; font-size: 0.78rem; padding-top: 0.3rem; }
-#results.failures-only tbody tr:not(.fail):not(.error) { display: none; }
+/* A tree, as the human log reads: group, then its tests and hooks, then
+   their readings and checks, each a step further in. Group and test
+   headings are the same size and grey; only the group's has the band. */
+#results tr.section td { color: var(--quiet); font-size: 0.82rem; padding-top: 0.3rem; white-space: nowrap; }
+#results tr.section.level0 td { background: #2a2a2d; }
+#results tr.section.level1 td { padding-left: 1.5rem; }
+#results tbody tr:not(.section) td:first-child { padding-left: 2.5rem; }
+#results.failures-only tbody tr:not(.fail):not(.error):not(.has-failure) { display: none; }
 
 /* --- the bar ------------------------------------------------------- */
 #bar { display: flex; gap: 0.5rem; align-items: center; }

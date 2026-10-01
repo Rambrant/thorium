@@ -8,27 +8,33 @@
 // look like a check that succeeded (see core::JournalRecord::Passed). Every
 // Connect and Apply is still in Raw events, and in the SARIF log.
 //
-// A row is { className, cells: [[text, cls], ...], tooltip }, or { section }
-// for a group's heading. The view draws them; nothing here knows how.
+// Laid out as a tree, the way the human log reads: a group's heading, each
+// of its tests -- or a hook's bracket -- as a heading under it, and the
+// readings and checks under that. A row is { className, cells: [[text,
+// cls], ...], tooltip }, or { section, level } for a heading, level 0 a
+// group and 1 a test or hook. The view draws them; nothing here knows how.
 
 import { plural } from './format.js';
 
-// What one event contributes. `current` is what the Test column says --
-// the running test, or a hook's bracket -- and is handed back, changed or
-// not, because the event that changes it is never the one that shows it.
+// What one event contributes. `current` is the running test, or a hook's
+// bracket, and is handed back, changed or not: the view keeps it so a
+// check's tooltip can still name its test when Failures only hides the
+// headings around it.
 export function rowsFor(e, current) {
   const rows = [];
   switch (e.kind) {
     case 'groupStart':
-      rows.push({ section: e.group + (e.description ? ' -- ' + e.description : '') });
+      rows.push({ section: e.group + (e.description ? ' -- ' + e.description : ''), level: 0 });
       break;
     case 'phaseStart':
       // A hook's own bracket, shown because a run that fails in its setup
       // never reaches a test and would otherwise leave the table empty.
       current = e.group ? e.group + ' ' + e.phase : e.phase;
+      rows.push({ section: current, level: 1 });
       break;
     case 'testStart':
       current = e.test;
+      rows.push({ section: e.test + (e.description ? ' -- ' + e.description : ''), level: 1 });
       break;
     case 'event':
       if (e.verb === 'Verify') {
@@ -36,9 +42,9 @@ export function rowsFor(e, current) {
         const subject = e.subjectGroup ? e.subjectGroup + '::' + e.subject : (e.subject || e.detail);
         rows.push({
           className: passed ? 'pass' : 'fail',
-          cells: [[current, 'tid'], [subject, 'subject'], [e.value, 'num'], [passed ? 'PASS' : 'FAIL', 'verdict'],
+          cells: [[subject, 'subject'], [e.value, 'num'], [passed ? 'PASS' : 'FAIL', 'verdict'],
                   [e.criterionText || e.detail, 'detail']],
-          tooltip: e.subject && e.detail ? e.detail : '',
+          tooltip: [current, e.subject && e.detail].filter(Boolean).join(': '),
         });
       } else if (e.verb === 'Measure' || e.verb === 'Read' || e.verb === 'Fetch') {
         // The observation verbs only, as the human log does. Value alone,
@@ -46,8 +52,8 @@ export function rowsFor(e, current) {
         // the unit in it ("0 V V" is what appending one produced).
         rows.push({
           className: '',
-          cells: [[current, 'tid'], [e.subject, 'subject'], [e.value, 'num'], [''], [e.detail, 'detail']],
-          tooltip: '',
+          cells: [[e.subject, 'subject'], [e.value, 'num'], [''], [e.detail, 'detail']],
+          tooltip: current || '',
         });
       }
       break;
@@ -59,7 +65,7 @@ export function rowsFor(e, current) {
 // stderr is a reason a run did not happen, and in every such case there are
 // no events at all, so this is all the operator sees.
 export function stderrRow(text) {
-  return { className: 'error', cells: [[''], [''], [''], ['ERROR', 'verdict'], [text, 'detail']], tooltip: '' };
+  return { className: 'error', cells: [[''], [''], ['ERROR', 'verdict'], [text, 'detail']], tooltip: '' };
 }
 
 // Counts checks -- Verify rows -- and not readings or stderr.

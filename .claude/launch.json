@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "webui",
+      "runtimeExecutable": "build/debug/framework/webui/thorium_webui",
+      "runtimeArgs": ["--run-scripts=build/install/bin/run_scripts", "--port=8421"],
+      "port": 8421
+    }
+  ]
+}

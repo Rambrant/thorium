@@ -11,16 +11,23 @@ const log = $('log');
 const resultsBox = $('results');
 const rows = $('rows');
 let counts = { checks: 0, failed: 0 };
+// The open group's and test's heading rows, by level: a failure under them
+// marks them, so Failures only still says where each failure was.
+let headings = [];
 
 // Follows the run only while the operator is looking at its end, so
 // scrolling back to read a failure is not yanked away by the next reading.
 function addRow(row) {
+  const follow = resultsBox.scrollTop + resultsBox.clientHeight >= resultsBox.scrollHeight - 30;
   if (row.section !== undefined) {
-    rows.append(el('tr', { className: 'section' }, el('td', { colSpan: 5, textContent: row.section })));
+    const tr = el('tr', { className: 'section level' + row.level }, el('td', { colSpan: 4, textContent: row.section }));
+    headings = headings.slice(0, row.level).concat(tr);
+    rows.append(tr);
+    if (follow) resultsBox.scrollTop = resultsBox.scrollHeight;
     return;
   }
-  const follow = resultsBox.scrollTop + resultsBox.clientHeight >= resultsBox.scrollHeight - 30;
   const tr = el('tr', { className: row.className });
+  if (row.className === 'fail' || row.className === 'error') headings.forEach((h) => h.classList.add('has-failure'));
   if (row.tooltip) tr.title = row.tooltip;
   for (const [text, cls] of row.cells) {
     const cell = el('td', { textContent: text || '', className: cls || '' });
@@ -36,6 +43,7 @@ function addRow(row) {
 
 export function clearResults() {
   rows.replaceChildren();
+  headings = [];
   counts = { checks: 0, failed: 0 };
   $('resultCount').textContent = countText(counts);
 }
