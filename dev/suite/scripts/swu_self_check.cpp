@@ -43,8 +43,10 @@
 // up here, against the hardware, before any rig depends on it.
 //
 // These call the chassis driver directly -- Swu1.close(), not Connect() --
-// because the fabric does not drive a 34980A yet: so the relay moves are not
-// journal events, and the verdicts are. Every script puts back what it moved
+// because what they test is the driver: that each SCPI command does what it
+// says on this rack. A script that wants a route rather than a relay uses the
+// fabric (see swu_dmm.cpp's routed reading); these relay moves are not journal
+// events, and the verdicts are. Every script puts back what it moved
 // before it returns -- matrices all open, RF banks on channel 01 -- and safing
 // opens every matrix after the run regardless, in the pass after every source
 // is off.

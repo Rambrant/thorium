@@ -1,49 +1,31 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// The dev bench has no DUT, and this is that stated in the one place the
-// framework asks.
+// The dev bench has no DUT, and one point: a terminal the switching reaches.
 //
-// An adapter with no points, for the reason dev/rig/devices.inc is an empty
-// table rather than a missing one: ADAPTER opens the fixed `dut` struct that
-// every script's at( ...) resolves through (see hal/topology/adapter.hpp), and a
-// deployment that omitted it would fail to compile the moment anything
-// included the suite's prelude -- rather than compiling into a suite where
-// at( ...) simply has nothing to offer, which is the truth here.
+// ADAPTER opens the fixed `dut` struct every script's at( ...) resolves through
+// (see hal/topology/adapter.hpp), so it is here even with nothing much in it.
+// A POINT names a place a rig can reach -- dev/rig/tests and the bench's
+// dut/tests/test_wiring_coverage.cpp hold every point to a wiring row that
+// reaches it -- and there are two ways a rig can: a connector-wiring row
+// through the fabric, which is how the point below is reached, or a tap row
+// saying an instrument's leads are cabled straight onto the pin (see
+// hal::TapWiring), which needs no card at all.
 //
-// There is nothing to declare because there is nothing wired -- and note that
-// "wired" is the word doing the work, not "routed". A POINT names a VPC pin,
-// dut/tests/test_wiring_coverage.cpp reflects over every one and requires the
-// rig to be able to reach it, and there are two ways a rig can: a
-// connector-wiring row through the fabric, or a tap row saying an instrument's
-// leads are cabled straight onto the pin (see hal::TapWiring). This bench has
-// no fabric, so the first is out of reach -- but the second needs no card at
-// all, and dev/rig/wiring.inc's TAP_WIRING block is empty only because there
-// is no fixture on the desk to name.
+// Most of what a dev script measures is still the instrument itself, with no
+// at( ...) and nothing closed -- see core::MeasureEngine's point-free
+// operator(). The point below is for the one reading that is routed: the
+// switch unit's meter, through its matrix, at a terminal a cable is put on.
 //
-// So a POINT here is not forbidden, it is unwritten. Declaring one without a
-// row in either table would still break the build, and correctly. That check
-// is doing its job here by having nothing to check.
 //
-// What a dev script measures instead is the instrument itself:
+// -- The desk's one point -------------------------------------------------------
 //
-//     const auto reading = Measure( Dmm1.voltage());
-//
-// -- no at( ...), no route, nothing closed. See core::MeasureEngine's
-// point-free operator() for why that is a first-class reading rather than a
-// shortcut, and dev/README.md for what it costs in coverage.
-//
-// The day this desk grows a probe fixture with named pins, it needs two rows,
-// not three: a POINT here and a WIRE_TAP row in dev/rig/wiring.inc naming the
-// meter and that pin. No card, and no order to get right -- the two rows are
-// checked against each other and against nothing else.
-//
-// A card is still what the *routed* half costs. One in dev/rig/devices.inc,
-// plus a WIRE_INSTRUMENT and a WIRE_CONNECTOR row, buys path composition,
-// hal::SwitchFabric and the interlock's fabric side; see dev/README.md. What
-// the tap row buys without it is the at( ...) vocabulary -- point-keyed
-// journal and session keys, and the coverage check -- which is the half a
-// script's portability actually depends on.
+// One terminal the switching can reach: Matrix 2 column 1 of the 34932A in slot
+// 1, on its 34932T terminal block, which dev/rig/wiring.inc routes from the
+// 34980A's own meter. Not a DUT -- the desk still has none -- but a named place
+// a cable can be put, which is all a POINT has to be for at( ...) to reach it.
+// SwitchUnitWired cables the supply's DcP7 onto it.
 //
 ADAPTER( "Dev bench -- an instrument on a desk, no adapter and no DUT")
+    POINT( DeskTerminal, A, 1, 1, "Slot 1 Matrix 2 column 1, on the 34932T terminal block")
 END_ADAPTER

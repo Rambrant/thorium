@@ -111,12 +111,12 @@ namespace hal::keysight_34980a
     // hal/topology/boxes.hpp). See rig/devices.inc, which records that as this
     // rack's destination.
     //
-    // What still has to be built before any of that switches a real relay:
-    // hal::SwitchFabric has no transport seam. Its close()/open() increment a
-    // use count, and its own comment says so ("On real hardware close()/open()
-    // would be GPIB/VXI writes to the relevant card"). This class is what those
-    // writes will go through; nothing calls it from the fabric yet, and making
-    // that call is a change to generic hal rather than to this directory.
+    // And the fabric drives it: hal::SwitchFabric, handed the rig's driver,
+    // moves a relay on its first use and its last release through the
+    // instrument on the card's box that switches cards -- this class, by
+    // closeOnCard()/openOnCard() (see hal/fabric/rig_switching.hpp). So a
+    // routed Measure or a Connect over a card in one of these slots is real
+    // ROUT:CLOS/ROUT:OPEN down the box's one session.
     //
     // -- An instrument row, and why it became one ----------------------------
     //
@@ -600,8 +600,8 @@ namespace hal::keysight_34980a
             // Note what this does NOT do: open any relay. Closing a connection
             // to a latching switch matrix leaves every crosspoint exactly where
             // it was, which is a property of the hardware and not something to
-            // paper over -- see openAll() for the command that does, and this
-            // file's preamble on why nothing calls it automatically yet.
+            // paper over -- see openAll() for the command that does, and
+            // safeRelays() for where a failed run gets it.
             //
             auto closeSession() -> void
             {
@@ -713,13 +713,11 @@ namespace hal::keysight_34980a
             // ROUT:OPEN:ALL -- open every channel relay and every Analog Bus
             // relay, on one module or on all of them.
             //
-            // This is the command that ought to be on the end of a failed run,
-            // and today nothing puts it there. hal::safeRig() finishes by
-            // calling hal::fabric.openAll(), which is bookkeeping -- so on a
-            // rig whose switching is a 34980A, a script that died with a rail
-            // routed to a DUT pin leaves that relay closed. See this file's
-            // preamble; the fix is a transport seam in hal::SwitchFabric, and
-            // this member is what it will call.
+            // The command on the end of a failed run, as ROUT:OPEN:ALL ALL --
+            // safeRelays() sends it in hal::safeRig()'s second pass, once every
+            // source is off. hal::fabric.openAll() after it is bookkeeping:
+            // the hardware has been opened by then, and safing may not talk
+            // through the fabric's driver.
             //
             // Deliberately not called from a destructor, and this is the same
             // argument hal::keysight_dsox1202g::DSOX1202G's safe() makes about
@@ -827,6 +825,27 @@ namespace hal::keysight_34980a
             // otherwise a mystery nobody can diagnose from the PC.
             //
             auto setInternalDmm( bool enabled) -> void;
+
+            // --- Driven by the fabric ---
+
+            //
+            // One relay on the card in this slot, as hal::fabric moves it --
+            // see hal::CardSwitchingInstrument. A card row on this chassis's
+            // box (SWITCH_DEVICE( Swu1, Keysight34932A, Matrix1, ..., Card( 1)))
+            // gives the slot; the fabric gives the channel; this is one
+            // ROUT:CLOS or ROUT:OPEN of the two, through close()/open() and so
+            // through everything they already do: the slot checked, the
+            // command checked(), and nothing sent on a detached bench.
+            //
+            auto closeOnCard( const int card, const std::uint16_t channel) -> void
+            {
+                close( ChannelAddress{ card, channel });
+            }
+
+            auto openOnCard( const int card, const std::uint16_t channel) -> void
+            {
+                open( ChannelAddress{ card, channel });
+            }
 
             // --- Relay health ---
 

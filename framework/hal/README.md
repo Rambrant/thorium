@@ -156,13 +156,14 @@ One row there measures and sources nothing. `hal::keysight_34980a::Chassis` is a
 `--address` reach it, and `hal::safeRig()` opens its relays -- in a second pass,
 after every source is off (`hal::RelayHoldingInstrument`). It lives under `instruments/` because
 `hal/fabric/switch_device.hpp` named that directory as the destination for
-switch-card drivers before there were any. One consequence worth knowing here
-rather than in that package's README: nothing in `hal::SwitchFabric` calls it
-yet, because the fabric has no transport seam -- its `close()`/`open()`
-increment a use count. So a script switches a chassis by calling it directly
-(`Swu1.close(...)`), not through `Connect`, and the relay moves are not journal
-events. Safing does reach its relays, through the chassis row rather than the
-fabric.
+switch-card drivers before there were any. Its cards are `devices.inc` rows on
+the same box, and `hal::SwitchFabric` drives them through it: handed the rig's
+`SwitchDriver` (`hal/fabric/rig_switching.hpp`), the fabric moves a relay at its
+first use and its last release, through the instrument on the card's box that
+switches cards (`hal::CardSwitchingInstrument`). A box with no such instrument
+-- the bench's Racal rack today -- keeps its cards' switching as bookkeeping, as
+every card was before. Safing reaches the relays through the chassis row's
+`safeRelays()`, not through the fabric.
 
 A rig's own instrument list, wiring data, and concrete instrument
 identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP7`/`AcP1`/`Ser1`/`fabric`

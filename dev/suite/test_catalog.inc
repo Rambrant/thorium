@@ -112,5 +112,5 @@ END_GROUP
 // 34932A in slot 1. Run on its own. See dev/suite/scripts/swu_dmm.cpp.
 //
 GROUP( SwitchUnitWired, "Supply, matrix and internal DMM through real copper -- needs DcP7 cabled to slot 1, Matrix 2 column 1")
-    TEST( SwuDmmThroughTheMatrix, swuDmmThroughTheMatrix, "5 V from DcP7 arrives through crosspoint 501 and bus relay 921")
+    TEST( SwuDmmThroughTheMatrix, swuDmmThroughTheMatrix, "A routed reading at dut::DeskTerminal: DcP7's 5 V through the fabric's crosspoint 501 and bus relay 921")
 END_GROUP

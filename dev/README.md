@@ -82,13 +82,19 @@ verify, both sinks — and the only thing absent is the routing.
 
 ## What it does not exercise, and what to do about it
 
-**The fabric.** With no cards declared there is no `hal::SwitchDeviceId` to name,
-so `HOP(...)` cannot be written, and path composition, `hal::SwitchFabric` and
-the electrical interlock's fabric side never run. That is not a gap in this
-deployment — it is what a desk with no relays *is*. If you want the routed path
-in the dev loop, put one real mux card on the desk: one row in
-`dev/rig/devices.inc`, one `WIRE_INSTRUMENT`, one `WIRE_CONNECTOR`, one `POINT`,
-and the entire routed half comes back. The framework needs no change for it.
+**The fabric -- exercised now, against real relays.** This section used to open
+with the routed half being out of reach: no cards, so no `HOP(...)`, so path
+composition, `hal::SwitchFabric` and the interlock's fabric side never ran. The
+34980A's five cards are `dev/rig/devices.inc` rows now, on box `Swu1`, and the
+fabric drives them: one `WIRE_INSTRUMENT` (the internal DMM's bus relay), one
+`WIRE_CONNECTOR` (a crosspoint) and one `POINT` (`dut::DeskTerminal`) make
+`Measure( Dmm2.voltage(), at( dut::DeskTerminal))` a routed reading that closes
+`ROUT:CLOS (@1921)` and `(@1501)` through the chassis, reads, and opens them.
+The fabric moves a relay at its first use and its last release, rolls a
+half-closed path back, and releases a path even when its reading fails -- see
+`framework/hal/include/hal/fabric/switch_fabric.hpp` and `rig_switching.hpp`.
+What this desk still does not exercise is a *source* routed through the
+switching: the supply's outputs are cabled straight, not through relays.
 
 **Points, but only until someone writes one.** `Measure( port, at( point))` is
 no longer out of reach here, and that is the one item on this list the framework
@@ -369,11 +375,12 @@ enabled, an open Analog Bus reads no voltage and an *overload* for resistance
 (which `whenUnmeasurable` turns into "beyond 100 MOhm"), and closing a crosspoint
 and a bus relay onto nothing leaves the bus open. **SwitchUnitWired** is the whole
 chain and needs one cable -- `DcP7` onto Matrix 2 column 1 of the 34932A in slot
-1 -- and is run on its own: the meter must read the supply's 5 V through
-crosspoint 501 and bus relay 921, with the path closed before the supply comes
-on and opened after it goes off. Whether the meter accepts the bare `MEASure`
-form it uses is the one thing the first run confirms; see
-`instruments/keysight_34980a/README.md`.
+1, which is `dut::DeskTerminal` -- and is run on its own: a routed
+`Measure( Dmm2.voltage(), at( dut::DeskTerminal))` must read the supply's 5 V,
+the fabric closing bus relay 921 and crosspoint 501 for the reading and opening
+them after, and the terminal must read zero once the supply is removed. Whether
+the meter accepts the bare `MEASure` form it uses is the one thing the first run
+confirms; see `instruments/keysight_34980a/README.md`.
 
 Its unit tests hand `Swu1` a fake of this rack built from the same hal models,
 because the driver's own simulation knows the slots and not the modules -- it

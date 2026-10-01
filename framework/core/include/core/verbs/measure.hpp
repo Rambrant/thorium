@@ -360,7 +360,33 @@ namespace core
                     //
                     mFabric.connect( path);
 
-                    auto value = QuantityVariant{ readOrSubstitute() };
+                    //
+                    // Released whatever the reading does. While the fabric was
+                    // bookkeeping, a reading that threw left a path counted as
+                    // held and nothing worse; with a driver behind it, that is
+                    // real relays left closed onto a pin with nobody holding
+                    // them. So the release is unconditional, and a failure to
+                    // release is reported only if the reading itself succeeded
+                    // -- the reading's failure is the one worth hearing first.
+                    //
+                    QuantityVariant value;
+
+                    try
+                    {
+                        value = QuantityVariant{ readOrSubstitute() };
+                    }
+                    catch( ...)
+                    {
+                        try
+                        {
+                            mFabric.disconnect( path);
+                        }
+                        catch( ...)
+                        {
+                        }
+
+                        throw;
+                    }
 
                     mFabric.disconnect( path);
 

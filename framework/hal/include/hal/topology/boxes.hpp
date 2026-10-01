@@ -58,11 +58,11 @@
 //                         bench whose instruments are mostly not plugged in
 //                         says it on most of its rows.
 //
-// Device rows carry a box and are held to both rules, but nothing resolves
-// their addresses at startup yet: the switching fabric does not drive hardware
-// (see hal::SwitchFabric), so a device row's address is a fact the tables
-// check and nothing opens. When the fabric gets its transport seam, a device
-// row joins its box's binding like an instrument row does.
+// Device rows carry a box and are held to both rules, and their address is
+// one the tables check rather than one anything opens: the fabric reaches a
+// card through the instrument on its box that switches cards (see
+// hal/fabric/rig_switching.hpp), so it is that instrument's binding -- its
+// --address, its pool -- that decides where the card is.
 //
 namespace hal
 {

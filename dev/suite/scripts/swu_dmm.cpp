@@ -10,9 +10,10 @@
 //
 // The meter measures the mainframe's Analog Buses, and a signal reaches a bus
 // through the switching: a crosspoint onto a Matrix 2 row, and that row's bus
-// relay -- 921 puts row 5 on ABus1, the meter's input. These scripts close
-// those by hand (Swu1.close()), because the fabric does not drive this box yet;
-// the day it does, the close below is a Connect.
+// relay -- 921 puts row 5 on ABus1, the meter's input. The SwitchUnitDmm
+// scripts close those by hand (Swu1.close()), because what they check is the
+// meter and the bus with no route at all; SwitchUnitWired reaches the terminal
+// the framework's way, a routed Measure the fabric switches for.
 //
 // SwitchUnitDmm needs nothing wired and runs whole: the meter is there, an open
 // bus reads as one, and closing a path onto nothing leaves it open.
@@ -108,14 +109,21 @@ auto swuDmmPathOntoNothing() -> void
 }
 
 //
-// The whole chain, wired: the supply onto column 1, through crosspoint 501 and
-// bus relay 921, to the meter.
+// The whole chain, wired: the supply onto dut::DeskTerminal -- Matrix 2 column 1
+// of slot 1 -- and the meter reading it the framework's way, a routed Measure
+// at the point. The fabric composes the path from dev/rig/wiring.inc (Dmm2's bus
+// relay 921, the terminal's crosspoint 501), closes it through the Chassis,
+// reads, and opens it again -- the relay moves the scripts above make by hand,
+// made by the fabric, and journalled.
 //
-// In the order the framework holds every route to: the path closed while it is
-// dead, then the source on, the reading, the source off, and only then the path
-// opened -- so no relay here ever moves with 5 V across it. And the bus read
-// open before and after, so a reading of 5 V is the supply arriving through the
-// path rather than something left on the bus.
+// Supply on, reading, supply off, reading: the second reading is the terminal
+// with the supply removed, which has to be zero for the first to mean the
+// supply arrived rather than something else on the column. The routed readings
+// close their path onto a live 5 V, which is how every routed rail reading on
+// the bench is taken -- the meter is a high-impedance load, and the rule about
+// relays moving on a dead path is the sources' (see core/verbs/source.hpp). And
+// the bus is read open, point-free, before and after: the path is released
+// after each routed reading, so nothing is left on it.
 //
 auto swuDmmThroughTheMatrix() -> void
 {
@@ -123,15 +131,13 @@ auto swuDmmThroughTheMatrix() -> void
 
     Verify( DEV_SwuDmm_1::DEV_SwuDmm_OpenVolts, Measure( Dmm2.voltage()));
 
-    Swu1.close( { kRowFiveColumnOne, kRowFiveOnTheBus });
-
     Apply( DcP7.dc().voltage( 5.0_V).currentLimit( 10.0_mA).overVoltageProtection( 6.0_V));
 
-    Verify( DEV_SwuDmm_1::DEV_SwuDmm_Through, Measure( Dmm2.voltage()));
+    Verify( DEV_SwuDmm_1::DEV_SwuDmm_Through, Measure( Dmm2.voltage(), at( dut::DeskTerminal)));
 
     Remove( DcP7.dc());
 
-    Swu1.openAll( kSlot);
+    Verify( DEV_SwuDmm_1::DEV_SwuDmm_OpenVolts, Measure( Dmm2.voltage(), at( dut::DeskTerminal)));
 
     Verify( DEV_SwuDmm_1::DEV_SwuDmm_OpenVolts, Measure( Dmm2.voltage()));
 }

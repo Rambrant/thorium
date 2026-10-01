@@ -68,16 +68,15 @@ namespace
     }
 
     //
-    // A point declared here without the card and the wiring row that would make
-    // it reachable is the mistake this guards, and the failure lands the right
-    // way round: such a point compiles against the bench deployment's tables
-    // and fails against this one, because this is the build with no fabric to
-    // reach it through.
+    // One point, dut::DeskTerminal -- a terminal on slot 1's 34932T, which the
+    // 34980A's cards and dev/rig/wiring.inc make reachable (asserted there, in
+    // dev/rig/tests/test_dev_rig.cpp). A second point is a deliberate edit of
+    // this line, after a wiring row for it: the order this line used to name,
+    // when the count was zero and the desk had no fabric to reach one through.
     //
-    static_assert( adapterPointCount() == 0,
-                   "dev/dut/adapter.inc declares an adapter point, but dev/rig/ has no fabric to reach "
-                   "one through -- add a card to dev/rig/devices.inc and a row to dev/rig/wiring.inc "
-                   "first, in that order, and then this line is the one to change");
+    static_assert( adapterPointCount() == 1,
+                   "dev/dut/adapter.inc's point count changed -- add a dev/rig/wiring.inc row that "
+                   "reaches a new point first, then change this line");
 
     //
     // The adapter is this deployment's, and not the bench's reached by a wrong

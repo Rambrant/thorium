@@ -68,10 +68,10 @@ namespace core
     // scripted session never invokes, and hal::safeRig() opens everything
     // regardless of what it thought was closed.
     //
-    // And hal::SwitchFabric is bookkeeping today, with no I/O of its own -- so
-    // "nothing reached the fabric" currently means "nothing was recorded as
-    // closed". When relay I/O does arrive it belongs inside that class, behind
-    // this same switch, rather than as a second flag beside it.
+    // And hal::SwitchFabric's relay I/O is behind this same switch: a
+    // fabric with a driver moves real relays (see hal/fabric/rig_switching.hpp),
+    // and "nothing reached the fabric" means nothing moved -- one flag, not a
+    // second one beside it.
     //
     template<typename FabricT, typename InstrumentWiringT, typename ConnectorWiringT>
     class ConnectEngine

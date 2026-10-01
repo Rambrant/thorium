@@ -265,8 +265,9 @@ channels (041-044), not the buses. No capacitance or temperature either.
 
 ### Detached runs
 
-A script calls `Chassis` directly (`Swu1.close()`) until the fabric drives this
-box, and a direct call asks no verb whether the bench is attached. So the chassis
+A script may still call `Chassis` directly (`Swu1.close()`) -- the SwitchUnit
+scripts do, to test the driver itself -- and a direct call asks no verb whether
+the bench is attached. So the chassis
 asks for itself: on a detached bench (`--skeleton`, `--replay`, `--inject`) every
 switching call answers from its own bookkeeping and nothing is sent.
 
@@ -337,11 +338,6 @@ have a switch face per card and a meter face, without a second session to it.
   then a channel is checked for shape and not for existence, and the
   instrument's error queue is what catches a wrong one — which is exactly the
   trade `hal::hasChannel` exists to remove.
-- **the fabric seam.** `hal::SwitchFabric::close()` increments a use count; its
-  own comment says "on real hardware close()/open() would be GPIB/VXI writes to
-  the relevant card." This class is what those writes will go through. Nothing
-  calls it from the fabric yet, and making that call is a change to generic
-  `hal`.
 - **scanning** (`ROUT:SCAN`, `INIT`, `FETCh?`). The box's headline feature, and
   it belongs to the DMM face: a scan is a series of readings and this class has
   nothing to record them as. Note also that a scan takes over whole *banks*, so

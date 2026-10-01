@@ -496,29 +496,46 @@ TEST_F( SwitchUnitDmmFixture, AClosedPathOntoNothingStaysOpen)
 }
 
 //
-// The wired chain, detached so the Apply to DcP7 reaches no supply: open,
-// 5 V through the path, open again -- three readings of one key, in order.
+// The wired chain, detached so the Apply to DcP7 reaches no supply and the
+// routed readings close no relay. Two keys: "Dmm2.Voltage" for the open bus
+// read point-free, before and after, and "DeskTerminal" for the two routed
+// readings at the point -- a routed reading keys by its point.
 //
 TEST_F( SwitchUnitDmmFixture, TheSupplyArrivesThroughTheMatrix)
 {
     core::bench().detach();
 
-    Measure.inject( "Dmm2.Voltage", { 0.003_V, 5.002_V, 0.001_V });
+    Measure.inject( "Dmm2.Voltage", { 0.003_V, 0.001_V });
+    Measure.inject( "DeskTerminal", { 5.002_V, 0.002_V });
 
     EXPECT_TRUE( verdictOf( swuDmmThroughTheMatrix));
     EXPECT_EQ( Rack->closedCount(), 0u);
 }
 
 //
-// A path that did not close -- the meter still reads the open bus with the
-// supply on -- fails on the middle reading.
+// A path that did not close -- the terminal reads nothing with the supply on --
+// fails on the routed reading.
 //
 TEST_F( SwitchUnitDmmFixture, ASupplyThatDoesNotArriveFails)
 {
     core::bench().detach();
 
-    Measure.inject( "Dmm2.Voltage", { 0.003_V, 0.003_V, 0.001_V });
+    Measure.inject( "Dmm2.Voltage", { 0.003_V, 0.001_V });
+    Measure.inject( "DeskTerminal", { 0.003_V, 0.002_V });
 
     EXPECT_FALSE( verdictOf( swuDmmThroughTheMatrix));
 }
 
+//
+// And one that stays on the terminal after Remove -- a supply that did not turn
+// off, or something else on the column -- fails on the second.
+//
+TEST_F( SwitchUnitDmmFixture, ATerminalStillLiveAfterTheSupplyIsRemovedFails)
+{
+    core::bench().detach();
+
+    Measure.inject( "Dmm2.Voltage", { 0.003_V, 0.001_V });
+    Measure.inject( "DeskTerminal", { 5.002_V, 4.990_V });
+
+    EXPECT_FALSE( verdictOf( swuDmmThroughTheMatrix));
+}

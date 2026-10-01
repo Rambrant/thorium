@@ -13,12 +13,11 @@
 # what has a driver and a module is not.
 #
 # One consequence worth stating here, where a build reader will look for it:
-# no INSTRUMENT() row names this package, so cmake/InstrumentDrivers.cmake
-# generates no #include for it and it contributes no code to a rig binary. That
-# is the "availability is not use" case instruments/README.md describes -- the
-# same footing instruments/keysight_dso8064a is on -- and it is what this
-# package will stay on until hal::SwitchFabric grows a transport seam to call
-# it through.
+# a deployment that names neither of this package's types in an INSTRUMENT()
+# row -- the bench, today -- gets no #include for it and no code from it. That
+# is the "availability is not use" case instruments/README.md describes. The dev
+# desk names both (Chassis and InternalDmm, on box Swu1), and its fabric drives
+# the Chassis's cards.
 #
 # STATIC, like the three drivers that talk. Everything that speaks SCPI is in
 # src/keysight_34980a.cpp; the header carries the types a call site names.

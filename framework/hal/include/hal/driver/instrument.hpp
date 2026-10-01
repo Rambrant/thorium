@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
 namespace hal
@@ -161,5 +162,28 @@ namespace hal
     concept RelayHoldingInstrument = requires( InstrumentT & instrument)
     {
         instrument.safeRelays();
+    };
+
+    //
+    // An instrument that switches the cards in its box -- a switching
+    // mainframe such as hal::keysight_34980a::Chassis, whose slots hold the
+    // cards a rig declares in devices.inc as rows on the same box.
+    //
+    // What hal::SwitchFabric's rig driver looks for (see
+    // hal/fabric/rig_switching.hpp): for an element of a card in box B, the
+    // instrument on box B that satisfies this, told the card's address (its
+    // devices.inc Card( n)) and the channel. A box with no such instrument --
+    // a rack whose controller has no driver yet -- keeps its cards'
+    // switching as bookkeeping, which is what every card was before.
+    //
+    // Two calls rather than a list, because the fabric moves relays one at a
+    // time at the moments its use counts change; batching a path into one
+    // ROUT:CLOS is a later optimisation the interface does not rule out.
+    //
+    template<typename InstrumentT>
+    concept CardSwitchingInstrument = requires( InstrumentT & instrument, const int card, const std::uint16_t channel)
+    {
+        instrument.closeOnCard( card, channel);
+        instrument.openOnCard( card, channel);
     };
 } // namespace hal

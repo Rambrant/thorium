@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <map>
 #include <string>
 #include <vector>
@@ -195,12 +197,38 @@ namespace hal
     using Path = std::vector<SwitchElementId>;
 
     //
+    // What moves a relay, when the fabric decides one should move.
+    //
+    // The fabric decides *when* -- an element's first use closes it, its last
+    // release opens it -- and a driver does the moving. Abstract here so the
+    // fabric stays plumbing (see the class below on why it must not know about
+    // instruments): the rig supplies one that finds, for an element's card, the
+    // instrument on the same box that switches it (hal/fabric/rig_switching.hpp).
+    //
+    // Either call may throw -- a refused ROUT:CLOS is an hal::io::ScpiFault --
+    // and the fabric keeps its count true when one does: an element whose
+    // physical close failed is not counted as closed.
+    //
+    class SwitchDriver
+    {
+        public:
+            virtual ~SwitchDriver() = default;
+
+            virtual auto close( SwitchElementId id) -> void = 0;
+            virtual auto open( SwitchElementId id) -> void = 0;
+    };
+
+    //
     // The switching fabric sitting between the instruments and the VPC array:
     // every card the rig's devices.inc declares (see hal/fabric/switch_device.hpp),
-    // addressed uniformly by SwitchElementId. On real hardware close()/open()
-    // would be GPIB/VXI writes to the relevant card -- hal::addressOf() is
-    // where that card's address comes from -- while here they just track state
-    // so routing logic can be exercised and asserted on.
+    // addressed uniformly by SwitchElementId.
+    //
+    // Bookkeeping always, and hardware when it has a driver: handed a
+    // SwitchDriver, close() and open() move the real relay at the moments the
+    // use count says a relay should move, and not otherwise. Without one --
+    // the default, and every card on a bench whose switching has no driver yet
+    // -- it only tracks state, so routing logic can be exercised and asserted
+    // on with nothing behind it.
     //
     // What this class deliberately does NOT do is decide whether a path is
     // electrically safe to close, even though README.md once called that "a
@@ -217,7 +245,7 @@ namespace hal
     // verbs ask the driver whether it is live (core/verbs/route.hpp), and the routed
     // Measure asks the rig which source lands on the pin it is about to reach
     // (core/verbs/measure.hpp, hal/verbs/interlock.hpp). See core/verbs/interlock.hpp for the
-    // whole argument. What is left here is bookkeeping, and it stays that.
+    // whole argument.
     //
     // Each element's state is a use count, not a plain bool: a physical
     // relay is either open or closed, but two independent callers can both
@@ -226,28 +254,77 @@ namespace hal
     // same point with a second instrument. Whoever asked for it closed
     // last is not necessarily who's done with it first, so open() only
     // actually opens the relay once every close() on it has been matched
-    // by an open() -- see connect()/disconnect() below, which is what
-    // callers actually use.
+    // by an open() -- which is also exactly when the driver is told to open
+    // it, and a close() on an element already closed tells the driver nothing.
     //
     class SwitchFabric
     {
         public:
+            SwitchFabric() = default;
+
+            explicit SwitchFabric( SwitchDriver & driver) : mDriver( &driver) {}
+
+            //
+            // One use more. The first use closes the relay; the count is
+            // taken only once that has succeeded, so a refused close leaves
+            // the element open on the books as it is on the bench.
+            //
             auto close( SwitchElementId id) -> void
             {
-                ++mUseCount[ id];
+                const auto found = mUseCount.find( id);
+
+                if( found != mUseCount.end())
+                {
+                    ++found->second;
+
+                    return;
+                }
+
+                if( mDriver)
+                {
+                    mDriver->close( id);
+                }
+
+                mUseCount[ id] = 1;
             }
 
+            //
+            // One use fewer. The last release opens the relay -- and the
+            // count is dropped first, so a relay whose physical open failed is
+            // not left counted as somebody's: nobody holds it any more, and a
+            // later close must try again rather than believe it is closed.
+            //
             auto open( SwitchElementId id) -> void
             {
-                if( const auto found = mUseCount.find( id); found != mUseCount.end())
+                const auto found = mUseCount.find( id);
+
+                if( found == mUseCount.end())
                 {
-                    if( --found->second <= 0)
-                    {
-                        mUseCount.erase( found);
-                    }
+                    return;
+                }
+
+                if( --found->second > 0)
+                {
+                    return;
+                }
+
+                mUseCount.erase( found);
+
+                if( mDriver)
+                {
+                    mDriver->open( id);
                 }
             }
 
+            //
+            // Forget every use -- bookkeeping only, and deliberately so. This
+            // is hal::safeRig()'s last step, and by then safing's relay pass
+            // has already opened the hardware through each relay-holding
+            // instrument (see hal::RelayHoldingInstrument). Opening it again
+            // here would mean telling a driver to talk during safing, which
+            // may not open a session -- so the hardware half has one home,
+            // and this is not it.
+            //
             auto openAll() -> void
             {
                 mUseCount.clear();
@@ -274,23 +351,80 @@ namespace hal
             // channel also being read by a DMM) leave it closed until both
             // have released it, not just the first one to disconnect.
             //
+            // A path is all or nothing: if one element's close fails, the
+            // elements this call already closed are released again before
+            // the failure goes on, so a refused crosspoint cannot leave half
+            // a route closed -- a bus relay onto a meter, say, with nothing
+            // behind it that anyone will ever release.
+            //
             auto connect( const std::vector<SwitchElementId> & path) -> void
             {
-                for( const auto id : path)
+                std::size_t closed = 0;
+
+                try
                 {
-                    close( id);
+                    for( const auto id : path)
+                    {
+                        close( id);
+
+                        ++closed;
+                    }
+                }
+                catch( ...)
+                {
+                    for( std::size_t index = closed; index > 0; --index)
+                    {
+                        try
+                        {
+                            open( path[ index - 1]);
+                        }
+                        catch( ...)
+                        {
+                            //
+                            // The original failure is the one to report; a
+                            // second one while undoing it says less.
+                            //
+                        }
+                    }
+
+                    throw;
                 }
             }
 
+            //
+            // And a release is all of the path even when part of it fails:
+            // every element is released, and the first failure is reported
+            // once they all have been. Stopping at the first would leave the
+            // rest of the route counted as held by a caller that has finished
+            // with it -- closed for good, as far as the fabric could tell.
+            //
             auto disconnect( const std::vector<SwitchElementId> & path) -> void
             {
+                std::exception_ptr first;
+
                 for( const auto id : path)
                 {
-                    open( id);
+                    try
+                    {
+                        open( id);
+                    }
+                    catch( ...)
+                    {
+                        if( !first)
+                        {
+                            first = std::current_exception();
+                        }
+                    }
+                }
+
+                if( first)
+                {
+                    std::rethrow_exception( first);
                 }
             }
 
         private:
+            SwitchDriver *                  mDriver{ nullptr };
             std::map<SwitchElementId, int>  mUseCount;
     };
 } // namespace hal

@@ -3,6 +3,7 @@
 #include "hal/driver/address.hpp"
 #include "hal/driver/instrument.hpp"
 #include "hal/fabric/switch_fabric.hpp"
+#include "hal/fabric/rig_switching.hpp"
 
 //
 // The mechanism behind rig/instrument.inc: the macros that turn that table
@@ -123,5 +124,10 @@ namespace hal
     // The fixed wiring data itself (which channel each instrument/connector
     // pin is on) lives in rig/wiring.inc, not here -- see hal/topology/wiring.hpp.
     //
-    inline SwitchFabric fabric;
+    // Driven: handed the rig's SwitchDriver, the fabric moves a real relay at
+    // its first use and its last release, through the instrument on the
+    // card's box that switches it -- and stays bookkeeping for a box with no
+    // such instrument. See hal/fabric/rig_switching.hpp.
+    //
+    inline SwitchFabric fabric{ rigSwitchDriver() };
 } // namespace hal

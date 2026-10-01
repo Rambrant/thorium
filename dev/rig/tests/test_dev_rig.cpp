@@ -32,10 +32,10 @@
 //
 // rig/tests/ for the bench deployment holds integration tests that need more
 // than one instrument. This directory's job is different and smaller, because
-// the deployment is: what is worth asserting about a bench with one instrument
-// and no switching hardware is precisely that it *is* that -- so that the day
-// somebody adds a card or a second meter, the file saying "this is a desk with
-// a meter on it" fails and gets read.
+// the deployment is: what is worth asserting about a desk is precisely what it
+// has -- its instruments, its boxes, its one switch unit's cards and the one
+// route over them -- so that the day somebody adds a card or a meter, the file
+// saying what this desk is fails and gets read.
 //
 // Most of it is compile-time, in the style dut/tests/test_wiring_coverage.cpp
 // established: the assertions that matter are about tables, and a table is
@@ -47,6 +47,11 @@
 // framework/hal/CMakeLists.txt).
 //
 #include "dev/rig/wiring.inc"
+
+#include "hal/topology/adapter.hpp"
+#include "hal/verbs/measure.hpp"
+#include "core/verbs/at.hpp"
+#include "dev/dut/adapter.inc"
 
 namespace
 {
@@ -72,31 +77,32 @@ namespace
     static_assert( core::meta::values<hal::InstrumentId>[7] == hal::InstrumentId::Dmm2);
 
     //
-    // -- And no switching hardware at all ------------------------------------
+    // -- The switch unit's five cards ------------------------------------------
     //
-    // The claim dev/rig/devices.inc exists to make, and the one that decides
-    // what the rest of this deployment can do: with no SwitchDeviceId
-    // enumerators there is no HOP( ...) anyone could write, so every reading
-    // here is an instrument readback and the routed path is out of reach.
+    // dev/rig/devices.inc's rows: four 34932A matrices and a 34941A RF mux, all
+    // on box Swu1 -- the 34980A's switching faces, in its slots 1-5. The desk
+    // had no switching at all until the fabric could drive this box; these
+    // are what changed that.
     //
-    // This is also the assertion that pins down the fix in
-    // hal/fabric/switch_device.hpp that made an empty table compile at all -- see its
-    // own comment on why switchDevices is a std::array.
-    //
-    static_assert( core::meta::values<hal::SwitchDeviceId>.empty());
-    static_assert( hal::detail::switchDevices.empty());
+    static_assert( core::meta::values<hal::SwitchDeviceId>.size() == 5);
+    static_assert( hal::modelOf( hal::SwitchDeviceId::Matrix1) == hal::SwitchDeviceModel::Keysight34932A);
+    static_assert( hal::modelOf( hal::SwitchDeviceId::Matrix4) == hal::SwitchDeviceModel::Keysight34932A);
+    static_assert( hal::modelOf( hal::SwitchDeviceId::RfMux1)  == hal::SwitchDeviceModel::Keysight34941A);
+    static_assert( hal::detail::switchDevices[ 0].Card == hal::Card( 1));
+    static_assert( hal::detail::switchDevices[ 4].Card == hal::Card( 5));
+    static_assert( hal::detail::deviceBoxRows[ 0].Box == "Swu1");
+    static_assert( hal::detail::deviceBoxRows[ 4].Box == "Swu1");
 
     //
-    // -- Which is why the first three wiring tables are empty ----------------
+    // -- And one route over them ---------------------------------------------------
     //
-    // Not an independent fact: a row in any of those blocks would have to name
-    // a card, and there are none. Asserted anyway, because "empty because it
-    // has to be" and "empty because nobody has written it yet" look identical
-    // in the file and are the same two things dev/rig/wiring.inc's own comment
-    // distinguishes.
+    // The desk's one terminal, dut::DeskTerminal at A/1/1, is reachable --
+    // through slot 1's Matrix 2 -- and nothing else is, and no source is
+    // hard-wired onto it: a cable from the supply is the script's to make.
     //
+    static_assert(   hal::isWired( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }, hal::WireRole::Force));
     static_assert( ! hal::isWired( hal::VpcLocation{ hal::VpcRack::A, 1, 3 }, hal::WireRole::Force));
-    static_assert( ! hal::isSourceWired( hal::VpcLocation{ hal::VpcRack::A, 1, 3 }));
+    static_assert( ! hal::isSourceWired( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }));
 
     //
     // -- And why the fourth is empty for a different reason -------------------
@@ -157,14 +163,16 @@ TEST( DevRig, SafingReachesTheOneInstrumentAndSurvivesAnEmptyFabric)
 }
 
 //
-// The other half of "no wiring" -- stated as behaviour rather than as a table,
-// because this is the throw a script would actually hit if it tried to take a
-// routed reading on this bench. It is the correct outcome and worth having a
-// test say so: nothing here composes a route, so nothing here should be able
-// to ask for one and get a plausible answer.
+// The routes this desk has, stated as behaviour: Dmm2's own path is its bus
+// relay, the terminal's is its crosspoint -- so a routed reading at the
+// terminal closes 921 and 501 -- and an instrument with no wiring has no route
+// to ask for, which is the throw a script would hit trying one.
 //
-TEST( DevRig, AskingForARouteOnAFabriclessBenchThrows)
+TEST( DevRig, TheMetersRouteToTheTerminalIsItsBusRelayAndACrosspoint)
 {
+    EXPECT_EQ( hal::instrumentWiring.find( hal::InstrumentId::Dmm2), ( hal::Path{ HOP( Matrix1, 921) }));
+    EXPECT_EQ( hal::connectorWiring.find( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }), ( hal::Path{ ROW_COLUMN( Matrix1, 5, 1) }));
+
     EXPECT_THROW( ( void) hal::instrumentWiring.find( hal::InstrumentId::Dmm1), std::runtime_error);
 }
 
@@ -262,6 +270,11 @@ namespace
             {
                 mLog->push_back( mTag + ": " + std::string( command));
 
+                if( !Silent.empty() && command.starts_with( Silent))
+                {
+                    return;   // a query this fake will not answer -- see Silent
+                }
+
                 if( command == "*IDN?")
                 {
                     mReplies.push_back( mIdentity);
@@ -295,6 +308,12 @@ namespace
             {
                 return "recording fake " + mTag;
             }
+
+            //
+            // Commands starting with this get no reply -- a query the
+            // instrument refused, which the driver then times out on.
+            //
+            std::string Silent;
 
         private:
             std::shared_ptr<std::vector<std::string>> mLog;
@@ -551,3 +570,152 @@ TEST( DevRig, TheSwitchUnitsTwoFacesShareOneSessionAndPrepareItEach)
 
     Swu1.closeSession();
 }
+
+//
+// -- The fabric, driving the switch unit -----------------------------------------
+//
+// hal::fabric with the rig's driver behind it, on this deployment's real cards
+// and the real Chassis, with one fake standing in for the mainframe -- so the
+// relay moves the fabric decides on are read off what reached the wire.
+//
+namespace
+{
+    //
+    // Swu1 on a fake for the length of a test, and the fabric's books cleared
+    // after it, so a test that fails half-way leaves nothing held for the next.
+    //
+    struct FabricOnAFake
+    {
+        std::shared_ptr<std::vector<std::string>> Log = std::make_shared<std::vector<std::string>>();
+        Recorder *                                Wire{};
+
+        FabricOnAFake()
+        {
+            auto fake = std::make_unique<Recorder>( Log, "swu", "Agilent Technologies,34980A,MY53154781,2.43-2.42-1.19");
+
+            Wire = fake.get();
+
+            Swu1.useTransport( std::move( fake));
+        }
+
+        ~FabricOnAFake()
+        {
+            hal::fabric.openAll();
+            Swu1.closeSession();
+        }
+
+        //
+        // The relay moves that reached the wire, in order.
+        //
+        [[nodiscard]]
+        auto moves() const -> std::vector<std::string>
+        {
+            std::vector<std::string> found;
+
+            for( const auto & line : *Log)
+            {
+                if( line.starts_with( "swu: ROUT:CLOS (") || line.starts_with( "swu: ROUT:OPEN ("))
+                {
+                    found.push_back( line.substr( 5));
+                }
+            }
+
+            return found;
+        }
+    };
+} // namespace
+
+//
+// A crosspoint on Matrix1 is slot 1 of the box: ROUT:CLOS (@1501). Its second
+// use moves nothing, nor does its first release; its last release opens it.
+//
+TEST( DevRig, TheFabricMovesARelayAtItsFirstUseAndItsLastRelease)
+{
+    FabricOnAFake bench;
+
+    hal::fabric.close( ROW_COLUMN( Matrix1, 5, 1));
+    hal::fabric.close( ROW_COLUMN( Matrix1, 5, 1));
+    hal::fabric.open( ROW_COLUMN( Matrix1, 5, 1));
+
+    EXPECT_EQ( bench.moves(), ( std::vector<std::string>{ "ROUT:CLOS (@1501)" }));
+
+    hal::fabric.open( ROW_COLUMN( Matrix1, 5, 1));
+
+    EXPECT_EQ( bench.moves(), ( std::vector<std::string>{ "ROUT:CLOS (@1501)", "ROUT:OPEN (@1501)" }));
+}
+
+//
+// The card's slot is the row's Card( n): Matrix4 is slot 4.
+//
+TEST( DevRig, EachCardIsTheSlotItsRowSays)
+{
+    FabricOnAFake bench;
+
+    hal::fabric.close( ROW_COLUMN( Matrix4, 8, 16));
+
+    EXPECT_EQ( bench.moves(), ( std::vector<std::string>{ "ROUT:CLOS (@4816)" }));
+}
+
+//
+// An RF bank is a 1-of-4 with no open state, and a 34941A refuses ROUT:OPEN --
+// so releasing one moves nothing, and the bank stays where it was put.
+//
+TEST( DevRig, ReleasingAnRfBankSendsNothing)
+{
+    FabricOnAFake bench;
+
+    hal::fabric.close( BANK( RfMux1, 1, 4));
+    hal::fabric.open( BANK( RfMux1, 1, 4));
+
+    EXPECT_EQ( bench.moves(), ( std::vector<std::string>{ "ROUT:CLOS (@5104)" }));
+    EXPECT_FALSE( hal::fabric.isClosed( BANK( RfMux1, 1, 4)));
+}
+
+//
+// The point of all of it: a routed reading at the desk's terminal. Dmm2's path
+// is its bus relay, the terminal's is its crosspoint -- closed, the bus read,
+// both opened -- with the meter and the switching on the box's one session.
+//
+TEST( DevRig, ARoutedReadingClosesThePathReadsTheBusAndOpensIt)
+{
+    FabricOnAFake bench;
+
+    const auto reading = Measure( Dmm2.voltage(), at( dut::DeskTerminal));
+
+    EXPECT_EQ( reading, core::quantities::Voltage{ 1.0 });   // what the fake answers any query with
+
+    EXPECT_EQ( bench.moves(), ( std::vector<std::string>{
+        "ROUT:CLOS (@1921)", "ROUT:CLOS (@1501)", "ROUT:OPEN (@1921)", "ROUT:OPEN (@1501)" }));
+
+    const auto measured = std::ranges::find( *bench.Log, std::string( "swu: MEAS:VOLT:DC?"));
+    const auto closed   = std::ranges::find( *bench.Log, std::string( "swu: ROUT:CLOS (@1501)"));
+    const auto opened   = std::ranges::find( *bench.Log, std::string( "swu: ROUT:OPEN (@1921)"));
+
+    ASSERT_NE( measured, bench.Log->end());
+    EXPECT_LT( closed, measured) << "the path is closed before the reading";
+    EXPECT_LT( measured, opened) << "and opened after it";
+
+    EXPECT_FALSE( hal::fabric.isClosed( HOP( Matrix1, 921)));
+    EXPECT_FALSE( hal::fabric.isClosed( ROW_COLUMN( Matrix1, 5, 1)));
+}
+
+//
+// And a reading that fails still releases its path -- real relays left closed
+// onto a pin with nobody holding them is the failure a driven fabric could not
+// afford.
+//
+TEST( DevRig, ARoutedReadingThatFailsStillOpensItsPath)
+{
+    FabricOnAFake bench;
+
+    bench.Wire->Silent = "MEAS:";
+
+    EXPECT_ANY_THROW( static_cast<void>( Measure( Dmm2.voltage(), at( dut::DeskTerminal))));
+
+    const auto moves = bench.moves();
+
+    EXPECT_NE( std::ranges::find( moves, std::string( "ROUT:OPEN (@1921)")), moves.end());
+    EXPECT_NE( std::ranges::find( moves, std::string( "ROUT:OPEN (@1501)")), moves.end());
+    EXPECT_FALSE( hal::fabric.isClosed( HOP( Matrix1, 921)));
+}
+

@@ -348,6 +348,8 @@ set_property(DIRECTORY APPEND
 # translation unit of their own (see that header's own comment on why).
 add_library(hal_rig STATIC
     include/hal/topology/active_instruments.hpp  # header-only; the rig's instrument globals + fabric
+    include/hal/fabric/rig_switching.hpp         # apart from src/fabric/rig_switching.cpp; the fabric's driver
+    src/fabric/rig_switching.cpp
     src/verbs/measure.cpp
     src/verbs/route.cpp
     src/verbs/source.cpp
