@@ -270,6 +270,22 @@ namespace hal
             // actually numbers its channels by -- see hal::rowColumn.
             //
             std::uint16_t ( * RowColumn)( unsigned row, unsigned column);
+
+            //
+            // What the card calls itself when its chassis is asked what is in
+            // its slot -- the model field of a 34980A's SYST:CTYP? answer,
+            // "34932A" where Part says "Keysight 34932A". Empty for a card no
+            // controller in this tree can ask about: a Racal 1260 controller
+            // has no such query, and an E1472A's would be its VXI command
+            // module's.
+            //
+            // Its own field rather than the tail of Part, because the two are
+            // written by different people for different readers: Part is the
+            // datasheet's name, this is the firmware's, and nothing promises
+            // the one ends with the other. Preflight compares a rig's card rows
+            // against it (see hal::contactInstruments()).
+            //
+            std::string_view Reports{};
         };
 
         //
@@ -466,12 +482,12 @@ namespace hal
             { "Keysight 34932A",            SwitchDeviceKind::Matrix,
               "101-816, written <row><column> (row 1-8, column 01-16; rows 5-8 are Matrix 2), "
               "plus Matrix 2's Analog Bus relays 921-924",
-              keysight34932AHasChannel, nullptr, nullptr, keysight34932ARowColumn },
+              keysight34932AHasChannel, nullptr, nullptr, keysight34932ARowColumn, "34932A" },
 
             { "Keysight 34941A",            SwitchDeviceKind::RfMux,
               "101-104, 201-204, 301-304, 401-404, written <bank><channel> "
               "(bank 1-4, channel 01-04); no Analog Bus relays",
-              keysight34941AHasChannel, nullptr, keysight34941ABankChannel, nullptr }
+              keysight34941AHasChannel, nullptr, keysight34941ABankChannel, nullptr, "34941A" }
         };
 
         static_assert( std::size( cardSpecs) == core::meta::values<SwitchDeviceModel>.size(),

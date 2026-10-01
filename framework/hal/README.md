@@ -163,7 +163,11 @@ first use and its last release, through the instrument on the card's box that
 switches cards (`hal::CardSwitchingInstrument`). A box with no such instrument
 -- the bench's Racal rack today -- keeps its cards' switching as bookkeeping, as
 every card was before. Safing reaches the relays through the chassis row's
-`safeRelays()`, not through the fabric.
+`safeRelays()`, not through the fabric. And preflight checks the cards: an
+instrument that can also say what is in a slot (`hal::CardIdentifyingInstrument`,
+the 34980A by `SYST:CTYP?`) has every card row on its box compared against its
+slot's answer, so a table describing a different rack fails before the first
+script.
 
 A rig's own instrument list, wiring data, and concrete instrument
 identities/globals (`Dmm1`/`Dmm2`/`Osc1`/`DcP1`..`DcP7`/`AcP1`/`Ser1`/`fabric`

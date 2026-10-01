@@ -1,6 +1,8 @@
 #pragma once
 
+#include <concepts>
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace hal
@@ -185,5 +187,28 @@ namespace hal
     {
         instrument.closeOnCard( card, channel);
         instrument.openOnCard( card, channel);
+    };
+
+    //
+    // A card-switching instrument that can also say what is in a slot: the
+    // model the card there reports for itself (a 34980A's SYST:CTYP?), or an
+    // empty string for an empty slot.
+    //
+    // What preflight checks a rig's card rows against (see
+    // hal::contactInstruments()): a devices.inc row saying 34932A in slot 1
+    // against a slot 1 that answers 34921A is a table describing a different
+    // rack, and the run should stop before its first script rather than close
+    // relays on a card whose channels mean something else.
+    //
+    // Separate from CardSwitchingInstrument, because a controller that can
+    // switch a card cannot always identify it. A Racal 1260's controller is
+    // one such: its cards answer nothing about themselves. A rack like that
+    // keeps its card rows unchecked, which is what every rack was before.
+    //
+    template<typename InstrumentT>
+    concept CardIdentifyingInstrument = CardSwitchingInstrument<InstrumentT>
+        && requires( InstrumentT & instrument, const int card)
+    {
+        { instrument.cardModel( card) } -> std::convertible_to<std::string>;
     };
 } // namespace hal

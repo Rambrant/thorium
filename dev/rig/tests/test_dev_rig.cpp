@@ -147,6 +147,7 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_33522b::Wfg33522B> );
     static_assert( hal::SafeableInstrument< hal::keysight_34980a::Chassis> );
     static_assert( hal::RelayHoldingInstrument< hal::keysight_34980a::Chassis> );
+    static_assert( hal::CardIdentifyingInstrument< hal::keysight_34980a::Chassis> );
     static_assert( hal::SafeableInstrument< hal::keysight_34980a::InternalDmm> );
     static_assert( ! hal::RelayHoldingInstrument< hal::keysight_34980a::InternalDmm> );
 } // namespace
@@ -283,6 +284,15 @@ namespace
                 {
                     mReplies.emplace_back( "+0,\"No error\"");
                 }
+                else if( command.starts_with( "SYST:CTYP? "))
+                {
+                    const auto slot = static_cast<std::size_t>( std::stoi( std::string( command.substr( 11))));
+                    const auto card = slot >= 1 && slot <= Cards.size() ? Cards[ slot - 1] : std::string{};
+
+                    mReplies.push_back( card.empty()
+                        ? std::string( "\"Agilent Technologies,0,0,0\"")
+                        : "\"Agilent Technologies," + card + ",MY0000000" + std::to_string( slot) + ",1.00\"");
+                }
                 else if( !command.empty() && command.back() == '?')
                 {
                     mReplies.emplace_back( "1");
@@ -314,6 +324,13 @@ namespace
             // instrument refused, which the driver then times out on.
             //
             std::string Silent;
+
+            //
+            // What SYST:CTYP? reports for slots 1, 2, ... -- the dev rack's
+            // cards (see dev/rig/devices.inc) unless a test says otherwise;
+            // "" is an empty slot, as is every slot past the end.
+            //
+            std::vector<std::string> Cards{ "34932A", "34932A", "34932A", "34932A", "34941A" };
 
         private:
             std::shared_ptr<std::vector<std::string>> mLog;
@@ -569,6 +586,82 @@ TEST( DevRig, TheSwitchUnitsTwoFacesShareOneSessionAndPrepareItEach)
     EXPECT_FALSE( Dmm2.isSimulated());
 
     Swu1.closeSession();
+}
+
+//
+// -- The cards, checked against the rack ---------------------------------------
+//
+// The contact pass asks each card row's slot what is in it, and a table that
+// describes a different rack fails before the first script: the row's name,
+// what it says, and what the slot says.
+//
+namespace
+{
+    //
+    // The contact pass over Swu1 alone, on a fake whose slots hold these cards.
+    // Returns what it threw, or "" if it did not.
+    //
+    auto contactTheSwitchUnitHolding( std::vector<std::string> cards,
+                                      std::shared_ptr<std::vector<std::string>> log = std::make_shared<std::vector<std::string>>()) -> std::string
+    {
+        const RestoreAddresses restore;
+
+        auto bindings = hal::bindAddresses( planWithOnly( { { "Swu1", hal::Usb{ "MY53154781" } } }));
+        auto fake     = std::make_unique<Recorder>( log, "swu", "Agilent Technologies,34980A,MY53154781,2.43-2.42-1.19");
+
+        fake->Cards = std::move( cards);
+
+        Swu1.useTransport( std::move( fake));
+
+        std::string refused;
+
+        try
+        {
+            hal::contactInstruments( bindings);
+        }
+        catch( const std::runtime_error & failure)
+        {
+            refused = failure.what();
+        }
+
+        Swu1.closeSession();
+
+        return refused;
+    }
+} // namespace
+
+TEST( DevRig, ContactAsksEachCardRowsSlotOnce)
+{
+    auto log = std::make_shared<std::vector<std::string>>();
+
+    EXPECT_EQ( contactTheSwitchUnitHolding( { "34932A", "34932A", "34932A", "34932A", "34941A" }, log), "");
+
+    for( int slot = 1; slot <= 5; ++slot)
+    {
+        EXPECT_EQ( std::ranges::count( *log, "swu: SYST:CTYP? " + std::to_string( slot)), 1) << "slot " << slot;
+    }
+
+    //
+    // Slots no row names are not asked about: an extra card in the rack is
+    // not a table describing a different one.
+    //
+    EXPECT_EQ( firstIndexOf( *log, "swu: SYST:CTYP? 6"), -1);
+}
+
+TEST( DevRig, ASlotHoldingADifferentCardIsRefused)
+{
+    const auto refused = contactTheSwitchUnitHolding( { "34932A", "34921A", "34932A", "34932A", "34941A" });
+
+    EXPECT_NE( refused.find( "Matrix2 is declared as a Keysight 34932A in slot 2 of box Swu1"), std::string::npos) << refused;
+    EXPECT_NE( refused.find( "holds a 34921A"), std::string::npos) << refused;
+}
+
+TEST( DevRig, AnEmptySlotWithACardRowIsRefused)
+{
+    const auto refused = contactTheSwitchUnitHolding( { "34932A", "34932A", "34932A", "34932A", "" });
+
+    EXPECT_NE( refused.find( "RfMux1 is declared as a Keysight 34941A in slot 5"), std::string::npos) << refused;
+    EXPECT_NE( refused.find( "that slot is empty"), std::string::npos) << refused;
 }
 
 //

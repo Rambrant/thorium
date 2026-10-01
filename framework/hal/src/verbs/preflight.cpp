@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <concepts>
+#include <cstddef>
 #include <meta>
 #include <optional>
 #include <stdexcept>
@@ -10,9 +11,11 @@
 #include <vector>
 
 #include "hal/driver/instrument.hpp"
+#include "hal/fabric/switch_device.hpp"
 #include "hal/io/transport.hpp"
 #include "hal/topology/active_instruments.hpp"
 #include "hal/topology/address_tables.hpp"
+#include "hal/topology/boxes.hpp"
 #include "hal/topology/wiring.hpp"
 
 #include "core/meta.hpp"
@@ -450,6 +453,46 @@ namespace hal
                 + std::to_string( candidates.size())
                 + " candidates in its pool were busy or unreachable");
         }
+
+        //
+        // Every card row on this instrument's box, checked against what its
+        // slot says is there.
+        //
+        // An exact match on the spec's Reports, and a spec with nothing to
+        // report fails too: a Racal card's row on a box whose chassis can
+        // identify its slots is a row on the wrong box, whatever the slot
+        // holds.
+        //
+        template<CardIdentifyingInstrument InstrumentT>
+        auto checkCardsOn( InstrumentT & instrument, const std::string_view box) -> void
+        {
+            for( std::size_t row = 0; row < detail::switchDevices.size(); ++row)
+            {
+                const auto & device = detail::switchDevices[ row];
+
+                if( detail::deviceBoxRows[ row].Box != box || !device.Card)
+                {
+                    continue;
+                }
+
+                const auto expected = specOf( device.Model).Reports;
+                const auto reported = instrument.cardModel( *device.Card);
+
+                if( reported == expected)
+                {
+                    continue;
+                }
+
+                const auto id = core::meta::values<SwitchDeviceId>[ row];
+
+                throw std::runtime_error(
+                    std::string( to_string( id)) + " is declared as a " + std::string( specOf( device.Model).Part)
+                    + " in slot " + std::to_string( *device.Card) + " of box " + std::string( box) + ", but "
+                    + ( reported.empty() ? "that slot is empty" : "that slot holds a " + reported)
+                    + " -- the rig's card table describes a different rack. Fix the row's model or"
+                      " slot, or move the card.");
+            }
+        }
     } // namespace
 
     auto bindAddresses( const AddressPlan & plan) -> std::vector<Binding>
@@ -796,6 +839,34 @@ namespace hal
 
                         contacted.push_back( Contacted{
                             binding.Box, binding.Value, std::string( serialOf( binding.Identity)), binding.PoolPosition });
+                    }
+                }
+            }
+        }
+
+        //
+        // Then the cards, once every box is bound and its identity checked --
+        // so a slot is asked of the unit the box actually reached, and a
+        // chassis that is not a 34980A has already been refused by its own
+        // model check rather than misread here. A simulated chassis is skipped
+        // for the reason its contact was: there is nothing in its slots to ask
+        // about.
+        //
+        template for( constexpr auto member : members<^^::>)
+        {
+            if constexpr( std::meta::is_variable( member))
+            {
+                using InstrumentT = [: std::meta::type_of( member) :];
+
+                if constexpr( std::derived_from<InstrumentT, InstrumentTag>
+                           && CardIdentifyingInstrument<InstrumentT>)
+                {
+                    auto &       instrument = [: member :];
+                    const auto & binding    = bindingFor( bindings, instrument.id());
+
+                    if( !std::holds_alternative<Simulated>( binding.Value))
+                    {
+                        checkCardsOn( instrument, binding.Box);
                     }
                 }
             }

@@ -174,8 +174,18 @@ namespace hal
     //   A pool row therefore stays a claim its author makes, and the banner
     //   below is what actually catches a wrong one.
     //
+    // Last, the cards. For each instrument that can say what is in its slots
+    // (hal::CardIdentifyingInstrument -- a 34980A, by SYST:CTYP?), every card
+    // row on its box in devices.inc is checked against what its slot answers:
+    // the row's model must be the card that is there. A rack that is not the
+    // one the table describes has channel numbers that mean something else,
+    // and a relay closed on that is a connection nobody chose. A box whose
+    // controller cannot identify its cards (the Racal rack) keeps its rows
+    // unchecked.
+    //
     // Throws io::TransportError for a fixed address that cannot be reached and
-    // for an exhausted pool. Both are rig faults, and both are worth failing
+    // for an exhausted pool, and std::runtime_error for a card row its slot
+    // contradicts. All three are rig faults, and all three are worth failing
     // the run before it starts rather than three tests in.
     //
     auto contactInstruments( std::vector<Binding> & bindings) -> void;

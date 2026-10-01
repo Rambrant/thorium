@@ -422,9 +422,9 @@ namespace hal::keysight_34980a
     // This is the closest thing the box has to self-description, and it is
     // worth more here than an *IDN? is on an instrument: what a 34980A *is*
     // depends entirely on what is plugged into it, so a bring-up run that
-    // prints these eight answers has learned the rack. It is also what will
-    // check a rig's future module rows against the hardware -- a
-    // hal::SwitchDeviceModel saying 34932A in slot 1 against a slot 1 that
+    // prints these eight answers has learned the rack. It is also what checks
+    // a rig's card rows against the hardware, at preflight (see cardModel()) --
+    // a hal::SwitchDeviceModel saying 34932A in slot 1 against a slot 1 that
     // answers 34921A is a table describing a different rack, which is exactly
     // the mistake an instrument driver's identity check exists to catch.
     //
@@ -845,6 +845,17 @@ namespace hal::keysight_34980a
             auto openOnCard( const int card, const std::uint16_t channel) -> void
             {
                 open( ChannelAddress{ card, channel });
+            }
+
+            //
+            // What the card in this slot reports itself as ("34932A"), or ""
+            // for an empty slot -- see hal::CardIdentifyingInstrument, and
+            // preflight, which compares it against the card row's model.
+            //
+            [[nodiscard]]
+            auto cardModel( const int card) -> std::string
+            {
+                return moduleIn( card).Model;
             }
 
             // --- Relay health ---

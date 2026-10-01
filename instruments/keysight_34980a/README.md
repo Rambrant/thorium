@@ -184,11 +184,13 @@ shared-common multiplexer is all of them.
 
 This is worth more here than an `*IDN?` is on an instrument: what a 34980A *is*
 depends entirely on what is plugged into it, so a bring-up run that prints
-`modules()` has learned the rack. It is also what will check a rig's future
-module rows against the hardware — a `hal::SwitchDeviceModel` saying 34932A in
-slot 1 against a slot 1 that answers 34921A is a table describing a different
-rack, which is exactly the mistake an instrument driver's identity check exists
-to catch.
+`modules()` has learned the rack. It is also what checks a rig's card rows
+against the hardware: preflight asks `cardModel( slot)` for every `devices.inc`
+row on the chassis's box, and a `hal::SwitchDeviceModel` saying 34932A in slot 1
+against a slot 1 that answers 34921A, or is empty, stops the run before its first
+script. That is a table describing a different rack, which is exactly the
+mistake an instrument driver's identity check exists to catch. Slots no row
+names are not asked about.
 
 An empty slot is not an error: the instrument answers `"Agilent
 Technologies,0,0,0"`. `ModuleIdentity::Empty` recognises that, so a caller
