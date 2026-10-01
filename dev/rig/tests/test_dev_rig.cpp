@@ -21,6 +21,8 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include "hal/io/transport.hpp"
@@ -177,7 +179,7 @@ TEST( DevRig, AskingForARouteOnAFabriclessBenchThrows)
 //
 TEST( DevRig, TheDeskDeclaresItsShelfOfMetersInPreferenceOrder)
 {
-    const auto candidates = hal::poolFor( hal::InstrumentId::Dmm1);
+    const auto candidates = hal::poolFor( "DeskDmm");
 
     //
     // In order, because order is meaning here: acquireFromPool() takes the
@@ -194,7 +196,7 @@ TEST( DevRig, TheDeskDeclaresItsShelfOfMetersInPreferenceOrder)
 
 //
 // The consequence a reader of dev/rig/instrument.inc is most likely to get
-// wrong: with a pool declared, the row's own third column no longer decides
+// wrong: with a pool declared, the row's own address column no longer decides
 // an attached run's address. bindAddresses() marks the row Pool and leaves it
 // unbound, and Lan( "dev-dmm") is not where the meter is looked for.
 //
@@ -211,18 +213,17 @@ TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
 }
 
 //
-// And the supply is not pooled, which is the other half of the same table and
-// a decision rather than an omission: preflight claims a pooled box by serial,
-// and three rows that are one chassis would each want a chassis of their own
-// (see dev/rig/instrument.inc). So all three outputs bind from the table, to
-// the same serial -- one box, three endpoints behind it.
+// And the supply's three outputs are one box, Psu1, binding from the table to
+// one serial -- one unit, three endpoints behind it. Not pooled today, and no
+// longer because it could not be: a pool names a box now, and a box is
+// acquired once (see hal/topology/boxes.hpp).
 //
 TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
     ASSERT_EQ( bindings.size(), 7u);
-    EXPECT_TRUE( hal::poolFor( hal::InstrumentId::DcP5).empty());
+    EXPECT_TRUE( hal::poolFor( "Psu1").empty());
 
     for( std::size_t row = 1; row <= 3; ++row)
     {
@@ -341,3 +342,169 @@ TEST( DevRig, SafingTurnsTheSupplyOffBeforeItOpensTheSwitchUnitsRelays)
     DcP5.closeSession();
     Swu1.closeSession();
 }
+
+//
+// -- Boxes ---------------------------------------------------------------------
+//
+// The desk's rows as boxes: each instrument a face of the unit it is on, the
+// supply's three outputs one unit. Then what that buys at startup, on this
+// deployment's real globals -- one flag moving three faces, three faces making
+// one claim, and two box names reaching one unit refused.
+//
+TEST( DevRig, EachInstrumentIsAFaceOfTheBoxItIsOn)
+{
+    EXPECT_EQ( hal::boxOf( hal::InstrumentId::Dmm1), "DeskDmm");
+    EXPECT_EQ( hal::boxOf( hal::InstrumentId::Osc1), "Scope1");
+    EXPECT_EQ( hal::boxOf( hal::InstrumentId::Wfg1), "Wfg1");
+    EXPECT_EQ( hal::boxOf( hal::InstrumentId::Swu1), "Swu1");
+
+    EXPECT_EQ( hal::instrumentsIn( "Psu1"),
+               ( std::vector{ hal::InstrumentId::DcP5, hal::InstrumentId::DcP6, hal::InstrumentId::DcP7 }));
+
+    EXPECT_EQ( hal::instrumentBoxNames(),
+               ( std::vector<std::string_view>{ "DeskDmm", "Psu1", "Scope1", "Wfg1", "Swu1" }));
+}
+
+namespace
+{
+    //
+    // Every row's table address, put back after a test that bound or contacted
+    // with a plan of its own -- including the pooled meter, which
+    // bindAddresses( AddressPlan{}) deliberately leaves unbound and so would
+    // not restore.
+    //
+    struct RestoreAddresses
+    {
+        hal::Address Dmm1Address = Dmm1.address();
+        hal::Address DcP5Address = DcP5.address();
+        hal::Address DcP6Address = DcP6.address();
+        hal::Address DcP7Address = DcP7.address();
+        hal::Address Osc1Address = Osc1.address();
+        hal::Address Wfg1Address = Wfg1.address();
+        hal::Address Swu1Address = Swu1.address();
+
+        ~RestoreAddresses()
+        {
+            Dmm1.useAddress( Dmm1Address);
+            DcP5.useAddress( DcP5Address);
+            DcP6.useAddress( DcP6Address);
+            DcP7.useAddress( DcP7Address);
+            Osc1.useAddress( Osc1Address);
+            Wfg1.useAddress( Wfg1Address);
+            Swu1.useAddress( Swu1Address);
+        }
+    };
+
+    //
+    // A plan with every box but the named ones simulated, so contacting
+    // reaches only the boxes a test has handed fakes to.
+    //
+    auto planWithOnly( const std::vector<std::pair<std::string_view, hal::Address>> & live) -> hal::AddressPlan
+    {
+        hal::AddressPlan plan;
+
+        for( const auto box : hal::instrumentBoxNames())
+        {
+            const auto found = std::ranges::find( live, box, &std::pair<std::string_view, hal::Address>::first);
+
+            plan.Overrides.emplace_back( box, found == live.end() ? hal::Address{ hal::Simulated{} } : found->second);
+        }
+
+        return plan;
+    }
+} // namespace
+
+//
+// One flag moves every face: Psu1=sim takes all three outputs with it, each
+// saying where its address came from.
+//
+TEST( DevRig, OneOverrideMovesEveryFaceOfABox)
+{
+    const RestoreAddresses restore;
+
+    hal::AddressPlan plan;
+
+    plan.Overrides.emplace_back( "Psu1", hal::Simulated{});
+
+    for( const auto & binding : hal::bindAddresses( plan))
+    {
+        if( binding.Box != "Psu1")
+        {
+            continue;
+        }
+
+        EXPECT_EQ( binding.Source, hal::AddressSource::Override) << to_string( binding.Id);
+        EXPECT_TRUE( std::holds_alternative<hal::Simulated>( binding.Value)) << to_string( binding.Id);
+    }
+
+    EXPECT_TRUE( std::holds_alternative<hal::Simulated>( DcP5.address()));
+    EXPECT_TRUE( std::holds_alternative<hal::Simulated>( DcP6.address()));
+    EXPECT_TRUE( std::holds_alternative<hal::Simulated>( DcP7.address()));
+}
+
+//
+// Three faces, one unit, one claim: the supply's outputs all answer *IDN? with
+// the same serial, and that is the box agreeing with itself -- not three boxes
+// claiming one unit.
+//
+TEST( DevRig, TheFacesOfOneBoxShareItsClaim)
+{
+    const RestoreAddresses restore;
+
+    auto bindings = hal::bindAddresses( planWithOnly( { { "Psu1", hal::Usb{ "CN65100272" } } }));
+
+    auto log = std::make_shared<std::vector<std::string>>();
+
+    DcP5.useTransport( std::make_unique<Recorder>( log, "psu", "Keysight Technologies,EDU36311A,CN65100272,1.0.2"));
+
+    EXPECT_NO_THROW( hal::contactInstruments( bindings));
+
+    for( const auto & binding : bindings)
+    {
+        if( binding.Box == "Psu1")
+        {
+            EXPECT_NE( binding.Identity.find( "CN65100272"), std::string::npos) << to_string( binding.Id);
+        }
+    }
+
+    DcP5.closeSession();
+}
+
+//
+// Two box names that reach one unit -- the runtime half of boxes.hpp's "one
+// address, one box", for the case the tables cannot see: addresses that
+// differ (here two USB serials in the rows) and a unit that answers both with
+// one serial. Refused, naming both boxes.
+//
+TEST( DevRig, TwoBoxesAnsweringWithOneSerialAreRefused)
+{
+    const RestoreAddresses restore;
+
+    auto bindings = hal::bindAddresses( planWithOnly( {
+        { "DeskDmm", hal::Usb{ "CN65510018" } },
+        { "Scope1",  hal::Usb{ "CN64504143" } } }));
+
+    auto log = std::make_shared<std::vector<std::string>>();
+
+    Dmm1.useTransport( std::make_unique<Recorder>( log, "dmm",   "Keysight Technologies,EDU34450A,SAME0001,1.0"));
+    Osc1.useTransport( std::make_unique<Recorder>( log, "scope", "KEYSIGHT TECHNOLOGIES,DSO-X 1202G,SAME0001,1.0"));
+
+    try
+    {
+        hal::contactInstruments( bindings);
+
+        FAIL() << "expected two boxes answering with one serial to be refused";
+    }
+    catch( const std::runtime_error & refused)
+    {
+        const std::string message{ refused.what() };
+
+        EXPECT_NE( message.find( "DeskDmm"), std::string::npos) << message;
+        EXPECT_NE( message.find( "Scope1"),  std::string::npos) << message;
+        EXPECT_NE( message.find( "SAME0001"), std::string::npos) << message;
+    }
+
+    Dmm1.closeSession();
+    Osc1.closeSession();
+}
+

@@ -1,94 +1,140 @@
 #include "dev/suite/scripts.hpp"
 
 //
-// The SwitchUnit scripts, against a simulated chassis.
+// The SwitchUnit scripts, against a fake of this desk's rack.
 //
 // Not detached, unlike the other instruments' script tests, because detaching
 // would not help: these scripts call the chassis driver directly
-// (Swu1.close(), not Connect()), and only the verbs consult the bench. So the
-// fixture points Swu1 at a hal::Simulated address instead -- the driver's own
-// simulation keeps a closed-channel set, answers ROUT:CLOS? from it and counts
-// relay cycles -- and puts the table's address back afterwards.
+// (Swu1.close(), not Connect()), and only the verbs consult the bench.
 //
-// The one script the simulation cannot answer is the refusal: a simulated
-// chassis knows the slots and not the modules, so it has no idea (@1050) is
-// not a 34921A channel. That test hands Swu1 a fake transport instead, which
-// answers the close with the error the mainframe would queue.
+// Not the driver's own simulation either, which knows the eight slots and
+// nothing about what is in them -- so it accepts any well-formed channel, and
+// would pass a refusal script that should fail and fail an RF script that
+// should pass. Instead Swu1 is handed a FakeRack: a transport that answers the
+// commands the driver sends the way this desk's rack would, using hal's own
+// models of the two modules (hal::detail::keysight34932AHasChannel and
+// keysight34941AHasChannel) for which channels exist. So these tests check the
+// scripts against the same channel spaces the fabric will route with -- and a
+// wrong number in either model fails here as well as on the box.
 //
 #include "suite/tests/verdict.hpp"
 
+#include "hal/fabric/switch_device.hpp"
 #include "hal/io/transport.hpp"
 #include "hal/keysight_34980a.hpp"
 #include "hal/topology/active_instruments.hpp"
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
-
-using hal::keysight_34980a::ChannelAddress;
-using hal::keysight_34980a::ModuleIdentity;
 
 namespace
 {
-    struct SwitchUnitFixture : ::testing::Test
-    {
-        protected:
-
-            void SetUp() override
-            {
-                mTableAddress = Swu1.address();
-
-                Swu1.useAddress( hal::Simulated{});
-
-                for( int slot = 1; slot <= 4; ++slot)
-                {
-                    Swu1.setSimulatedModule( slot, ModuleIdentity{ "Agilent Technologies", "34921A", "MY0000000" + std::to_string( slot), "2.0" });
-                }
-
-                Swu1.setSimulatedModule( 5, ModuleIdentity{ "Agilent Technologies", "34941A", "MY00000005", "2.0" });
-            }
-
-            void TearDown() override
-            {
-                Swu1.safeRelays();
-                Swu1.useAddress( mTableAddress);
-            }
-
-        private:
-
-            hal::Address mTableAddress;
-    };
-
     //
-    // A mainframe that answers the identity check and refuses one command --
-    // queuing the -221 a 34980A answers a channel its module does not have
-    // with, the way a SCPI instrument reports anything: on the next SYST:ERR?.
+    // Slots 1-4 34932A, slot 5 34941A, the rest empty -- as SYST:CTYP? would
+    // name them. A test changes Modules to describe a different rack.
     //
-    class RefusingChassis final : public hal::io::ITransport
+    class FakeRack final : public hal::io::ITransport
     {
         public:
-            explicit RefusingChassis( std::string refused) : mRefused( std::move( refused)) {}
+            std::map<int, std::string> Modules{
+                { 1, "34932A" }, { 2, "34932A" }, { 3, "34932A" }, { 4, "34932A" }, { 5, "34941A" } };
+
+            //
+            // A rack that accepts every well-formed channel, the way the
+            // driver's own simulation does -- the failure the refusal script
+            // exists to catch.
+            //
+            bool AcceptsAnything{ false };
 
             auto send( const std::string_view command) -> void override
             {
-                if( command == "*IDN?")
+                const std::string text( command);
+
+                if( text == "*IDN?")
                 {
-                    mReplies.emplace_back( "Agilent Technologies,34980A,MY44000001,2.43-2.42-1.19");
+                    reply( "Agilent Technologies,34980A,MY53154781,2.43-2.42-1.19");
                 }
-                else if( command == "SYST:ERR?")
+                else if( text == "SYST:ERR?")
                 {
-                    mReplies.emplace_back( mPending.empty() ? "+0,\"No error\"" : mPending);
+                    reply( mPending.empty() ? "+0,\"No error\"" : mPending);
                     mPending.clear();
                 }
-                else if( command == mRefused)
+                else if( text.starts_with( "SYST:CTYP? "))
                 {
-                    mPending = "-221,\"Settings conflict; channel not valid for module\"";
+                    const int slot = std::stoi( text.substr( 11));
+                    const auto found = Modules.find( slot);
+
+                    reply( found == Modules.end() ? "Agilent Technologies,0,0,0"
+                                                  : "Agilent Technologies," + found->second + ",MY0000000" + std::to_string( slot) + ",2.0");
                 }
-                else if( !command.empty() && command.back() == '?')
+                else if( text.starts_with( "ROUT:CLOS? "))
                 {
-                    mReplies.emplace_back( "0");
+                    reply( mClosed.contains( channelsOf( text).front()) ? "1" : "0");
+                }
+                else if( text.starts_with( "ROUT:CLOS:EXCL "))
+                {
+                    const auto channels = channelsOf( text);
+
+                    if( !allExist( channels)) return;
+
+                    for( const auto & channel : channels)
+                    {
+                        std::erase_if( mClosed, [ & channel]( const auto & closed) { return closed.first == channel.first; });
+                    }
+
+                    for( const auto & channel : channels) closeOne( channel);
+                }
+                else if( text.starts_with( "ROUT:CLOS "))
+                {
+                    const auto channels = channelsOf( text);
+
+                    if( !allExist( channels)) return;
+
+                    for( const auto & channel : channels) closeOne( channel);
+                }
+                else if( text.starts_with( "ROUT:OPEN:ALL "))
+                {
+                    const auto which = text.substr( 14);
+
+                    std::erase_if( mClosed, [ & which, this]( const auto & closed)
+                    {
+                        return !isRf( closed.first) && ( which == "ALL" || std::stoi( which) == closed.first);
+                    });
+                }
+                else if( text.starts_with( "ROUT:OPEN "))
+                {
+                    const auto channels = channelsOf( text);
+
+                    //
+                    // What a 34941A does with ROUT:OPEN: refuses it, because a
+                    // 1-of-4 bank has no open state.
+                    //
+                    if( std::ranges::any_of( channels, [ this]( const auto & channel) { return isRf( channel.first); }))
+                    {
+                        mPending = "-221,\"Settings conflict; RF module channels cannot be opened\"";
+                        return;
+                    }
+
+                    for( const auto & channel : channels) mClosed.erase( channel);
+                }
+                else if( text.starts_with( "ROUT:MOD:WAIT? "))
+                {
+                    reply( "1");
+                }
+                else if( text.starts_with( "DIAG:REL:CYCL? "))
+                {
+                    reply( std::to_string( mCycles[ channelsOf( text).front()]));
+                }
+                else if( !text.empty() && text.back() == '?')
+                {
+                    reply( "0");
                 }
             }
 
@@ -96,26 +142,155 @@ namespace
             {
                 if( mReplies.empty())
                 {
-                    throw hal::io::TransportTimeout( "nothing queued on the refusing chassis");
+                    throw hal::io::TransportTimeout( "nothing queued on the fake rack");
                 }
 
-                auto reply = mReplies.front();
+                auto next = mReplies.front();
 
                 mReplies.erase( mReplies.begin());
 
-                return reply;
+                return next;
             }
 
             [[nodiscard]]
             auto description() const -> std::string override
             {
-                return "refusing fake 34980A";
+                return "fake 34980A rack";
+            }
+
+            [[nodiscard]]
+            auto closedCount() const -> std::size_t
+            {
+                return mClosed.size();
             }
 
         private:
-            std::string              mRefused;
-            std::string              mPending;
-            std::vector<std::string> mReplies;
+            using Channel = std::pair<int, int>;   // slot, number
+
+            auto reply( std::string text) -> void
+            {
+                mReplies.push_back( std::move( text));
+            }
+
+            //
+            // "ROUT:CLOS (@1101,1416)" -> { {1,101}, {1,416} }
+            //
+            static auto channelsOf( const std::string & text) -> std::vector<Channel>
+            {
+                std::vector<Channel> channels;
+
+                auto at = text.find( "(@");
+
+                if( at == std::string::npos) return channels;
+
+                auto list = text.substr( at + 2, text.find( ')', at) - at - 2);
+
+                std::size_t start = 0;
+
+                while( start < list.size())
+                {
+                    const auto comma = list.find( ',', start);
+                    const auto item  = list.substr( start, comma == std::string::npos ? std::string::npos : comma - start);
+                    const int  code  = std::stoi( item);
+
+                    channels.emplace_back( code / 1000, code % 1000);
+
+                    if( comma == std::string::npos) break;
+
+                    start = comma + 1;
+                }
+
+                return channels;
+            }
+
+            [[nodiscard]]
+            auto isRf( const int slot) const -> bool
+            {
+                const auto found = Modules.find( slot);
+
+                return found != Modules.end() && found->second == "34941A";
+            }
+
+            [[nodiscard]]
+            auto exists( const Channel & channel) const -> bool
+            {
+                if( AcceptsAnything) return true;
+
+                const auto found = Modules.find( channel.first);
+
+                if( found == Modules.end()) return false;
+
+                const auto number = static_cast<std::uint16_t>( channel.second);
+
+                if( found->second == "34932A") return hal::detail::keysight34932AHasChannel( number);
+                if( found->second == "34941A") return hal::detail::keysight34941AHasChannel( number);
+
+                return false;
+            }
+
+            //
+            // A whole command refused if any channel in it does not exist, the
+            // way the instrument validates a list before moving anything.
+            //
+            auto allExist( const std::vector<Channel> & channels) -> bool
+            {
+                if( std::ranges::all_of( channels, [ this]( const auto & channel) { return exists( channel); }))
+                {
+                    return true;
+                }
+
+                mPending = "-221,\"Settings conflict; channel not valid for module\"";
+
+                return false;
+            }
+
+            //
+            // Close one channel, counting a cycle if it was open -- and on an
+            // RF bank, opening whichever channel of that bank was closed.
+            //
+            auto closeOne( const Channel & channel) -> void
+            {
+                if( isRf( channel.first))
+                {
+                    const int bank = channel.second / 100;
+
+                    std::erase_if( mClosed, [ & channel, bank]( const auto & closed)
+                    {
+                        return closed.first == channel.first && closed.second / 100 == bank && closed != channel;
+                    });
+                }
+
+                if( mClosed.insert( channel).second)
+                {
+                    ++mCycles[ channel];
+                }
+            }
+
+            std::set<Channel>              mClosed;
+            std::map<Channel, long>        mCycles;
+            std::string                    mPending;
+            std::vector<std::string>       mReplies;
+    };
+
+    struct SwitchUnitFixture : ::testing::Test
+    {
+        protected:
+
+            void SetUp() override
+            {
+                auto fake = std::make_unique<FakeRack>();
+
+                Rack = fake.get();
+
+                Swu1.useTransport( std::move( fake));
+            }
+
+            void TearDown() override
+            {
+                Swu1.closeSession();
+            }
+
+            FakeRack * Rack{};
     };
 } // namespace
 
@@ -123,85 +298,111 @@ namespace
 // -- Inventory -------------------------------------------------------------------
 //
 
-TEST_F( SwitchUnitFixture, TheInventoryPassesWithFour34921AsAndAFifthModule)
+TEST_F( SwitchUnitFixture, TheInventoryPassesOnThisDesksRack)
 {
     EXPECT_TRUE( verdictOf( swuInventory));
 }
 
-TEST_F( SwitchUnitFixture, TheInventoryFailsWhenASlotHoldsAnotherModule)
+TEST_F( SwitchUnitFixture, TheInventoryFailsWhenAMatrixSlotHoldsSomethingElse)
 {
-    Swu1.setSimulatedModule( 3, ModuleIdentity{ "Agilent Technologies", "34932A", "MY00000003", "2.0" });
+    Rack->Modules[ 3] = "34921A";
 
     EXPECT_FALSE( verdictOf( swuInventory));
 }
 
-TEST_F( SwitchUnitFixture, TheInventoryFailsWhenSlotFiveIsEmpty)
+TEST_F( SwitchUnitFixture, TheInventoryFailsWhenTheRfSlotIsEmpty)
 {
-    Swu1.setSimulatedModule( 5, ModuleIdentity{ "Agilent Technologies", "0", "0", "0", true });
+    Rack->Modules.erase( 5);
 
     EXPECT_FALSE( verdictOf( swuInventory));
 }
 
 //
-// -- Relays --------------------------------------------------------------------
+// -- Matrices ----------------------------------------------------------------------
 //
 
-TEST_F( SwitchUnitFixture, EverySlotsRelayCyclePasses)
+TEST_F( SwitchUnitFixture, EveryMatrixPassesItsCycle)
 {
-    EXPECT_TRUE( verdictOf( swuRelaysSlot1));
-    EXPECT_TRUE( verdictOf( swuRelaysSlot2));
-    EXPECT_TRUE( verdictOf( swuRelaysSlot3));
-    EXPECT_TRUE( verdictOf( swuRelaysSlot4));
+    EXPECT_TRUE( verdictOf( swuMatrixSlot1));
+    EXPECT_TRUE( verdictOf( swuMatrixSlot2));
+    EXPECT_TRUE( verdictOf( swuMatrixSlot3));
+    EXPECT_TRUE( verdictOf( swuMatrixSlot4));
 }
 
 //
-// Each relay script leaves its slot as it found it -- all open -- so the next
-// test in the run starts from a known rack.
+// Each matrix script leaves the rack as it found it -- nothing closed -- so
+// the next test starts from a known rack.
 //
-TEST_F( SwitchUnitFixture, ARelayScriptLeavesItsSlotAllOpen)
+TEST_F( SwitchUnitFixture, AMatrixScriptLeavesNothingClosed)
 {
-    static_cast<void>( verdictOf( swuRelaysSlot2));
+    static_cast<void>( verdictOf( swuMatrixSlot2));
 
-    EXPECT_TRUE( Swu1.simulatedClosedChannels().empty());
+    EXPECT_EQ( Rack->closedCount(), 0u);
 }
 
 //
-// And it starts from all open, whatever the slot was left in: a relay closed
-// before the script runs does not make "its neighbour is open" pass or fail by
-// accident.
+// -- Refusal -----------------------------------------------------------------------
 //
-TEST_F( SwitchUnitFixture, ARelayScriptStartsFromAllOpenWhateverItFinds)
-{
-    Swu1.close( ChannelAddress{ 1, 2 });
 
-    EXPECT_TRUE( verdictOf( swuRelaysSlot1));
+TEST_F( SwitchUnitFixture, MissingChannelsAreRefused)
+{
+    EXPECT_TRUE( verdictOf( swuRefusesMissingChannels));
+    EXPECT_EQ( Rack->closedCount(), 0u);
 }
 
 //
-// -- Refusal and relay life --------------------------------------------------------
-//
-
-TEST_F( SwitchUnitFixture, AChannelTheMainframeRefusesPasses)
-{
-    Swu1.useTransport( std::make_unique<RefusingChassis>( "ROUT:CLOS (@1050)"));
-
-    EXPECT_TRUE( verdictOf( swuRefusesAMissingChannel));
-
-    Swu1.closeSession();
-}
-
-//
-// The failure that test exists for: a mainframe -- or a driver -- that lets a
-// bad channel through without an error is a relay that did not move reported
-// as one that did. Here the simulation stands in for it, since it accepts any
-// well-formed channel.
+// The failure the refusal script exists for: a rack -- or a driver -- that
+// lets a bad channel through without an error is a relay that did not move
+// reported as one that did.
 //
 TEST_F( SwitchUnitFixture, AChannelThatIsSilentlyAcceptedFails)
 {
-    EXPECT_FALSE( verdictOf( swuRefusesAMissingChannel));
+    Rack->AcceptsAnything = true;
+
+    EXPECT_FALSE( verdictOf( swuRefusesMissingChannels));
+    EXPECT_EQ( Rack->closedCount(), 0u) << "a refusal script that got through must undo what it closed";
 }
 
-TEST_F( SwitchUnitFixture, ADrivenRelayMovesItsLifeCount)
+//
+// -- RF multiplexer ----------------------------------------------------------------
+//
+
+TEST_F( SwitchUnitFixture, EveryRfBankSelectsOneOfFourAndRefusesToOpen)
+{
+    EXPECT_TRUE( verdictOf( swuRfMultiplexer));
+}
+
+//
+// Left on channel 01 of every bank -- the desk's idle, since an RF bank cannot
+// be opened and stays where it is put.
+//
+TEST_F( SwitchUnitFixture, TheRfScriptLeavesEveryBankOnChannelOne)
+{
+    static_cast<void>( verdictOf( swuRfMultiplexer));
+
+    for( unsigned bank = 1; bank <= 4; ++bank)
+    {
+        EXPECT_TRUE(  Swu1.isClosed( { 5, static_cast<int>( bank * 100 + 1) })) << "bank " << bank;
+        EXPECT_FALSE( Swu1.isClosed( { 5, static_cast<int>( bank * 100 + 4) })) << "bank " << bank;
+    }
+}
+
+//
+// A slot 5 holding a matrix instead behaves like relays -- closing 104 does
+// not open 101, and ROUT:OPEN works -- so both RF-specific checks fail.
+//
+TEST_F( SwitchUnitFixture, AnRfScriptOnAMatrixFails)
+{
+    Rack->Modules[ 5] = "34932A";
+
+    EXPECT_FALSE( verdictOf( swuRfMultiplexer));
+}
+
+//
+// -- Relay life ----------------------------------------------------------------------
+//
+
+TEST_F( SwitchUnitFixture, ADrivenCrosspointMovesItsLifeCount)
 {
     EXPECT_TRUE( verdictOf( swuRelayCycles));
 }

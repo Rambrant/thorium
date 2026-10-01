@@ -386,16 +386,26 @@ Each recipe below is complete. Where a step is missable, the build says so.
 
 ### Add an instrument to the rig
 
-`rig/instrument.inc` — one line. The id is both the global's name and its
-`hal::InstrumentId` enumerator; the third column is how the PC reaches the
-instrument; trailing arguments are the driver's constructor arguments.
+`rig/instrument.inc` — one line. The first column is the **box**: the physical
+unit the row is a face of, which is what an address belongs to. The id is both
+the global's name and its `hal::InstrumentId` enumerator; the fourth column is
+how the PC reaches the box; trailing arguments are the driver's constructor
+arguments.
 
 ```cpp
 INSTRUMENTS
-    INSTRUMENT( keysight_edu34450a::EDU34450A,    Dmm3, Lan( "bench-dmm3"))  // a third DMM
-    INSTRUMENT( keysight_edu36311a::RelayOutput2, DcP8, Lan( "bench-dcp8"))  // relay-isolated
+    INSTRUMENT( BenchDmm3, keysight_edu34450a::EDU34450A,    Dmm3, Lan( "bench-dmm3"))  // a third DMM
+    INSTRUMENT( BenchPsu2, keysight_edu36311a::RelayOutput2, DcP8, Lan( "bench-psu2"))  // relay-isolated
 END_INSTRUMENTS
 ```
+
+Rows that are faces of one unit share its box name — a triple-output supply's
+three outputs, a switch/measure mainframe's meter and its cards — and the build
+holds them to it in both directions: one box has one address, and two boxes may
+not share a fixed one, which is what a typo in a box name produces. Everything
+address-shaped names the box: `--address BenchPsu2=lan:...`,
+`THORIUM_ADDRESS_BenchPsu2`, a `POOL` or `SITE` row. See
+`framework/hal/include/hal/topology/boxes.hpp`.
 
 The address is mandatory, and which bus kinds a row may use is fixed by its
 driver — `Gpib(...)` on an EDU34450A is a compile error, because a LAN-and-USB
@@ -415,12 +425,12 @@ instrument is safed because it exists.
 
 ### Add a switching device to the rig
 
-`rig/devices.inc` — one line per card, naming which card it is, where the PC
-commands it, and (for a chassis whose cards share one address) which card of
-that chassis it is:
+`rig/devices.inc` — one line per card, naming the box it sits in, which card it
+is, where the PC commands the box, and (for a chassis whose cards share one
+address) which card of that chassis it is:
 
 ```cpp
-SWITCH_DEVICE( Racal1260_35, Mux2, Gpib( 0, 7), Card( 5))
+SWITCH_DEVICE( RacalRack, Racal1260_35, Mux2, Gpib( 0, 7), Card( 5))
 ```
 
 That generates `hal::SwitchDeviceId::Mux2`, which is what wiring rows below name

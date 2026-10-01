@@ -50,9 +50,10 @@ auto wfgChannelsIndependent() -> void;
 
 // SwitchUnit -- dev/suite/scripts/swu_self_check.cpp
 auto swuInventory() -> void;
-auto swuRelaysSlot1() -> void;
-auto swuRelaysSlot2() -> void;
-auto swuRelaysSlot3() -> void;
-auto swuRelaysSlot4() -> void;
-auto swuRefusesAMissingChannel() -> void;
+auto swuMatrixSlot1() -> void;
+auto swuMatrixSlot2() -> void;
+auto swuMatrixSlot3() -> void;
+auto swuMatrixSlot4() -> void;
+auto swuRefusesMissingChannels() -> void;
+auto swuRfMultiplexer() -> void;
 auto swuRelayCycles() -> void;

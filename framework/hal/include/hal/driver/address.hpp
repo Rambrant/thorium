@@ -163,7 +163,7 @@ namespace hal
     // compile-time half of this. An L4411A is an LXI box with LAN and USB on
     // the back and no GPIB connector at all, so
     //
-    //     INSTRUMENT( L4411A, Dmm1, Gpib( 0, 14))
+    //     INSTRUMENT( BenchDmm, L4411A, Dmm1, Gpib( 0, 14))
     //
     // is not a configuration mistake to be discovered on the bench, it is a
     // sentence about hardware that does not exist. Each driver's constructor

@@ -125,7 +125,7 @@ namespace hal
     //     2. this deployment's site table, for the selected site
     //     3. this row's candidate pool -- left unresolved here, marked
     //        AddressSource::Pool, and acquired in pass two
-    //     4. the row's own third column
+    //     4. the row's own address column
     //
     // Throws AddressKindMismatch for an override, site row or pool candidate
     // naming a bus the instrument has no connector for, and

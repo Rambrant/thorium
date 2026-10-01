@@ -58,8 +58,8 @@
 // script writes directly, not hal-internal plumbing.
 //
 //   INSTRUMENTS
-//       INSTRUMENT( L4411A, Dmm1, Lan( "bench-dmm1"))
-//       INSTRUMENT( N6701A, DcP1, Gpib( 0, 14), 1)
+//       INSTRUMENT( BenchDmm, L4411A, Dmm1, Lan( "bench-dmm1"))
+//       INSTRUMENT( DcMainframe, N6701A, DcP1, Gpib( 0, 14), 1)
 //   END_INSTRUMENTS
 //
 // INSTRUMENT takes the global's name and its InstrumentId as one token
@@ -95,7 +95,7 @@
 //
 #define INSTRUMENTS
 
-#define INSTRUMENT( type, id, address, ...) \
+#define INSTRUMENT( box, type, id, address, ...) \
     inline hal::type id{ hal::InstrumentId::id, hal::address __VA_OPT__(,) __VA_ARGS__ };
 
 #define END_INSTRUMENTS

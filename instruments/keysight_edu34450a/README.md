@@ -181,7 +181,7 @@ cmake --build build/dev
 ### Over USB
 
 ```cpp
-INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Usb( "MY60012345"))
+INSTRUMENT( BenchDmm, keysight_edu34450a::EDU34450A, Dmm1, Usb( "MY60012345"))
 ```
 
 The serial number is the one on the label on the back of the meter, and it is
@@ -203,7 +203,7 @@ no USB instrument with serial number MY60012345 -- VISA enumerated MY60099999
 ### Over LAN
 
 ```cpp
-INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "dev-dmm"))
+INSTRUMENT( BenchDmm, keysight_edu34450a::EDU34450A, Dmm1, Lan( "dev-dmm"))
 ```
 
 A hostname or a dotted quad; port 5025 unless you say otherwise. This path needs
@@ -343,7 +343,7 @@ pretending a DMM driver is interchangeable across models.
 ## Adding it to a rig
 
 ```
-rig/instrument.inc          INSTRUMENT( keysight_edu34450a::EDU34450A, Dmm1, Lan( "bench-dmm1"))
+rig/instrument.inc          INSTRUMENT( BenchDmm, keysight_edu34450a::EDU34450A, Dmm1, Lan( "bench-dmm1"))
                             ... or Simulated{} until a meter actually answers there -- this
                             driver connects, so the column is now an instruction
 rig/wiring.inc              which fabric channels its force and sense leads land on

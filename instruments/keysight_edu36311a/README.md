@@ -356,14 +356,14 @@ Over **LAN**, put the hostname in the rig row and the driver opens a raw SCPI
 socket on port 5025:
 
 ```
-INSTRUMENT( keysight_edu36311a::RelayOutput2, DcP6, Lan( "bench-dcp6"))
+INSTRUMENT( BenchPsu, keysight_edu36311a::RelayOutput2, DcP6, Lan( "bench-dcp6"))
 ```
 
 Over **USB**, put the serial number from the instrument's own `*IDN?` or its
 `Utility > I/O` screen; `hal::Usb` routes through whatever VISA is installed:
 
 ```
-INSTRUMENT( keysight_edu36311a::RelayOutput2, DcP6, Usb( "CN61130007"))
+INSTRUMENT( BenchPsu, keysight_edu36311a::RelayOutput2, DcP6, Usb( "CN61130007"))
 ```
 
 All three rows of one chassis carry the same address.
@@ -381,9 +381,9 @@ All three rows of one chassis carry the same address.
 ## Adding it to a rig
 
 ```
-rig/instrument.inc     INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Simulated{})
-                       INSTRUMENT( keysight_edu36311a::RelayOutput2,  DcP6, Simulated{})
-                       INSTRUMENT( keysight_edu36311a::RelayOutput3,  DcP7, Simulated{})
+rig/instrument.inc     INSTRUMENT( BenchPsu, keysight_edu36311a::DirectOutput1, DcP5, Simulated{})
+                       INSTRUMENT( BenchPsu, keysight_edu36311a::RelayOutput2, DcP6, Simulated{})
+                       INSTRUMENT( BenchPsu, keysight_edu36311a::RelayOutput3, DcP7, Simulated{})
 rig/wiring.inc         the isolation relay each RelayOutput* sits behind, and
                        where each output's lead lands on the DUT
 ```

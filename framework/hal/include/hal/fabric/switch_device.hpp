@@ -185,7 +185,7 @@ namespace hal
 #undef END_SWITCH_DEVICES
 
 #define SWITCH_DEVICES
-#define SWITCH_DEVICE( model, id, address, card) id,
+#define SWITCH_DEVICE( box, model, id, address, card) id,
 #define END_SWITCH_DEVICES
 
     enum class SwitchDeviceId
@@ -515,7 +515,7 @@ namespace hal
 #undef END_SWITCH_DEVICES
 
 #define SWITCH_DEVICES
-#define SWITCH_DEVICE( model, id, address, card) \
+#define SWITCH_DEVICE( box, model, id, address, card) \
     SwitchDeviceInfo{ SwitchDeviceModel::model, hal::address, hal::card },
 #define END_SWITCH_DEVICES
 

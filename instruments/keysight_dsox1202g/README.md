@@ -322,7 +322,7 @@ and refuses to open USB).
 2. **Put it in the rig table**, replacing the `Simulated{}` this row currently
    carries:
    ```cpp
-   INSTRUMENT( keysight_dsox1202g::DSOX1202G, Osc1, Usb( "CN12345678"))
+   INSTRUMENT( BenchScope, keysight_dsox1202g::DSOX1202G, Osc1, Usb( "CN12345678"))
    ```
 3. **Run something that measures through `Osc1`.** The session opens on the first
    command that needs it, drains whatever the last user left in the error queue,
@@ -374,7 +374,7 @@ One row, and nothing else:
 
 ```cpp
 // rig/instrument.inc
-INSTRUMENT( keysight_dsox1202g::DSOX1202G, Osc1, Usb( "MY12345678"))
+INSTRUMENT( BenchScope, keysight_dsox1202g::DSOX1202G, Osc1, Usb( "MY12345678"))
 ```
 
 The namespace qualifier is what generates this driver's `#include`

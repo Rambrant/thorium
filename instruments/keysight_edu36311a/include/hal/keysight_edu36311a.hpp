@@ -1255,7 +1255,7 @@ namespace hal::keysight_edu36311a
     //
     // A rig's instrument.inc names instruments by these aliases rather than by
     // EDU36311A<...> directly -- partly readability, partly mechanical: the
-    // INSTRUMENT( type, id, address, ...) macro in
+    // INSTRUMENT( box, type, id, address, ...) macro in
     // hal/topology/active_instruments.hpp splits its arguments on top-level
     // commas, and EDU36311A<Output2, RelayIsolated> would arrive there as two
     // arguments. Plain identifiers sidestep the question entirely.
@@ -1268,7 +1268,7 @@ namespace hal::keysight_edu36311a
     // The name says both facts in the order a bench engineer would: whether
     // there is a relay in the lead, then which output of the box it is. So
     //
-    //     INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Simulated{})
+    //     INSTRUMENT( BenchPsu, keysight_edu36311a::DirectOutput1, DcP5, Simulated{})
     //
     // reads as "the 6 V output, hard-wired", which is the whole of what that
     // row has to say beyond its id and its address.

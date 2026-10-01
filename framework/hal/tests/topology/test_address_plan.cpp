@@ -1,6 +1,7 @@
 #include "hal/topology/address_plan.hpp"
 #include "hal/topology/address_tables.hpp"
 
+#include <algorithm>
 #include <string>
 #include <variant>
 #include <vector>
@@ -38,6 +39,16 @@ namespace
     }
 
     //
+    // That instrument's box -- what an override names (see
+    // hal/topology/boxes.hpp).
+    //
+    [[nodiscard]]
+    auto aBox() -> std::string_view
+    {
+        return boxOf( anInstrument());
+    }
+
+    //
     // One parsed --address, with the text it was parsed from kept alive
     // beside it.
     //
@@ -58,27 +69,39 @@ namespace
     {
         public:
             explicit Override( const std::string_view address)
-                : mText(   std::string( to_string( anInstrument())) + "=" + std::string( address)),
+                : mText(   std::string( aBox()) + "=" + std::string( address)),
                   mParsed( parseOverride( mText)) {}
 
             Override( const Override &) = delete;
             auto operator=( const Override &) -> Override & = delete;
 
-            [[nodiscard]] auto id()      const -> InstrumentId    { return mParsed.first;  }
+            [[nodiscard]] auto box()     const -> std::string_view { return mParsed.first;  }
             [[nodiscard]] auto address() const -> const Address & { return mParsed.second; }
 
         private:
             std::string                      mText;
-            std::pair<InstrumentId, Address> mParsed;
+            std::pair<std::string_view, Address> mParsed;
     };
 
     // -- parseOverride: the four bus kinds, and the one with no payload -----
 
-    TEST( AddressPlan, AnOverrideNamesTheInstrumentItIsFor)
+    TEST( AddressPlan, AnOverrideNamesTheBoxItIsFor)
     {
         const Override parsed{ "sim" };
 
-        EXPECT_EQ( parsed.id(), anInstrument());
+        EXPECT_EQ( parsed.box(), aBox());
+    }
+
+    //
+    // The box name handed back is the table's own, not a view into the text
+    // that was parsed -- so a plan outlives the flag that built it, whatever
+    // the caller does with its storage.
+    //
+    TEST( AddressPlan, TheBoxNameIsTheTablesOwnSpellingNotABorrowedOne)
+    {
+        const Override parsed{ "sim" };
+
+        EXPECT_EQ( parsed.box().data(), aBox().data());
     }
 
     TEST( AddressPlan, ALanOverrideTakesTheDefaultPortWhenNoneIsGiven)
@@ -177,7 +200,7 @@ namespace
 
     TEST( AddressPlan, AnOverrideWithoutAnEqualsIsRefused)
     {
-        EXPECT_THROW( ( void) parseOverride( "Dmm1 lan:host"), AddressSyntaxError);
+        EXPECT_THROW( ( void) parseOverride( "Psu1 lan:host"), AddressSyntaxError);
     }
 
     //
@@ -185,21 +208,60 @@ namespace
     // the given one is wrong: the person who mistyped it is at a bench, and
     // the list is short enough that the message can simply be the answer.
     //
-    TEST( AddressPlan, AnUnknownInstrumentIsRefusedAndTheKnownOnesAreNamed)
+    TEST( AddressPlan, AnUnknownBoxIsRefusedAndTheKnownOnesAreNamed)
     {
         try
         {
-            ( void) parseOverride( "NotAnInstrument=lan:host");
+            ( void) parseOverride( "NotABox=lan:host");
 
-            FAIL() << "expected an unknown instrument to be refused";
+            FAIL() << "expected an unknown box to be refused";
         }
         catch( const AddressSyntaxError & refused)
         {
             const std::string message{ refused.what() };
 
-            EXPECT_NE( message.find( "NotAnInstrument"),          std::string::npos);
-            EXPECT_NE( message.find( to_string( anInstrument())), std::string::npos);
+            EXPECT_NE( message.find( "NotABox"),          std::string::npos);
+            EXPECT_NE( message.find( std::string( aBox())), std::string::npos);
         }
+    }
+
+    //
+    // An instrument id where a box goes -- what every flag written before
+    // boxes existed says -- is refused with the box it belongs to, and the
+    // flag it should have been. Skipped on a deployment where every
+    // instrument is named like its box, since there such a flag already
+    // means the box.
+    //
+    TEST( AddressPlan, AnInstrumentInPlaceOfItsBoxIsRefusedNamingTheBox)
+    {
+        const auto boxes = instrumentBoxNames();
+
+        for( const auto id : core::meta::values<InstrumentId>)
+        {
+            if( std::ranges::find( boxes, to_string( id)) != boxes.end())
+            {
+                continue;
+            }
+
+            const auto flag = std::string( to_string( id)) + "=lan:host";
+
+            try
+            {
+                ( void) parseOverride( flag);
+
+                FAIL() << "expected " << flag << " to be refused";
+            }
+            catch( const AddressSyntaxError & refused)
+            {
+                const std::string message{ refused.what() };
+
+                EXPECT_NE( message.find( std::string( boxOf( id)) + "=lan:host"), std::string::npos) << message;
+            }
+
+            return;
+        }
+
+        GTEST_SKIP() << "every instrument on this deployment is named like its box";
     }
 
     TEST( AddressPlan, AnUnknownBusKindIsRefused)

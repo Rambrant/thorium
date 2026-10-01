@@ -6,13 +6,13 @@ namespace hal
 {
     namespace detail
     {
-        auto poolIn( const std::vector<PoolEntry> & entries, const InstrumentId instrument) -> std::vector<Address>
+        auto poolIn( const std::vector<PoolEntry> & entries, const std::string_view box) -> std::vector<Address>
         {
             std::vector<Address> candidates;
 
             for( const auto & entry : entries)
             {
-                if( entry.Instrument == instrument)
+                if( entry.Box == box)
                 {
                     candidates.push_back( entry.Value);
                 }
@@ -24,11 +24,11 @@ namespace hal
         auto siteAddressIn(
             const std::vector<SiteEntry> & entries,
             const std::string_view         site,
-            const InstrumentId             instrument) -> std::optional<Address>
+            const std::string_view         box) -> std::optional<Address>
         {
             for( const auto & entry : entries)
             {
-                if( entry.Site == site && entry.Instrument == instrument)
+                if( entry.Site == site && entry.Box == box)
                 {
                     return entry.Value;
                 }
@@ -53,14 +53,29 @@ namespace hal
         }
     } // namespace detail
 
-    auto poolFor( const InstrumentId instrument) -> std::vector<Address>
+    auto poolFor( const std::string_view box) -> std::vector<Address>
     {
-        return detail::poolIn( detail::poolEntries, instrument);
+        return detail::poolIn( detail::poolEntries, box);
     }
 
-    auto siteAddressFor( const std::string_view site, const InstrumentId instrument) -> std::optional<Address>
+    auto siteAddressFor( const std::string_view site, const std::string_view box) -> std::optional<Address>
     {
-        return detail::siteAddressIn( detail::siteEntries, site, instrument);
+        return detail::siteAddressIn( detail::siteEntries, site, box);
+    }
+
+    auto instrumentBoxNames() -> std::vector<std::string_view>
+    {
+        std::vector<std::string_view> names;
+
+        for( const auto & row : detail::instrumentBoxRows)
+        {
+            if( std::ranges::find( names, row.Box) == names.end())
+            {
+                names.push_back( row.Box);
+            }
+        }
+
+        return names;
     }
 
     auto siteNames() -> std::vector<std::string_view>

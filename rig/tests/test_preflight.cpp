@@ -55,7 +55,7 @@ namespace
 
                 for( const auto & binding : mOriginal)
                 {
-                    plan.Overrides.emplace_back( binding.Id, binding.Value);
+                    plan.Overrides.emplace_back( binding.Box, binding.Value);
                 }
 
                 ( void) bindAddresses( plan);
@@ -166,7 +166,7 @@ namespace
 
         AddressPlan plan;
 
-        plan.Overrides.push_back( parseOverride( "Ser1=serial:/dev/ttyUSB9"));
+        plan.Overrides.push_back( parseOverride( "DutConsole=serial:/dev/ttyUSB9"));
 
         const auto binding = bindingFor( bindAddresses( plan), InstrumentId::Ser1);
 
@@ -181,7 +181,7 @@ namespace
 
         AddressPlan plan;
 
-        plan.Overrides.push_back( parseOverride( "Ser1=serial:/dev/ttyUSB9"));
+        plan.Overrides.push_back( parseOverride( "DutConsole=serial:/dev/ttyUSB9"));
 
         for( const auto & binding : bindAddresses( plan))
         {
@@ -204,8 +204,8 @@ namespace
 
         AddressPlan plan;
 
-        plan.Overrides.push_back( parseOverride( "Ser1=serial:/dev/first"));
-        plan.Overrides.push_back( parseOverride( "Ser1=serial:/dev/second"));
+        plan.Overrides.push_back( parseOverride( "DutConsole=serial:/dev/first"));
+        plan.Overrides.push_back( parseOverride( "DutConsole=serial:/dev/second"));
 
         EXPECT_EQ( std::get<Serial>( bindingFor( bindAddresses( plan), InstrumentId::Ser1).Value).device,
                    "/dev/first");
@@ -226,7 +226,7 @@ namespace
 
         AddressPlan plan;
 
-        plan.Overrides.push_back( parseOverride( "Ser1=lan:some-host"));
+        plan.Overrides.push_back( parseOverride( "DutConsole=lan:some-host"));
 
         EXPECT_THROW( ( void) bindAddresses( plan), AddressKindMismatch);
     }
@@ -244,7 +244,7 @@ namespace
 
         AddressPlan plan;
 
-        plan.Overrides.push_back( parseOverride( "Ser1=gpib:0,9"));
+        plan.Overrides.push_back( parseOverride( "DutConsole=gpib:0,9"));
 
         const auto binding = bindingFor( bindAddresses( plan), InstrumentId::Ser1);
 
@@ -258,7 +258,7 @@ namespace
 
         AddressPlan plan;
 
-        plan.Overrides.push_back( parseOverride( "AcP1=usb:CN0001"));
+        plan.Overrides.push_back( parseOverride( "AcSource=usb:CN0001"));
 
         try
         {
@@ -294,7 +294,7 @@ namespace
 
         AddressPlan plan;
 
-        plan.Overrides.push_back( parseOverride( "Dmm1=usb:MY60012345"));
+        plan.Overrides.push_back( parseOverride( "BenchDmm=usb:MY60012345"));
 
         const auto binding = bindingFor( bindAddresses( plan), InstrumentId::Dmm1);
 
@@ -314,13 +314,13 @@ namespace
 
         AddressPlan lan;
 
-        lan.Overrides.push_back( parseOverride( "Dmm1=lan:dev-dmm-3"));
+        lan.Overrides.push_back( parseOverride( "BenchDmm=lan:dev-dmm-3"));
 
         EXPECT_NO_THROW( ( void) bindAddresses( lan));
 
         AddressPlan refused;
 
-        refused.Overrides.push_back( parseOverride( "Osc1=gpib:0,7"));
+        refused.Overrides.push_back( parseOverride( "BenchScope=gpib:0,7"));
 
         EXPECT_THROW( ( void) bindAddresses( refused), AddressKindMismatch);
     }
@@ -336,7 +336,7 @@ namespace
 
         AddressPlan plan;
 
-        plan.Overrides.push_back( parseOverride( "Ser1=sim"));
+        plan.Overrides.push_back( parseOverride( "DutConsole=sim"));
 
         const auto binding = bindingFor( bindAddresses( plan), InstrumentId::Ser1);
 
@@ -438,8 +438,8 @@ namespace
     }
 
     //
-    // Every line carries the five columns, and the last one is the whole
-    // point of the banner: it says which of the ways of having no identity
+    // Every line carries the six columns -- box first, since that is the unit
+    // an --address moves -- and the last one is the whole point of the banner: it says which of the ways of having no identity
     // this row is, rather than leaving a blank that could mean any of them.
     //
     TEST( Preflight, EachLineSaysTheIdTheDriverTheAddressAndWhereItCameFrom)
@@ -448,15 +448,26 @@ namespace
 
         const auto lines = bannerLines( bindAddresses( AddressPlan{}));
 
-        const auto lineFor = [ & ]( const std::string_view id) -> std::string
+        //
+        // A line by its box, with the instrument as the column after it --
+        // which is the order a reader looks for a row in: which unit, then
+        // which face of it.
+        //
+        const auto lineFor = [ & ]( const std::string_view box, const std::string_view id) -> std::string
         {
-            const auto found = std::ranges::find_if( lines,
-                [ & ]( const std::string & line) { return line.starts_with( id); });
+            const auto found = std::ranges::find_if( lines, [ & ]( const std::string & line)
+            {
+                const auto idColumn = line.find_first_not_of( ' ', line.find( ' '));
+
+                return line.starts_with( box) && line.compare( idColumn, id.size(), id) == 0;
+            });
 
             return found == lines.end() ? std::string{} : *found;
         };
 
-        const auto dmm1 = lineFor( "Dmm1");
+        const auto dmm1 = lineFor( "BenchDmm", "Dmm1");
+
+        ASSERT_FALSE( dmm1.empty());
 
         EXPECT_NE( dmm1.find( "keysight_edu34450a::EDU34450A"), std::string::npos);
         EXPECT_NE( dmm1.find( "Simulated"),                     std::string::npos);
@@ -467,7 +478,9 @@ namespace
         // AcP1 has a real GPIB address and no session at all, which is a
         // different sentence from Dmm1's and has to read as one.
         //
-        const auto acp1 = lineFor( "AcP1");
+        const auto acp1 = lineFor( "AcSource", "AcP1");
+
+        ASSERT_FALSE( acp1.empty());
 
         EXPECT_NE( acp1.find( "Gpib 0::5"),  std::string::npos);
         EXPECT_NE( acp1.find( "no session"), std::string::npos);
@@ -479,11 +492,11 @@ namespace
 
         AddressPlan plan;
 
-        plan.Overrides.push_back( parseOverride( "Ser1=serial:/dev/ttyUSB9"));
+        plan.Overrides.push_back( parseOverride( "DutConsole=serial:/dev/ttyUSB9"));
 
         const auto lines = bannerLines( bindAddresses( plan));
         const auto found = std::ranges::find_if( lines,
-            [ ]( const std::string & line) { return line.starts_with( "Ser1"); });
+            [ ]( const std::string & line) { return line.starts_with( "DutConsole"); });
 
         ASSERT_NE( found, lines.end());
         EXPECT_NE( found->find( "/dev/ttyUSB9"), std::string::npos);
@@ -493,7 +506,8 @@ namespace
     //
     // Columns, not just fields: the banner is read by eye down a page, and a
     // ragged one is the difference between spotting the odd serial out and
-    // not. Asserted as "every line agrees where the second column starts",
+    // not. Asserted as "every line agrees where the second and third columns
+    // start" -- the instrument after the box, and the driver after that --
     // which is the property, rather than by pinning a width that any new
     // instrument would change.
     //
@@ -505,13 +519,26 @@ namespace
 
         ASSERT_FALSE( lines.empty());
 
-        const auto column = lines.front().find( "keysight");
+        const auto secondColumn = []( const std::string & line)
+        {
+            return line.find_first_not_of( ' ', line.find( ' '));
+        };
 
-        ASSERT_NE( column, std::string::npos);
+        const auto thirdColumn = [ & ]( const std::string & line)
+        {
+            return line.find_first_not_of( ' ', line.find( ' ', secondColumn( line)));
+        };
+
+        const auto idColumn   = secondColumn( lines.front());
+        const auto typeColumn = lines.front().find( "keysight");
+
+        ASSERT_NE( typeColumn, std::string::npos);
+        ASSERT_EQ( thirdColumn( lines.front()), typeColumn);
 
         for( const auto & line : lines)
         {
-            EXPECT_EQ( line.find_first_not_of( ' ', line.find( ' ')), column) << line;
+            EXPECT_EQ( secondColumn( line), idColumn)   << line;
+            EXPECT_EQ( thirdColumn( line),  typeColumn) << line;
         }
     }
 
@@ -533,12 +560,12 @@ namespace
     TEST( AddressPools, CandidatesComeBackInTableOrder)
     {
         const std::vector<PoolEntry> entries{
-            { InstrumentId::Dmm1, Lan{ "dev-dmm-1" } },
-            { InstrumentId::Osc1, Usb{ "CN0001"    } },
-            { InstrumentId::Dmm1, Lan{ "dev-dmm-2" } }
+            { "BenchDmm", Lan{ "dev-dmm-1" } },
+            { "BenchScope", Usb{ "CN0001"    } },
+            { "BenchDmm", Lan{ "dev-dmm-2" } }
         };
 
-        const auto candidates = detail::poolIn( entries, InstrumentId::Dmm1);
+        const auto candidates = detail::poolIn( entries, "BenchDmm");
 
         ASSERT_EQ( candidates.size(), 2u);
         EXPECT_EQ( std::get<Lan>( candidates[ 0]).host, "dev-dmm-1");
@@ -550,21 +577,21 @@ namespace
     // optional per row: every instrument it does not mention resolves from
     // its own column, and nothing has to say so.
     //
-    TEST( AddressPools, AnInstrumentWithNoRowsHasNoPool)
+    TEST( AddressPools, ABoxWithNoRowsHasNoPool)
     {
-        const std::vector<PoolEntry> entries{ { InstrumentId::Dmm1, Lan{ "dev-dmm-1" } } };
+        const std::vector<PoolEntry> entries{ { "BenchDmm", Lan{ "dev-dmm-1" } } };
 
-        EXPECT_TRUE( detail::poolIn( entries, InstrumentId::Osc1).empty());
+        EXPECT_TRUE( detail::poolIn( entries, "BenchScope").empty());
     }
 
-    TEST( AddressSites, ASiteRowIsFoundByBothItsNameAndItsInstrument)
+    TEST( AddressSites, ASiteRowIsFoundByBothItsNameAndItsBox)
     {
         const std::vector<SiteEntry> entries{
-            { "Bench01", InstrumentId::Osc1, Usb{ "CN0001" } },
-            { "Bench02", InstrumentId::Osc1, Usb{ "CN0002" } }
+            { "Bench01", "BenchScope", Usb{ "CN0001" } },
+            { "Bench02", "BenchScope", Usb{ "CN0002" } }
         };
 
-        const auto found = detail::siteAddressIn( entries, "Bench02", InstrumentId::Osc1);
+        const auto found = detail::siteAddressIn( entries, "Bench02", "BenchScope");
 
         ASSERT_TRUE( found.has_value());
         EXPECT_EQ( std::get<Usb>( *found).serialNumber, "CN0002");
@@ -577,17 +604,17 @@ namespace
     //
     TEST( AddressSites, ASiteThatDoesNotNameARowLeavesItAlone)
     {
-        const std::vector<SiteEntry> entries{ { "Bench01", InstrumentId::Osc1, Usb{ "CN0001" } } };
+        const std::vector<SiteEntry> entries{ { "Bench01", "BenchScope", Usb{ "CN0001" } } };
 
-        EXPECT_FALSE( detail::siteAddressIn( entries, "Bench01", InstrumentId::Dmm1).has_value());
+        EXPECT_FALSE( detail::siteAddressIn( entries, "Bench01", "BenchDmm").has_value());
     }
 
     TEST( AddressSites, EachSiteIsNamedOnceHoweverManyRowsItHas)
     {
         const std::vector<SiteEntry> entries{
-            { "Bench01", InstrumentId::Osc1, Usb{ "CN0001"  } },
-            { "Bench01", InstrumentId::Dmm1, Lan{ "b01-dmm" } },
-            { "Bench02", InstrumentId::Osc1, Usb{ "CN0002"  } }
+            { "Bench01", "BenchScope", Usb{ "CN0001"  } },
+            { "Bench01", "BenchDmm", Lan{ "b01-dmm" } },
+            { "Bench02", "BenchScope", Usb{ "CN0002"  } }
         };
 
         EXPECT_EQ( detail::siteNamesIn( entries), ( std::vector<std::string_view>{ "Bench01", "Bench02" }));

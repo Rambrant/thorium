@@ -49,7 +49,7 @@
 // assertion its author makes: that these three boxes really are the same
 // model with the same leads on nothing.
 //
-// -- What this changes about the third column of instrument.inc -------------
+// -- What this changes about the address column of instrument.inc -------------
 //
 // It stops being consulted on an attached run, and that is the trap worth
 // knowing about before editing it. A pool outranks the row's own address (see
@@ -64,9 +64,9 @@
 //
 // What does still win is the operator, which is the order that matters:
 //
-//     run_scripts --address Dmm1=lan:dev-dmm-7
+//     run_scripts --address DeskDmm=lan:dev-dmm-7
 //
-// or THORIUM_ADDRESS_Dmm1 in the shell. A meter that is on none of these three
+// or THORIUM_ADDRESS_DeskDmm in the shell. A meter that is on none of these three
 // needs no edit to this file, and the run's header says the flag chose it.
 //
 // -- The rows themselves ----------------------------------------------------
@@ -106,5 +106,5 @@
 // edit rather than a reshape.
 //
 ADDRESS_POOLS
-    POOL( Dmm1, Usb( "CN65510018"))      // the desk's own meter, free unless somebody borrowed it
+    POOL( DeskDmm, Usb( "CN65510018"))      // the desk's own meter, free unless somebody borrowed it
 END_ADDRESS_POOLS

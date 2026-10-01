@@ -26,7 +26,7 @@ namespace hal
     //
     // instrument.inc is read here with INSTRUMENT redefined to keep only
     // the id token -- the same file hal/topology/active_instruments.hpp
-    // declares the real instrument globals from (INSTRUMENT(type, id, address, ...), one
+    // declares the real instrument globals from (INSTRUMENT( box, type, id, address, ...), one
     // token for both the global's name and its identity -- see that file's
     // own comment on why there's no separate name parameter to ignore here).
     // The macro is spelled with all of that file's fixed columns even though
@@ -72,7 +72,7 @@ namespace hal
 #undef END_INSTRUMENTS
 
 #define INSTRUMENTS
-#define INSTRUMENT( type, id, address, ...) id,
+#define INSTRUMENT( box, type, id, address, ...) id,
 #define END_INSTRUMENTS
 
     enum class InstrumentId

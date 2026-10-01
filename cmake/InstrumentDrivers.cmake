@@ -70,7 +70,7 @@ function(thorium_generate_instrument_drivers instrumentTable instrumentDirs outp
     #
     # Only lines that actually invoke the macro. The REGEX pass is a coarse
     # filter -- it also catches the file's own prose, which mentions
-    # INSTRUMENT(type, id, address, ...) more than once -- so each candidate is
+    # INSTRUMENT(box, type, id, address, ...) more than once -- so each candidate is
     # stripped and re-checked below, where a comment line starts with // and
     # falls out.
     #
@@ -86,18 +86,20 @@ function(thorium_generate_instrument_drivers instrumentTable instrumentDirs outp
         endif()
 
         #
-        # The type column, up to its namespace qualifier. Checked rather than
-        # assumed: an unqualified type (INSTRUMENT( L4411A, ...)) names no
+        # The type column -- the second, after the box name -- up to its
+        # namespace qualifier. Checked rather than assumed: an unqualified type
+        # (INSTRUMENT( BenchDmm, L4411A, ...)) names no
         # driver package, so there is no header to derive and no honest guess
         # to make. Failing here says which row and what the row should have
         # said; failing later is a missing-include error inside a generated
         # file, pointing at neither.
         #
-        if(NOT line MATCHES "^INSTRUMENT\\([ ]*([A-Za-z_][A-Za-z0-9_]*)::")
+        if(NOT line MATCHES "^INSTRUMENT\\([ ]*[A-Za-z_][A-Za-z0-9_]*[ ]*,[ ]*([A-Za-z_][A-Za-z0-9_]*)::")
             message(FATAL_ERROR
                 "${instrumentTable}: cannot tell which driver this row needs:\n"
                 "    ${line}\n"
-                "An INSTRUMENT row's type column must be qualified with its driver's "
+                "An INSTRUMENT row is INSTRUMENT( box, type, id, address, ...), and its type "
+                "column must be qualified with its driver's "
                 "namespace (keysight_n6701a::Direct, not Direct) -- that qualifier is "
                 "what names the header the row compiles against "
                 "(${THORIUM_INSTRUMENT_DRIVER_HEADER_FORMAT}).")

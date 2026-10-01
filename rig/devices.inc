@@ -189,11 +189,12 @@
 //
 // One structural question that driver's arrival makes concrete, and this table
 // is where it will be answered: the chassis is a row in instrument.inc, but
-// there is no hal::SwitchDeviceId for one. Five module rows in one 34980A would be five
-// rows repeating one address -- which is exactly the case rig/instrument.inc
-// has already predicted an answer for, about its own second shared box: "a
-// named constant above this table per chassis, not a slot field on the
-// address." That is the line to write here when the first module row does.
+// there is no hal::SwitchDeviceId for one. Five module rows in one 34980A are
+// five faces of one box, and say so in their first column -- the same box name
+// as the chassis's own row in instrument.inc, which the build holds to one
+// address across both tables (see framework/hal/include/hal/topology/boxes.hpp).
+// The four Racal rows below are the same thing already: four cards, one
+// controller, one box, RacalRack.
 //
 // -- Provisional ------------------------------------------------------------
 //
@@ -214,9 +215,9 @@
 // the first, not because the numbering means anything.
 //
 SWITCH_DEVICES
-    SWITCH_DEVICE( Racal1260_45,  Matrix1, Gpib( 0, 7),    Card( 1))
-    SWITCH_DEVICE( Racal1260_35,  Mux1,    Gpib( 0, 7),    Card( 2))
-    SWITCH_DEVICE( Racal1260_18,  Spst1,   Gpib( 0, 7),    Card( 3))
-    SWITCH_DEVICE( Racal1260_17,  Spdt1,   Gpib( 0, 7),    Card( 4))
-    SWITCH_DEVICE( AgilentE1472A, RfMux1,  Gpib( 0, 9, 3), NoCard)
+    SWITCH_DEVICE( RacalRack,   Racal1260_45,  Matrix1, Gpib( 0, 7),    Card( 1))
+    SWITCH_DEVICE( RacalRack,   Racal1260_35,  Mux1,    Gpib( 0, 7),    Card( 2))
+    SWITCH_DEVICE( RacalRack,   Racal1260_18,  Spst1,   Gpib( 0, 7),    Card( 3))
+    SWITCH_DEVICE( RacalRack,   Racal1260_17,  Spdt1,   Gpib( 0, 7),    Card( 4))
+    SWITCH_DEVICE( VxiRfSwitch, AgilentE1472A, RfMux1,  Gpib( 0, 9, 3), NoCard)
 END_SWITCH_DEVICES

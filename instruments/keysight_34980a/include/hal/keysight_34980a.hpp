@@ -98,13 +98,12 @@ namespace hal::keysight_34980a
     // no rows, and that is the gap this heading is about.
     //
     // That is not an oversight in this driver, it is the next question for the
-    // fabric, and this repo has already predicted the answer -- in
-    // rig/instrument.inc, about the equivalent case on the instrument side: "a
-    // named constant above this table per chassis, not a slot field on the
-    // address." A rig with a 34980A writes one address constant, and every
-    // module row in that chassis repeats it -- precisely as DcP1..DcP4 repeat
-    // their mainframe's address today, and DcP5..DcP7 repeat theirs. See
-    // rig/devices.inc, which now records that as this rack's destination.
+    // fabric, and the tables already have the answer: a box. Every row --
+    // instrument or device -- names the unit it is a face of in its first
+    // column, so this chassis's module rows will say Swu1 like its own row
+    // does, and the build holds a box's rows to one address (see
+    // hal/topology/boxes.hpp). See rig/devices.inc, which records that as this
+    // rack's destination.
     //
     // What still has to be built before any of that switches a real relay:
     // hal::SwitchFabric has no transport seam. Its close()/open() increment a
@@ -118,7 +117,7 @@ namespace hal::keysight_34980a
     // This class inherits hal::InstrumentTag and takes an hal::InstrumentId,
     // so a rig names it in instrument.inc like anything else it talks to:
     //
-    //     INSTRUMENT( keysight_34980a::Chassis, Swu1, Usb( "MY12345678"))
+    //     INSTRUMENT( Swu1, keysight_34980a::Chassis, Swu1, Usb( "MY12345678"))
     //
     // It did not start that way. The first version argued that a switching
     // device is plumbing, that hal::InstrumentId is what a reading is
@@ -138,7 +137,7 @@ namespace hal::keysight_34980a
     //
     // What it does not change: a chassis is still not an hal::SwitchDeviceId.
     // Those are one per *card*, and when module rows arrive in devices.inc
-    // they will name this row's instrument rather than repeat its address.
+    // they will name this row's box.
     //
     // -- The Janus half that is not here yet ---------------------------------
     //
@@ -537,7 +536,7 @@ namespace hal::keysight_34980a
 
             //
             // Point this driver at a different mainframe -- what preflight does
-            // with an --address, THORIUM_ADDRESS_<id> or a site row. Startup
+            // with an --address, THORIUM_ADDRESS_<box> or a site row. Startup
             // only, validates nothing (hal::bindAddresses() already checked the
             // address against Buses), and drops any open session so that
             // nothing goes on switching the previous box.

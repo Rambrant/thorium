@@ -47,8 +47,8 @@
   <line x1="112" y1="337" x2="333" y2="337" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>
   <text x="225" y="329" text-anchor="middle" font-size="11.5" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">bindAddresses( plan)</text>
   <rect x="119" y="373" width="441" height="82" rx="4" fill="#fffbeb" stroke="#d6bf7a" stroke-width="1.1"/>
-  <text x="130" y="395" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">per row, in this order: an --address override, the site table,</text>
-  <text x="130" y="410" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">this row's candidate pool, then the row's own third column.</text>
+  <text x="130" y="395" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">per box, in this order: an --address override, the site table,</text>
+  <text x="130" y="410" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">the box's candidate pool, then the row's own address column.</text>
   <text x="130" y="425" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">Every candidate is checked against the driver's hal::BackPanel,</text>
   <text x="130" y="440" font-size="11" fill="#22303c" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">so a bus the instrument has no connector for is refused here.</text>
   <line x1="112" y1="489" x2="333" y2="489" stroke="#22303c" stroke-width="1.5" marker-end="url(#call)"/>

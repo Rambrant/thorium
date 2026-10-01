@@ -1,16 +1,19 @@
 #pragma once
 
 #include <meta>
+#include <algorithm>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/instrument.hpp"
+#include "hal/topology/boxes.hpp"
 
 //
 // The two optional rig tables that can supply a row's address when its own
-// third column does not: this deployment's sites, and its address pools.
+// address column does not: this deployment's sites, and its address pools.
 //
 // It sits in topology/ for the reason active_instruments.hpp and wiring.hpp
 // do: this directory is where the mechanism behind each of the deployment's
@@ -51,26 +54,30 @@
 namespace hal
 {
     //
-    // One candidate an instrument may be bound to. Several rows per
-    // instrument, in the order the table writes them, which is the order they
-    // are tried in -- so a lab can put the usual meter first and the shared
-    // one last.
+    // One candidate a box may be bound to. Several rows per box, in the order
+    // the table writes them, which is the order they are tried in -- so a lab
+    // can put the usual meter first and the shared one last.
+    //
+    // By box, not by instrument, and that is the point of it: a box with three
+    // faces -- a triple-output supply -- is acquired once and all three rows
+    // follow it, where a pool per row had each row claim a box of its own (see
+    // hal/topology/boxes.hpp).
     //
     struct PoolEntry
     {
-        InstrumentId Instrument{};
-        Address      Value{};
+        std::string_view Box{};
+        Address          Value{};
     };
 
     //
-    // One instrument's address on one bench of a fleet. Keyed by a site name
+    // One box's address on one bench of a fleet. Keyed by a site name
     // rather than an index, because the name is what a bench PC is configured
     // with and what the traceability header records.
     //
     struct SiteEntry
     {
         std::string_view Site{};
-        InstrumentId     Instrument{};
+        std::string_view Box{};
         Address          Value{};
     };
 
@@ -94,10 +101,10 @@ namespace hal
     consteval auto hasPool( InstrumentId instrument) -> bool;
 
     //
-    // This row's candidates, in table order, or empty for a row with no pool.
+    // This box's candidates, in table order, or empty for a box with no pool.
     //
     [[nodiscard]]
-    auto poolFor( InstrumentId instrument) -> std::vector<Address>;
+    auto poolFor( std::string_view box) -> std::vector<Address>;
 
     //
     // What the named site says this instrument's address is, or nothing if
@@ -107,7 +114,7 @@ namespace hal
     // address identical on every bench belongs.
     //
     [[nodiscard]]
-    auto siteAddressFor( std::string_view site, InstrumentId instrument) -> std::optional<Address>;
+    auto siteAddressFor( std::string_view site, std::string_view box) -> std::optional<Address>;
 
     //
     // Every site this deployment declares, in table order and without
@@ -122,14 +129,46 @@ namespace hal
         [[nodiscard]]
         consteval auto instrumentsOf( const std::vector<PoolEntry> & entries) -> std::vector<InstrumentId>
         {
+            //
+            // Every instrument a pooled box has: a pool names a box, and every
+            // face of it is pooled with it -- which is what the veto in
+            // hal::bindAddresses() asks about, since one wired face makes the
+            // whole box not interchangeable.
+            //
             std::vector<InstrumentId> instruments;
 
             for( const auto & entry : entries)
             {
-                instruments.push_back( entry.Instrument);
+                for( const auto id : instrumentsIn( entry.Box))
+                {
+                    if( std::ranges::find( instruments, id) == instruments.end())
+                    {
+                        instruments.push_back( id);
+                    }
+                }
             }
 
             return instruments;
+        }
+
+        //
+        // A POOL row naming a box no instrument row has -- a typo, or a box
+        // whose rows were removed. The first one, as the sentence the build
+        // fails with, or empty.
+        //
+        consteval auto unknownBoxIn( const std::vector<PoolEntry> & entries) -> std::string
+        {
+            for( const auto & entry : entries)
+            {
+                if( !hasInstrumentsIn( entry.Box))
+                {
+                    return "POOL( " + std::string( entry.Box) + ", ...) names a box no INSTRUMENT row in"
+                           " instrument.inc has. A pool names the box -- the first column of the rows"
+                           " it serves.";
+                }
+            }
+
+            return {};
         }
     } // namespace detail
 } // namespace hal
@@ -157,7 +196,7 @@ namespace hal
 // instrument with several wires.
 //
 // The address is written unqualified (Lan( "dev-dmm-1"), not
-// hal::Lan( ...)) and qualified in the expansion, exactly as the third column
+// hal::Lan( ...)) and qualified in the expansion, exactly as the address column
 // of instrument.inc is, so the table stays free of namespace noise.
 // Parentheses rather than braces for the same preprocessor reason
 // active_instruments.hpp gives: braces are not grouping to the preprocessor,
@@ -169,14 +208,16 @@ namespace hal
     {                                                                            \
         std::vector<PoolEntry> entries;
 
-#define POOL( instrument, address) \
-        entries.push_back( PoolEntry{ InstrumentId::instrument, hal::address });
+#define POOL( box, address) \
+        entries.push_back( PoolEntry{ #box, hal::address });
 
 #define END_ADDRESS_POOLS                                                       \
         return entries;                                                         \
     }                                                                            \
     inline constexpr auto pooledInstruments =                                    \
         std::define_static_array( instrumentsOf( buildPoolEntries()));           \
+    static_assert( unknownBoxIn( buildPoolEntries()).empty(),                    \
+                   unknownBoxIn( buildPoolEntries()));                           \
     inline const std::vector<PoolEntry> poolEntries = buildPoolEntries();        \
     } /* namespace detail */                                                     \
     consteval auto hasPool( const InstrumentId instrument) -> bool               \
@@ -198,8 +239,8 @@ namespace hal
     {                                                                            \
         std::vector<SiteEntry> entries;
 
-#define SITE( site, instrument, address) \
-        entries.push_back( SiteEntry{ #site, InstrumentId::instrument, hal::address });
+#define SITE( site, box, address) \
+        entries.push_back( SiteEntry{ #site, #box, hal::address });
 
 #define END_SITES                                                               \
         return entries;                                                         \
@@ -231,13 +272,13 @@ namespace hal
     namespace detail
     {
         [[nodiscard]]
-        auto poolIn( const std::vector<PoolEntry> & entries, InstrumentId instrument) -> std::vector<Address>;
+        auto poolIn( const std::vector<PoolEntry> & entries, std::string_view box) -> std::vector<Address>;
 
         [[nodiscard]]
         auto siteAddressIn(
             const std::vector<SiteEntry> & entries,
             std::string_view               site,
-            InstrumentId                   instrument) -> std::optional<Address>;
+            std::string_view               box) -> std::optional<Address>;
 
         [[nodiscard]]
         auto siteNamesIn( const std::vector<SiteEntry> & entries) -> std::vector<std::string_view>;

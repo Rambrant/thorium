@@ -10,7 +10,7 @@ Target: `hal_keysight_34980a` / `Thorium::hal_keysight_34980a`. Depends on
 
 **The first switching device under `instruments/`.** It measures nothing and
 sources nothing — it is switching hardware — and it is an instrument *row* all
-the same: `INSTRUMENT( keysight_34980a::Chassis, Swu1, Usb( ...))`, so preflight,
+the same: `INSTRUMENT( Swu1, keysight_34980a::Chassis, Swu1, Usb( ...))`, so preflight,
 `--address` and safing reach it (see **An instrument row** below). `hal/fabric/switch_device.hpp` named this directory as the
 destination for switch-card drivers before there were any:
 
@@ -248,7 +248,7 @@ driver).
 names it in `instrument.inc` like anything else it talks to:
 
 ```cpp
-INSTRUMENT( keysight_34980a::Chassis, Swu1, Usb( "MY12345678"))
+INSTRUMENT( Swu1, keysight_34980a::Chassis, Swu1, Usb( "MY12345678"))
 ```
 
 It started out as the opposite — no tag, no id — on the argument that a switching
@@ -292,10 +292,10 @@ counts one cycle per close of an open channel.
 
 A `Chassis` has an `hal::InstrumentId` and no `hal::SwitchDeviceId` — those are one
 per *card*, and a mainframe has no channels of its own. When module rows arrive in
-`devices.inc` they will name the chassis row rather than repeat its address, which
-is the answer `rig/instrument.inc` already predicted for shared boxes:
-
-> a named constant above this table per chassis, not a slot field on the address
+`devices.inc` they will share its **box** -- `SWITCH_DEVICE( Swu1, Keysight34932A,
+Matrix1, ...)` -- and the build holds a box's rows to one address (see
+`framework/hal/include/hal/topology/boxes.hpp`). Which is how one mainframe will
+have a switch face per card and a meter face, without a second session to it.
 
 ## What is deliberately not here
 

@@ -86,12 +86,13 @@ END_GROUP
 // the mainframe answers about itself. Runs whole. See
 // dev/suite/scripts/swu_self_check.cpp.
 //
-GROUP( SwitchUnit, "The 34980A switch unit, tested in isolation: inventory, relays, refusal and relay life")
-    TEST( SwuInventory,              swuInventory,              "Slots 1-4 hold 34921As, slot 5 is fitted; every slot's module noted")
-    TEST( SwuRelaysSlot1,            swuRelaysSlot1,            "Slot 1: close, open, a list across both banks, exclusive, bus relays, open all")
-    TEST( SwuRelaysSlot2,            swuRelaysSlot2,            "Slot 2: close, open, a list across both banks, exclusive, bus relays, open all")
-    TEST( SwuRelaysSlot3,            swuRelaysSlot3,            "Slot 3: close, open, a list across both banks, exclusive, bus relays, open all")
-    TEST( SwuRelaysSlot4,            swuRelaysSlot4,            "Slot 4: close, open, a list across both banks, exclusive, bus relays, open all")
-    TEST( SwuRefusesAMissingChannel, swuRefusesAMissingChannel, "A channel a 34921A does not have is refused by the mainframe")
-    TEST( SwuRelayCycles,            swuRelayCycles,            "A close and an open move the relay's life count")
+GROUP( SwitchUnit, "The 34980A switch unit, tested in isolation: inventory, matrices, RF mux and relay life")
+    TEST( SwuInventory,              swuInventory,              "Slots 1-4 hold 34932As and slot 5 a 34941A; every slot's module noted")
+    TEST( SwuMatrixSlot1,            swuMatrixSlot1,            "Slot 1: a crosspoint, both matrices' corners, exclusive, the bus relays, open all")
+    TEST( SwuMatrixSlot2,            swuMatrixSlot2,            "Slot 2: a crosspoint, both matrices' corners, exclusive, the bus relays, open all")
+    TEST( SwuMatrixSlot3,            swuMatrixSlot3,            "Slot 3: a crosspoint, both matrices' corners, exclusive, the bus relays, open all")
+    TEST( SwuMatrixSlot4,            swuMatrixSlot4,            "Slot 4: a crosspoint, both matrices' corners, exclusive, the bus relays, open all")
+    TEST( SwuRefusesMissingChannels, swuRefusesMissingChannels, "Column 17, row 9 and a bank-1 bus relay are refused by a 34932A")
+    TEST( SwuRfMultiplexer,          swuRfMultiplexer,          "Each 34941A bank selects 1-of-4 and refuses to be opened")
+    TEST( SwuRelayCycles,            swuRelayCycles,            "A close and an open move a crosspoint's life count")
 END_GROUP

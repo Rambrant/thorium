@@ -113,7 +113,8 @@ namespace hal
             }
 
             return "instrument " + std::string( core::meta::to_string( *offender))
-                 + " has an address pool and is also wired. A pool says its candidates are"
+                 + " is a face of box " + std::string( boxOf( *offender))
+                 + ", which has an address pool, and it is also wired. A pool says its candidates are"
                    " interchangeable, and a wiring row says this instrument's leads go somewhere"
                    " specific -- both cannot be true, and binding it from a pool would be a coin"
                    " flip on which node gets measured. Remove its POOL rows, or remove the wiring"
@@ -271,9 +272,9 @@ namespace hal
         //
         auto resolve( Binding & binding, const AddressPlan & plan) -> void
         {
-            for( const auto & [ id, address ] : plan.Overrides)
+            for( const auto & [ box, address ] : plan.Overrides)
             {
-                if( id == binding.Id)
+                if( box == binding.Box)
                 {
                     requireAccepted( binding, address, "--address");
 
@@ -286,7 +287,7 @@ namespace hal
 
             if( !plan.Site.empty())
             {
-                if( const auto address = siteAddressFor( plan.Site, binding.Id))
+                if( const auto address = siteAddressFor( plan.Site, binding.Box))
                 {
                     requireAccepted( binding, *address,
                         "the site table's " + std::string( plan.Site) + " row");
@@ -298,7 +299,7 @@ namespace hal
                 }
             }
 
-            const auto candidates = poolFor( binding.Id);
+            const auto candidates = poolFor( binding.Box);
 
             if( !candidates.empty())
             {
@@ -340,15 +341,64 @@ namespace hal
         }
 
         //
-        // Acquire one pooled row. Candidate order is table order.
+        // Which box answered with which serial -- the claim a box makes on the
+        // unit it reached, so that no other box can make it too.
+        //
+        struct Claim
+        {
+            std::string      Serial;
+            std::string_view Box;
+        };
+
+        //
+        // The box that already claimed this serial, if it is not this one.
+        // An empty serial is never a claim -- a reply with no third field
+        // says nothing about which unit answered, and two of them are not
+        // evidence of one unit under two names.
+        //
+        [[nodiscard]]
+        auto claimedByAnother( const std::vector<Claim> & claimed, const std::string_view serial,
+                               const std::string_view box) -> std::optional<std::string_view>
+        {
+            if( serial.empty())
+            {
+                return std::nullopt;
+            }
+
+            for( const auto & claim : claimed)
+            {
+                if( claim.Serial == serial && claim.Box != box)
+                {
+                    return claim.Box;
+                }
+            }
+
+            return std::nullopt;
+        }
+
+        //
+        // What the first face of a box contacted -- so its other faces bind to
+        // the same unit rather than each reaching for one of their own.
+        //
+        struct Contacted
+        {
+            std::string_view                    Box;
+            Address                             Value;
+            std::string                         Serial;
+            std::optional<std::pair<int, int>>  PoolPosition;
+        };
+
+        //
+        // Acquire one pooled box, through its first face. Candidate order is
+        // table order.
         //
         template<ContactableInstrument InstrumentT>
         auto acquireFromPool(
-            InstrumentT &              instrument,
-            Binding &                  binding,
-            std::vector<std::string> & claimed) -> void
+            InstrumentT &         instrument,
+            Binding &             binding,
+            std::vector<Claim> &  claimed) -> void
         {
-            const auto candidates = poolFor( binding.Id);
+            const auto candidates = poolFor( binding.Box);
 
             int position = 0;
 
@@ -364,12 +414,12 @@ namespace hal
                     const auto serial   = std::string( serialOf( identity));
 
                     //
-                    // Already taken by an earlier row. Skipped here rather
-                    // than left to the instrument refusing a second socket, so
-                    // that "two rows, one free meter" is diagnosed as that
-                    // instead of as a connection failure three layers down.
+                    // Already taken by another box. Skipped here rather than
+                    // left to the instrument refusing a second socket, so that
+                    // "two boxes, one free meter" is diagnosed as that instead
+                    // of as a connection failure three layers down.
                     //
-                    if( std::ranges::find( claimed, serial) != claimed.end())
+                    if( claimedByAnother( claimed, serial, binding.Box))
                     {
                         instrument.closeSession();
 
@@ -380,7 +430,7 @@ namespace hal
                     binding.Identity     = identity;
                     binding.PoolPosition = std::pair{ position, static_cast<int>( candidates.size()) };
 
-                    claimed.push_back( serial);
+                    claimed.push_back( Claim{ serial, binding.Box });
 
                     return;
                 }
@@ -396,7 +446,7 @@ namespace hal
             }
 
             throw io::TransportError(
-                "no free instrument for " + std::string( to_string( binding.Id)) + ": all "
+                "no free instrument for box " + std::string( binding.Box) + ": all "
                 + std::to_string( candidates.size())
                 + " candidates in its pool were busy or unreachable");
         }
@@ -459,6 +509,7 @@ namespace hal
 
                     Binding binding{
                         .Id         = instrument.id(),
+                        .Box        = boxOf( instrument.id()),
                         .Type       = typeNameOf<InstrumentT>(),
                         .Value      = instrument.address(),
                         .Source     = AddressSource::Table,
@@ -577,6 +628,7 @@ namespace hal
         // built first. The last column is not padded at all -- nothing
         // follows it.
         //
+        std::size_t boxWidth        = 0;
         std::size_t idWidth         = 0;
         std::size_t typeWidth       = 0;
         std::size_t addressWidth    = 0;
@@ -584,6 +636,7 @@ namespace hal
 
         for( const auto & binding : bindings)
         {
+            boxWidth        = std::max( boxWidth,        binding.Box.size());
             idWidth         = std::max( idWidth,         to_string( binding.Id).size());
             typeWidth       = std::max( typeWidth,       binding.Type.size());
             addressWidth    = std::max( addressWidth,    to_string( binding.Value).size());
@@ -595,7 +648,8 @@ namespace hal
         for( const auto & binding : bindings)
         {
             lines.push_back(
-                padded( std::string( to_string( binding.Id)),   idWidth)         + "  "
+                padded( std::string( binding.Box),              boxWidth)        + "  "
+              + padded( std::string( to_string( binding.Id)),   idWidth)         + "  "
               + padded( std::string( binding.Type),             typeWidth)       + "  "
               + padded( to_string( binding.Value),              addressWidth)    + "  "
               + padded( provenanceOf( binding),         provenanceWidth) + "  "
@@ -619,7 +673,8 @@ namespace hal
             return;
         }
 
-        std::vector<std::string> claimed;
+        std::vector<Claim>     claimed;
+        std::vector<Contacted> contacted;
 
         template for( constexpr auto member : members<^^::>)
         {
@@ -661,6 +716,47 @@ namespace hal
                             continue;
                         }
 
+                        //
+                        // A later face of a box an earlier face already
+                        // reached: bind to that unit, and make no claim of
+                        // its own -- the box has made it. A pooled box's
+                        // later faces take the candidate its first face
+                        // acquired, which is the whole of what a pool per box
+                        // buys over a pool per row. Each face still asks
+                        // *IDN? itself, which is the driver's model check for
+                        // that face and the identity its banner line shows,
+                        // and the serial it answers with has to be the box's:
+                        // a face that reached a different unit is a box that
+                        // is not one.
+                        //
+                        const auto earlier = std::ranges::find( contacted, binding.Box, &Contacted::Box);
+
+                        if( earlier != contacted.end())
+                        {
+                            if( binding.Source == AddressSource::Pool)
+                            {
+                                instrument.useAddress( earlier->Value);
+
+                                binding.Value        = earlier->Value;
+                                binding.PoolPosition = earlier->PoolPosition;
+                            }
+
+                            binding.Identity = instrument.identity();
+
+                            const auto serial = serialOf( binding.Identity);
+
+                            if( !serial.empty() && !earlier->Serial.empty() && serial != earlier->Serial)
+                            {
+                                throw std::runtime_error(
+                                    std::string( to_string( binding.Id)) + " is a face of box "
+                                    + std::string( binding.Box) + ", but answered with serial "
+                                    + std::string( serial) + " where the box's first face answered "
+                                    + earlier->Serial + " -- the rows name one box and reach two units");
+                            }
+
+                            continue;
+                        }
+
                         if( binding.Source == AddressSource::Pool)
                         {
                             acquireFromPool( instrument, binding, claimed);
@@ -678,8 +774,28 @@ namespace hal
                             //
                             binding.Identity = instrument.identity();
 
-                            claimed.emplace_back( serialOf( binding.Identity));
+                            const auto serial = std::string( serialOf( binding.Identity));
+
+                            //
+                            // The runtime half of boxes.hpp's "one address,
+                            // one box": two box names whose addresses differ
+                            // in the table -- Lan on one, Usb on the other --
+                            // can still reach one unit, and only its serial
+                            // says so.
+                            //
+                            if( const auto other = claimedByAnother( claimed, serial, binding.Box))
+                            {
+                                throw std::runtime_error(
+                                    "boxes " + std::string( *other) + " and " + std::string( binding.Box)
+                                    + " both answered with serial " + serial
+                                    + " -- one unit under two box names. Give their rows one box name.");
+                            }
+
+                            claimed.push_back( Claim{ serial, binding.Box });
                         }
+
+                        contacted.push_back( Contacted{
+                            binding.Box, binding.Value, std::string( serialOf( binding.Identity)), binding.PoolPosition });
                     }
                 }
             }

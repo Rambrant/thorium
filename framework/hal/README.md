@@ -386,7 +386,7 @@ when it does not.
 ## How the PC reaches an instrument, and why that is a value
 
 `address.hpp` holds one struct per bus kind -- `Gpib`, `Lan`, `Serial`, `Usb`,
-`Simulated` -- and a rig gives every instrument one in the third column of its
+`Simulated` -- and a rig gives every instrument one in the address column of its
 `INSTRUMENT()` row:
 
 ```
@@ -698,8 +698,8 @@ rather than on the bus -- which card of that chassis it is.
 
 ```cpp
 SWITCH_DEVICES
-    SWITCH_DEVICE( Racal1260_45,  Matrix1, Gpib( 0, 7),    Card( 1))
-    SWITCH_DEVICE( AgilentE1472A, RfMux1,  Gpib( 0, 9, 3), NoCard)
+    SWITCH_DEVICE( RacalRack, Racal1260_45, Matrix1, Gpib( 0, 7),    Card( 1))
+    SWITCH_DEVICE( VxiRfSwitch, AgilentE1472A, RfMux1,  Gpib( 0, 9, 3), NoCard)
 END_SWITCH_DEVICES
 ```
 

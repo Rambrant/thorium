@@ -130,12 +130,12 @@ at all — but an attached run never opens it. For a meter on none of the three,
 say so on the command line rather than editing either file:
 
 ```bash
-run_scripts --address Dmm1=lan:dev-dmm-7
+run_scripts --address DeskDmm=lan:dev-dmm-7
 ```
 
 An override beats the pool as well as the column, so that is the one thing
 which always wins. A desk that always has the same meter can set
-`THORIUM_ADDRESS_Dmm1` once instead.
+`THORIUM_ADDRESS_DeskDmm` once instead.
 
 USB needs Keysight IO Libraries Suite or NI-VISA on the machine (almost
 certainly already there on a Windows or Linux bench — it is what Connection
@@ -199,7 +199,7 @@ came from, so a log from your desk is still readable by somebody at another
 one, and a pooled row also records which candidate of how many it took.
 
 An override is checked against the meter's own back panel, not against the row —
-an EDU34450A has LAN and USB, so `--address Dmm1=usb:<serial>` works here too,
+an EDU34450A has LAN and USB, so `--address DeskDmm=usb:<serial>` works here too,
 and a bus the instrument has no connector for is refused at startup with the
 list of the ones it does have. That is the same list the compiler holds the
 table to; see `hal::BackPanel`.
@@ -289,26 +289,25 @@ on this desk are written in.
 for drawing nothing, removed, and checked for reading zero. The terminals stay
 open, so this group needs no fixture and runs whole.
 
-The supply is **not pooled**, unlike the meter. Its three outputs are three
-rows and one box, and preflight claims a pooled box by serial -- so three
-pooled rows would each want a supply of their own. All three rows say
-`Lan( "dev-psu")`; a desk whose supply is called something else says so once
-per output, or sets `THORIUM_ADDRESS_DcP5`/`6`/`7`:
+The supply's three outputs are three rows and one **box**, `Psu1` -- the first
+column of each row (see `framework/hal/include/hal/topology/boxes.hpp`). So one
+flag moves all three:
 
 ```bash
-run_scripts --address DcP5=lan:<host> --address DcP6=lan:<host> --address DcP7=lan:<host>
+run_scripts --address Psu1=usb:<serial>
 ```
 
-The three rows share one connection to the box: the driver keys its session on
-the address, so `DcP5`, `DcP6` and `DcP7` on one host or one USB serial are one
-SCPI session, opened and prepared once (see
-`instruments/keysight_edu36311a/README.md`, "One session per chassis"). Which
-also means the three `--address` overrides above must name the box the same
-way — `usb:` on one and `lan:` on another is two sessions to one supply.
+or `THORIUM_ADDRESS_Psu1` in the shell. Preflight contacts the box once and
+fans the address out to its three faces, and the driver shares one SCPI session
+between them (see `instruments/keysight_edu36311a/README.md`, "One session per
+chassis"). It is not pooled, because this desk has one supply -- but it could
+be: a pool names a box now, so `POOL( Psu1, ...)` would acquire one supply for
+all three outputs.
 
-That sharing is also the half of a supply pool that now exists. The other half
-is preflight's claim rule, which still refuses to hand one serial to three
-pooled rows.
+Every address on this desk names a box the same way: `DeskDmm`, `Psu1`,
+`Scope1`, `Wfg1`, `Swu1`. An environment variable still named after an
+instrument (`THORIUM_ADDRESS_Osc1`) fails startup naming the variable it
+should be, rather than being quietly ignored.
 
 **ScopeProbeComp** is the DSOX1202G against the 1 kHz square wave on its own
 probe-compensation terminal: both probes' tips on it, both grounds on its lug,
@@ -323,7 +322,7 @@ part worth trusting, and the rows are tighter for it.
 The scope's row carries a placeholder serial, `Usb( "CN00000000")`, until the
 real one is written in -- and until then **every attached run fails at
 startup**, the meter's and the supply's included, because preflight opens every
-row. Set `THORIUM_ADDRESS_Osc1=usb:<serial>` or edit the row.
+row. Set `THORIUM_ADDRESS_Scope1=usb:<serial>` or edit the row.
 
 **WfgIntoScope** is the 33522B, checked by the scope: generator CH1 to scope
 CH1 and CH2 to CH2 on BNC cables, 1:1, and the group runs whole. Every shape
@@ -344,21 +343,29 @@ calls. An attached run against simulated drivers does call it, and needs no
 hardware:
 
 ```bash
-run_scripts --select=WfgSineCh1,... --address=Dmm1=sim --address=DcP5=sim --address=DcP6=sim --address=DcP7=sim --address=Osc1=sim --address=Wfg1=sim
+run_scripts --select=WfgSineCh1,... --address=DeskDmm=sim --address=Psu1=sim --address=Psu1=sim --address=Psu1=sim --address=Scope1=sim --address=Wfg1=sim
 ```
 
 Every script fails its readings there (a simulated scope reads zero) but runs to
 its end; a setting out of range would stop it with `SettingOutOfRange`.
 
 **SwitchUnit** is the 34980A with nothing wired to it: every check is a question
-the mainframe answers about itself. An inventory of all eight slots (1-4 must be
-34921As and 5 fitted; each slot's `SYST:CTYP?` answer is posted as a Note, which
-is how the coaxial module in slot 5 gets named), then on each 34921A a close, an
-open, a list across both banks, `closeExclusively`, the Analog Bus relays and
-`openAll` -- each checked by asking `ROUT:CLOS?` -- plus a missing channel that
-the mainframe must refuse, and a relay's life count (`DIAG:REL:CYCL?`) moving
-when it is driven. The one thing it cannot check is contact: that needs a short
-on a channel's terminals and the desk meter on the other side.
+the mainframe answers about itself. The rack is four 34932A matrices (34932T
+terminal blocks) in slots 1-4 and a 34941A RF multiplexer in slot 5 -- the same
+set `rig/devices.inc` records the bench migrating onto. An inventory of all eight
+slots, each slot's `SYST:CTYP?` answer also posted as a Note; on each matrix a
+crosspoint, the four corners of both matrices in one list, `closeExclusively`,
+the four Analog Bus relays (921-924, Matrix 2's) and `openAll`, each checked by
+asking `ROUT:CLOS?`; three channels a 34932A does not have, which the mainframe
+must refuse; each RF bank selecting 1-of-4 and refusing `ROUT:OPEN`, left on
+channel 01; and a crosspoint's life count (`DIAG:REL:CYCL?`) moving when it is
+driven. Channel numbers come from hal's own module models, so a numbering
+mistake there shows here. The one thing it cannot check is contact: that needs
+a short across a crosspoint and the desk meter on the other side.
+
+Its unit tests hand `Swu1` a fake of this rack built from the same hal models,
+because the driver's own simulation knows the slots and not the modules -- it
+would accept any channel, and would not select 1-of-4.
 
 The chassis is an **instrument row**, `Swu1`, which it was not until this desk
 needed one: preflight checks it, `THORIUM_ADDRESS_Swu1` reaches it, and safing

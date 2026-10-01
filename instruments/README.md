@@ -182,7 +182,7 @@ The rig names the type in full, once, where it declares the instrument:
 
 ```cpp
 // rig/instrument.inc
-INSTRUMENT( keysight_dsox1202g::DSOX1202G, Osc1, Simulated{})
+INSTRUMENT( BenchScope, keysight_dsox1202g::DSOX1202G, Osc1, Simulated{})
 ```
 
 ## How a directory here gets built

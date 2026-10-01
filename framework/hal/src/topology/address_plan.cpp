@@ -1,11 +1,14 @@
 #include "hal/topology/address_plan.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <cstdlib>
 #include <deque>
 #include <string>
 
 #include "core/meta.hpp"
+
+#include "hal/topology/boxes.hpp"
 
 namespace hal
 {
@@ -240,48 +243,63 @@ namespace hal
         return "?";
     }
 
-    auto parseOverride( const std::string_view text) -> std::pair<InstrumentId, Address>
+    auto parseOverride( const std::string_view text) -> std::pair<std::string_view, Address>
     {
         const auto equals = text.find( '=');
 
         if( equals == std::string_view::npos)
         {
             throw AddressSyntaxError(
-                "an address override is written \"<Instrument>=<kind>:<value>\", for example"
-                " \"Dmm1=lan:dev-dmm-3\" -- \"" + std::string( text) + "\" has no '='");
+                "an address override is written \"<box>=<kind>:<value>\", for example"
+                " \"Psu1=usb:CN65100272\" -- \"" + std::string( text) + "\" has no '='");
         }
 
-        const auto name = text.substr( 0, equals);
-        const auto id   = core::meta::fromString<InstrumentId>( name);
+        const auto name  = text.substr( 0, equals);
+        const auto boxes = instrumentBoxNames();
+        const auto box   = std::ranges::find( boxes, name);
 
-        if( !id)
+        if( box == boxes.end())
         {
             //
-            // Names every instrument this rig has rather than only saying the
-            // one given is wrong: the person who mistyped it is at a bench and
-            // the list is short, so the diagnostic can simply be the answer.
+            // An instrument id where a box goes -- what every flag and
+            // environment variable written before boxes existed says. Named
+            // back with its box, rather than "not a box", because the person
+            // reading it typed something that used to work.
+            //
+            if( const auto id = core::meta::fromString<InstrumentId>( name))
+            {
+                throw AddressSyntaxError(
+                    "\"" + std::string( name) + "\" is an instrument, and an address belongs to the box it"
+                    " is a face of -- write \"" + std::string( boxOf( *id)) + "=" + std::string( text.substr( equals + 1))
+                    + "\", which moves every face of that box together");
+            }
+
+            //
+            // Names every box this rig has rather than only saying the one
+            // given is wrong: the person who mistyped it is at a bench and the
+            // list is short, so the diagnostic can simply be the answer.
             //
             std::string known;
 
-            for( const auto candidate : core::meta::values<InstrumentId>)
+            for( const auto & candidate : boxes)
             {
                 known += known.empty() ? "" : ", ";
-                known += to_string( candidate);
+                known += candidate;
             }
 
             throw AddressSyntaxError(
-                "\"" + std::string( name) + "\" is not an instrument on this rig -- it has " + known);
+                "\"" + std::string( name) + "\" is not a box on this rig -- it has " + known);
         }
 
-        return { *id, parseAddress( text.substr( equals + 1)) };
+        return { *box, parseAddress( text.substr( equals + 1)) };
     }
 
     //
-    // One getenv() per instrument this rig has, rather than a walk of environ:
-    // the id list is short and fixed, environ is neither portable to walk nor
+    // One getenv() per box this rig has, rather than a walk of environ: the
+    // list is short and fixed, environ is neither portable to walk nor
     // guaranteed to be sorted, and asking for exactly the names that could
     // mean something keeps an unrelated THORIUM_ADDRESS_TYPO silently ignored
-    // rather than diagnosed as an instrument nobody has.
+    // rather than diagnosed as a box nobody has.
     //
     // That last part is a real choice and the opposite of what parseOverride()
     // does with the same mistake. A flag is something a person just typed and
@@ -289,17 +307,47 @@ namespace hal
     // PC's profile set months ago, and failing every run on it would make a
     // stale export somebody forgot into an outage.
     //
-    auto environmentOverrides() -> std::vector<std::pair<InstrumentId, Address>>
+    // With one exception, which is not a typo but a rename: a variable named
+    // after an *instrument* -- THORIUM_ADDRESS_BenchScope -- is how every bench PC
+    // pinned an address before boxes existed. Ignoring it would be worse than
+    // failing: the run would quietly go back to the table's address, on a PC
+    // whose owner set the variable precisely because the table's is wrong
+    // there. So it fails, once, naming the variable it should be. (Unless
+    // that name is also a box's, in which case it already means the box.)
+    //
+    auto environmentOverrides() -> std::vector<std::pair<std::string_view, Address>>
     {
-        std::vector<std::pair<InstrumentId, Address>> overrides;
+        std::vector<std::pair<std::string_view, Address>> overrides;
+
+        const auto boxes = instrumentBoxNames();
 
         for( const auto id : core::meta::values<InstrumentId>)
         {
-            const auto variable = "THORIUM_ADDRESS_" + std::string( to_string( id));
+            const auto name = to_string( id);
+
+            if( std::ranges::find( boxes, name) != boxes.end())
+            {
+                continue;
+            }
+
+            const auto variable = "THORIUM_ADDRESS_" + std::string( name);
+
+            if( std::getenv( variable.c_str()))
+            {
+                throw AddressSyntaxError(
+                    variable + " names an instrument, and an address now belongs to the box it is a face"
+                    " of -- rename it THORIUM_ADDRESS_" + std::string( boxOf( id))
+                    + ", which moves every face of that box together");
+            }
+        }
+
+        for( const auto box : boxes)
+        {
+            const auto variable = "THORIUM_ADDRESS_" + std::string( box);
 
             if( const char * const value = std::getenv( variable.c_str()))
             {
-                overrides.emplace_back( id, parseAddress( interned( value)));
+                overrides.emplace_back( box, parseAddress( interned( value)));
             }
         }
 

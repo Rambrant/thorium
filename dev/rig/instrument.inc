@@ -49,16 +49,16 @@
 //
 // The second is for the meter that is on none of them:
 //
-//     run_scripts --address Dmm1=lan:dev-dmm-7
+//     run_scripts --address DeskDmm=lan:dev-dmm-7
 //
-// or THORIUM_ADDRESS_Dmm1 in the shell that runs it, which a desk that always
+// or THORIUM_ADDRESS_DeskDmm in the shell that runs it, which a desk that always
 // has the same meter can set once. An override beats the pool as well as this
 // column, so it is still the one thing that always wins. Either way the run's
 // own header says which box answered and where the address came from -- see
 // hal/verbs/preflight.hpp.
 //
 // The flag is checked against this meter's own back panel rather than against
-// this row: an EDU34450A has LAN and USB, so --address Dmm1=usb:<serial> is
+// this row: an EDU34450A has LAN and USB, so --address DeskDmm=usb:<serial> is
 // accepted here too, and a bus it has no connector for is refused at startup
 // exactly as it would fail to compile in this column (see hal::BackPanel).
 //
@@ -93,17 +93,16 @@
 // there is no relay card on this desk. That difference is invisible to a
 // script that only Applies, Removes and reads back, which is all these do.
 //
-// One address for all three, because the three outputs are one chassis behind
-// one interface (see hal::keysight_edu36311a::EDU36311A::Buses). Not a pool,
-// unlike Dmm1, and deliberately: preflight claims a pooled box by serial, so
-// three pooled rows would demand three supplies. Until a pool can say "these
-// rows are one box", a desk whose supply is not called dev-psu says so on the
-// command line, once per output:
+// One box, Psu1, for all three -- the three outputs are one unit behind one
+// interface (see hal::keysight_edu36311a::EDU36311A::Buses) -- so one address,
+// written on each row and held equal by the build (hal/topology/boxes.hpp).
+// One flag moves all three:
 //
-//     run_scripts --address DcP5=lan:<host> --address DcP6=lan:<host> --address DcP7=lan:<host>
+//     run_scripts --address Psu1=usb:<serial>
 //
-// or THORIUM_ADDRESS_DcP5/6/7 in the shell, which a desk with one supply sets
-// once and forgets.
+// or THORIUM_ADDRESS_Psu1 in the shell. Not pooled, because this desk has one
+// supply; POOL( Psu1, ...) would acquire one for all three outputs if it had a
+// shelf of them.
 //
 // -- The scope ----------------------------------------------------------------
 //
@@ -122,9 +121,9 @@
 // -- The switch unit ----------------------------------------------------------
 //
 // Swu1: a Keysight (formerly Agilent) 34980A mainframe, GPIB, LAN or USB (see
-// hal::keysight_34980a::Chassis::Buses) -- USB to start with. Four 34921A
-// multiplexers in slots 1-4 and a coaxial module in slot 5 whose model the
-// first inventory run will name. Its scripts need nothing wired to it, see
+// hal::keysight_34980a::Chassis::Buses) -- USB to start with. Four 34932A
+// matrices (34932T terminal blocks) in slots 1-4 and a 34941A RF multiplexer in
+// slot 5. Its scripts need nothing wired to it, see
 // dev/suite/scripts/swu_self_check.cpp.
 //
 // An instrument row, which a chassis was not until this desk needed it to be:
@@ -134,11 +133,11 @@
 // nothing and reads the way safing runs.
 //
 INSTRUMENTS
-    INSTRUMENT( keysight_edu34450a::EDU34450A,     Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
-    INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Usb( "CN65100272"))   // 6 V / 5 A
-    INSTRUMENT( keysight_edu36311a::DirectOutput2, DcP6, Usb( "CN65100272"))   // 30 V / 1 A
-    INSTRUMENT( keysight_edu36311a::DirectOutput3, DcP7, Usb( "CN65100272"))   // 30 V / 1 A
-    INSTRUMENT( keysight_dsox1202g::DSOX1202G,     Osc1, Usb( "CN64504143"))   // 
-    INSTRUMENT( keysight_33522b::Wfg33522B,        Wfg1, Usb( "MY52803613"))   //
-    INSTRUMENT( keysight_34980a::Chassis,          Swu1, Usb( "MY53154781"))   // 
+    INSTRUMENT( DeskDmm, keysight_edu34450a::EDU34450A,     Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
+    INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput1, DcP5, Usb( "CN65100272"))   // 6 V / 5 A
+    INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput2, DcP6, Usb( "CN65100272"))   // 30 V / 1 A
+    INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput3, DcP7, Usb( "CN65100272"))   // 30 V / 1 A
+    INSTRUMENT( Scope1,  keysight_dsox1202g::DSOX1202G,     Osc1, Usb( "CN64504143"))   // 
+    INSTRUMENT( Wfg1,    keysight_33522b::Wfg33522B,        Wfg1, Usb( "MY52803613"))   //
+    INSTRUMENT( Swu1,    keysight_34980a::Chassis,          Swu1, Usb( "MY53154781"))   // 
 END_INSTRUMENTS

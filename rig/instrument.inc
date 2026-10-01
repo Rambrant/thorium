@@ -178,9 +178,10 @@
 // stimulus point yet, so there is no pin for a SOURCE_WIRING row to name; that
 // is the honest-spare position DcP5 is already in.
 //
-// -- The third column, and what it now means -------------------------------
+// -- The address column, and what it now means -----------------------------
 //
-// The third column is how the *PC* reaches each instrument -- the control
+// The address column -- the fourth, after the box, the type and the id -- is
+// how the *PC* reaches each instrument -- the control
 // side, as against the signal side wiring.inc describes (see hal/driver/address.hpp
 // for the distinction, and hal/topology/active_instruments.hpp for why it is a fixed
 // column rather than one more constructor argument). Which bus kinds a given
@@ -209,7 +210,7 @@
 // six of these eight rows say Simulated{} today. A Simulated{} row can be
 // pointed at real hardware from the command line:
 //
-//     run_scripts --address Dmm1=usb:MY60012345
+//     run_scripts --address BenchDmm=usb:MY60012345
 //
 // Plug the meter in, name it, confirm it answers, and then edit the row --
 // with the serial the run's own banner printed, rather than one typed
@@ -333,12 +334,12 @@
 // a reason to keep this row wrong.
 //
 INSTRUMENTS
-    INSTRUMENT( keysight_edu34450a::EDU34450A,     Dmm1, Simulated{})        // TODO(bench): Lan( "<host>") or Usb( "<serial>") once a meter answers -- this driver connects
-    INSTRUMENT( keysight_dsox1202g::DSOX1202G,     Osc1, Simulated{})        // TODO(bench): Usb( "<serial>") off the scope's own *IDN? -- this driver connects
-    INSTRUMENT( keysight_edu36311a::DirectOutput1, DcP5, Simulated{})        // 6 V / 5 A, hard-wired: no relay in this rack carries 5 A. A spare -- nothing on this DUT wants 6 V
-    INSTRUMENT( keysight_edu36311a::RelayOutput2,  DcP6, Simulated{})        // 30 V / 1 A -> dut::BackupSupply,  isolation relay on Spst1/6
-    INSTRUMENT( keysight_edu36311a::RelayOutput3,  DcP7, Simulated{})        // 30 V / 1 A -> dut::BatterySupply, isolation relay on Spst1/7
-    INSTRUMENT( keysight_ac6834b::Ac6834B,         AcP1, Gpib( 0, 5))        // simulated: kept for the Transient group, see this file's own comment
-    INSTRUMENT( keysight_33522b::Wfg33522B,        Wfg1, Simulated{})        // TODO(bench): Lan( "<host>"), Usb( "<serial>") or Gpib( ...) -- this driver connects
-    INSTRUMENT( racal1260::Racal1260,              Ser1, Serial( "/dev/ttyUSB0"))
+    INSTRUMENT( BenchDmm,   keysight_edu34450a::EDU34450A,     Dmm1, Simulated{})        // TODO(bench): Lan( "<host>") or Usb( "<serial>") once a meter answers -- this driver connects
+    INSTRUMENT( BenchScope, keysight_dsox1202g::DSOX1202G,     Osc1, Simulated{})        // TODO(bench): Usb( "<serial>") off the scope's own *IDN? -- this driver connects
+    INSTRUMENT( BenchPsu,   keysight_edu36311a::DirectOutput1, DcP5, Simulated{})        // 6 V / 5 A, hard-wired: no relay in this rack carries 5 A. A spare -- nothing on this DUT wants 6 V
+    INSTRUMENT( BenchPsu,   keysight_edu36311a::RelayOutput2,  DcP6, Simulated{})        // 30 V / 1 A -> dut::BackupSupply,  isolation relay on Spst1/6
+    INSTRUMENT( BenchPsu,   keysight_edu36311a::RelayOutput3,  DcP7, Simulated{})        // 30 V / 1 A -> dut::BatterySupply, isolation relay on Spst1/7
+    INSTRUMENT( AcSource,   keysight_ac6834b::Ac6834B,         AcP1, Gpib( 0, 5))        // simulated: kept for the Transient group, see this file's own comment
+    INSTRUMENT( BenchWfg,   keysight_33522b::Wfg33522B,        Wfg1, Simulated{})        // TODO(bench): Lan( "<host>"), Usb( "<serial>") or Gpib( ...) -- this driver connects
+    INSTRUMENT( DutConsole, racal1260::Racal1260,              Ser1, Serial( "/dev/ttyUSB0"))
 END_INSTRUMENTS

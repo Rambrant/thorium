@@ -25,7 +25,7 @@ rig/
 
 ## instrument.inc
 
-This rig's fixed, concrete instrument list -- one `INSTRUMENT(type, id,
+This rig's fixed, concrete instrument list -- one `INSTRUMENT( box, type, id,
 address, ...)` per instrument, naming its C++ driver type, the global it's
 addressed by (id doubles as both the global's name and its
 `hal::InstrumentId` -- there is no rig where those differ, so there's no
@@ -131,14 +131,14 @@ hand-maintained second list, at all.
 ## devices.inc
 
 The switching hardware between the instruments and the VPC array -- one
-`SWITCH_DEVICE(model, id, address, card)` per card, naming which card it is,
+`SWITCH_DEVICE( box, model, id, address, card)` per card, naming which card it is,
 where the PC commands it, and which card of its chassis it is:
 
 ```cpp
 SWITCH_DEVICES
-    SWITCH_DEVICE( Racal1260_45,  Matrix1, Gpib( 0, 7),    Card( 1))
-    SWITCH_DEVICE( Racal1260_35,  Mux1,    Gpib( 0, 7),    Card( 2))
-    SWITCH_DEVICE( AgilentE1472A, RfMux1,  Gpib( 0, 9, 3), NoCard)
+    SWITCH_DEVICE( RacalRack, Racal1260_45, Matrix1, Gpib( 0, 7),    Card( 1))
+    SWITCH_DEVICE( RacalRack, Racal1260_35, Mux1,    Gpib( 0, 7),    Card( 2))
+    SWITCH_DEVICE( VxiRfSwitch, AgilentE1472A, RfMux1,  Gpib( 0, 9, 3), NoCard)
 END_SWITCH_DEVICES
 ```
 

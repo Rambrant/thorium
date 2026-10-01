@@ -2528,7 +2528,7 @@ TEST_F( AcceptanceBench, TheMachineLogCarriesTheInstrumentsAsAnArray)
 //
 TEST_F( AcceptanceBench, ARefusedAddressFailsBeforeAnythingIsWritten)
 {
-    EXPECT_EQ( run( { "--address=Osc1=gpib:0,7" } ), 1);
+    EXPECT_EQ( run( { "--address=BenchScope=gpib:0,7" } ), 1);
 
     EXPECT_TRUE( containsText( errPath(), mErr, "Preflight failed"));
     EXPECT_TRUE( containsText( errPath(), mErr, "back panel has: Lan, Usb"));
@@ -2546,7 +2546,7 @@ TEST_F( AcceptanceBench, ARefusedAddressFailsBeforeAnythingIsWritten)
 //
 TEST_F( AcceptanceBench, ASimulatedRowMayBePointedAtRealHardware)
 {
-    EXPECT_EQ( run( { "--address=Osc1=usb:CN59176621" } ), 1);
+    EXPECT_EQ( run( { "--address=BenchScope=usb:CN59176621" } ), 1);
 
     EXPECT_TRUE( omitsText(    errPath(), mErr, "back panel has"));
     EXPECT_TRUE( containsText( errPath(), mErr, "Preflight failed"));
@@ -2559,7 +2559,7 @@ TEST_F( AcceptanceBench, ASimulatedRowMayBePointedAtRealHardware)
 //
 TEST_F( AcceptanceBench, AnAcceptedAddressIsReportedWithTheFlagAsItsSource)
 {
-    EXPECT_EQ( run( { "--address=Ser1=serial:/dev/ttyUSB9" } ), 1);
+    EXPECT_EQ( run( { "--address=DutConsole=serial:/dev/ttyUSB9" } ), 1);
 
     EXPECT_TRUE( containsText( outPath(), mOut, "/dev/ttyUSB9"));
     EXPECT_TRUE( containsText( outPath(), mOut, "--address"));

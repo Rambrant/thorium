@@ -13,7 +13,7 @@
 namespace hal
 {
     //
-    // Where a row's address actually comes from, when the third column of
+    // Where a row's address actually comes from, when the address column of
     // rig/instrument.inc is not the last word on it.
     //
     // That column is the last word for the bench in this repo, and for most
@@ -63,7 +63,7 @@ namespace hal
     // plugged in without first editing the table for a bench you have not
     // confirmed yet. Under this one, the bring-up is the obvious order --
     //
-    //     run_scripts --address Dmm1=usb:MY60012345
+    //     run_scripts --address BenchDmm=usb:MY60012345
     //
     // -- confirm it answers, and *then* write the row, with the serial the
     // banner printed. The check has not been skipped: an EDU34450A has LAN
@@ -111,10 +111,10 @@ namespace hal
     //
     enum class AddressSource
     {
-        Table,      // the row's own third column, unmodified
+        Table,      // the row's own address column, unmodified
         Site,       // this deployment's site table, for the selected site
         Pool,       // acquired from this row's candidate pool at startup
-        Override    // --address, or $THORIUM_ADDRESS_<Id>
+        Override    // --address, or $THORIUM_ADDRESS_<box>
     };
 
     [[nodiscard]]
@@ -128,6 +128,14 @@ namespace hal
     struct Binding
     {
         InstrumentId     Id{};
+
+        //
+        // The box this row is a face of -- the first column of its row, and
+        // what every source above resolved: an --address, a site row and a
+        // pool all name the box, so every face of one box binds to the same
+        // address from the same source (see hal/topology/boxes.hpp).
+        //
+        std::string_view Box{};
 
         //
         // The driver's own type name -- "keysight_edu34450a::EDU34450A" --
@@ -208,7 +216,7 @@ namespace hal
         // means a permanently dirty working tree and a live chance of
         // committing your own desk's hostname into the deployment.
         //
-        std::vector<std::pair<InstrumentId, Address>> Overrides;
+        std::vector<std::pair<std::string_view, Address>> Overrides;
 
         //
         // Which row of the site table is live. Empty means "this deployment
@@ -266,11 +274,18 @@ namespace hal
     // something about it.
     //
     [[nodiscard]]
-    auto parseOverride( std::string_view text) -> std::pair<InstrumentId, Address>;
+    //
+    // "<box>=<kind>:<value>" -- the box, not an instrument: one flag moves every
+    // face of a box. The box name handed back is the table's own spelling,
+    // which lives as long as the program; an instrument id typed in its place
+    // is refused with the box it belongs to named, since that is what a
+    // flag written before boxes existed will say.
+    //
+    auto parseOverride( std::string_view text) -> std::pair<std::string_view, Address>;
 
     //
-    // Every $THORIUM_ADDRESS_<Id> the environment sets, for the ids this rig
-    // has -- so a bench PC can pin an instrument for every run on it without
+    // Every $THORIUM_ADDRESS_<box> the environment sets, for the boxes this
+    // rig has -- so a bench PC can pin a box for every run on it without
     // anyone typing a flag.
     //
     // Reads the environment once and copies what it finds into storage that
@@ -280,7 +295,7 @@ namespace hal
     // parseOverride() is about.
     //
     [[nodiscard]]
-    auto environmentOverrides() -> std::vector<std::pair<InstrumentId, Address>>;
+    auto environmentOverrides() -> std::vector<std::pair<std::string_view, Address>>;
 
     //
     // $THORIUM_SITE, or empty. Same storage argument as above.

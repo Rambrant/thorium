@@ -179,14 +179,18 @@ END_CRITERIA
 // mainframe answers about itself, so every row is EQ( true): the value is in
 // the description, which says what the yes means.
 //
-// None is a placeholder except the module check, which names what this desk
-// has in slots 1-4 -- change it when the rack changes.
+// The two module rows name what this desk has -- four 34932A matrices (with
+// the 34932T terminal block, which SYST:CTYP? does not report: it names the
+// module, and the T is the block on its front) and a 34941A RF multiplexer --
+// and are the rows to change when the rack does.
 //
 CRITERIA( DEV_Swu_1, "The switch unit's relays and inventory, with nothing wired to it")
-    CRIT( DEV_Swu_Module34921A, EQ( true), "Slots 1-4 each hold a 34921A multiplexer")
-    CRIT( DEV_Swu_SlotFitted,   EQ( true), "Slot 5 holds a module -- the coaxial one")
+    CRIT( DEV_Swu_Module34932A, EQ( true), "Slots 1-4 each hold a 34932A dual 4 x 16 matrix")
+    CRIT( DEV_Swu_Module34941A, EQ( true), "Slot 5 holds a 34941A quad 1 x 4 RF multiplexer")
     CRIT( DEV_Swu_Closed,       EQ( true), "A relay told to close reports closed")
     CRIT( DEV_Swu_Open,         EQ( true), "A relay told to open, or never closed, reports open")
     CRIT( DEV_Swu_Refused,      EQ( true), "A channel the module does not have is refused, not ignored")
+    CRIT( DEV_Swu_RfSelects,    EQ( true), "Closing an RF channel opens the one its bank had closed")
+    CRIT( DEV_Swu_RfNoOpen,     EQ( true), "An RF channel cannot be opened, only switched away from")
     CRIT( DEV_Swu_CycleCounted, EQ( true), "Closing and opening a relay moves its life count by one or two")
 END_CRITERIA
