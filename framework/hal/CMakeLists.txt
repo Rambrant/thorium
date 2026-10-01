@@ -63,6 +63,7 @@ endforeach()
 #
 add_library(hal STATIC
     src/driver/address.cpp
+    src/driver/box_connection.cpp
     src/driver/instrument.cpp
     src/fabric/switch_device.cpp
     src/fabric/switch_fabric.cpp
@@ -82,6 +83,7 @@ add_library(hal STATIC
     # this bench.
     include/hal/driver/api_version.hpp    # header-only
     include/hal/driver/address.hpp        # header-only apart from src/driver/address.cpp
+    include/hal/driver/box_connection.hpp # apart from src/driver/box_connection.cpp; one session per box, shared by its faces
     include/hal/driver/instrument.hpp     # header-only apart from src/driver/instrument.cpp
     include/hal/driver/builder.hpp        # header-only
     include/hal/driver/describe.hpp       # header-only
@@ -95,6 +97,7 @@ add_library(hal STATIC
     # include/hal/verbs/preflight.hpp below.
     include/hal/topology/address_plan.hpp   # header-only apart from src/topology/address_plan.cpp
     include/hal/topology/address_tables.hpp # apart from src/topology/address_tables.cpp; expands THORIUM_POOL_TABLE/THORIUM_SITE_TABLE
+    include/hal/topology/boxes.hpp          # header-only apart from instrumentBoxNames() in src/topology/address_tables.cpp
     # --- hal/io: how bytes actually leave the PC ---
     # The transport a driver opens to reach real hardware, and the SCPI layer on
     # top of it. In hal rather than in a driver package because every driver

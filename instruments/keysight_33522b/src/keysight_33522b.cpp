@@ -143,11 +143,6 @@ namespace hal::keysight_33522b::detail
         }
     } // namespace
 
-    auto openSession( const Address & address) -> std::unique_ptr<io::ScpiSession>
-    {
-        return std::make_unique<io::ScpiSession>( io::openTransport( address));
-    }
-
     auto prepare( io::ScpiSession & session) -> void
     {
         //

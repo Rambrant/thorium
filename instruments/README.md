@@ -327,12 +327,41 @@ the address column becomes an *instruction* the moment a driver reads it: a
 hostname that no box answers to is now a failing run rather than a note to a
 reviewer, which is why `rig/instrument.inc`'s `Dmm1` row says `Simulated{}`.
 
+**Hold a `hal::BoxConnection`, not a session.** A session belongs to the *box*
+the instrument is a face of (see `framework/hal/include/hal/topology/boxes.hpp`),
+not to the driver: three outputs of one supply, or a mainframe's switching and its
+meter, are several drivers and one connection. So a driver keeps a
+`hal::BoxConnection` (`hal/driver/box_connection.hpp`) where it would have kept a
+`std::unique_ptr<io::ScpiSession>`, and its `session()` is one call naming its
+family and its once-per-session exchange:
+
+```cpp
+auto session() -> io::ScpiSession &
+{
+    return mConnection.session( "keysight_edu34450a", [ this]( io::ScpiSession & opened)
+    {
+        opened.clearErrors();                          // whatever the last user left
+        static_cast<void>( verifyIdentity( opened));   // and refuse a model this is not for
+    });
+}
+```
+
+The family is what the exchange runs once for, per session: the supply's three
+outputs are three C++ types and one family, so the second output to speak does
+not drain an error the first just queued; two families on one box each prepare
+for themselves. `address()`, `isSimulated()`, `useTransport()`, `useAddress()` and
+`closeSession()` all hand straight to it, and `safe()` asks it for
+`openSession()` -- the session if any face of the box opened one, never opening
+one itself.
+
 **The session opens lazily, and it has to.** A rig's instruments are globals
 constructed before `main()`, so a constructor that opened a socket would make
 every binary that links the rig — every unit test, `--replay`, `--help` — reach
 for the bench at static-initialisation time, and would throw from a constructor
 with nowhere to catch it. Open on the first reading that needs one, which is
-also exactly when a detached run does not need one.
+also exactly when a detached run does not need one. `hal::BoxConnection` does
+this for you; it is the reason it finds its box on first use rather than in its
+constructor.
 
 **Take the transport as an interface, and offer a way to hand one in.**
 `useTransport()` on the EDU34450A is what its tests use to assert the exact SCPI

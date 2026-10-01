@@ -444,51 +444,25 @@ namespace hal::keysight_dsox1202g
 
     auto DSOX1202G::session() -> io::ScpiSession &
     {
-        if( !mSession)
+        //
+        // The box's session (see hal::BoxConnection), opened on first use by
+        // any face of it and prepared once for this driver: whatever the last
+        // user left in the error queue drained first, so that a stale entry
+        // cannot be mistaken for the identity query failing, then the model
+        // checked. Not marked prepared until both succeed, so an instrument
+        // that failed its identity check is asked again next time.
+        //
+        return mConnection.session( "keysight_dsox1202g", [ this]( io::ScpiSession & opened)
         {
-            //
-            // Opened from the address the rig table wrote down. A Simulated
-            // address reaching here is a bug in this driver rather than in the
-            // table -- every caller checks isSimulated() first -- and
-            // hal::io::openTransport says exactly that in the exception it
-            // throws for one.
-            //
-            // hal::Usb routes to VISA (see hal/io/visa_transport.hpp), so a
-            // machine with no VISA installed fails here with "no VISA library
-            // found" rather than with a timeout, which is the difference
-            // between a missing dependency and a missing instrument.
-            //
-            mSession = std::make_unique<io::ScpiSession>( io::openTransport( mAddress));
-        }
+            opened.clearErrors();
 
-        if( mPrepared)
-        {
-            return *mSession;
-        }
-
-        //
-        // The once-per-session exchange, here rather than beside the
-        // construction above because a session arrives two ways -- opened from
-        // the address, or handed in by useTransport() -- and preparing it where
-        // it is *used* is what makes both go through this.
-        //
-        // Whatever the last user of this scope left in its error queue is not
-        // this run's, and would otherwise be reported against this run's first
-        // command. Drained before the identity query rather than after, so a
-        // stale entry cannot be mistaken for the identity query having failed.
-        //
-        mSession->clearErrors();
-
-        static_cast<void>( verifyIdentity());
-
-        mPrepared = true;
-
-        return *mSession;
+            static_cast<void>( verifyIdentity( opened));
+        });
     }
 
-    auto DSOX1202G::verifyIdentity() -> std::string
+    auto DSOX1202G::verifyIdentity( io::ScpiSession & opened) -> std::string
     {
-        const std::string identity = mSession->identify();
+        const std::string identity = opened.identify();
         const auto        token    = modelToken( modelOf( identity));
 
         //
@@ -508,7 +482,7 @@ namespace hal::keysight_dsox1202g
         //
         if( token != "DSOX1202G" && token != "DSOX1202A")
         {
-            throw io::ScpiFault( mSession->description(), "*IDN?",
+            throw io::ScpiFault( opened.description(), "*IDN?",
                 io::ScpiError{ 0,
                     "expected a DSOX1202G or a DSOX1202A and found \"" + identity
                     + "\" -- check this instrument's address in the rig's instrument table" });
@@ -560,14 +534,16 @@ namespace hal::keysight_dsox1202g
         // hal::keysight_edu34450a::EDU34450A::safe() makes for doing nothing at
         // all.
         //
-        if( !mSession)
+        auto * const open = mConnection.openSession();
+
+        if( !open)
         {
             return;
         }
 
         try
         {
-            mSession->write( ":STOP");
+            open->write( ":STOP");
         }
         catch( const io::TransportError &)
         {

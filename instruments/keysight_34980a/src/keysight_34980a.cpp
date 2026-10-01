@@ -215,54 +215,25 @@ namespace hal::keysight_34980a
 
     auto Chassis::session() -> io::ScpiSession &
     {
-        if( !mSession)
+        //
+        // The box's session (see hal::BoxConnection), opened on first use by
+        // any face of it and prepared once for this driver: whatever the last
+        // user left in the error queue drained first, so that a stale entry
+        // cannot be mistaken for the identity query failing, then the model
+        // checked. Not marked prepared until both succeed, so an instrument
+        // that failed its identity check is asked again next time.
+        //
+        return mConnection.session( "keysight_34980a", [ this]( io::ScpiSession & opened)
         {
-            //
-            // Opened from the address the rig wrote down. A hal::Simulated
-            // address reaching here is a bug in this driver rather than in the
-            // rig -- every caller checks isSimulated() first -- and
-            // hal::io::openTransport says exactly that in the exception it
-            // throws for one.
-            //
-            mSession = std::make_unique<io::ScpiSession>( io::openTransport( mAddress));
-        }
+            opened.clearErrors();
 
-        if( mPrepared)
-        {
-            return *mSession;
-        }
-
-        //
-        // Whatever the last user of this mainframe left in its error queue is
-        // not this run's, and would otherwise be reported against this run's
-        // first command. Drained before the identity query rather than after,
-        // so a stale entry cannot be mistaken for the identity query having
-        // failed.
-        //
-        mSession->clearErrors();
-
-        //
-        // And then the question worth asking before anything switches: what are
-        // you? An address in a rig table is a fact nothing checks, and on a
-        // switching device the failure that produces is quiet in a way a
-        // wrong reading is not -- "ROUT:CLOS (@1003)" is a command a great many
-        // boxes will accept, and none of them will have closed the crosspoint
-        // the route needed.
-        //
-        // Not marked prepared until it has succeeded, so a mainframe that
-        // failed its identity check is asked again on the next command rather
-        // than being treated as verified.
-        //
-        static_cast<void>( verifyIdentity());
-
-        mPrepared = true;
-
-        return *mSession;
+            static_cast<void>( verifyIdentity( opened));
+        });
     }
 
-    auto Chassis::verifyIdentity() -> std::string
+    auto Chassis::verifyIdentity( io::ScpiSession & opened) -> std::string
     {
-        const std::string identity = mSession->identify();
+        const std::string identity = opened.identify();
         const auto        fields   = fieldsOf( identity);
 
         //
@@ -289,7 +260,7 @@ namespace hal::keysight_34980a
         //
         if( model != "34980A")
         {
-            throw io::ScpiFault( mSession->description(), "*IDN?",
+            throw io::ScpiFault( opened.description(), "*IDN?",
                 io::ScpiError{ 0,
                     "expected a 34980A and found \"" + identity
                     + "\" -- check this chassis's address against the rack" });
@@ -658,14 +629,16 @@ namespace hal::keysight_34980a
         // header's comment, and hal::keysight_edu36311a::detail::sendSafe for
         // the same rule on a supply.
         //
-        if( !mSession)
+        auto * const open = mConnection.openSession();
+
+        if( !open)
         {
             return;
         }
 
         try
         {
-            mSession->write( "ROUT:OPEN:ALL " + std::string( kAllSlots));
+            open->write( "ROUT:OPEN:ALL " + std::string( kAllSlots));
         }
         catch( const io::TransportError &)
         {

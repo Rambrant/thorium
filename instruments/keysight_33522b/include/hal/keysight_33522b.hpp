@@ -16,6 +16,7 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/api_version.hpp"
+#include "hal/driver/box_connection.hpp"
 #include "hal/driver/builder.hpp"
 #include "hal/driver/describe.hpp"
 #include "hal/driver/instrument.hpp"
@@ -522,14 +523,6 @@ namespace hal::keysight_33522b
         };
 
         //
-        // A session on the generator at this address, not yet spoken to. See
-        // Wfg33522B::session() on why opening is lazy and why this is not done
-        // in a constructor.
-        //
-        [[nodiscard]]
-        auto openSession( const Address & address) -> std::unique_ptr<io::ScpiSession>;
-
-        //
         // The once-per-session exchange: drain whatever the last user left in
         // the error queue, then ask *IDN? and refuse a model this driver is
         // not for.
@@ -723,7 +716,7 @@ namespace hal::keysight_33522b
 
             template<typename AddressT>
                 requires Buses::allows<AddressT>
-            Wfg33522B( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+            Wfg33522B( const InstrumentId id, const AddressT address) : mId( id), mConnection( id, address) {}
 
             //
             // Where the PC reaches this generator -- and, since this driver has
@@ -733,7 +726,7 @@ namespace hal::keysight_33522b
             [[nodiscard]]
             auto address() const -> const Address &
             {
-                return mAddress;
+                return mConnection.address();
             }
 
             [[nodiscard]]
@@ -765,7 +758,7 @@ namespace hal::keysight_33522b
             [[nodiscard]]
             auto isSimulated() const -> bool
             {
-                return !mSession && std::holds_alternative<Simulated>( mAddress);
+                return mConnection.isSimulated();
             }
 
             //
@@ -782,8 +775,7 @@ namespace hal::keysight_33522b
             //
             auto useTransport( std::unique_ptr<io::ITransport> transport) -> void
             {
-                mSession  = std::make_unique<io::ScpiSession>( std::move( transport));
-                mPrepared = false;
+                mConnection.useTransport( std::move( transport));
             }
 
             //
@@ -796,9 +788,7 @@ namespace hal::keysight_33522b
             //
             auto useAddress( const Address & address) -> void
             {
-                mAddress  = address;
-                mSession.reset();
-                mPrepared = false;
+                mConnection.useAddress( address);
             }
 
             //
@@ -822,19 +812,10 @@ namespace hal::keysight_33522b
             [[nodiscard]]
             auto session() -> io::ScpiSession &
             {
-                if( !mSession)
-                {
-                    mSession = detail::openSession( mAddress);
-                }
-
-                if( mPrepared)
-                {
-                    return *mSession;
-                }
-
                 //
-                // The once-per-session exchange, here rather than beside the
-                // construction above because a session arrives two ways --
+                // The box's session (see hal::BoxConnection), opened on first
+                // use and prepared once for this driver, here rather than
+                // where it is created because a session arrives two ways --
                 // opened from the address, or handed in by useTransport() --
                 // and preparing it where it is *used* is what makes both go
                 // through it.
@@ -843,11 +824,10 @@ namespace hal::keysight_33522b
                 // that failed its identity check is asked again on the next
                 // command rather than being treated as verified.
                 //
-                detail::prepare( *mSession);
-
-                mPrepared = true;
-
-                return *mSession;
+                return mConnection.session( "keysight_33522b", []( io::ScpiSession & opened)
+                {
+                    detail::prepare( opened);
+                });
             }
 
             //
@@ -871,8 +851,7 @@ namespace hal::keysight_33522b
             //
             auto closeSession() -> void
             {
-                mSession.reset();
-                mPrepared = false;
+                mConnection.close();
             }
 
             //
@@ -1057,14 +1036,16 @@ namespace hal::keysight_33522b
                     output.Offset    = std::nullopt;
                 }
 
-                if( !mSession)
+                auto * const open = mConnection.openSession();
+
+                if( !open)
                 {
                     return;
                 }
 
                 for( unsigned channel = 1; channel <= mOutputs.size(); ++channel)
                 {
-                    detail::sendSafe( *mSession, static_cast<int>( channel));
+                    detail::sendSafe( *open, static_cast<int>( channel));
                 }
             }
 
@@ -1394,29 +1375,7 @@ namespace hal::keysight_33522b
             }
 
             InstrumentId  mId;
-            Address       mAddress;
-
-            //
-            // Null until the first command that needs hardware, and null
-            // forever on a simulated instrument -- see session() on why it
-            // cannot be opened in the constructor, and isSimulated() on what
-            // its being null means.
-            //
-            // A unique_ptr, which makes this class non-copyable, and that is
-            // correct rather than incidental: a copy of a driver would be a
-            // second object claiming the same generator, and one of the two
-            // would hold the socket.
-            //
-            std::unique_ptr<io::ScpiSession>  mSession;
-
-            //
-            // Whether mSession has had the once-per-session exchange: the
-            // error-queue drain and the identity check. A flag beside the
-            // pointer rather than something done where the session is created,
-            // because a session arrives two ways -- opened from the address, or
-            // handed in by useTransport() -- and both have to be prepared.
-            //
-            bool                              mPrepared{ false };
+            BoxConnection mConnection;   // where this generator is, and the session to it -- shared per box, see hal::BoxConnection
 
             std::array<Output, 2>             mOutputs;
     };

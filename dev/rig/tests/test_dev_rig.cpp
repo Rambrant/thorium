@@ -243,7 +243,7 @@ TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
 //
 // Both boxes get a fake transport writing to one shared log, so the order is
 // one list to read. The supply's fake stands in for the box behind all three of
-// DcP5-DcP7 (they share one session, see detail::Chassis), so all three
+// DcP5-DcP7 (they share one session, see hal::BoxConnection), so all three
 // outputs' safing lands in it.
 //
 namespace

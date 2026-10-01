@@ -12,6 +12,8 @@
 // and a driver does not know which rig it ended up in.
 //
 #include "hal/keysight_edu36311a.hpp"
+#include "hal/driver/box_connection.hpp"
+#include "hal/topology/boxes.hpp"
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/source.hpp"
 
@@ -961,7 +963,7 @@ TEST( Edu36311AWire, ARatingRefusalSendsNothing)
 // -- One box, one session ---------------------------------------------------
 //
 // DcP5, DcP6 and DcP7 are three drivers and one EDU36311A, so they share the
-// box's one connection (see detail::Chassis). These tests hand a fake to one
+// box's one connection (see hal::BoxConnection). These tests hand a fake to one
 // output and watch the others use it -- which only works because a transport
 // is installed on the chassis, and the chassis is found by address.
 //
@@ -975,6 +977,17 @@ TEST( Edu36311AWire, ARatingRefusalSendsNothing)
 //
 namespace
 {
+    //
+    // The box's link in hal's registry (see hal::BoxConnection) -- what the
+    // outputs below share. Every output here carries anyId(), so they are all
+    // faces of that id's box, told apart only by address.
+    //
+    [[nodiscard]]
+    auto boxLinkAt( const hal::Address & address) -> std::shared_ptr<hal::detail::BoxLink>
+    {
+        return hal::detail::boxLinkAt( hal::boxOf( anyId()), address);
+    }
+
     struct Chassis
     {
         //
@@ -1065,10 +1078,10 @@ TEST( Edu36311AChassis, ClosingOneOutputsSessionClosesTheBoxs)
 
     box.Two.closeSession();
 
-    const auto shared = hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "close.invalid"));
+    const auto shared = boxLinkAt( hal::Lan( "close.invalid"));
 
     EXPECT_EQ( shared->Session, nullptr);
-    EXPECT_FALSE( shared->Prepared);
+    EXPECT_TRUE( shared->PreparedBy.empty());
 }
 
 //
@@ -1105,8 +1118,8 @@ TEST( Edu36311AChassis, DifferentAddressesAndSimulatedOutputsShareNothing)
 
     RelayOutput2 elsewhere{ anyId(), hal::Lan( "second-box.invalid") };
 
-    EXPECT_NE( hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "first-box.invalid")),
-               hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "second-box.invalid")));
+    EXPECT_NE( boxLinkAt( hal::Lan( "first-box.invalid")),
+               boxLinkAt( hal::Lan( "second-box.invalid")));
 
     RelayOutput2 simulatedA{ anyId(), hal::Simulated{} };
     RelayOutput3 simulatedB{ anyId(), hal::Simulated{} };
@@ -1123,14 +1136,14 @@ TEST( Edu36311AChassis, DifferentAddressesAndSimulatedOutputsShareNothing)
 //
 TEST( Edu36311AChassis, ABoxLivesOnlyAsLongAsAnOutputHoldsIt)
 {
-    std::weak_ptr<hal::keysight_edu36311a::detail::Chassis> remembered;
+    std::weak_ptr<hal::detail::BoxLink> remembered;
 
     {
         Chassis box{ "lifetime.invalid" };
 
         static_cast<void>( box.One.session());
 
-        remembered = hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "lifetime.invalid"));
+        remembered = boxLinkAt( hal::Lan( "lifetime.invalid"));
 
         EXPECT_FALSE( remembered.expired());
     }
@@ -1151,7 +1164,7 @@ TEST( Edu36311AChassis, MovingOneOutputLeavesItsSiblingsOnTheOldBox)
 
     box.Two.useAddress( hal::Lan( "new-box.invalid"));
 
-    EXPECT_NE( hal::keysight_edu36311a::detail::chassisAt( hal::Lan( "old-box.invalid"))->Session, nullptr);
+    EXPECT_NE( boxLinkAt( hal::Lan( "old-box.invalid"))->Session, nullptr);
 
     box.Three.applyOutput( 5.0_V, std::nullopt, std::nullopt);
 

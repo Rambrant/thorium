@@ -12,6 +12,7 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/api_version.hpp"
+#include "hal/driver/box_connection.hpp"
 #include "hal/driver/instrument.hpp"
 #include "hal/io/scpi.hpp"
 
@@ -251,7 +252,7 @@ namespace hal::keysight_edu34450a
 
             template<typename AddressT>
                 requires Buses::allows<AddressT>
-            EDU34450A( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+            EDU34450A( const InstrumentId id, const AddressT address) : mId( id), mConnection( id, address) {}
 
             //
             // Where the PC reaches this meter -- and, since this driver grew a
@@ -261,7 +262,7 @@ namespace hal::keysight_edu34450a
             [[nodiscard]]
             auto address() const -> const Address &
             {
-                return mAddress;
+                return mConnection.address();
             }
 
             //
@@ -285,7 +286,7 @@ namespace hal::keysight_edu34450a
             [[nodiscard]]
             auto isSimulated() const -> bool
             {
-                return !mSession && std::holds_alternative<Simulated>( mAddress);
+                return mConnection.isSimulated();
             }
 
             //
@@ -310,8 +311,7 @@ namespace hal::keysight_edu34450a
             // fake transport a thing that could throw.
             auto useTransport( std::unique_ptr<io::ITransport> transport) -> void
             {
-                mSession  = std::make_unique<io::ScpiSession>( std::move( transport));
-                mPrepared = false;
+                mConnection.useTransport( std::move( transport));
             }
 
             //
@@ -340,9 +340,7 @@ namespace hal::keysight_edu34450a
             //
             auto useAddress( const Address & address) -> void
             {
-                mAddress  = address;
-                mSession.reset();
-                mPrepared = false;
+                mConnection.useAddress( address);
             }
 
             //
@@ -398,8 +396,7 @@ namespace hal::keysight_edu34450a
             //
             auto closeSession() -> void
             {
-                mSession.reset();
-                mPrepared = false;
+                mConnection.close();
             }
 
             [[nodiscard]]
@@ -842,37 +839,17 @@ namespace hal::keysight_edu34450a
             // not for. Called once, when the session is opened.
             //
             [[nodiscard]]
-            auto verifyIdentity() -> std::string;
+            auto verifyIdentity( io::ScpiSession & opened) -> std::string;
 
             InstrumentId                  mId;
-            Address                       mAddress;
-
             //
-            // Null until the first reading that needs hardware, and null
-            // forever on a simulated instrument -- see session() on why it
-            // cannot be opened in the constructor, and isSimulated() on what
-            // its being null means.
+            // Where this instrument is and the session to it -- shared with any
+            // other face of the same box (see hal::BoxConnection). Its being
+            // non-copyable is what makes this class non-copyable, and that is
+            // correct rather than incidental: a copy would be a second object
+            // claiming the same instrument.
             //
-            // A unique_ptr, which makes this class non-copyable, and that is
-            // correct rather than incidental: a copy of a driver would be a
-            // second object claiming the same instrument, and one of the two
-            // would hold the socket. Nothing copies one -- the rig's
-            // instruments are globals and core::Port holds a reference (see
-            // core/driver/port.hpp) -- so the restriction costs nothing and
-            // removes a mistake.
-            //
-            std::unique_ptr<io::ScpiSession> mSession;
-
-            //
-            // Whether mSession has had the once-per-session exchange -- the
-            // error-queue drain and the identity check. A flag beside the
-            // pointer rather than something done where the session is created,
-            // because a session arrives two ways: opened from the address, or
-            // handed in by useTransport(). Both have to be prepared, and only
-            // one of them goes through openTransport(), so the guarantee has to
-            // live at the point of *use*. See session().
-            //
-            bool                             mPrepared{ false };
+            BoxConnection                 mConnection;
 
             Mode                          mMode{ Mode::Dc };
             ResistanceMode                mResistanceMode{ ResistanceMode::TwoWire };

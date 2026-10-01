@@ -48,15 +48,17 @@ addressing one over GPIB does not compile.
 
 ### One session per chassis, though
 
-Three instances, but **one connection**: every output whose address names the
-same box talks through one SCPI session (`detail::Chassis`), found by address
-the first time any of them needs the wire. Three sockets to one LXI box is
-three connections it may refuse after the first; three USBTMC sessions is three
-error queues drained by whichever output happened to open last. So:
+Three instances, but **one connection**: the three outputs are three faces of
+one box (`Psu1` on the dev desk), and every face of a box talks through one SCPI
+session -- a `hal::BoxConnection` (`hal/driver/box_connection.hpp`), found the
+first time any of them needs the wire. Three sockets to one LXI box is three
+connections it may refuse after the first; three USBTMC sessions is three error
+queues drained by whichever output happened to open last. So:
 
 - **opened once, prepared once.** The error-queue drain and the `*IDN?` check
   happen when the first output of the box speaks, and the second finds the
-  session ready. A per-output drain would swallow an error the first output's
+  session ready -- the three outputs are one family, `keysight_edu36311a`, and a
+  family prepares a session once. A per-output drain would swallow an error the first output's
   last command had just queued.
 - **closed together.** `closeSession()` on any output closes the box's session,
   and its siblings reopen it on their next command. Recovering a wedged box is
@@ -72,10 +74,11 @@ names its channel (`(@2)`) and nothing sends `*RST` or `INST:SEL`, precisely so
 that several drivers could share a box — see "Channels by number" and "No
 `*RST`, ever" below.
 
-The box is keyed by the address as `hal::to_string()` spells it, so a rig that
-names one supply two ways (`Lan` on one row, `Usb` on another) gets two
-sessions to it — the old behaviour, not a new failure. `hal::Simulated` names
-no box, so a simulated output shares nothing with anything.
+This driver had this sharing first, as a registry of its own keyed by address;
+it is now hal's, for every driver, keyed by box and address. A face moved to
+another address (`useAddress`) leaves its siblings on the old session, and
+`hal::Simulated` names no unit, so a simulated output shares nothing with
+anything.
 
 ## Isolation is a type parameter
 

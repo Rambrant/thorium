@@ -12,6 +12,7 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/api_version.hpp"
+#include "hal/driver/box_connection.hpp"
 #include "hal/driver/instrument.hpp"
 #include "hal/io/scpi.hpp"
 
@@ -482,7 +483,7 @@ namespace hal::keysight_34980a
 
             template<typename AddressT>
                 requires Buses::allows<AddressT>
-            Chassis( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+            Chassis( const InstrumentId id, const AddressT address) : mId( id), mConnection( id, address) {}
 
             [[nodiscard]]
             auto id() const -> InstrumentId
@@ -498,7 +499,7 @@ namespace hal::keysight_34980a
             [[nodiscard]]
             auto address() const -> const Address &
             {
-                return mAddress;
+                return mConnection.address();
             }
 
             //
@@ -515,7 +516,7 @@ namespace hal::keysight_34980a
             [[nodiscard]]
             auto isSimulated() const -> bool
             {
-                return !mSession && std::holds_alternative<Simulated>( mAddress);
+                return mConnection.isSimulated();
             }
 
             //
@@ -530,8 +531,7 @@ namespace hal::keysight_34980a
             //
             auto useTransport( std::unique_ptr<io::ITransport> transport) -> void
             {
-                mSession  = std::make_unique<io::ScpiSession>( std::move( transport));
-                mPrepared = false;
+                mConnection.useTransport( std::move( transport));
             }
 
             //
@@ -546,9 +546,7 @@ namespace hal::keysight_34980a
             //
             auto useAddress( const Address & address) -> void
             {
-                mAddress = address;
-                mSession.reset();
-                mPrepared = false;
+                mConnection.useAddress( address);
             }
 
             //
@@ -602,8 +600,7 @@ namespace hal::keysight_34980a
             //
             auto closeSession() -> void
             {
-                mSession.reset();
-                mPrepared = false;
+                mConnection.close();
             }
 
             // --- The switching face ---
@@ -935,7 +932,7 @@ namespace hal::keysight_34980a
             // 34980A. Called once, when the session is opened.
             //
             [[nodiscard]]
-            auto verifyIdentity() -> std::string;
+            auto verifyIdentity( io::ScpiSession & opened) -> std::string;
 
             // --- The simulated half ---
 
@@ -943,29 +940,14 @@ namespace hal::keysight_34980a
             auto simulatedOpen( const std::vector<ChannelAddress> & channels) -> void;
 
             InstrumentId                      mId;
-            Address                           mAddress;
-
             //
-            // Null until the first command that needs hardware, and null
-            // forever on a simulated chassis -- see session() on why it cannot
-            // be opened in the constructor.
-            //
-            // A unique_ptr, which makes this class non-copyable, and that is
+            // Where this instrument is and the session to it -- shared with any
+            // other face of the same box (see hal::BoxConnection). Its being
+            // non-copyable is what makes this class non-copyable, and that is
             // correct rather than incidental: a copy would be a second object
-            // claiming one mainframe, and one of the two would hold the socket.
-            // It is also the guarantee the Janus depends on -- see this file's
-            // preamble on why one box must have one session.
+            // claiming the same instrument.
             //
-            std::unique_ptr<io::ScpiSession>  mSession;
-
-            //
-            // Whether mSession has had the once-per-session exchange: the
-            // error-queue drain and the identity check. A flag beside the
-            // pointer rather than something done where the session is created,
-            // because a session arrives two ways -- opened from the address, or
-            // handed in by useTransport() -- and both have to be prepared.
-            //
-            bool                              mPrepared{ false };
+            BoxConnection                 mConnection;
 
             //
             // Kept sorted and unique, so that a test comparing the whole set

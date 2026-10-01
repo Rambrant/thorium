@@ -18,6 +18,7 @@
 
 #include "hal/driver/address.hpp"
 #include "hal/driver/api_version.hpp"
+#include "hal/driver/box_connection.hpp"
 #include "hal/driver/builder.hpp"
 #include "hal/driver/describe.hpp"
 #include "hal/driver/instrument.hpp"
@@ -1135,7 +1136,7 @@ namespace hal::keysight_dsox1202g
 
             template<typename AddressT>
                 requires Buses::allows<AddressT>
-            DSOX1202G( const InstrumentId id, const AddressT address) : mId( id), mAddress( address) {}
+            DSOX1202G( const InstrumentId id, const AddressT address) : mId( id), mConnection( id, address) {}
 
             //
             // Where the PC reaches this scope -- and, since this driver grew a
@@ -1145,7 +1146,7 @@ namespace hal::keysight_dsox1202g
             [[nodiscard]]
             auto address() const -> const Address &
             {
-                return mAddress;
+                return mConnection.address();
             }
 
             //
@@ -1165,7 +1166,7 @@ namespace hal::keysight_dsox1202g
             [[nodiscard]]
             auto isSimulated() const -> bool
             {
-                return !mSession && std::holds_alternative<Simulated>( mAddress);
+                return mConnection.isSimulated();
             }
 
             //
@@ -1183,8 +1184,7 @@ namespace hal::keysight_dsox1202g
             //
             auto useTransport( std::unique_ptr<io::ITransport> transport) -> void
             {
-                mSession  = std::make_unique<io::ScpiSession>( std::move( transport));
-                mPrepared = false;
+                mConnection.useTransport( std::move( transport));
             }
 
             //
@@ -1197,9 +1197,7 @@ namespace hal::keysight_dsox1202g
             //
             auto useAddress( const Address & address) -> void
             {
-                mAddress  = address;
-                mSession.reset();
-                mPrepared = false;
+                mConnection.useAddress( address);
             }
 
             //
@@ -1238,8 +1236,7 @@ namespace hal::keysight_dsox1202g
             //
             auto closeSession() -> void
             {
-                mSession.reset();
-                mPrepared = false;
+                mConnection.close();
             }
 
             [[nodiscard]]
@@ -1702,16 +1699,8 @@ namespace hal::keysight_dsox1202g
             // spellings -- see the definition for which are accepted and why a
             // hostname-shaped mistake is the failure this catches.
             //
-            auto verifyIdentity() -> std::string;
+            auto verifyIdentity( io::ScpiSession & opened) -> std::string;
 
-            //
-            // The session's own once-per-connection preparation, and the flag
-            // that says it has happened. Not marked prepared until it has
-            // succeeded, so a scope that failed its identity check is asked
-            // again on the next command rather than treated as verified.
-            //
-            std::unique_ptr<io::ScpiSession> mSession;
-            bool                             mPrepared{ false };
 
             //
             // How many measurements a channel can be made to report as
@@ -1766,7 +1755,15 @@ namespace hal::keysight_dsox1202g
             }
 
             InstrumentId               mId;
-            Address                    mAddress;
+
+            //
+            // Where this scope is and the session to it -- shared with any other
+            // face of the same box, and prepared once (see hal::BoxConnection
+            // and session()). Not marked prepared until the preparation has
+            // succeeded, so a scope that failed its identity check is asked
+            // again on the next command rather than treated as verified.
+            //
+            BoxConnection              mConnection;
             Mode                       mMode{ Mode::Vpp};
             unsigned                   mChannel{ 1};
             std::array<ChannelData, channel_count> mChannels;

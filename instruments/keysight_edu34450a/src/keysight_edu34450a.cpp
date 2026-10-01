@@ -170,63 +170,25 @@ namespace hal::keysight_edu34450a
 
     auto EDU34450A::session() -> io::ScpiSession &
     {
-        if( !mSession)
+        //
+        // The box's session (see hal::BoxConnection), opened on first use by
+        // any face of it and prepared once for this driver: whatever the last
+        // user left in the error queue drained first, so that a stale entry
+        // cannot be mistaken for the identity query failing, then the model
+        // checked. Not marked prepared until both succeed, so an instrument
+        // that failed its identity check is asked again next time.
+        //
+        return mConnection.session( "keysight_edu34450a", [ this]( io::ScpiSession & opened)
         {
-            //
-            // Opened from the address the rig table wrote down. A Simulated
-            // address reaching here is a bug in this driver rather than in the
-            // table -- rawMeasure() checks isSimulated() first -- and
-            // hal::io::openTransport says so in the exception it throws for one.
-            //
-            mSession = std::make_unique<io::ScpiSession>( io::openTransport( mAddress));
-        }
+            opened.clearErrors();
 
-        if( mPrepared)
-        {
-            return *mSession;
-        }
-
-        //
-        // The once-per-session exchange, and it happens here rather than beside
-        // the construction above because a session arrives two ways: opened
-        // from the address, or handed in by useTransport(). Preparing it where
-        // it is *used* is what makes both go through this.
-        //
-        // Not marked prepared until both have succeeded, so a meter that failed
-        // its identity check is asked again on the next reading rather than
-        // being treated as verified. Which is the right way round for a bench:
-        // the instrument that was off when the run started may be on now, and
-        // the run has already failed the readings it took meanwhile.
-        //
-        // Whatever the last user of this meter left in its error queue is not
-        // this run's, and would otherwise be reported against this run's first
-        // command (the queue survives *RST, and this driver does not send one
-        // -- see FunctionCommands::Configure). Drained before the identity
-        // query rather than after, so that a stale entry cannot be mistaken for
-        // the identity query having failed.
-        //
-        mSession->clearErrors();
-
-        //
-        // And then the single most useful question a session can ask, before
-        // any reading is taken: what are you?
-        //
-        // A hostname in a rig table is a fact nothing checks -- a re-cabled
-        // rack, a DHCP lease that moved, a copied row -- and the failure it
-        // produces without this is a run full of readings from the wrong
-        // instrument. Some of them would even pass. See verifyIdentity() for
-        // what is accepted.
-        //
-        static_cast<void>( verifyIdentity());
-
-        mPrepared = true;
-
-        return *mSession;
+            static_cast<void>( verifyIdentity( opened));
+        });
     }
 
-    auto EDU34450A::verifyIdentity() -> std::string
+    auto EDU34450A::verifyIdentity( io::ScpiSession & opened) -> std::string
     {
-        const std::string identity = mSession->identify();
+        const std::string identity = opened.identify();
         const auto        model    = modelOf( identity);
 
         //
@@ -244,7 +206,7 @@ namespace hal::keysight_edu34450a
         //
         if( model != "EDU34450A" && model != "34450A")
         {
-            throw io::ScpiFault( mSession->description(), "*IDN?",
+            throw io::ScpiFault( opened.description(), "*IDN?",
                 io::ScpiError{ 0,
                     "expected an EDU34450A or a 34450A and found \"" + identity
                     + "\" -- check this instrument's address in the rig's instrument table" });
