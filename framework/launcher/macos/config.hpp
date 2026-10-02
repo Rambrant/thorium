@@ -7,7 +7,7 @@
 namespace launcher
 {
     //
-    // The same four flags as the Windows launcher's config.hpp, spelled the
+    // The same five flags as the Windows launcher's config.hpp, spelled the
     // same way, so a deployment script can hand either launcher the same
     // arguments. Narrow strings rather than wide: argv on macOS is already
     // UTF-8, and every API this program hands a path to takes UTF-8.
@@ -16,6 +16,7 @@ namespace launcher
     {
         std::string               ServerCommand;
         std::vector<std::string>  ServerArgs;
+        std::vector<std::string>  BrowserArgs;
         unsigned short            Port{ 8420 };
         std::string               Title{ "Thorium Bench Console" };
     };

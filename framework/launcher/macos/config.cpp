@@ -21,6 +21,10 @@ namespace launcher
             {
                 config.ServerArgs.emplace_back( arg.substr( 13));
             }
+            else if ( arg.starts_with( "--browser-arg="))
+            {
+                config.BrowserArgs.emplace_back( arg.substr( 14));
+            }
             else if ( arg.starts_with( "--port="))
             {
                 config.Port = static_cast<unsigned short>(

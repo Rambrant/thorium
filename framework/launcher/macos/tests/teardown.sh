@@ -53,8 +53,14 @@ listening() { curl -s -m 1 -o /dev/null "http://127.0.0.1:$PORT/"; }
 listening && skip "port $PORT is already in use"
 
 # --- Start it --------------------------------------------------------------
+# --use-mock-keychain, because the throwaway $HOME has no
+# Library/Keychains: a Chrome started there asks for one to keep its
+# "Chrome Safe Storage" key in, and macOS puts up "keychain not found" --
+# a dialog that sits on the developer's desktop until the kill below takes
+# it away, on every test run.
 HOME=$TEST_HOME "$LAUNCHER" \
     --server="$PYTHON" \
+    --browser-arg=--use-mock-keychain \
     --server-arg=-m --server-arg=http.server \
     --server-arg=--bind --server-arg=127.0.0.1 \
     --server-arg="$PORT" \

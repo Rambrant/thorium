@@ -14,7 +14,7 @@
 # src/ is the Windows launcher and macos/ the macOS one. They are two
 # programs, not one made portable: each one's whole job is its platform's
 # own API (a Job object or a watched process group, Shell_NotifyIcon or
-# NSStatusItem), and what they share -- four command-line flags and three menu
+# NSStatusItem), and what they share -- five command-line flags and three menu
 # actions -- is smaller than any abstraction over them would be. See
 # README.md.
 #

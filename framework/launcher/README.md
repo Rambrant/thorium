@@ -110,8 +110,10 @@ the "never started" outcome, and *Safe the rig*, *Show console*, Quit and a
 missing:
 
 There is no config file. Command-line flags
-(`--server=`, `--server-arg=`, `--port=`, `--title=`) are the whole surface --
-see `config.hpp`, one per platform. A real deployment will want these to come
+(`--server=`, `--server-arg=`, `--browser-arg=`, `--port=`, `--title=`) are
+the whole surface -- see `config.hpp`, one per platform. `--browser-arg=`
+adds one flag to every Chrome window the way `--server-arg=` adds one to the
+server; today only the teardown test uses it. A real deployment will want these to come
 from somewhere more permanent than a shortcut's target field, and
 `config.hpp` is the one place that changes when it does.
 
@@ -143,7 +145,7 @@ nature. On Windows it is `CreateMutexW`, a Job object, `Shell_NotifyIcon` and
 the `App Paths` registry key; on macOS it is `flock()`, a watched process
 group, `NSStatusItem` and Launch Services. Those do not line up one-to-one --
 the Job object alone became a fork, a pipe and a signal sequence -- and what
-the two programs genuinely share is four command-line flags and three menu
+the two programs genuinely share is five command-line flags and three menu
 items, less than any abstraction over them would cost. So each platform gets
 its own few hundred lines, and a Linux bench gets a third when one is
 needed, not a portability layer grown over these. `--app=` mode itself is

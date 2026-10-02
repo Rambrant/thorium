@@ -225,7 +225,9 @@ auto main( int argc, char ** argv) -> int
     // the second click cheap. See browser_launch.hpp.
     auto  showConsole = [ & ]
     {
-        (void)group.spawn( launcher::buildAppModeArgv( *chrome, url, userDataDir), chromeLog);
+        auto  chromeArgv = launcher::buildAppModeArgv( *chrome, url, userDataDir);
+        chromeArgv.insert( chromeArgv.end(), config->BrowserArgs.begin(), config->BrowserArgs.end());
+        (void)group.spawn( chromeArgv, chromeLog);
     };
 
     // Accessory: a menu bar item and no Dock icon, the way the Windows

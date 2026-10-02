@@ -161,8 +161,12 @@ auto WINAPI wWinMain( HINSTANCE, HINSTANCE, PWSTR, int) -> int
     // search by title/class, which is worth adding once this is in real use.
     auto  showConsole = [ & ]
     {
-        browserWindow.start(
-            launcher::buildAppModeCommandLine( *chrome, url, userDataDir), job);
+        auto  line = launcher::buildAppModeCommandLine( *chrome, url, userDataDir);
+        for ( const auto & arg : config->BrowserArgs)
+        {
+            line += L" " + quoteArg( arg);
+        }
+        browserWindow.start( line, job);
     };
 
     showConsole();

@@ -17,6 +17,7 @@ namespace launcher
     {
         std::wstring               ServerCommand;
         std::vector<std::wstring>  ServerArgs;
+        std::vector<std::wstring>  BrowserArgs;
         unsigned short             Port{ 8420 };
         std::wstring               Title{ L"Thorium Bench Console" };
     };
