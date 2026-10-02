@@ -38,7 +38,11 @@ target_link_libraries(thorium_launcher PRIVATE launcher_macos)
 # --- Tests -------------------------------------------------------------
 # What each one catches, and why the menu and teardown tests skip rather than
 # fail without a logged-in desktop, is in ../README.md's "Testing the macOS
-# launcher". enable_testing() is in ../CMakeLists.txt, where ctest needs it.
+# launcher". Built with the rest of the build's tests, under
+# BUILD_TESTING_LAYERS; none of them needs GoogleTest.
+if(NOT BUILD_TESTING_LAYERS)
+    return()
+endif()
 
 add_executable(launcher_macos_tests
     tests/main.cpp

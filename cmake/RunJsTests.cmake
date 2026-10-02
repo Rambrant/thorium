@@ -12,8 +12,9 @@
 #
 # THORIUM_CHROME       -- the Chrome executable; empty when configure found none
 # JS_TEST_PAGE         -- run.html, absolute
-# JS_TEST_PROFILE_DIR  -- a scratch --user-data-dir, so a Chrome the developer
-#                         has open is neither attached to nor disturbed
+# JS_TEST_PROFILE_DIR  -- where each run's scratch --user-data-dir goes, so a
+#                         Chrome the developer has open is neither attached to
+#                         nor disturbed
 #
 if(NOT THORIUM_CHROME)
     # A failure, not a skip: tools/run-ctest.sh's whole argument is that a
@@ -36,6 +37,17 @@ else()
     set(url "file:///${JS_TEST_PAGE}")
 endif()
 
+# A profile of this run's own, under JS_TEST_PROFILE_DIR, and gone afterwards.
+# One shared profile is one Chrome at a time: a second run in the same tree --
+# CLion's and a terminal's ctest together, or one started while the last
+# headless Chrome is still exiting -- found its SingletonLock and Chrome
+# aborted (exit 21) rather than share it, which read as the tests failing.
+# A fresh one also means no cache from an earlier run can stand in for the
+# modules as they are now.
+string(RANDOM LENGTH 12 run_id)
+set(profile "${JS_TEST_PROFILE_DIR}/run-${run_id}")
+file(MAKE_DIRECTORY "${profile}")
+
 # --allow-file-access-from-files, because a page opened from file:// may not
 # otherwise import modules at all: its origin is opaque, and every import is a
 # cross-origin fetch. --virtual-time-budget lets the page's own async work
@@ -47,7 +59,7 @@ execute_process(
             --no-first-run
             --no-default-browser-check
             --allow-file-access-from-files
-            "--user-data-dir=${JS_TEST_PROFILE_DIR}"
+            "--user-data-dir=${profile}"
             --virtual-time-budget=10000
             --dump-dom
             "${url}"
@@ -56,6 +68,7 @@ execute_process(
     RESULT_VARIABLE chrome_result
     TIMEOUT 120
 )
+file(REMOVE_RECURSE "${profile}")
 
 # The two <pre>s run.html has: the report, and whatever failed to load.
 function(extract_pre id out)

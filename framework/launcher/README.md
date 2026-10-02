@@ -168,25 +168,27 @@ launcher".
 
 ## Building
 
-Windows -- MinGW-w64 GCC, C++20, ordinary Win32 SDK headers:
+Part of the ordinary build, beside `framework/webui` -- the server it starts
+and the launcher are built together, by the same preset and the same GCC 16:
 
 ```
-cmake --preset windows-launcher
-cmake --build build/launcher
+cmake --preset windows-dev     # or macos-dev, or any other preset
+cmake --build build/dev
 ```
 
-macOS -- Homebrew GCC 16, C++20, AppKit through the Objective-C runtime:
+Windows gets ordinary Win32 SDK headers, macOS AppKit through the
+Objective-C runtime; neither needs a third-party dependency. On Linux the
+top-level `CMakeLists.txt` leaves this directory out, since there is no
+launcher for it yet. It used to be a CMake project of its own, with its own
+presets and `build/launcher`, from when the macOS half needed a compiler the
+framework could not use; nothing here does any more.
 
-```
-cmake --preset macos-launcher
-cmake --build build/launcher
-```
-
-Both from this directory, and neither needs a third-party dependency. Like
-everything else GCC builds on macOS, the result links Homebrew's
-`libstdc++`, so the bench Mac needs Homebrew's GCC installed to run it. On
-macOS the result is `build/launcher/macos/thorium_launcher`, run with the same
-flags as on Windows:
+The build's `-static-libstdc++` applies here too, so unlike the old separate
+build the macOS launcher no longer needs Homebrew's GCC on the machine that
+runs it. The result is `<tree>/framework/launcher/thorium_launcher.exe` on
+Windows and `<tree>/framework/launcher/macos/thorium_launcher` on macOS, run
+with the same flags on both -- or let `tools/run-webui.sh` find it beside the
+server it picks:
 
 ```
 thorium_launcher --server=<path to thorium_webui> \
@@ -195,12 +197,14 @@ thorium_launcher --server=<path to thorium_webui> \
 
 ## Testing the macOS launcher
 
+With the rest of a tree's tests, under `BUILD_TESTING_LAYERS` -- so
+`tools/run-ctest.sh` runs them in every tree, or just these with:
+
 ```
-ctest --test-dir build/launcher
+ctest --test-dir build/dev -R launcher_macos
 ```
 
-or `tools/run-ctest.sh`, which includes `build/launcher` with the
-framework's own trees. Four tests, split by what they need:
+Split by what they need:
 
 | Test | Needs | Catches |
 |---|---|---|

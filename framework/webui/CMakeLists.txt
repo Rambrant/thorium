@@ -1,9 +1,8 @@
 #
 # The bench console's server -- framework, and part of the framework's own
-# build, unlike framework/launcher.
+# build, like framework/launcher beside it.
 #
-# The difference from framework/launcher is not a style choice: see
-# README.md's "History" section for why framework/ui (wxWidgets, a separate
+# See README.md's "History" section for why framework/ui (wxWidgets, a separate
 # CMake project built by a separate compiler) is gone, and why this target has
 # nothing in it that needs escaping the fence its predecessor needed. It links
 # neither core nor hal -- its job is the same one framework/ui/src/app/ had:

@@ -34,8 +34,8 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # --- What differs between the two hosts ---
 # Everything platform-specific is here, so the rest of the script reads the
-# same on both: the executable suffix, where the launcher is built, what its
-# icon is called, and three tools Git Bash does not ship -- lsof, pgrep and
+# same on both: the executable suffix, where the launcher sits in a build
+# tree, what its icon is called, and three tools Git Bash does not ship -- lsof, pgrep and
 # open -- replaced by the Windows commands that answer the same questions.
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) windows=1 ;;
@@ -44,8 +44,7 @@ esac
 
 if [[ $windows -eq 1 ]]; then
     exe=".exe"
-    launcher="$repo/build/launcher/thorium_launcher.exe"
-    launcher_preset="windows-launcher"
+    launcher_path="framework/launcher/thorium_launcher.exe"
     icon="tray icon"
 
     # netstat's local-address column is "127.0.0.1:8420" or "[::]:8420"; the
@@ -89,8 +88,7 @@ if [[ $windows -eq 1 ]]; then
     native_path() { cygpath -m "$1"; }
 else
     exe=""
-    launcher="$repo/build/launcher/macos/thorium_launcher"
-    launcher_preset="macos-launcher"
+    launcher_path="framework/launcher/macos/thorium_launcher"
     icon="menu-bar icon"
 
     port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
@@ -174,9 +172,16 @@ if port_in_use "$port"; then
     exit 1
 fi
 
+# The launcher from the same build tree as the server -- <tree>/framework/
+# webui/thorium_webui -- since the two are built together (framework/launcher
+# is part of the ordinary build): a launcher from another tree would be one
+# built on another day.
+tree="$(dirname "$(dirname "$(dirname "$webui")")")"
+launcher="$tree/$launcher_path"
+
 if [[ $use_launcher -eq 1 && ! -x "$launcher" ]]; then
     echo "No launcher built at $launcher -- running the server on its own." >&2
-    echo "(Build it from framework/launcher: cmake --preset $launcher_preset && cmake --build --preset $launcher_preset)" >&2
+    echo "(It is built with the server: cmake --build $tree)" >&2
     use_launcher=0
 fi
 

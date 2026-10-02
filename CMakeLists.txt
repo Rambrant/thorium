@@ -497,18 +497,24 @@ endif()
 add_subdirectory(framework/core)
 add_subdirectory(framework/hal)
 
-# --- The bench console's server ---
+# --- The bench console: its server, and the launcher in front of it ---
 # Added here rather than beside framework/runner below: unlike run_scripts,
 # thorium_webui names no rig, DUT or suite at build time at all -- it takes
 # the installed run_scripts it should drive as a runtime flag (--run-scripts=),
 # the same way framework/launcher takes the console it should start as
-# --server=. So it has nothing to wait on and nothing to configure per
-# deployment; it belongs with core and hal, the other framework/ subdirectories
-# that build the same way regardless of which bench this is. See
-# framework/webui/CMakeLists.txt for why it is part of this build at all,
-# where framework/launcher is not (and framework/ui, wxWidgets-based and
-# deleted, never was).
+# --server=. So neither has anything to wait on or to configure per
+# deployment; they belong with core and hal, the other framework/
+# subdirectories that build the same way regardless of which bench this is.
+# See framework/webui/CMakeLists.txt for why the server is part of this build
+# at all (framework/ui, wxWidgets-based and deleted, never was).
 add_subdirectory(framework/webui)
+
+# The launcher only on the two hosts it has a program for -- a Linux bench
+# would get a third, small one (see framework/launcher/README.md), and until
+# then builds the server alone and opens the page in a browser.
+if(WIN32 OR APPLE)
+    add_subdirectory(framework/launcher)
+endif()
 
 # --- Package export: core + hal + the drivers as the reusable "Thorium" framework ---
 # core, hal, hal_rig and every instrument driver register themselves into the

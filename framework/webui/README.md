@@ -109,9 +109,10 @@ of what was set, not a full record of every flag's current value.
 
 ## Building
 
-Part of the ordinary framework build, unlike `framework/ui` before it and
-unlike `framework/launcher` today -- see the top-level `CMakeLists.txt`'s note
-on why this target sits beside `framework/core` and `framework/hal`:
+Part of the ordinary framework build, unlike `framework/ui` before it, and
+built together with `framework/launcher` -- see the top-level
+`CMakeLists.txt`'s note on why both sit beside `framework/core` and
+`framework/hal`:
 
 ```
 cmake --preset windows-dev     # or macos-dev

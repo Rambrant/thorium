@@ -7,8 +7,7 @@
 #
 # With no build directory named, every tree this repository knows how to make is
 # run if it has been configured -- the deployment presets (build/debug,
-# build/dev, build/release) and the launcher's (build/launcher). Name one or
-# more directories to run just those.
+# build/dev, build/release). Name one or more directories to run just those.
 #
 # ---------------------------------------------------------------------------
 # Why this exists at all
@@ -48,14 +47,8 @@
 # (see framework/webui/README.md's "History"): framework/webui joined the
 # ordinary build, so its tests are already inside build/debug, build/dev and
 # build/release like any other layer's, and this script needed no console-
-# specific case once that was true.
-#
-# build/launcher is the one separate project left: framework/launcher, the tray
-# or menu bar program that starts the console. It is separate because it holds
-# no framework code, not because of a compiler -- on macOS it is GCC 16 like
-# everything else (see framework/launcher/README.md) -- and its tests would be
-# exactly the kind this script exists to stop being forgotten, so it is listed
-# below with the rest.
+# specific case once that was true. framework/launcher followed it -- its own
+# `build/launcher` until then -- so there is no separate project left.
 #
 set -uo pipefail
 
@@ -77,7 +70,7 @@ cd "$( dirname "$0")/.." || exit 1
 # works; including it in a "run everything" default would mean this script's
 # result depended on an IDE's settings.
 #
-KNOWN_TREES="build/debug build/dev build/release build/launcher"
+KNOWN_TREES="build/debug build/dev build/release"
 
 # --- Arguments -------------------------------------------------------------
 #
@@ -172,10 +165,7 @@ done
 # build/debug and build/dev are two *deployments* of one framework --
 # configuring one and not the other is a legitimate choice, and neither is a
 # part of the repository the other leaves untested. That is why a skipped tree
-# above is a note, not a failure: every configured tree already ran. The one
-# exception in kind is build/launcher, a second CMake project -- but it is in
-# KNOWN_TREES, so an unconfigured one is still named here rather than
-# silently absent.
+# above is a note, not a failure: every configured tree already ran.
 #
 
 echo
