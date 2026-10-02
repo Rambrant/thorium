@@ -1,17 +1,17 @@
 import { test, assertEqual } from './harness.js';
 import { criteriaChoice, headerSettings, runInfo } from '../../static/js/model/header.js';
 
-const manifest = { criteriaVariants: ['production', 'stress', 'aged'], defaultCriteriaVariant: 'stress' };
+const described = { criteriaVariants: ['production', 'stress', 'aged'], defaultCriteriaVariant: 'stress' };
 
 test('criteriaChoice: the variants, starting on the default', () => {
-  assertEqual(criteriaChoice(manifest), { variants: ['production', 'stress', 'aged'], selected: 'stress' });
+  assertEqual(criteriaChoice(described), { variants: ['production', 'stress', 'aged'], selected: 'stress' });
 });
 
 test('criteriaChoice: the first variant when the default is not among them', () => {
   assertEqual(criteriaChoice({ criteriaVariants: ['a', 'b'], defaultCriteriaVariant: 'gone' }).selected, 'a');
 });
 
-test('criteriaChoice: no manifest, or no variants, keeps the free-text field', () => {
+test('criteriaChoice: no answer, or no variants, keeps the free-text field', () => {
   assertEqual(criteriaChoice(null), null);
   assertEqual(criteriaChoice({ criteriaVariants: [] }), null);
   assertEqual(criteriaChoice({}), null);
@@ -20,11 +20,11 @@ test('criteriaChoice: no manifest, or no variants, keeps the free-text field', (
 const flags = (settings) => settings.map((s) => s.flag + '=' + s.value);
 
 test('headerSettings: empty fields contribute no flag -- operator included', () => {
-  assertEqual(headerSettings({ dutSerial: '  ', operator: '', criteria: 'stress' }, manifest), []);
+  assertEqual(headerSettings({ dutSerial: '  ', operator: '', criteria: 'stress' }, described), []);
 });
 
 test('headerSettings: trimmed values, each marked present', () => {
-  const settings = headerSettings({ dutSerial: ' SN-7 ', operator: 'Ann', criteria: 'stress' }, manifest);
+  const settings = headerSettings({ dutSerial: ' SN-7 ', operator: 'Ann', criteria: 'stress' }, described);
   assertEqual(settings, [
     { flag: '--dut-serial', value: 'SN-7', present: true },
     { flag: '--operator', value: 'Ann', present: true },
@@ -32,11 +32,11 @@ test('headerSettings: trimmed values, each marked present', () => {
 });
 
 test('headerSettings: --criteria only when moved off the default', () => {
-  assertEqual(flags(headerSettings({ dutSerial: '', operator: '', criteria: 'aged' }, manifest)), ['--criteria=aged']);
-  assertEqual(flags(headerSettings({ dutSerial: '', operator: '', criteria: 'stress' }, manifest)), []);
+  assertEqual(flags(headerSettings({ dutSerial: '', operator: '', criteria: 'aged' }, described)), ['--criteria=aged']);
+  assertEqual(flags(headerSettings({ dutSerial: '', operator: '', criteria: 'stress' }, described)), []);
 });
 
-test('headerSettings: without a manifest, whatever was typed is passed', () => {
+test('headerSettings: without an answer, whatever was typed is passed', () => {
   assertEqual(flags(headerSettings({ dutSerial: '', operator: '', criteria: 'stress' }, null)), ['--criteria=stress']);
   assertEqual(flags(headerSettings({ dutSerial: '', operator: '', criteria: '' }, null)), []);
 });

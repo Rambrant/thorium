@@ -103,4 +103,9 @@ namespace webui
     {
         return { suite.Binary.string(), "--describe-options" };
     }
+
+    auto buildDescribeCriteriaCommand( const Suite & suite) -> std::vector<std::string>
+    {
+        return { suite.Binary.string(), "--describe-criteria" };
+    }
 } // namespace webui

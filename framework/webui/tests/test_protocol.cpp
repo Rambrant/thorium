@@ -238,6 +238,36 @@ TEST( Catalog, ListTestsYieldsUsableEntries)
 }
 
 // ---------------------------------------------------------------------------
+// The criteria variants -- /api/criteria, which the page's picker reads
+// ---------------------------------------------------------------------------
+
+TEST( Criteria, DescribeCriteriaIsJsonTheDefaultAndMasterAreAmongTheVariants)
+{
+    const auto document = webui::Json::parse( capture( kBinary + " --describe-criteria"));
+
+    ASSERT_NE( document, nullptr) << "--describe-criteria is not JSON";
+
+    const auto * variants = document->at( "criteriaVariants");
+
+    ASSERT_NE( variants, nullptr);
+    ASSERT_FALSE( variants->items().empty());
+
+    const auto names = [ & ]
+    {
+        std::vector<std::string> out;
+        for( const auto & item : variants->items())
+            out.push_back( item->text());
+        return out;
+    }();
+
+    for( const auto key : { "defaultCriteriaVariant", "masterCriteriaVariant"})
+    {
+        const auto name = document->textAt( key);
+        EXPECT_NE( std::find( names.begin(), names.end(), name), names.end()) << key << " = " << name;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // The event stream, from a real run
 // ---------------------------------------------------------------------------
 

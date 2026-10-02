@@ -6,15 +6,15 @@
 import { $, el } from './dom.js';
 import * as model from './model/header.js';
 
-// The manifest the criteria choice came from; null when there is none, and
-// the criteria field stays free text.
-let manifest = null;
+// What run_scripts --describe-criteria said, via /api/criteria; null when it
+// could not say, and the criteria field stays free text.
+let criteria = null;
 
-export function applyManifest(doc) {
+export function applyCriteria(doc) {
   const choice = model.criteriaChoice(doc);
   if (!choice) return;
 
-  manifest = doc;
+  criteria = doc;
   const select = el('select', { id: 'criteria' });
   for (const variant of choice.variants) select.append(el('option', { value: variant, textContent: variant }));
   select.value = choice.selected;
@@ -26,7 +26,7 @@ export function headerSettings() {
     dutSerial: $('dutSerial').value,
     operator: $('operator').value,
     criteria: $('criteria').value,
-  }, manifest);
+  }, criteria);
 }
 
 export function showRunInfo(info) {

@@ -2,13 +2,13 @@
 
 import { plural } from './format.js';
 
-// What the criteria field should offer: the manifest's variants and the one
-// to start on, or null to keep the free-text field -- no manifest, or one
-// listing no variants.
-export function criteriaChoice(manifest) {
-  const variants = (manifest && manifest.criteriaVariants) || [];
+// What the criteria field should offer: the variants run_scripts
+// --describe-criteria named and the one to start on, or null to keep the
+// free-text field -- no answer, or one listing no variants.
+export function criteriaChoice(described) {
+  const variants = (described && described.criteriaVariants) || [];
   if (variants.length === 0) return null;
-  const selected = variants.includes(manifest.defaultCriteriaVariant) ? manifest.defaultCriteriaVariant : variants[0];
+  const selected = variants.includes(described.defaultCriteriaVariant) ? described.defaultCriteriaVariant : variants[0];
   return { variants, selected };
 }
 
@@ -17,8 +17,8 @@ export function criteriaChoice(manifest) {
 // falls back to $USER and a value this page filled in would be the page
 // making a traceability claim on somebody's behalf.
 //
-// `manifest` is the one criteriaChoice accepted, or null.
-export function headerSettings(fields, manifest) {
+// `described` is the one criteriaChoice accepted, or null.
+export function headerSettings(fields, described) {
   const settings = [];
   const push = (flag, value) => { if (value) settings.push({ flag, value, present: true }); };
   push('--dut-serial', fields.dutSerial.trim());
@@ -27,7 +27,7 @@ export function headerSettings(fields, manifest) {
   // --criteria only when moved off the build's own default, so an operator
   // who never touched it follows the default the day it changes.
   const criteria = fields.criteria.trim();
-  if (!manifest || criteria !== manifest.defaultCriteriaVariant) push('--criteria', criteria);
+  if (!described || criteria !== described.defaultCriteriaVariant) push('--criteria', criteria);
   return settings;
 }
 

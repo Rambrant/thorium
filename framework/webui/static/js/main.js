@@ -9,7 +9,7 @@
 import { setStatus } from './dom.js';
 import { buildTree, showCatalogError } from './catalog.js';
 import { parseTestList } from './model/catalog.js';
-import { applyManifest } from './header.js';
+import { applyCriteria } from './header.js';
 import { probeSavableLogs } from './logs.js';
 import './run.js';
 
@@ -20,7 +20,7 @@ probeSavableLogs();
 // read from it; EventSource's own reconnect covers a server restart.
 new EventSource('/api/presence');
 
-fetch('/api/manifest').then((r) => (r.ok ? r.json() : null)).then(applyManifest).catch(() => {});
+fetch('/api/criteria').then((r) => (r.ok ? r.json() : null)).then(applyCriteria).catch(() => {});
 
 fetch('/api/tests')
   .then((r) => { if (!r.ok) throw new Error(); return r.text(); })

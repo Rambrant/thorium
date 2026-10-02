@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 #
-# Starts the bench console: thorium_webui in front of an installed run_scripts,
-# either behind framework/launcher (menu-bar or tray icon, Chrome app window) or
+# Starts the bench console: thorium_webui in front of a run_scripts, either
+# behind framework/launcher (menu-bar or tray icon, Chrome app window) or
 # on its own with the page opened in the default browser.
 #
 # macOS and Windows both. On Windows it wants Git Bash, like every other script
 # under tools/ (see README.md's "Tests"), rather than a .ps1 copy to keep in
 # step with this one.
 #
-# Usage: tools/run-webui.sh [--run-scripts=PATH] [--webui=PATH] [--port=N]
-#                           [--no-launcher]
+# Usage: tools/run-webui.sh [--tree=NAME] [--run-scripts=PATH] [--webui=PATH]
+#                           [--port=N] [--no-launcher]
 #
-#   --run-scripts=PATH  the run_scripts to drive
-#                       (default: build/install/bin/run_scripts)
-#   --webui=PATH        the thorium_webui server to start (default: the most
-#                       recently built of build/dev, build/release, build/debug)
+#   --tree=NAME         the build tree to take all three binaries from:
+#                       build/NAME (dev, debug or release). Default: the one
+#                       whose run_scripts was built most recently
+#   --run-scripts=PATH  the run_scripts to drive instead, e.g. an installed
+#                       one: build/install/bin/run_scripts
+#   --webui=PATH        the thorium_webui server to start instead; the
+#                       launcher is taken from beside it
 #   --port=N            the loopback port the server listens on (default: 8420)
 #   --no-launcher       run the server in this terminal and open the page in
 #                       the default browser instead; Ctrl-C stops it. The
@@ -24,9 +27,18 @@
 # already decide -- it only finds the three binaries and hands them the flags
 # their READMEs document, so a developer does not have to retype two absolute
 # paths every time. Runs started from the console write their logs to
-# build/logs. An installed run_scripts is the default rather than a
-# build-tree one because only an install has the manifest.json beside it that
-# the page's criteria picker is built from (see framework/webui/README.md).
+# build/logs.
+#
+# A build tree's own run_scripts is the default, not an installed one: an
+# install only changes on `cmake --install`, so a console driving it kept
+# showing yesterday's suite after every edit and rebuild. Nothing needs the
+# install any more -- the criteria picker asks run_scripts itself
+# (--describe-criteria), where it used to need the install's manifest.json.
+#
+# The trees are different deployments -- build/dev is the dev rig and DUT,
+# build/debug and build/release the real ones -- so "the newest" decides which
+# bench the console drives. It is printed before anything starts; --tree=
+# pins it.
 #
 set -euo pipefail
 
@@ -104,13 +116,15 @@ else
     native_path() { printf '%s\n' "$1"; }
 fi
 
-run_scripts="$repo/build/install/bin/run_scripts$exe"
+run_scripts=""
+tree=""
 webui=""
 port=8420
 use_launcher=1
 
 for arg in "$@"; do
     case "$arg" in
+        --tree=*)        tree="${arg#*=}" ;;
         --run-scripts=*) run_scripts="${arg#*=}" ;;
         --webui=*)       webui="${arg#*=}" ;;
         --port=*)        port="${arg#*=}" ;;
@@ -121,27 +135,48 @@ for arg in "$@"; do
 done
 
 # The newest rather than the first of a fixed order: a tree that has not been
-# built for days must not win over the one just rebuilt, or the page is quietly
-# the old one -- which is exactly what a fixed dev-first order did while
-# CLion was rebuilding build/release. -nt compares modification times, and is a
-# bash builtin on both hosts, unlike stat, whose flags differ between them.
-if [[ -z "$webui" ]]; then
-    for tree in dev release debug; do
-        candidate="$repo/build/$tree/framework/webui/thorium_webui$exe"
-        if [[ -x "$candidate" && ( -z "$webui" || "$candidate" -nt "$webui" ) ]]; then
-            webui="$candidate"
+# built for days must not win over the one just rebuilt, or the console is
+# quietly the old one -- which is exactly what a fixed dev-first order did
+# while CLion was rebuilding build/release. Judged by run_scripts, the binary
+# a suite edit changes. -nt compares modification times, and is a bash
+# builtin on both hosts, unlike stat, whose flags differ between them.
+newest() {   # newest <path inside a tree>: the tree name, or nothing
+    local best="" name
+    for name in dev release debug; do
+        if [[ -x "$repo/build/$name/$1" && ( -z "$best" || "$repo/build/$name/$1" -nt "$repo/build/$best/$1" ) ]]; then
+            best="$name"
         fi
     done
+    printf '%s\n' "$best"
+}
+
+if [[ -z "$tree" && -z "$run_scripts" ]]; then
+    tree="$(newest "bin/run_scripts$exe")"
+fi
+if [[ -z "$tree" && -z "$webui" ]]; then
+    tree="$(newest "framework/webui/thorium_webui$exe")"
+fi
+if [[ -n "$tree" && ! -d "$repo/build/$tree" ]]; then
+    echo "No build tree build/$tree -- configure and build it first (cmake --list-presets)" >&2
+    exit 1
 fi
 
-if [[ -z "$webui" || ! -x "$webui" ]]; then
-    echo "No thorium_webui found -- build one first, e.g.: cmake --build build/dev" >&2
+# Whether run_scripts is the tree's own, which is what makes the tree's
+# deployment the one being driven -- see the deployment line below.
+own_run_scripts=0
+if [[ -z "$run_scripts" ]]; then
+    run_scripts="$repo/build/$tree/bin/run_scripts$exe"
+    own_run_scripts=1
+fi
+[[ -n "$webui" ]]       || webui="$repo/build/$tree/framework/webui/thorium_webui$exe"
+
+if [[ ! -x "$webui" ]]; then
+    echo "No thorium_webui at $webui -- build it first, e.g.: cmake --build build/${tree:-dev}" >&2
     exit 1
 fi
 
 if [[ ! -x "$run_scripts" ]]; then
-    echo "No run_scripts at $run_scripts -- install one, e.g.:" >&2
-    echo "  cmake --install build/release --prefix build/install" >&2
+    echo "No run_scripts at $run_scripts -- build it first, e.g.: cmake --build build/${tree:-dev}" >&2
     exit 1
 fi
 
@@ -149,9 +184,6 @@ fi
 # nor the server promises to keep this script's working directory.
 webui="$(native_path "$(cd "$(dirname "$webui")" && pwd)/$(basename "$webui")")"
 run_scripts="$(native_path "$(cd "$(dirname "$run_scripts")" && pwd)/$(basename "$run_scripts")")"
-
-[[ -f "$(dirname "$run_scripts")/manifest.json" ]] ||
-    echo "Note: no manifest.json beside $run_scripts -- the criteria picker will be a text field." >&2
 
 # Refused up front rather than left to the server: a second console on the
 # same port would fail to bind, and behind the launcher that failure is easy
@@ -176,12 +208,12 @@ fi
 # webui/thorium_webui -- since the two are built together (framework/launcher
 # is part of the ordinary build): a launcher from another tree would be one
 # built on another day.
-tree="$(dirname "$(dirname "$(dirname "$webui")")")"
-launcher="$tree/$launcher_path"
+webui_tree="$(dirname "$(dirname "$(dirname "$webui")")")"
+launcher="$webui_tree/$launcher_path"
 
 if [[ $use_launcher -eq 1 && ! -x "$launcher" ]]; then
     echo "No launcher built at $launcher -- running the server on its own." >&2
-    echo "(It is built with the server: cmake --build $tree)" >&2
+    echo "(It is built with the server: cmake --build $webui_tree)" >&2
     use_launcher=0
 fi
 
@@ -194,6 +226,12 @@ fi
 mkdir -p "$repo/build/logs"
 cd "$repo/build"
 
+# Which rig and DUT this is, from the tree's own configure -- the one line
+# that says which bench the console is about to drive.
+if [[ $own_run_scripts -eq 1 && -f "$repo/build/$tree/CMakeCache.txt" ]]; then
+    rig_dir="$(sed -n 's/^THORIUM_RIG_DIR:[A-Z]*=//p' "$repo/build/$tree/CMakeCache.txt")"
+    echo "deployment:    build/$tree (rig: ${rig_dir#"$repo"/})"
+fi
 echo "thorium_webui: $webui"
 echo "run_scripts:   $run_scripts"
 echo "console:       http://127.0.0.1:$port/"

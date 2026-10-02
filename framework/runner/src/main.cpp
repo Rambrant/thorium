@@ -19,6 +19,7 @@
 #include "core/journal/event_sink.hpp"
 #include "core/criteria/criteria_variants.hpp"
 #include "core/journal/journal.hpp"
+#include "core/journal/json.hpp"
 #include "core/session/recording.hpp"
 #include "core/journal/rtf_sink.hpp"
 #include "core/journal/sarif_sink.hpp"
@@ -28,7 +29,7 @@
 #include "hal/verbs/safing.hpp"
 
 //
-// Runner for the test-script catalog (core/catalog/active_test_catalog.hpp). Six
+// Runner for the test-script catalog (core/catalog/active_test_catalog.hpp). Seven
 // modes, matching what tools/run-tests.sh and framework/webui/ expect:
 //
 //   run_scripts                    run every test in the catalog
@@ -38,6 +39,11 @@
 //                                  a supervising process builds a form from,
 //                                  generated from the same annotations --help
 //                                  is (see cli.hpp and framework/webui/README.md)
+//   run_scripts --describe-criteria
+//                                  print the criteria variants compiled in,
+//                                  the default and the master, as JSON, and
+//                                  exit -- the same three keys an install's
+//                                  manifest.json has, from the binary itself
 //   run_scripts --select=a,b,c     run only the named test ids (from any
 //                                  group), in catalog order
 //   run_scripts --safe             drop the rig to a known idle state and
@@ -320,6 +326,18 @@ namespace
         bool                           DescribeOptions{ false };
 
         //
+        // The tolerance variants --criteria= accepts, which one applies
+        // without it, and the master the others borrow from -- for the same
+        // supervising process, so it can offer a picker without a
+        // manifest.json. The manifest is written at install time; this is
+        // what the binary was actually built with, so a build-tree
+        // run_scripts can answer it and the answer cannot be stale.
+        //
+        [[= cli::Flag{ "--describe-criteria" }, = cli::Query{},
+           = cli::Doc{ "print the criteria variants as JSON and exit" }]]
+        bool                           DescribeCriteria{ false };
+
+        //
         // Which tolerance variant to apply. Unset means the one this build was
         // configured for -- deliberately not resolved to a name here, so that
         // "the caller said nothing" and "the caller happened to name the
@@ -451,6 +469,28 @@ namespace
         for ( const auto & group : core::catalog::Catalog)
             for ( const auto & test : group.tests)
                 std::cout << group.name << '|' << test.id << '|' << test.description << '\n';
+    }
+
+    //
+    // The keys and spellings cmake/GenerateManifest.cmake writes, so a
+    // reader of either needs no second vocabulary: criteriaVariants,
+    // defaultCriteriaVariant, masterCriteriaVariant.
+    //
+    void describeCriteria()
+    {
+        std::cout << "{\n  \"criteriaVariants\": [";
+
+        const char * separator = "";
+        for ( const auto & name : core::criteriaVariantNames())
+        {
+            std::cout << separator << core::jsonQuoted( name);
+            separator = ", ";
+        }
+
+        std::cout << "],\n"
+                  << "  \"defaultCriteriaVariant\": " << core::jsonQuoted( core::defaultCriteriaVariantName()) << ",\n"
+                  << "  \"masterCriteriaVariant\": "  << core::jsonQuoted( core::masterCriteriaVariantName()) << "\n"
+                  << "}\n";
     }
 
     //
@@ -1561,6 +1601,12 @@ int main( int argc, char ** argv)
     if ( options.DescribeOptions)
     {
         cli::writeOptionsJson( cli::optionsModel<Options>(), std::cout);
+        return 0;
+    }
+
+    if ( options.DescribeCriteria)
+    {
+        describeCriteria();
         return 0;
     }
 

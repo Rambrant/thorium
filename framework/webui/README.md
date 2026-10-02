@@ -17,7 +17,7 @@ the tray icon and the browser window; this owns the rig.
 |---|---|
 | `GET /`, `GET /console.css`, `GET /js/*.js` | the console page -- `static/`, compiled into the binary by `cmake/EmbedFiles.cmake` (see `src/static_content.hpp`). `/` is `index.html`; the script is ES modules, entered at `js/main.js` |
 | `GET /api/options` | `run_scripts --describe-options`, passed through verbatim (it is already JSON) |
-| `GET /api/manifest` | the `manifest.json` beside `run_scripts`, passed through verbatim; 404 when there is none (a build-tree binary). The page reads only the criteria variants from it -- the catalog still comes from `/api/tests` |
+| `GET /api/criteria` | `run_scripts --describe-criteria`, passed through verbatim: the criteria variants, the default and the master, under the same keys an install's `manifest.json` uses. What the page's criteria picker is built from; 500 from a `run_scripts` too old to answer, and the page keeps a free-text field. Asked of the binary rather than read from the manifest, so a build-tree `run_scripts` gets a picker too and an installed one's cannot be a stale install behind |
 | `GET /api/tests` | `run_scripts --list-tests`, passed through verbatim (`group\|id\|description` lines) |
 | `POST /api/run` | body is `{selection, settings, extra}` -- see `ui::RunRequest` -- starts a run; 409 if one is already active |
 | `GET /api/events` | Server-Sent Events: every line of the active run's stdout, from wherever this connection joined, plus any stderr line as `{"kind":"stderr","text":...}` |
@@ -135,11 +135,14 @@ which is exactly what `framework/launcher` is for, on Windows and macOS
 alike: `--server=<path to thorium_webui> --server-arg=--run-scripts=<path>
 --server-arg=--port=8420`.
 
-`tools/run-webui.sh` does both for a developer: it finds the built
-`thorium_webui`, the installed `run_scripts` (`build/install/bin`, which has
-the `manifest.json` the criteria picker needs) and the launcher, and starts
-them on port 8420 -- `--no-launcher` runs the server alone and opens the page
-in the default browser, `--help` lists the rest. It starts everything from
+`tools/run-webui.sh` does both for a developer: it takes `thorium_webui`,
+`run_scripts` and the launcher from one build tree -- the one whose
+`run_scripts` was built last, or `--tree=dev|debug|release` -- and starts them
+on port 8420, so a rebuilt suite is what the console drives without an
+install in between. It prints which tree, and so which rig, before it starts:
+the trees are different deployments. `--run-scripts=` drives another one,
+an installed one for instance; `--no-launcher` runs the server alone and
+opens the page in the default browser; `--help` lists the rest. It starts everything from
 `build/`, so runs started from the console write their logs to `build/logs`
 (`run_scripts`' `--log-dir` defaults to `logs`, relative to where it runs).
 

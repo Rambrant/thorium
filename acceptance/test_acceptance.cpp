@@ -674,6 +674,23 @@ TEST_F( AcceptanceCatalog, ListTestsPrintsOneLinePerTestAndWritesNoLog)
     EXPECT_FALSE( std::filesystem::exists( mDir / "logs"));
 }
 
+//
+// The criteria picker's query -- what the bench console asks instead of an
+// install's manifest.json, so it has to say the same thing: the same three
+// keys, the default and the master among the variants. Log-free for the same
+// reason --list-tests is.
+//
+TEST_F( AcceptanceCatalog, DescribeCriteriaNamesTheVariantsAndWritesNoLog)
+{
+    EXPECT_EQ( run( { "--describe-criteria" }), 0);
+
+    EXPECT_TRUE( containsText( outPath(), mOut, "\"criteriaVariants\": [\"production\""));
+    EXPECT_TRUE( containsText( outPath(), mOut, "\"defaultCriteriaVariant\": \"production\""));
+    EXPECT_TRUE( containsText( outPath(), mOut, "\"masterCriteriaVariant\": \"production\""));
+
+    EXPECT_FALSE( std::filesystem::exists( mDir / "logs"));
+}
+
 // ---------------------------------------------------------------------------
 // Safing: run_scripts --safe
 // ---------------------------------------------------------------------------
@@ -710,7 +727,7 @@ TEST_F( AcceptanceArguments, HelpListsEveryFlagAndTouchesNothing)
 {
     EXPECT_EQ( run( { "--help" }), 0);
 
-    for ( const auto flag : { "--select=", "--list-tests", "--safe", "--help",
+    for ( const auto flag : { "--select=", "--list-tests", "--describe-criteria", "--safe", "--help",
                               "--criteria=", "--repeat=", "--until-failure",
                               "--record=", "--replay=", "--log-dir=", "--sarif=",
                               "--rtf=", "--no-logs", "--no-color", "--no-colour",

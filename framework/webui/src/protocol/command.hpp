@@ -88,8 +88,10 @@ namespace webui
     auto buildSafeCommand( const Suite & suite) -> std::vector<std::string>;
 
     //
-    // The argv for the two questions the UI asks a binary about itself.
+    // The argv for the three questions the UI asks a binary about itself:
+    // its catalog, its flags, and its criteria variants.
     //
     [[nodiscard]] auto buildListTestsCommand( const Suite & suite) -> std::vector<std::string>;
     [[nodiscard]] auto buildDescribeCommand( const Suite & suite) -> std::vector<std::string>;
+    [[nodiscard]] auto buildDescribeCriteriaCommand( const Suite & suite) -> std::vector<std::string>;
 } // namespace webui

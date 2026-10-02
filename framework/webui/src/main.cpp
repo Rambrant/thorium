@@ -174,26 +174,19 @@ auto main( int argc, char ** argv) -> int
         res.set_content( result.Output, "text/plain");
     });
 
-    // The manifest.json cmake/GenerateManifest.cmake writes beside an
-    // installed run_scripts, passed through verbatim like the two queries
-    // above. The page wants it for one thing only -- the criteria variants,
-    // their default and the master they inherit from -- because no query the
-    // binary answers carries those; the catalog still comes from /api/tests,
-    // which cannot be stale. 404 for a build-tree run_scripts, which has no
-    // manifest, and the page falls back to a free-text --criteria field.
-    server.Get( "/api/manifest", [ &suite]( const httplib::Request &, httplib::Response & res)
+    // The criteria variants, their default and the master they inherit
+    // from, passed through verbatim like the two queries above. Asked of the
+    // binary rather than read from the manifest.json an install writes beside
+    // it, which is what this used to do: a build-tree run_scripts has no
+    // manifest, so the page fell back to a free-text --criteria field there,
+    // and an installed one's manifest is only as current as the last install.
+    // The binary is neither. An older run_scripts without the flag fails the
+    // query, and the page keeps the free-text field.
+    server.Get( "/api/criteria", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
-        std::ifstream  file( suite.Binary.parent_path() / "manifest.json");
-        if ( !file)
-        {
-            res.status = 404;
-            res.set_content( R"({"error":"no manifest.json beside run_scripts"})", "application/json");
-            return;
-        }
-
-        std::ostringstream  text;
-        text << file.rdbuf();
-        res.set_content( text.str(), "application/json");
+        const auto  result = webui::runBlocking( webui::buildDescribeCriteriaCommand( suite));
+        res.status = result.Started && result.ExitCode == 0 ? 200 : 500;
+        res.set_content( result.Output, "application/json");
     });
 
     // Never gated on session.active(): the whole point of this endpoint,
