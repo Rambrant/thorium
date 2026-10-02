@@ -2,6 +2,7 @@
 #include "hal/topology/address_tables.hpp"
 
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -262,6 +263,61 @@ namespace
         }
 
         GTEST_SKIP() << "every instrument on this deployment is named like its box";
+    }
+
+    // -- parseFaceSimulation: ROW=sim, one face out of the run ---------------
+
+    //
+    // A row whose name is not also a box's -- on a deployment that has one.
+    //
+    [[nodiscard]]
+    auto aRowNamedUnlikeItsBox() -> std::optional<InstrumentId>
+    {
+        const auto boxes = instrumentBoxNames();
+
+        for( const auto id : core::meta::values<InstrumentId>)
+        {
+            if( std::ranges::find( boxes, to_string( id)) == boxes.end())
+            {
+                return id;
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    TEST( AddressPlan, ARowIdWithSimIsThatFaceSimulated)
+    {
+        const auto id = aRowNamedUnlikeItsBox();
+
+        if( !id)
+        {
+            GTEST_SKIP() << "every instrument on this deployment is named like its box";
+        }
+
+        EXPECT_EQ( parseFaceSimulation( std::string( to_string( *id)) + "=sim"),       id);
+        EXPECT_EQ( parseFaceSimulation( std::string( to_string( *id)) + "=simulated"), id);
+    }
+
+    //
+    // Everything else is parseOverride()'s: a real address on a row (which
+    // it refuses, naming the box), a value that does not parse, a box name
+    // -- even with sim, since that means the whole box -- and no '=' at all.
+    //
+    TEST( AddressPlan, OnlyARowIdWithSimIsAFaceSimulation)
+    {
+        EXPECT_EQ( parseFaceSimulation( std::string( aBox()) + "=sim"), std::nullopt);
+        EXPECT_EQ( parseFaceSimulation( "NotARow=sim"),                 std::nullopt);
+        EXPECT_EQ( parseFaceSimulation( "sim"),                         std::nullopt);
+
+        if( const auto id = aRowNamedUnlikeItsBox())
+        {
+            const auto row = std::string( to_string( *id));
+
+            EXPECT_EQ( parseFaceSimulation( row + "=lan:host"), std::nullopt);
+            EXPECT_EQ( parseFaceSimulation( row + "=nonsense"), std::nullopt);
+            EXPECT_THROW( ( void) parseOverride( row + "=lan:host"), AddressSyntaxError);
+        }
     }
 
     TEST( AddressPlan, AnUnknownBusKindIsRefused)

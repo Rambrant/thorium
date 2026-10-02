@@ -404,7 +404,10 @@ three outputs, a switch/measure mainframe's meter and its cards — and the buil
 holds them to it in both directions: one box has one address, and two boxes may
 not share a fixed one, which is what a typo in a box name produces. Everything
 address-shaped names the box: `--address BenchPsu2=lan:...`,
-`THORIUM_ADDRESS_BenchPsu2`, a `POOL` or `SITE` row. See
+`THORIUM_ADDRESS_BenchPsu2`, a `POOL` or `SITE` row. The one exception is a
+face that is not there: an instrument row may say `Simulated{}` on an otherwise
+real box (a mainframe without its internal DMM), and `--address <row>=sim`
+leaves one face out of a single run without editing the table. See
 `framework/hal/include/hal/topology/boxes.hpp`.
 
 The address is mandatory, and which bus kinds a row may use is fixed by its

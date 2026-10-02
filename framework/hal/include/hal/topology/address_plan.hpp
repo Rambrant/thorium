@@ -219,6 +219,16 @@ namespace hal
         std::vector<std::pair<std::string_view, Address>> Overrides;
 
         //
+        // Faces simulated for this run alone -- --address <row>=sim. Above
+        // even Overrides, because it is the narrower claim: "--address
+        // Swu1=usb:... --address Dmm2=sim" means the mainframe at that
+        // address, without its internal DMM. A face, not a box, and only ever
+        // Simulated: a face cannot be moved to a real address of its own,
+        // since one box has one address (see hal/topology/boxes.hpp).
+        //
+        std::vector<InstrumentId> SimulatedFaces;
+
+        //
         // Which row of the site table is live. Empty means "this deployment
         // has no site table", which is every deployment in this repo today.
         //
@@ -282,6 +292,20 @@ namespace hal
     // flag written before boxes existed will say.
     //
     auto parseOverride( std::string_view text) -> std::pair<std::string_view, Address>;
+
+    //
+    // "Dmm2=sim" -> Dmm2: one face of a box left out of this run, the rest of
+    // the box bound as usual. Empty for anything else -- a box name, an
+    // address that is not sim -- which is parseOverride()'s to read, or to
+    // refuse. A name that is both a box and one of its rows (Swu1 on the dev
+    // rig) means the box, as it always has.
+    //
+    // What a face that is not on the bench says in the table, Simulated{},
+    // for one run and without editing the table -- so trying a box without
+    // one of its faces leaves no change behind to forget.
+    //
+    [[nodiscard]]
+    auto parseFaceSimulation( std::string_view text) -> std::optional<InstrumentId>;
 
     //
     // Every $THORIUM_ADDRESS_<box> the environment sets, for the boxes this

@@ -243,6 +243,50 @@ namespace hal
         return "?";
     }
 
+    auto parseFaceSimulation( const std::string_view text) -> std::optional<InstrumentId>
+    {
+        const auto equals = text.find( '=');
+
+        if( equals == std::string_view::npos)
+        {
+            return std::nullopt;
+        }
+
+        const auto name  = text.substr( 0, equals);
+        const auto boxes = instrumentBoxNames();
+
+        if( std::ranges::find( boxes, name) != boxes.end())
+        {
+            return std::nullopt;
+        }
+
+        const auto id = core::meta::fromString<InstrumentId>( name);
+
+        if( !id)
+        {
+            return std::nullopt;
+        }
+
+        //
+        // Anything but sim is parseOverride()'s to refuse, with the sentence
+        // that says which box the row belongs to -- so a value that does not
+        // even parse is handed on too, rather than refused here with a
+        // sentence about address syntax.
+        //
+        try
+        {
+            if( std::holds_alternative<Simulated>( parseAddress( text.substr( equals + 1))))
+            {
+                return id;
+            }
+        }
+        catch( const AddressSyntaxError &)
+        {
+        }
+
+        return std::nullopt;
+    }
+
     auto parseOverride( const std::string_view text) -> std::pair<std::string_view, Address>
     {
         const auto equals = text.find( '=');
@@ -271,7 +315,8 @@ namespace hal
                 throw AddressSyntaxError(
                     "\"" + std::string( name) + "\" is an instrument, and an address belongs to the box it"
                     " is a face of -- write \"" + std::string( boxOf( *id)) + "=" + std::string( text.substr( equals + 1))
-                    + "\", which moves every face of that box together");
+                    + "\", which moves every face of that box together. (\"" + std::string( name)
+                    + "=sim\" leaves just this face out of the run.)");
             }
 
             //

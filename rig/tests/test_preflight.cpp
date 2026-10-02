@@ -175,6 +175,38 @@ namespace
         EXPECT_EQ( std::get<Serial>( Ser1.address()).device, "/dev/ttyUSB9");
     }
 
+    //
+    // ROW=sim takes one face out of a box and leaves the others where the
+    // box goes -- here, where a --address for the whole box sends them. The
+    // narrower claim wins over the box's on its own row, whichever order the
+    // two were given in.
+    //
+    TEST( Preflight, ASimulatedFaceLeavesItsBoxSiblingsBound)
+    {
+        const RigAddresses restore;
+
+        AddressPlan plan;
+
+        plan.Overrides.push_back( parseOverride( "BenchPsu=usb:MY00000001"));
+        plan.SimulatedFaces.push_back( *parseFaceSimulation( "DcP6=sim"));
+
+        const auto bindings = bindAddresses( plan);
+
+        const auto simulated = bindingFor( bindings, InstrumentId::DcP6);
+
+        EXPECT_EQ( simulated.Source, AddressSource::Override);
+        EXPECT_TRUE( std::holds_alternative<Simulated>( simulated.Value));
+        EXPECT_TRUE( std::holds_alternative<Simulated>( DcP6.address()));
+
+        for( const auto id : { InstrumentId::DcP5, InstrumentId::DcP7 })
+        {
+            const auto sibling = bindingFor( bindings, id);
+
+            EXPECT_EQ( sibling.Source, AddressSource::Override) << to_string( id);
+            EXPECT_EQ( std::get<Usb>( sibling.Value).serialNumber, "MY00000001") << to_string( id);
+        }
+    }
+
     TEST( Preflight, AnOverrideLeavesEveryOtherRowAlone)
     {
         const RigAddresses restore;

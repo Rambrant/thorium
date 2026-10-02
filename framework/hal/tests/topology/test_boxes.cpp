@@ -77,14 +77,47 @@ namespace
     static_assert( boxConflict( kSimulatedEverywhere).empty());
 
     //
-    // But a box that is simulated on one row and real on another is still one
-    // box with two addresses -- the exemption is from the second rule only.
+    // A face of a real box that is not there -- the 34980A's internal DMM,
+    // say -- is Simulated on its own row while the chassis and its cards say
+    // the box's address: fine. It opens nothing, so it cannot reach another
+    // unit, which is all the first rule is there to stop.
     //
-    constexpr std::array<BoxRow, 2> kHalfSimulatedBox{ {
+    constexpr std::array<BoxRow, 3> kOneFaceSimulated{ {
+        { "Swu1", "Swu1",    Usb{ "MY53154781" } },
+        { "Swu1", "Dmm2",    Simulated{} },
+        { "Swu1", "Matrix1", Usb{ "MY53154781" }, true } } };
+
+    static_assert( boxConflict( kOneFaceSimulated).empty());
+
+    //
+    // Either way round: the simulated face first in the table, too.
+    //
+    constexpr std::array<BoxRow, 2> kSimulatedFaceFirst{ {
         { "Psu1", "DcP5", Simulated{} },
         { "Psu1", "DcP6", Usb{ "CN65100272" } } } };
 
-    static_assert( !boxConflict( kHalfSimulatedBox).empty());
+    static_assert( boxConflict( kSimulatedFaceFirst).empty());
+
+    //
+    // A simulated face does not excuse the others: the box's real rows still
+    // have to agree with each other.
+    //
+    constexpr std::array<BoxRow, 3> kSimulatedFaceAndTwoAddresses{ {
+        { "Psu1", "DcP5", Simulated{} },
+        { "Psu1", "DcP6", Usb{ "CN65100272" } },
+        { "Psu1", "DcP7", Usb{ "CN65100999" } } } };
+
+    static_assert( !boxConflict( kSimulatedFaceAndTwoAddresses).empty());
+
+    //
+    // And a device row is not a face anything opens, so Simulated on one
+    // while the box is real is a claim about a card the box still drives.
+    //
+    constexpr std::array<BoxRow, 2> kSimulatedDeviceOnARealBox{ {
+        { "Swu1", "Swu1",    Usb{ "MY53154781" } },
+        { "Swu1", "Matrix1", Simulated{}, true } } };
+
+    static_assert( !boxConflict( kSimulatedDeviceOnARealBox).empty());
 
     //
     // And this deployment's own tables, which the header already asserts --

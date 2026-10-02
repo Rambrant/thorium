@@ -275,6 +275,14 @@ namespace hal
         //
         auto resolve( Binding & binding, const AddressPlan & plan) -> void
         {
+            if( std::ranges::find( plan.SimulatedFaces, binding.Id) != plan.SimulatedFaces.end())
+            {
+                binding.Value  = Simulated{};
+                binding.Source = AddressSource::Override;
+
+                return;
+            }
+
             for( const auto & [ box, address ] : plan.Overrides)
             {
                 if( box == binding.Box)

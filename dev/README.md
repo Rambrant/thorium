@@ -369,6 +369,18 @@ driven. Channel numbers come from hal's own module models, so a numbering
 mistake there shows here. The one thing it cannot check is contact: that needs
 a short across a crosspoint and the desk meter on the other side.
 
+The group never uses `Dmm2`, so it runs on a mainframe without one -- or with
+one left out -- by simulating just that face, which leaves the chassis and its
+cards real:
+
+```bash
+run_scripts --select=SwuInventory,SwuMatrixSlot1 --address=Dmm2=sim
+```
+
+On a unit that has no internal DMM at all, say so in the table instead:
+`Dmm2`'s row may read `Simulated{}` while the rest of box `Swu1` keeps its
+address (see `hal/topology/boxes.hpp`).
+
 **SwitchUnitDmm** is the mainframe's internal DMM, `Dmm2` -- the same box,
 `Swu1`, sharing its one session -- with nothing wired: the meter is fitted and
 enabled, an open Analog Bus reads no voltage and an *overload* for resistance

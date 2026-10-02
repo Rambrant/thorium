@@ -450,8 +450,12 @@ namespace
         // caller contradicting themselves, and hal::bindAddresses() takes the
         // first, which is the one they typed first.
         //
-        [[= cli::Flag{ "--address" }, = cli::Meta{ "ID=KIND:VALUE" }, = cli::Repeatable{},
-           = cli::Doc{ "bind one instrument to a given address (repeatable), e.g. Dmm1=lan:dev-dmm-3" }]]
+        // A row id instead of a box takes only "sim": BOX=KIND:VALUE moves a
+        // box, ROW=sim leaves one face of it out of the run (see
+        // hal::parseFaceSimulation()).
+        //
+        [[= cli::Flag{ "--address" }, = cli::Meta{ "BOX=KIND:VALUE" }, = cli::Repeatable{},
+           = cli::Doc{ "bind one box to a given address, or ROW=sim to simulate one face (repeatable)" }]]
         std::vector<std::string_view>  Addresses;
 
         [[= cli::Flag{ "--site" }, = cli::Meta{ "NAME" },
@@ -1701,7 +1705,12 @@ int main( int argc, char ** argv)
         plan.Site = options.Site.empty() ? hal::environmentSite() : std::string_view( options.Site);
 
         for ( const auto text : options.Addresses )
-            plan.Overrides.push_back( hal::parseOverride( text));
+        {
+            if ( const auto face = hal::parseFaceSimulation( text) )
+                plan.SimulatedFaces.push_back( *face);
+            else
+                plan.Overrides.push_back( hal::parseOverride( text));
+        }
 
         for ( auto & fromEnvironment : hal::environmentOverrides() )
             plan.Overrides.push_back( std::move( fromEnvironment));

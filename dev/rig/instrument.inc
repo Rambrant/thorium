@@ -135,7 +135,9 @@
 //
 // Dmm2 is the same box's other face: the 34980A's internal DMM, fitted on this
 // desk's unit. Same box name and address as Swu1, which the build holds them to
-// (hal/topology/boxes.hpp), so the two share one session -- the switching and
+// (hal/topology/boxes.hpp) -- unless the row says Simulated{}, which a unit
+// without the DMM would, and --address=Dmm2=sim does for one run -- so the
+// two share one session -- the switching and
 // the meter as two families on one connection (see hal::BoxConnection). It
 // measures the Analog Buses; a signal reaches it by closing a matrix crosspoint
 // onto a Matrix 2 row and that row's bus relay. See

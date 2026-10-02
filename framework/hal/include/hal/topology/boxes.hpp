@@ -48,7 +48,23 @@
 //   one box, one address  rows naming the same box must say the same address
 //                         -- a row copied and half-edited is a build failure,
 //                         not a supply whose third output talks to a
-//                         different host.
+//                         different host. An instrument row saying
+//                         hal::Simulated is exempt: it is a face of the box
+//                         that is not there -- a 34980A's internal DMM on a
+//                         mainframe without one, or one left out on purpose
+//                         -- and opens nothing, so it cannot reach a
+//                         different unit. The box's other rows still have to
+//                         agree with each other. A device row gets no such
+//                         exemption: nothing opens a device row's address (see
+//                         below), so Simulated on one would only be a claim
+//                         about a card the box's real session still drives.
+//
+//                         Box-wide sources still reach a simulated face: an
+//                         --address, a SITE row and a POOL all name the box,
+//                         so each of them binds every face of it, this one
+//                         included. --address <row>=sim is how one run leaves
+//                         a single face out without editing the table (see
+//                         hal::parseFaceSimulation()).
 //
 //   one address, one box  rows naming different boxes must not say the same
 //                         fixed address -- which is what a typo in a box name
@@ -75,6 +91,10 @@ namespace hal
         std::string_view Box;
         std::string_view Row;
         Address          Value;
+
+        // A devices.inc row rather than an instrument.inc one -- which
+        // decides whether Simulated on it is exempt from the first rule.
+        bool             Device{ false };
     };
 
     namespace detail
@@ -111,7 +131,7 @@ namespace hal
 #undef END_SWITCH_DEVICES
 
 #define SWITCH_DEVICES
-#define SWITCH_DEVICE( box, model, id, address, card) BoxRow{ #box, #id, hal::address },
+#define SWITCH_DEVICE( box, model, id, address, card) BoxRow{ #box, #id, hal::address, true },
 #define END_SWITCH_DEVICES
 
         inline constexpr std::array<BoxRow, core::meta::values<SwitchDeviceId>.size()> deviceBoxRows =
@@ -130,6 +150,11 @@ namespace hal
         // test makes up (see framework/hal/tests/topology/test_boxes.cpp); the
         // rig's own rows are checked by the static_assert below.
         //
+        consteval auto simulatedFace( const BoxRow & row) -> bool
+        {
+            return !row.Device && std::holds_alternative<Simulated>( row.Value);
+        }
+
         consteval auto boxConflict( std::span<const BoxRow> rows) -> std::string
         {
             for( std::size_t first = 0; first < rows.size(); ++first)
@@ -139,13 +164,14 @@ namespace hal
                     const auto & a = rows[ first];
                     const auto & b = rows[ second];
 
-                    if( a.Box == b.Box && !( a.Value == b.Value))
+                    if( a.Box == b.Box && !( a.Value == b.Value) && !simulatedFace( a) && !simulatedFace( b))
                     {
                         return "rows " + std::string( a.Row) + " and " + std::string( b.Row)
                              + " are both faces of box " + std::string( a.Box)
                              + " but say different addresses. One box has one address: make the two"
                                " rows agree, or give one of them its own box name if it really is a"
-                               " different unit.";
+                               " different unit. (An instrument face that is not there says"
+                               " Simulated{} and is exempt; a device row is not.)";
                     }
 
                     if( a.Box != b.Box && a.Value == b.Value && !std::holds_alternative<Simulated>( a.Value))
