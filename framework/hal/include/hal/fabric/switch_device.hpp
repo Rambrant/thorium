@@ -286,6 +286,17 @@ namespace hal
             // against it (see hal::contactInstruments()).
             //
             std::string_view Reports{};
+
+            //
+            // The relay that puts one of the chassis' Analog Buses onto this
+            // card -- bus 1-4 in, channel number out -- for a card that has
+            // such relays. The fourth numbering scheme and the odd one out:
+            // the other three name a crosspoint or a bank, and this names the
+            // relay *between* the card and the mainframe's internal DMM. A
+            // 34932A's are 921-924, which as bare numbers say nothing at all
+            // about being the meter's way in -- see hal::analogBus.
+            //
+            std::uint16_t ( * AnalogBus)( unsigned bus){ nullptr };
         };
 
         //
@@ -402,6 +413,19 @@ namespace hal
         }
 
         //
+        // Analog Bus n's relay, 920 + n: ABus1 is 921 and reaches row 5,
+        // ABus2 922 and row 6, ABus3 923 and row 7, ABus4 924 and row 8 --
+        // Matrix 2's four rows, one bus each, which is the manual's "connect
+        // rows 5 and 6 respectively" carried on to the other two. A bus
+        // outside 1-4 packs to a number hasChannel() refuses, so it fails
+        // where every other bad hop does.
+        //
+        constexpr auto keysight34932AAnalogBus( const unsigned bus) -> std::uint16_t
+        {
+            return static_cast<std::uint16_t>( 920 + bus);
+        }
+
+        //
         // Keysight 34941A: four independent 1 x 4 multiplexer banks on one
         // 34980A plug-in module, 50 ohm SMA, written <bank><channel> -- bank a
         // single digit 1-4, channel two digits 01-04, so 103 is bank 1
@@ -481,8 +505,9 @@ namespace hal
 
             { "Keysight 34932A",            SwitchDeviceKind::Matrix,
               "101-816, written <row><column> (row 1-8, column 01-16; rows 5-8 are Matrix 2), "
-              "plus Matrix 2's Analog Bus relays 921-924",
-              keysight34932AHasChannel, nullptr, nullptr, keysight34932ARowColumn, "34932A" },
+              "plus Matrix 2's Analog Bus relays 921-924 (ABus1-4 onto rows 5-8)",
+              keysight34932AHasChannel, nullptr, nullptr, keysight34932ARowColumn, "34932A",
+              keysight34932AAnalogBus },
 
             { "Keysight 34941A",            SwitchDeviceKind::RfMux,
               "101-104, 201-204, 301-304, 401-404, written <bank><channel> "

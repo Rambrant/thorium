@@ -147,6 +147,42 @@ TEST( HalSwitchCardSpec, The34932ARowColumnPacksTheTwoDigitColumn)
     EXPECT_EQ( pack( 8, 16), 816);
 }
 
+//
+// ABus1-4 pack to 921-924, the relays the test above says this card has --
+// and one past either end packs to a number it does not have, so a bus 5
+// fails as a bad channel rather than as a relay that quietly is not there.
+//
+TEST( HalSwitchCardSpec, The34932AAnalogBusIsMatrixTwosBusRelays)
+{
+    const auto pack = hal::specOf( hal::SwitchDeviceModel::Keysight34932A).AnalogBus;
+
+    ASSERT_NE( pack, nullptr);
+
+    EXPECT_EQ( pack( 1), 921);
+    EXPECT_EQ( pack( 4), 924);
+
+    for( unsigned bus = 1; bus <= 4; ++bus)
+    {
+        EXPECT_TRUE( hasChannel( hal::SwitchDeviceModel::Keysight34932A, pack( bus))) << "ABus" << bus;
+    }
+
+    EXPECT_FALSE( hasChannel( hal::SwitchDeviceModel::Keysight34932A, pack( 0)));
+    EXPECT_FALSE( hasChannel( hal::SwitchDeviceModel::Keysight34932A, pack( 5)));
+}
+
+//
+// Only the 34932A reaches an Analog Bus: the 34941A "does not connect to the
+// analog buses", and no Racal or VXI card has a mainframe bus to reach.
+//
+TEST( HalSwitchCardSpec, OnlyThe34932AHasAnalogBusRelays)
+{
+    for( const auto model : core::meta::values<hal::SwitchDeviceModel>)
+    {
+        EXPECT_EQ( hal::specOf( model).AnalogBus != nullptr, model == hal::SwitchDeviceModel::Keysight34932A)
+            << hal::specOf( model).Part;
+    }
+}
+
 // ===========================================================================
 // Keysight 34941A -- quad 1 x 4 50 ohm RF multiplexer
 // ===========================================================================

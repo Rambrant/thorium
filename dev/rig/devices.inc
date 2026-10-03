@@ -27,16 +27,18 @@
 // the instrument on box Swu1 that switches cards, the Chassis row in
 // instrument.inc, down the box's one session (see hal/fabric/rig_switching.hpp).
 //
-// Matrix1-4 are the four 34932A dual 4 x 16 matrices (34932T terminal blocks);
-// RfMux1 is the 34941A quad 1 x 4 RF multiplexer. Named for what they are, not
-// for the bench's Racal cards: a script that routes through Matrix1 here is
-// routing through a 34932A, whose channel numbers (<row><column>, one-based)
-// are not the Racal 1260-45A's.
+// Named for the slot they sit in, because that is what a person standing at
+// the mainframe can find: Slot1-4 are the four 34932A dual 4 x 16 matrices
+// (34932T terminal blocks), Slot5 the 34941A quad 1 x 4 RF multiplexer. Not
+// Matrix1-4, which they were called first: each 34932A holds a Matrix 1 and a
+// Matrix 2 of its own (rows 1-4 and 5-8), so "Matrix1 row 5" read as a
+// contradiction where "Slot1 row 5" reads as a place. The model column says
+// what each card is; the name only has to say where.
 //
 SWITCH_DEVICES
-    SWITCH_DEVICE( Swu1, Keysight34932A, Matrix1, Usb( "MY53154781"), Card( 1))
-    SWITCH_DEVICE( Swu1, Keysight34932A, Matrix2, Usb( "MY53154781"), Card( 2))
-    SWITCH_DEVICE( Swu1, Keysight34932A, Matrix3, Usb( "MY53154781"), Card( 3))
-    SWITCH_DEVICE( Swu1, Keysight34932A, Matrix4, Usb( "MY53154781"), Card( 4))
-    SWITCH_DEVICE( Swu1, Keysight34941A, RfMux1,  Usb( "MY53154781"), Card( 5))
+    SWITCH_DEVICE( Swu1, Keysight34932A, Slot1, Usb( "MY53154781"), Card( 1))   // dual 4 x 16 matrix, 34932T terminal block
+    SWITCH_DEVICE( Swu1, Keysight34932A, Slot2, Usb( "MY53154781"), Card( 2))   // dual 4 x 16 matrix, 34932T terminal block
+    SWITCH_DEVICE( Swu1, Keysight34932A, Slot3, Usb( "MY53154781"), Card( 3))   // dual 4 x 16 matrix, 34932T terminal block
+    SWITCH_DEVICE( Swu1, Keysight34932A, Slot4, Usb( "MY53154781"), Card( 4))   // dual 4 x 16 matrix, 34932T terminal block
+    SWITCH_DEVICE( Swu1, Keysight34941A, Slot5, Usb( "MY53154781"), Card( 5))   // quad 1 x 4 RF multiplexer, SMA
 END_SWITCH_DEVICES

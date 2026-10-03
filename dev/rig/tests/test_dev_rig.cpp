@@ -85,9 +85,9 @@ namespace
     // are what changed that.
     //
     static_assert( core::meta::values<hal::SwitchDeviceId>.size() == 5);
-    static_assert( hal::modelOf( hal::SwitchDeviceId::Matrix1) == hal::SwitchDeviceModel::Keysight34932A);
-    static_assert( hal::modelOf( hal::SwitchDeviceId::Matrix4) == hal::SwitchDeviceModel::Keysight34932A);
-    static_assert( hal::modelOf( hal::SwitchDeviceId::RfMux1)  == hal::SwitchDeviceModel::Keysight34941A);
+    static_assert( hal::modelOf( hal::SwitchDeviceId::Slot1) == hal::SwitchDeviceModel::Keysight34932A);
+    static_assert( hal::modelOf( hal::SwitchDeviceId::Slot4) == hal::SwitchDeviceModel::Keysight34932A);
+    static_assert( hal::modelOf( hal::SwitchDeviceId::Slot5)  == hal::SwitchDeviceModel::Keysight34941A);
     static_assert( hal::detail::switchDevices[ 0].Card == hal::Card( 1));
     static_assert( hal::detail::switchDevices[ 4].Card == hal::Card( 5));
     static_assert( hal::detail::deviceBoxRows[ 0].Box == "Swu1");
@@ -171,8 +171,13 @@ TEST( DevRig, SafingReachesTheOneInstrumentAndSurvivesAnEmptyFabric)
 //
 TEST( DevRig, TheMetersRouteToTheTerminalIsItsBusRelayAndACrosspoint)
 {
-    EXPECT_EQ( hal::instrumentWiring.find( hal::InstrumentId::Dmm2), ( hal::Path{ HOP( Matrix1, 921) }));
-    EXPECT_EQ( hal::connectorWiring.find( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }), ( hal::Path{ ROW_COLUMN( Matrix1, 5, 1) }));
+    EXPECT_EQ( hal::instrumentWiring.find( hal::InstrumentId::Dmm2), ( hal::Path{ ANALOG_BUS( Slot1, 1) }));
+    EXPECT_EQ( hal::connectorWiring.find( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }), ( hal::Path{ ROW_COLUMN( Slot1, 5, 1) }));
+
+    // The names are the packed channels the 34980A is sent: ABus1's relay is
+    // 921, Matrix 2 row 5 (its row 1) column 1 is 501.
+    static_assert( ANALOG_BUS( Slot1, 1) == HOP( Slot1, 921));
+    static_assert( ROW_COLUMN( Slot1, 5, 1) == HOP( Slot1, 501));
 
     EXPECT_THROW( ( void) hal::instrumentWiring.find( hal::InstrumentId::Dmm1), std::runtime_error);
 }
@@ -652,7 +657,7 @@ TEST( DevRig, ASlotHoldingADifferentCardIsRefused)
 {
     const auto refused = contactTheSwitchUnitHolding( { "34932A", "34921A", "34932A", "34932A", "34941A" });
 
-    EXPECT_NE( refused.find( "Matrix2 is declared as a Keysight 34932A in slot 2 of box Swu1"), std::string::npos) << refused;
+    EXPECT_NE( refused.find( "Slot2 is declared as a Keysight 34932A in slot 2 of box Swu1"), std::string::npos) << refused;
     EXPECT_NE( refused.find( "holds a 34921A"), std::string::npos) << refused;
 }
 
@@ -660,7 +665,7 @@ TEST( DevRig, AnEmptySlotWithACardRowIsRefused)
 {
     const auto refused = contactTheSwitchUnitHolding( { "34932A", "34932A", "34932A", "34932A", "" });
 
-    EXPECT_NE( refused.find( "RfMux1 is declared as a Keysight 34941A in slot 5"), std::string::npos) << refused;
+    EXPECT_NE( refused.find( "Slot5 is declared as a Keysight 34941A in slot 5"), std::string::npos) << refused;
     EXPECT_NE( refused.find( "that slot is empty"), std::string::npos) << refused;
 }
 
@@ -719,32 +724,32 @@ namespace
 } // namespace
 
 //
-// A crosspoint on Matrix1 is slot 1 of the box: ROUT:CLOS (@1501). Its second
+// A crosspoint on Slot1, the card in slot 1 of the box: ROUT:CLOS (@1501). Its second
 // use moves nothing, nor does its first release; its last release opens it.
 //
 TEST( DevRig, TheFabricMovesARelayAtItsFirstUseAndItsLastRelease)
 {
     FabricOnAFake bench;
 
-    hal::fabric.close( ROW_COLUMN( Matrix1, 5, 1));
-    hal::fabric.close( ROW_COLUMN( Matrix1, 5, 1));
-    hal::fabric.open( ROW_COLUMN( Matrix1, 5, 1));
+    hal::fabric.close( ROW_COLUMN( Slot1, 5, 1));
+    hal::fabric.close( ROW_COLUMN( Slot1, 5, 1));
+    hal::fabric.open( ROW_COLUMN( Slot1, 5, 1));
 
     EXPECT_EQ( bench.moves(), ( std::vector<std::string>{ "ROUT:CLOS (@1501)" }));
 
-    hal::fabric.open( ROW_COLUMN( Matrix1, 5, 1));
+    hal::fabric.open( ROW_COLUMN( Slot1, 5, 1));
 
     EXPECT_EQ( bench.moves(), ( std::vector<std::string>{ "ROUT:CLOS (@1501)", "ROUT:OPEN (@1501)" }));
 }
 
 //
-// The card's slot is the row's Card( n): Matrix4 is slot 4.
+// The card's slot is the row's Card( n): Slot4 is slot 4.
 //
 TEST( DevRig, EachCardIsTheSlotItsRowSays)
 {
     FabricOnAFake bench;
 
-    hal::fabric.close( ROW_COLUMN( Matrix4, 8, 16));
+    hal::fabric.close( ROW_COLUMN( Slot4, 8, 16));
 
     EXPECT_EQ( bench.moves(), ( std::vector<std::string>{ "ROUT:CLOS (@4816)" }));
 }
@@ -757,11 +762,11 @@ TEST( DevRig, ReleasingAnRfBankSendsNothing)
 {
     FabricOnAFake bench;
 
-    hal::fabric.close( BANK( RfMux1, 1, 4));
-    hal::fabric.open( BANK( RfMux1, 1, 4));
+    hal::fabric.close( BANK( Slot5, 1, 4));
+    hal::fabric.open( BANK( Slot5, 1, 4));
 
     EXPECT_EQ( bench.moves(), ( std::vector<std::string>{ "ROUT:CLOS (@5104)" }));
-    EXPECT_FALSE( hal::fabric.isClosed( BANK( RfMux1, 1, 4)));
+    EXPECT_FALSE( hal::fabric.isClosed( BANK( Slot5, 1, 4)));
 }
 
 //
@@ -788,8 +793,8 @@ TEST( DevRig, ARoutedReadingClosesThePathReadsTheBusAndOpensIt)
     EXPECT_LT( closed, measured) << "the path is closed before the reading";
     EXPECT_LT( measured, opened) << "and opened after it";
 
-    EXPECT_FALSE( hal::fabric.isClosed( HOP( Matrix1, 921)));
-    EXPECT_FALSE( hal::fabric.isClosed( ROW_COLUMN( Matrix1, 5, 1)));
+    EXPECT_FALSE( hal::fabric.isClosed( ANALOG_BUS( Slot1, 1)));
+    EXPECT_FALSE( hal::fabric.isClosed( ROW_COLUMN( Slot1, 5, 1)));
 }
 
 //
@@ -809,6 +814,6 @@ TEST( DevRig, ARoutedReadingThatFailsStillOpensItsPath)
 
     EXPECT_NE( std::ranges::find( moves, std::string( "ROUT:OPEN (@1921)")), moves.end());
     EXPECT_NE( std::ranges::find( moves, std::string( "ROUT:OPEN (@1501)")), moves.end());
-    EXPECT_FALSE( hal::fabric.isClosed( HOP( Matrix1, 921)));
+    EXPECT_FALSE( hal::fabric.isClosed( ANALOG_BUS( Slot1, 1)));
 }
 

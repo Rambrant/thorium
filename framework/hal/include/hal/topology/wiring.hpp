@@ -1053,6 +1053,15 @@ namespace hal
     hal::rowColumn<hal::SwitchDeviceId::device, row, column>()
 
 //
+// ANALOG_BUS(...) is the relay between a card and one of its chassis' Analog
+// Buses -- the internal DMM's way onto the card. A Keysight 34932A's
+// ANALOG_BUS( Slot1, 1) is channel 921, which puts ABus1 on Matrix 2's row 5.
+// A card with no such relays rejects it (see hal::analogBus).
+//
+#define ANALOG_BUS( device, bus) \
+    hal::analogBus<hal::SwitchDeviceId::device, bus>()
+
+//
 // INSTRUMENT_WIRING's expansion builds four things from the one set of
 // WIRE_INSTRUMENT/WIRE_INSTRUMENT_SENSE lines, not one -- the same shape
 // CONNECTOR_WIRING uses below, and for the same reasons: the ordinary runtime

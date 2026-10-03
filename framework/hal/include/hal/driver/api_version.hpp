@@ -114,6 +114,12 @@
 //        predates them -- which is the exact failure the gate is for. A version
 //        with no consumer is cheaper than a gate that has stopped being true.
 //
+//     5  Adds an AnalogBus scheme to hal::detail::SwitchCardSpec (the
+//        34932A's 921-924, ABus1-4) and hal::analogBus() beside
+//        hal::rowColumn() in hal/fabric/switch_fabric.hpp. Purely additive,
+//        and nothing asks for 5, for the reason 4 gives: its one reader is a
+//        rig's wiring.inc.
+//
 // A driver asks for the oldest version that has everything it uses, written as
 // a literal -- never the macro itself, which would assert that this hal is
 // compatible with this hal and pass everywhere. For most new drivers that is
@@ -124,7 +130,7 @@
 // a hal that would have served the driver perfectly, which is the nuisance the
 // two-number scheme exists to avoid.
 //
-#define THORIUM_HAL_API_VERSION           4
+#define THORIUM_HAL_API_VERSION           5
 #define THORIUM_HAL_API_OLDEST_SUPPORTED  1
 
 namespace hal

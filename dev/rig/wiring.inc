@@ -4,10 +4,10 @@
 // The dev bench's wiring: one route, from the switch unit's meter to one
 // terminal on its matrix.
 //
-// Dmm2's leads are the 34980A's Analog Bus, which reaches slot 1's Matrix 2
-// through its bus relay; the desk's one point, dut::DeskTerminal, is a column
-// of that matrix. Every other instrument on the desk is wired to nothing the
-// switching reaches -- reached over its own USB address and not through a
+// Dmm2's leads are the 34980A's Analog Bus, which reaches the slot 1 card's
+// Matrix 2 through its bus relay; the desk's one point, dut::DeskTerminal, is a
+// column of that matrix. Every other instrument on the desk is wired to nothing
+// the switching reaches -- reached over its own USB address and not through a
 // relay, which is the ordinary state of an instrument on a desk -- so
 // hal::InstrumentWiring::find() still throws for those, and correctly: there
 // is no route to ask for. SOURCE_WIRING and TAP_WIRING are empty below, each
@@ -18,29 +18,58 @@
 // hal::tapWiring are defined by these expansions and declared elsewhere, so a
 // missing block is a link error rather than an empty table.
 //
+// -- How to read a row ------------------------------------------------------------
+//
+//   Slot1 .. Slot5         the 34980A's cards, by the slot they sit in
+//                          (devices.inc): Slot1-4 are 34932A matrices, Slot5
+//                          the 34941A RF mux.
+//
+//   ROW_COLUMN( Slot1, 5, 1)
+//                          the crosspoint joining row 5 to column 1 on the slot
+//                          1 card -- channel 501. A 34932A is two 4 x 16
+//                          matrices sharing one row axis: rows 1-4 are its
+//                          Matrix 1, rows 5-8 its Matrix 2. Columns 1-16 are
+//                          the terminals a cable goes to.
+//
+//   ANALOG_BUS( Slot1, 1)  the relay that joins the mainframe's Analog Bus 1
+//                          (ABus1, the internal DMM's input) to that card --
+//                          channel 921. ABus1-4 land on Matrix 2's rows 5-8,
+//                          one bus per row, which is why only Matrix 2 rows can
+//                          reach the meter.
+//
+//   WIRE_CONNECTOR( A, 1, 1, ...)
+//                          a DUT point's place on the fixture, as rack,
+//                          connector, pin of a VPC receiver -- on the
+//                          production bench, the pin a test adapter lands on.
+//                          This desk has no receiver, so here it is only the
+//                          name dev/dut/adapter.inc gives the one terminal.
+//                          Which point it is stands in the row's comment.
+//
 //
 // -- The switch unit's own meter, onto the matrix -------------------------------
 //
-// Dmm2 is the 34980A's internal DMM, and its leads are the mainframe's Analog
-// Buses: its input is ABus1, which reaches a 34932A through that card's bus
-// relay for a Matrix 2 row -- 921 puts row 5 on ABus1. So Dmm2's own path is
-// that one relay on the card in slot 1, and a route to any column of Matrix 2
-// row 5 is this plus the crosspoint (see CONNECTOR_WIRING below).
+// Dmm2 is the 34980A's internal DMM, and its input is the mainframe's Analog
+// Bus 1. Nothing to cable: the bus is the backplane. Closing the slot 1
+// card's ABus1 relay puts the meter on that card's row 5 (its Matrix 2's first
+// row), and from there any column of row 5 is one crosspoint away (see
+// CONNECTOR_WIRING below).
 //
 INSTRUMENT_WIRING
-    WIRE_INSTRUMENT( Dmm2, HOP( Matrix1, 921))   // ABus1 onto row 5 of slot 1's Matrix 2
+    WIRE_INSTRUMENT( Dmm2, ANALOG_BUS( Slot1, 1))   // the meter's input, ABus1, onto row 5 of the slot 1 card -- no cable, backplane only
 END_INSTRUMENT_WIRING
 
 //
 // -- The desk's one terminal --------------------------------------------------
 //
-// dut::DeskTerminal (dev/dut/adapter.inc): column 1 of slot 1's Matrix 2, on
-// its 34932T terminal block. Reached from row 5 by crosspoint 501 -- so a
-// routed reading there closes 921 and 501, reads ABus1, and opens them again.
-// The "pin" A/1/1 is a name for that terminal; the desk has no VPC receiver.
+// dut::DeskTerminal (dev/dut/adapter.inc) is column 1 of the slot 1 card,
+// on its 34932T terminal block -- the screw terminal for Matrix 2 column 1.
+// That is where a cable goes: SwitchUnitWired puts DcP7's output there.
+//
+// A routed reading at the point closes ANALOG_BUS( Slot1, 1) and the
+// crosspoint below -- row 5 onto column 1 -- reads the meter, and opens both.
 //
 CONNECTOR_WIRING
-    WIRE_CONNECTOR( A, 1, 1, ROW_COLUMN( Matrix1, 5, 1))   // dut::DeskTerminal -- slot 1, Matrix 2 column 1
+    WIRE_CONNECTOR( A, 1, 1, ROW_COLUMN( Slot1, 5, 1))   // dut::DeskTerminal: slot 1 card's 34932T, Matrix 2 column 1 terminal -- cable DcP7 here
 END_CONNECTOR_WIRING
 
 SOURCE_WIRING

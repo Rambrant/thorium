@@ -179,6 +179,39 @@ namespace hal
     }
 
     //
+    // The relay that puts the chassis' Analog Bus `Bus` onto this card --
+    // what a 34932A numbers 921-924. ANALOG_BUS( Slot1, 1) says it is the
+    // internal DMM's way onto the card; HOP( Slot1, 921) says a number.
+    //
+    // Only a card whose spec carries the scheme can be written this way: a
+    // 34941A "does not connect to the analog buses" at all, and a Racal card
+    // has no mainframe bus to connect to, so ANALOG_BUS on either is a
+    // compile error rather than a relay that is not there.
+    //
+    template<SwitchDeviceId Device, unsigned Bus>
+    [[nodiscard]]
+    constexpr auto analogBus() -> SwitchElementId
+    {
+        static_assert( specOf( modelOf( Device)).AnalogBus != nullptr,
+                       std::string( "this card has no Analog Bus relays -- ") +
+                       std::string( partOf( Device)) + " has " + std::string( channelsOf( Device)));
+
+        //
+        // Guarded so a card without the scheme fails on the assertion above
+        // and nothing else -- see crosspoint() for the null-function-pointer
+        // problem this avoids.
+        //
+        if constexpr( specOf( modelOf( Device)).AnalogBus != nullptr)
+        {
+            return hop<Device, specOf( modelOf( Device)).AnalogBus( Bus)>();
+        }
+        else
+        {
+            return SwitchElementId{ Device, 0 };
+        }
+    }
+
+    //
     // A route through the fabric between two fixed points is rarely just
     // one relay -- the real wiring behind hal::InstrumentWiring/
     // hal::ConnectorWiring's entries can be a chain of several (a mux
