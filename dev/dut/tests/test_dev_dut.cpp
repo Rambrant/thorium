@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <meta>
+#include <type_traits>
 
 #include "core/topology/adapter.hpp"
 
@@ -77,6 +78,24 @@ namespace
     static_assert( adapterPointCount() == 1,
                    "dev/dut/adapter.inc's point count changed -- add a dev/rig/wiring.inc row that "
                    "reaches a new point first, then change this line");
+
+    //
+    // The one point is a source point because DcP7 is cabled onto it, and the
+    // two files have to say so together -- the pairing the bench's coverage
+    // test holds every point to, written out for the one point here: a
+    // SOURCE_POINT with no WIRE_SOURCE row behind it claims a cable nobody
+    // recorded, and a WIRE_SOURCE row under a plain POINT describes a driven
+    // terminal as an ordinary one. And still routed, which a source point
+    // stays: the meter reads it through the matrix.
+    //
+    using DeskTerminalTag = std::remove_cv_t<decltype( dut::DeskTerminal)>;
+
+    static_assert( DeskTerminalTag::KindValue == core::PointKind::Source,
+                   "dut::DeskTerminal must be a SOURCE_POINT: dev/rig/wiring.inc cables DcP7 onto it");
+    static_assert( hal::isSourceWired( DeskTerminalTag::LocationValue),
+                   "dut::DeskTerminal is a SOURCE_POINT with no WIRE_SOURCE row in dev/rig/wiring.inc");
+    static_assert( hal::sourcesAt( DeskTerminalTag::LocationValue) == 1);
+    static_assert( hal::isWired( DeskTerminalTag::LocationValue, hal::WireRole::Force));
 
     //
     // The adapter is this deployment's, and not the bench's reached by a wrong

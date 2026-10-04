@@ -382,12 +382,14 @@ On a unit that has no internal DMM at all, say so in the table instead:
 address (see `hal/topology/boxes.hpp`).
 
 **SwitchUnitDmm** is the mainframe's internal DMM, `Dmm2` -- the same box,
-`Swu1`, sharing its one session -- with nothing wired: the meter is fitted and
-enabled, an open Analog Bus reads no voltage and an *overload* for resistance
-(which `whenUnmeasurable` turns into "beyond 100 MOhm"), and closing a crosspoint
-and a bus relay onto nothing leaves the bus open. **SwitchUnitWired** is the whole
-chain and needs one cable -- `DcP7` onto Matrix 2 column 1 of the 34932A in slot
-1, which is `dut::DeskTerminal` -- and is run on its own: a routed
+`Swu1`, sharing its one session -- with nothing switched onto it: the meter is
+fitted and enabled, an open Analog Bus reads no voltage and an *overload* for
+resistance (which `whenUnmeasurable` turns into "beyond 100 MOhm"), and closing
+a crosspoint onto an uncabled column (column 2) and a bus relay leaves the bus
+open. **SwitchUnitWired** is the whole chain, through the desk's one cable --
+`DcP7` onto Matrix 2 column 1 of the 34932A in slot 1, which is
+`dut::DeskTerminal`. The cable stays on the desk, and `dev/rig/wiring.inc`
+records it as a `WIRE_SOURCE` row: a routed
 `Measure( Dmm2.voltage(), at( dut::DeskTerminal))` must read the supply's 5 V,
 the fabric closing bus relay 921 and crosspoint 501 for the reading and opening
 them after, and the terminal must read zero once the supply is removed. Whether

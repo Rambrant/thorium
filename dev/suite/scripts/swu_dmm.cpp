@@ -15,13 +15,15 @@
 // meter and the bus with no route at all; SwitchUnitWired reaches the terminal
 // the framework's way, a routed Measure the fabric switches for.
 //
-// SwitchUnitDmm needs nothing wired and runs whole: the meter is there, an open
-// bus reads as one, and closing a path onto nothing leaves it open.
+// SwitchUnitDmm runs whole: the meter is there, an open bus reads as one, and
+// closing a path onto nothing leaves it open -- column 2, which nothing is
+// cabled to.
 //
-// SwitchUnitWired is the whole chain and needs a cable, so it is run on its
-// own: the supply's DcP7 output onto Matrix 2 column 1 of the 34932A in slot 1
-// (its 34932T terminal block, HI and LO), and the meter must read the supply's
-// 5 V through crosspoint 501 and bus relay 921. Three instruments -- the
+// SwitchUnitWired is the whole chain, through the desk's one cable: the
+// supply's DcP7 output onto Matrix 2 column 1 of the 34932A in slot 1 (its
+// 34932T terminal block, HI and LO -- dut::DeskTerminal, and a WIRE_SOURCE row
+// in dev/rig/wiring.inc), and the meter must read the supply's 5 V through
+// crosspoint 501 and bus relay 921. Three instruments -- the
 // supply, the switching and the meter -- agreeing through real copper.
 //
 // Every script leaves slot 1 all open, and safing opens everything regardless.
@@ -37,10 +39,12 @@ namespace
     constexpr int kSlot = 1;
 
     //
-    // Row 5, column 1: the first crosspoint of Matrix 2, which is the matrix
-    // whose rows reach the Analog Buses.
+    // Row 5, column 2: a crosspoint of Matrix 2, the matrix whose rows reach
+    // the Analog Buses, onto a column nothing is cabled to. Not column 1:
+    // DcP7 is on that one (dut::DeskTerminal), so a path closed there is a
+    // path onto the supply's output, cold or not.
     //
-    constexpr ChannelAddress kRowFiveColumnOne{ kSlot, hal::detail::keysight34932ARowColumn( 5, 1) };
+    constexpr ChannelAddress kRowFiveColumnTwo{ kSlot, hal::detail::keysight34932ARowColumn( 5, 2) };
 
     //
     // Row 5's relay onto ABus1 -- the meter's input.
@@ -101,7 +105,7 @@ auto swuDmmOpenBus() -> void
 auto swuDmmPathOntoNothing() -> void
 {
     Swu1.openAll( kSlot);
-    Swu1.close( { kRowFiveColumnOne, kRowFiveOnTheBus });
+    Swu1.close( { kRowFiveColumnTwo, kRowFiveOnTheBus });
 
     checkTheBusIsOpen();
 

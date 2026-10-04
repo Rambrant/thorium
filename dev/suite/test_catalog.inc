@@ -82,8 +82,9 @@ GROUP( WfgIntoScope, "The waveform generator, each setting checked by the scope 
 END_GROUP
 
 //
-// The 34980A switch unit with nothing wired to it -- every check is a question
-// the mainframe answers about itself. Runs whole. See
+// The 34980A switch unit with nothing live on it -- every check is a question
+// the mainframe answers about itself; the desk's one cable, DcP7 on slot 1's
+// Matrix 2 column 1, stays off. Runs whole. See
 // dev/suite/scripts/swu_self_check.cpp.
 //
 GROUP( SwitchUnit, "The 34980A switch unit, tested in isolation: inventory, matrices, RF mux and relay life")
@@ -98,19 +99,20 @@ GROUP( SwitchUnit, "The 34980A switch unit, tested in isolation: inventory, matr
 END_GROUP
 
 //
-// The switch unit's internal DMM, Dmm2, with nothing wired -- runs whole. See
-// dev/suite/scripts/swu_dmm.cpp.
+// The switch unit's internal DMM, Dmm2, on an open bus and a path onto an
+// uncabled column -- runs whole. See dev/suite/scripts/swu_dmm.cpp.
 //
-GROUP( SwitchUnitDmm, "The 34980A's internal DMM on the Analog Bus, nothing wired")
+GROUP( SwitchUnitDmm, "The 34980A's internal DMM on the Analog Bus, nothing switched onto it")
     TEST( SwuDmmFitted,          swuDmmFitted,          "The internal DMM is fitted and enabled")
     TEST( SwuDmmOpenBus,         swuDmmOpenBus,         "An open bus reads no voltage and an overload for resistance")
-    TEST( SwuDmmPathOntoNothing, swuDmmPathOntoNothing, "A crosspoint and a bus relay closed onto nothing leave the bus open")
+    TEST( SwuDmmPathOntoNothing, swuDmmPathOntoNothing, "A crosspoint onto an uncabled column and a bus relay leave the bus open")
 END_GROUP
 
 //
-// The whole chain, which needs a cable: DcP7 onto Matrix 2 column 1 of the
-// 34932A in slot 1. Run on its own. See dev/suite/scripts/swu_dmm.cpp.
+// The whole chain, through the desk's one cable: DcP7 onto Matrix 2 column 1
+// of the 34932A in slot 1 (WIRE_SOURCE in dev/rig/wiring.inc). See
+// dev/suite/scripts/swu_dmm.cpp.
 //
-GROUP( SwitchUnitWired, "Supply, matrix and internal DMM through real copper -- needs DcP7 cabled to slot 1, Matrix 2 column 1")
+GROUP( SwitchUnitWired, "Supply, matrix and internal DMM through real copper -- DcP7 cabled to slot 1, Matrix 2 column 1")
     TEST( SwuDmmThroughTheMatrix, swuDmmThroughTheMatrix, "A routed reading at dut::DeskTerminal: DcP7's 5 V through the fabric's crosspoint 501 and bus relay 921")
 END_GROUP

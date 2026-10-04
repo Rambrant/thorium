@@ -31,8 +31,10 @@
 // state. Neither is a meter on the contacts. That is the one check this group
 // cannot make, and the one that needs something wired.
 //
-// With nothing wired, closing is harmless in every combination below: several
-// crosspoints closed together join rows and columns connected to nothing, and
+// With nothing live, closing is harmless in every combination below. The one
+// cable on the rack -- DcP7 on slot 1's Matrix 2 column 1 -- is off whenever
+// these run (nothing here enables it, and safing turns it off), so several
+// crosspoints closed together join rows and columns carrying nothing, and
 // an Analog Bus relay joins a Matrix 2 row to a backplane nothing else is on
 // (or to the internal DMM, if one is fitted and enabled). A rack with a DUT on
 // its terminal blocks is a different matter, and not what these are for.

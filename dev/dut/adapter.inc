@@ -15,17 +15,23 @@
 // Most of what a dev script measures is still the instrument itself, with no
 // at( ...) and nothing closed -- see core::MeasureEngine's point-free
 // operator(). The point below is for the one reading that is routed: the
-// switch unit's meter, through its matrix, at a terminal a cable is put on.
+// switch unit's meter, through its matrix, at the terminal the supply is
+// cabled onto.
 //
 //
 // -- The desk's one point -------------------------------------------------------
 //
 // One terminal the switching can reach: Matrix 2 column 1 of the 34932A in slot
 // 1, on its 34932T terminal block, which dev/rig/wiring.inc routes from the
-// 34980A's own meter. Not a DUT -- the desk still has none -- but a named place
-// a cable can be put, which is all a POINT has to be for at( ...) to reach it.
-// SwitchUnitWired cables the supply's DcP7 onto it.
+// 34980A's own meter. Not a DUT -- the desk still has none -- but a named place,
+// which is all a point has to be for at( ...) to reach it.
+//
+// A SOURCE_POINT, because DcP7 is cabled onto it and stays there -- the one
+// WIRE_SOURCE row in dev/rig/wiring.inc, which dev/dut/tests/test_dev_dut.cpp
+// holds this declaration to, in both directions (as the bench's own
+// dut/tests/test_wiring_coverage.cpp does for its points). Still measurable like any
+// point; what it says is that something drives it.
 //
 ADAPTER( "Dev bench -- an instrument on a desk, no adapter and no DUT")
-    POINT( DeskTerminal, A, 1, 1, "Slot 1 Matrix 2 column 1, on the 34932T terminal block")
+    SOURCE_POINT( DeskTerminal, A, 1, 1, "Slot 1 Matrix 2 column 1, on the 34932T terminal block -- DcP7 is cabled here")
 END_ADAPTER

@@ -10,8 +10,9 @@
 // the switching reaches -- reached over its own USB address and not through a
 // relay, which is the ordinary state of an instrument on a desk -- so
 // hal::InstrumentWiring::find() still throws for those, and correctly: there
-// is no route to ask for. SOURCE_WIRING and TAP_WIRING are empty below, each
-// for its own reason.
+// is no route to ask for. One of them is cabled onto the terminal, though --
+// the supply's DcP7, permanently -- which SOURCE_WIRING records. TAP_WIRING is
+// empty, for the reason given there.
 //
 // Written out as four blocks even where empty, and that is not a formality:
 // hal::instrumentWiring, hal::connectorWiring, hal::sourceWiring and
@@ -62,24 +63,40 @@ END_INSTRUMENT_WIRING
 // -- The desk's one terminal --------------------------------------------------
 //
 // dut::DeskTerminal (dev/dut/adapter.inc) is column 1 of the slot 1 card,
-// on its 34932T terminal block -- the screw terminal for Matrix 2 column 1.
-// That is where a cable goes: SwitchUnitWired puts DcP7's output there.
+// on its 34932T terminal block -- the HI and LO screw terminals for Matrix 2
+// column 1. DcP7's output is cabled there and stays (see SOURCE_WIRING below).
 //
 // A routed reading at the point closes ANALOG_BUS( Slot1, 1) and the
 // crosspoint below -- row 5 onto column 1 -- reads the meter, and opens both.
 //
 CONNECTOR_WIRING
-    WIRE_CONNECTOR( A, 1, 1, ROW_COLUMN( Slot1, 5, 1))   // dut::DeskTerminal: slot 1 card's 34932T, Matrix 2 column 1 terminal -- cable DcP7 here
+    WIRE_CONNECTOR( A, 1, 1, ROW_COLUMN( Slot1, 5, 1))   // dut::DeskTerminal: slot 1 card's 34932T, Matrix 2 column 1 HI/LO -- DcP7 is cabled here
 END_CONNECTOR_WIRING
 
+//
+// -- The cable that stays on the desk ------------------------------------------
+//
+// DcP7 -- the EDU36311A's output 3 (Psu1, 30 V / 1 A) -- is cabled from its
+// front-panel + and - straight onto dut::DeskTerminal: slot 1 card's 34932T,
+// Matrix 2 column 1, HI and LO. No relay between them, so no path: a source
+// row is only the landing (see hal::SourceWiring).
+//
+// Recorded rather than left to a comment because the build checks it both
+// ways (dev/dut/adapter.inc declares the terminal a SOURCE_POINT to match, and
+// dev/dut/tests/test_dev_dut.cpp holds the two together),
+// and because the electrical interlock reads it: a low-impedance reading
+// routed to the terminal is refused while DcP7 is on. With the supply off it
+// is a cold wire on a column nothing else uses -- SwitchUnitDmm's "onto
+// nothing" check closes column 2 for that reason.
+//
 SOURCE_WIRING
+    WIRE_SOURCE( DcP7, A, 1, 1)   // DcP7 (Psu1 output 3) + / - onto dut::DeskTerminal: slot 1 card's 34932T, Matrix 2 column 1 HI / LO
 END_SOURCE_WIRING
 
 //
-// The fourth table, and empty like the other three -- but for a different
-// reason, which is the only interesting thing about it.
+// The fourth table, and the only empty one.
 //
-// Empty for a different reason from SOURCE_WIRING. A WIRE_TAP row is
+// A WIRE_TAP row is
 // (instrument, VPC pin) with no path at all (see hal::TapWiring) -- an
 // instrument's leads cabled straight onto a pin -- and nothing on this desk is:
 // its one point, dut::DeskTerminal, is reached through the switch unit's

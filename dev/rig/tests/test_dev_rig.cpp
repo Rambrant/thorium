@@ -97,12 +97,13 @@ namespace
     // -- And one route over them ---------------------------------------------------
     //
     // The desk's one terminal, dut::DeskTerminal at A/1/1, is reachable --
-    // through slot 1's Matrix 2 -- and nothing else is, and no source is
-    // hard-wired onto it: a cable from the supply is the script's to make.
+    // through slot 1's Matrix 2 -- and nothing else is, and exactly one source
+    // is cabled onto it, the supply's DcP7, which stays on the desk.
     //
     static_assert(   hal::isWired( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }, hal::WireRole::Force));
     static_assert( ! hal::isWired( hal::VpcLocation{ hal::VpcRack::A, 1, 3 }, hal::WireRole::Force));
-    static_assert( ! hal::isSourceWired( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }));
+    static_assert(   hal::isSourceWired( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }));
+    static_assert(   hal::sourcesAt( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }) == 1);
 
     //
     // -- And why the fourth is empty for a different reason -------------------
