@@ -107,4 +107,6 @@
 //
 ADDRESS_POOLS
     POOL( DeskDmm, Usb( "CN65510018"))      // the desk's own meter, free unless somebody borrowed it
+    POOL( Scope1,  Usb( "CN64504143"))
+    POOL( Scope1,  Usb( "CN65374116"))
 END_ADDRESS_POOLS
