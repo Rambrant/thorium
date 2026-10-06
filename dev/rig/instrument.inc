@@ -140,7 +140,7 @@
 // two share one session -- the switching and
 // the meter as two families on one connection (see hal::BoxConnection). It
 // measures the Analog Buses; a signal reaches it by closing a matrix crosspoint
-// onto a Matrix 2 row and that row's bus relay. See
+// onto an ABUS Matrix 2 row (R5-R8) and that row's bus relay. See
 // dev/suite/scripts/swu_dmm.cpp.
 //
 INSTRUMENTS

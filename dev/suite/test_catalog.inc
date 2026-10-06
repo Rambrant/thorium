@@ -84,7 +84,7 @@ END_GROUP
 //
 // The 34980A switch unit with nothing live on it -- every check is a question
 // the mainframe answers about itself; the desk's one cable, DcP7 on slot 1's
-// Matrix 2 column 1, stays off. Runs whole. See
+// ABUS Matrix 2 C1, stays off. Runs whole. See
 // dev/suite/scripts/swu_self_check.cpp.
 //
 GROUP( SwitchUnit, "The 34980A switch unit, tested in isolation: inventory, matrices, RF mux and relay life")
@@ -109,10 +109,10 @@ GROUP( SwitchUnitDmm, "The 34980A's internal DMM on the Analog Bus, nothing swit
 END_GROUP
 
 //
-// The whole chain, through the desk's one cable: DcP7 onto Matrix 2 column 1
+// The whole chain, through the desk's one cable: DcP7 onto ABUS Matrix 2 C1
 // of the 34932A in slot 1 (WIRE_SOURCE in dev/rig/wiring.inc). See
 // dev/suite/scripts/swu_dmm.cpp.
 //
-GROUP( SwitchUnitWired, "Supply, matrix and internal DMM through real copper -- DcP7 cabled to slot 1, Matrix 2 column 1")
+GROUP( SwitchUnitWired, "Supply, matrix and internal DMM through real copper -- DcP7 cabled to slot 1, ABUS Matrix 2 C1")
     TEST( SwuDmmThroughTheMatrix, swuDmmThroughTheMatrix, "A routed reading at dut::DeskTerminal: DcP7's 5 V through the fabric's crosspoint 501 and bus relay 921")
 END_GROUP

@@ -97,7 +97,7 @@ namespace
     // -- And one route over them ---------------------------------------------------
     //
     // The desk's one terminal, dut::DeskTerminal at A/1/1, is reachable --
-    // through slot 1's Matrix 2 -- and nothing else is, and exactly one source
+    // through slot 1's ABUS Matrix 2 -- and nothing else is, and exactly one source
     // is cabled onto it, the supply's DcP7, which stays on the desk.
     //
     static_assert(   hal::isWired( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }, hal::WireRole::Force));
@@ -176,7 +176,8 @@ TEST( DevRig, TheMetersRouteToTheTerminalIsItsBusRelayAndACrosspoint)
     EXPECT_EQ( hal::connectorWiring.find( hal::VpcLocation{ hal::VpcRack::A, 1, 1 }), ( hal::Path{ ROW_COLUMN( Slot1, 5, 1) }));
 
     // The names are the packed channels the 34980A is sent: ABus1's relay is
-    // 921, Matrix 2 row 5 (its row 1) column 1 is 501.
+    // 921, R5 onto ABUS Matrix 2 C1 is 501 -- rows numbered across the card,
+    // as the 34932T prints them, columns per matrix.
     static_assert( ANALOG_BUS( Slot1, 1) == HOP( Slot1, 921));
     static_assert( ROW_COLUMN( Slot1, 5, 1) == HOP( Slot1, 501));
 

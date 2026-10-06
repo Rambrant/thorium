@@ -21,9 +21,9 @@
 //
 // -- The desk's one point -------------------------------------------------------
 //
-// One terminal the switching can reach: Matrix 2 column 1 of the 34932A in slot
-// 1, on its 34932T terminal block, which dev/rig/wiring.inc routes from the
-// 34980A's own meter. Not a DUT -- the desk still has none -- but a named place,
+// One terminal the switching can reach: C1 on the "ABUS Matrix 2" half of the
+// slot 1 34932A's 34932T terminal block, which dev/rig/wiring.inc routes from
+// the 34980A's own meter. Not a DUT -- the desk still has none -- but a named place,
 // which is all a point has to be for at( ...) to reach it.
 //
 // A SOURCE_POINT, because DcP7 is cabled onto it and stays there -- the one
@@ -33,5 +33,5 @@
 // point; what it says is that something drives it.
 //
 ADAPTER( "Dev bench -- an instrument on a desk, no adapter and no DUT")
-    SOURCE_POINT( DeskTerminal, A, 1, 1, "Slot 1 Matrix 2 column 1, on the 34932T terminal block -- DcP7 is cabled here")
+    SOURCE_POINT( DeskTerminal, A, 1, 1, "Slot 1 34932T, ABUS Matrix 2 C1 Hi/Lo -- DcP7 is cabled here")
 END_ADAPTER

@@ -385,9 +385,9 @@ address (see `hal/topology/boxes.hpp`).
 `Swu1`, sharing its one session -- with nothing switched onto it: the meter is
 fitted and enabled, an open Analog Bus reads no voltage and an *overload* for
 resistance (which `whenUnmeasurable` turns into "beyond 100 MOhm"), and closing
-a crosspoint onto an uncabled column (column 2) and a bus relay leaves the bus
+a crosspoint onto an uncabled column (C2) and a bus relay leaves the bus
 open. **SwitchUnitWired** is the whole chain, through the desk's one cable --
-`DcP7` onto Matrix 2 column 1 of the 34932A in slot 1, which is
+`DcP7` onto C1 on the "ABUS Matrix 2" half of slot 1's 34932T, which is
 `dut::DeskTerminal`. The cable stays on the desk, and `dev/rig/wiring.inc`
 records it as a `WIRE_SOURCE` row: a routed
 `Measure( Dmm2.voltage(), at( dut::DeskTerminal))` must read the supply's 5 V,

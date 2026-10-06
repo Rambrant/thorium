@@ -9,19 +9,19 @@
 // SwitchUnitDmm and SwitchUnitWired groups of dev/suite/test_catalog.inc.
 //
 // The meter measures the mainframe's Analog Buses, and a signal reaches a bus
-// through the switching: a crosspoint onto a Matrix 2 row, and that row's bus
-// relay -- 921 puts row 5 on ABus1, the meter's input. The SwitchUnitDmm
+// through the switching: a crosspoint onto an ABUS Matrix 2 row, and that
+// row's bus relay -- 921 puts R5 on ABus1, the meter's input. The SwitchUnitDmm
 // scripts close those by hand (Swu1.close()), because what they check is the
 // meter and the bus with no route at all; SwitchUnitWired reaches the terminal
 // the framework's way, a routed Measure the fabric switches for.
 //
 // SwitchUnitDmm runs whole: the meter is there, an open bus reads as one, and
-// closing a path onto nothing leaves it open -- column 2, which nothing is
-// cabled to.
+// closing a path onto nothing leaves it open -- ABUS Matrix 2 C2, which
+// nothing is cabled to.
 //
 // SwitchUnitWired is the whole chain, through the desk's one cable: the
-// supply's DcP7 output onto Matrix 2 column 1 of the 34932A in slot 1 (its
-// 34932T terminal block, HI and LO -- dut::DeskTerminal, and a WIRE_SOURCE row
+// supply's DcP7 output onto ABUS Matrix 2 C1 of the 34932A in slot 1 (its
+// 34932T terminal block, Hi and Lo -- dut::DeskTerminal, and a WIRE_SOURCE row
 // in dev/rig/wiring.inc), and the meter must read the supply's 5 V through
 // crosspoint 501 and bus relay 921. Three instruments -- the
 // supply, the switching and the meter -- agreeing through real copper.
@@ -39,15 +39,15 @@ namespace
     constexpr int kSlot = 1;
 
     //
-    // Row 5, column 2: a crosspoint of Matrix 2, the matrix whose rows reach
-    // the Analog Buses, onto a column nothing is cabled to. Not column 1:
+    // R5, C2: a crosspoint of ABUS Matrix 2, the matrix whose rows reach
+    // the Analog Buses, onto a column nothing is cabled to. Not C1:
     // DcP7 is on that one (dut::DeskTerminal), so a path closed there is a
     // path onto the supply's output, cold or not.
     //
     constexpr ChannelAddress kRowFiveColumnTwo{ kSlot, hal::detail::keysight34932ARowColumn( 5, 2) };
 
     //
-    // Row 5's relay onto ABus1 -- the meter's input.
+    // R5's relay onto ABus1 -- the meter's input.
     //
     constexpr ChannelAddress kRowFiveOnTheBus = analogBus( kSlot, 2, AnalogBus::One);
 
@@ -97,7 +97,7 @@ auto swuDmmOpenBus() -> void
 }
 
 //
-// A path closed onto nothing is still open: row 5 on the bus, and a crosspoint
+// A path closed onto nothing is still open: R5 on the bus, and a crosspoint
 // onto an unwired column. What this catches is a short in the switching -- a
 // relay welded, a row joined to another -- which would put something on the bus
 // that nothing was told to put there.
@@ -113,8 +113,8 @@ auto swuDmmPathOntoNothing() -> void
 }
 
 //
-// The whole chain, wired: the supply onto dut::DeskTerminal -- Matrix 2 column 1
-// of slot 1 -- and the meter reading it the framework's way, a routed Measure
+// The whole chain, wired: the supply onto dut::DeskTerminal -- ABUS Matrix 2
+// C1 of slot 1 -- and the meter reading it the framework's way, a routed Measure
 // at the point. The fabric composes the path from dev/rig/wiring.inc (Dmm2's bus
 // relay 921, the terminal's crosspoint 501), closes it through the Chassis,
 // reads, and opens it again -- the relay moves the scripts above make by hand,
