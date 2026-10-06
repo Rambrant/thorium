@@ -18,6 +18,7 @@
 # first.
 add_library(hal_keysight_dsox1202g STATIC
     src/keysight_dsox1202g.cpp
+    src/wgen.cpp
 )
 
 # include/hal/keysight_dsox1202g.hpp, not include/keysight_dsox1202g.hpp: this driver keeps its

@@ -143,6 +143,14 @@
 // onto an ABUS Matrix 2 row (R5-R8) and that row's bus relay. See
 // dev/suite/scripts/swu_dmm.cpp.
 //
+//
+// Wfg2 is the scope's own generator, the same trick on box Scope1: the DSOX1202G's
+// built-in waveform generator -- one output, the Gen Out BNC, 100 mHz to 20 MHz --
+// sharing Osc1's session (see hal::keysight_dsox1202g::WGEN). A source, so it is
+// safed with the others; and the G-suffix model only, which preflight's identity
+// check says if the unit is an A. Wfg1 is the 33522B; this is the other
+// generator on the desk.
+//
 INSTRUMENTS
     INSTRUMENT( DeskDmm, keysight_edu34450a::EDU34450A,     Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
     INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput1, DcP5, Usb( "CN65100272"))   // 6 V / 5 A
@@ -152,4 +160,5 @@ INSTRUMENTS
     INSTRUMENT( Wfg1,    keysight_33522b::Wfg33522B,        Wfg1, Usb( "MY52803613"))   //
     INSTRUMENT( Swu1,    keysight_34980a::Chassis,          Swu1, Usb( "MY53154781"))   // 
     INSTRUMENT( Swu1,    keysight_34980a::InternalDmm,      Dmm2, Usb( "MY53154781"))   // the same box's internal DMM -- see above
+    INSTRUMENT( Scope1,  keysight_dsox1202g::WGEN,          Wfg2, Usb( "CN64504143"))   // the scope's built-in generator -- see above
 END_INSTRUMENTS

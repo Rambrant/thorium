@@ -66,7 +66,7 @@ namespace
     // been that edit five times: the supply's outputs, the scope, the
     // generator, the switch unit, and the switch unit's own meter.
     //
-    static_assert( core::meta::values<hal::InstrumentId>.size() == 8);
+    static_assert( core::meta::values<hal::InstrumentId>.size() == 9);
     static_assert( core::meta::values<hal::InstrumentId>[0] == hal::InstrumentId::Dmm1);
     static_assert( core::meta::values<hal::InstrumentId>[1] == hal::InstrumentId::DcP5);
     static_assert( core::meta::values<hal::InstrumentId>[2] == hal::InstrumentId::DcP6);
@@ -75,6 +75,7 @@ namespace
     static_assert( core::meta::values<hal::InstrumentId>[5] == hal::InstrumentId::Wfg1);
     static_assert( core::meta::values<hal::InstrumentId>[6] == hal::InstrumentId::Swu1);
     static_assert( core::meta::values<hal::InstrumentId>[7] == hal::InstrumentId::Dmm2);
+    static_assert( core::meta::values<hal::InstrumentId>[8] == hal::InstrumentId::Wfg2);
 
     //
     // -- The switch unit's five cards ------------------------------------------
@@ -129,6 +130,7 @@ namespace
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Wfg1));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Swu1));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Dmm2));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Wfg2));
 
     //
     // -- Each driver still owes the framework what every driver owes ----------
@@ -151,6 +153,8 @@ namespace
     static_assert( hal::CardIdentifyingInstrument< hal::keysight_34980a::Chassis> );
     static_assert( hal::SafeableInstrument< hal::keysight_34980a::InternalDmm> );
     static_assert( ! hal::RelayHoldingInstrument< hal::keysight_34980a::InternalDmm> );
+    static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::WGEN> );
+    static_assert( ! hal::RelayHoldingInstrument< hal::keysight_dsox1202g::WGEN> );
 } // namespace
 
 //
@@ -227,7 +231,7 @@ TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 8u);
+    ASSERT_EQ( bindings.size(), 9u);
     EXPECT_EQ( bindings[ 0].Id,     hal::InstrumentId::Dmm1);
     EXPECT_EQ( bindings[ 0].Source, hal::AddressSource::Pool);
 }
@@ -242,7 +246,7 @@ TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 8u);
+    ASSERT_EQ( bindings.size(), 9u);
     EXPECT_TRUE( hal::poolFor( "Psu1").empty());
 
     for( std::size_t row = 1; row <= 3; ++row)
@@ -405,6 +409,10 @@ TEST( DevRig, EachInstrumentIsAFaceOfTheBoxItIsOn)
     EXPECT_EQ( hal::boxOf( hal::InstrumentId::Wfg1), "Wfg1");
     EXPECT_EQ( hal::boxOf( hal::InstrumentId::Swu1), "Swu1");
     EXPECT_EQ( hal::boxOf( hal::InstrumentId::Dmm2), "Swu1");
+    EXPECT_EQ( hal::boxOf( hal::InstrumentId::Wfg2), "Scope1");
+
+    EXPECT_EQ( hal::instrumentsIn( "Scope1"),
+               ( std::vector{ hal::InstrumentId::Osc1, hal::InstrumentId::Wfg2 }));
 
     EXPECT_EQ( hal::instrumentsIn( "Swu1"),
                ( std::vector{ hal::InstrumentId::Swu1, hal::InstrumentId::Dmm2 }));
@@ -434,6 +442,7 @@ namespace
         hal::Address Wfg1Address = Wfg1.address();
         hal::Address Swu1Address = Swu1.address();
         hal::Address Dmm2Address = Dmm2.address();
+        hal::Address Wfg2Address = Wfg2.address();
 
         ~RestoreAddresses()
         {
@@ -445,6 +454,7 @@ namespace
             Wfg1.useAddress( Wfg1Address);
             Swu1.useAddress( Swu1Address);
             Dmm2.useAddress( Dmm2Address);
+            Wfg2.useAddress( Wfg2Address);
         }
     };
 

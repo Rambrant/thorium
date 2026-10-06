@@ -116,3 +116,18 @@ END_GROUP
 GROUP( SwitchUnitWired, "Supply, matrix and internal DMM through real copper -- DcP7 cabled to slot 1, ABUS Matrix 2 C1")
     TEST( SwuDmmThroughTheMatrix, swuDmmThroughTheMatrix, "A routed reading at dut::DeskTerminal: DcP7's 5 V through the fabric's crosspoint 501 and bus relay 921")
 END_GROUP
+
+//
+// The scope's own waveform generator, Wfg2, measured by the scope: Gen Out to
+// CH1 on a BNC cable. Runs whole -- nothing is reconnected, and each test turns
+// off what it turned on. See dev/suite/scripts/scope_generator.cpp.
+//
+GROUP( ScopeGenerator, "The scope's built-in waveform generator, checked by the scope it is built into -- Gen Out cabled to CH1")
+    TEST( WgenSine,            wgenSine,            "A 1 kHz, 2 Vpp sine's level, frequency, centre and RMS")
+    TEST( WgenSquareDutyCycle, wgenSquareDutyCycle, "A 25% square: top, base and both widths")
+    TEST( WgenRampSymmetry,    wgenRampSymmetry,    "A 100% ramp is a rising sawtooth, by its edge times")
+    TEST( WgenPulseWidth,      wgenPulseWidth,      "A pulse set to 100 us is 100 us wide at 1 kHz")
+    TEST( WgenDcLevels,        wgenDcLevels,        "DC at +1.5 V and -2 V")
+    TEST( WgenTermination,     wgenTermination,     "Told 50 Ohm it doubles into the scope; told high-Z it does not")
+    TEST( WgenOutputOff,       wgenOutputOff,       "Remove turns the output off -- the scope sees only its own noise")
+END_GROUP

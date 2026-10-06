@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <concepts>
 #include <vector>
 
@@ -880,6 +881,10 @@ namespace
                 {
                     mReplies.emplace_back( Reading);
                 }
+                else if( command == ":WGEN:OUTPut?")
+                {
+                    mReplies.emplace_back( GeneratorOn ? "1" : "0");
+                }
                 else if( !command.empty() && command.back() == '?')
                 {
                     mReplies.emplace_back( "0");
@@ -942,6 +947,7 @@ namespace
             std::string              Reading{  "+4.87500000E+00" };
             std::string              Preamble{ "+4,+0,+1000,+1,+1.00000000E-06,-1.00000000E-03,+0,+7.81250000E-04,+0.0,+128" };
             std::string              Data{     "#800000029+5.00E+00,+4.60E+00,+4.80E+00" };
+            bool                     GeneratorOn{ false };
             bool                     Armed{   true };
             bool                     Running{ false };
             std::vector<std::string> Errors;
@@ -1515,4 +1521,265 @@ TEST( Dsox1202G, AnArmThatCouldNotBeSentLeavesTheScopeUnarmed)
     EXPECT_THROW( armDriver( scope->Scope.single().config()), hal::io::ScpiFault);
     EXPECT_FALSE( scope->Scope.isArmed());
     EXPECT_FALSE( awaitDriver( scope->Scope.single().config()));
+}
+
+//
+// -- The built-in waveform generator: the box's other face ----------------------
+//
+
+namespace
+{
+    namespace gen = hal::keysight_dsox1202g;
+    using gen::WGEN;
+    using gen::Termination;
+
+    static_assert(   std::constructible_from< WGEN, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< WGEN, hal::InstrumentId, hal::Lan> );
+    static_assert( ! std::constructible_from< WGEN, hal::InstrumentId, hal::Gpib> );
+    static_assert( ! std::constructible_from< WGEN, hal::InstrumentId, hal::Serial> );
+
+    //
+    // Each shape offers only its own settings.
+    //
+    template<typename B> concept CanDuty      = requires( B b) { b.dutyCycle( 25.0); };
+    template<typename B> concept CanSymmetry  = requires( B b) { b.symmetry( 25.0); };
+    template<typename B> concept CanWidth     = requires( B b) { b.width( 1_us); };
+    template<typename B> concept CanFrequency = requires( B b) { b.frequency( 1_kHz); };
+    template<typename B> concept CanAmplitude = requires( B b) { b.amplitude( 1_V); };
+
+    static_assert(  CanDuty<gen::GeneratorBuilder<gen::Square>> );
+    static_assert( !CanDuty<gen::GeneratorBuilder<gen::Sine>> );
+    static_assert(  CanSymmetry<gen::GeneratorBuilder<gen::Ramp>> );
+    static_assert( !CanSymmetry<gen::GeneratorBuilder<gen::Square>> );
+    static_assert(  CanWidth<gen::GeneratorBuilder<gen::Pulse>> );
+    static_assert( !CanWidth<gen::GeneratorBuilder<gen::Square>> );
+    static_assert( !CanFrequency<gen::GeneratorBuilder<gen::Noise>> );
+    static_assert( !CanFrequency<gen::GeneratorBuilder<gen::Dc>> );
+    static_assert( !CanAmplitude<gen::GeneratorBuilder<gen::Dc>> );
+
+    struct Generator
+    {
+        WGEN        Unit{ anyId(), hal::Simulated{} };
+        FakeScope * Wire{ nullptr };
+    };
+
+    [[nodiscard]]
+    auto generator() -> std::unique_ptr<Generator>
+    {
+        auto result = std::make_unique<Generator>();
+        auto fake   = std::make_unique<FakeScope>();
+
+        result->Wire = fake.get();
+        result->Unit.useTransport( std::move( fake));
+
+        return result;
+    }
+
+    [[nodiscard]]
+    auto sentByGenerator( const Generator & bench) -> std::vector<std::string>
+    {
+        std::vector<std::string> commands;
+
+        for( const auto & command : bench.Wire->sent())
+        {
+            if( command.starts_with( ":WGEN"))
+            {
+                commands.push_back( command);
+            }
+        }
+
+        return commands;
+    }
+} // namespace
+
+TEST( Dsox1202GWgen, ASquareIsProgrammedInTheOrderTheMeaningsDependOn)
+{
+    auto bench = generator();
+
+    applyDriver( bench->Unit.square().frequency( 10_kHz).amplitude( 2_V).offset( 0.5_V).dutyCycle( 25.0)
+                     .into( Termination::HighImpedance).config());
+
+    const std::vector<std::string> expected{
+        ":WGEN:OUTPut:LOAD ONEMeg",
+        ":WGEN:FUNCtion SQUare",
+        ":WGEN:FREQuency 10000",
+        ":WGEN:FUNCtion:SQUare:DCYCle 25",
+        ":WGEN:VOLTage 2",
+        ":WGEN:VOLTage:OFFSet 0.5",
+        ":WGEN:OUTPut ON" };
+
+    EXPECT_EQ( sentByGenerator( *bench), expected);
+    EXPECT_TRUE( bench->Unit.isEnabled());
+    EXPECT_EQ( bench->Unit.function(), "square");
+}
+
+TEST( Dsox1202GWgen, EachShapeSelectsItsOwnFunctionAndShapeCommand)
+{
+    auto bench = generator();
+
+    applyDriver( bench->Unit.ramp().frequency( 1_kHz).symmetry( 100.0).config());
+    applyDriver( bench->Unit.pulse().frequency( 1_kHz).width( 100_us).config());
+    applyDriver( bench->Unit.sine().frequency( 1_kHz).config());
+    applyDriver( bench->Unit.noise().amplitude( 1_V).config());
+    applyDriver( bench->Unit.dc().offset( 1_V).config());
+
+    const auto sent = sentByGenerator( *bench);
+    const auto has  = [&]( const std::string & command)
+    {
+        return std::ranges::count( sent, command) == 1;
+    };
+
+    EXPECT_TRUE( has( ":WGEN:FUNCtion RAMP"));
+    EXPECT_TRUE( has( ":WGEN:FUNCtion:RAMP:SYMMetry 100"));
+    EXPECT_TRUE( has( ":WGEN:FUNCtion PULSe"));
+    EXPECT_TRUE( has( ":WGEN:FUNCtion:PULSe:WIDTh " + hal::io::ScpiSession::number( 100.0e-6)));
+    EXPECT_TRUE( has( ":WGEN:FUNCtion SINusoid"));
+    EXPECT_TRUE( has( ":WGEN:FUNCtion NOISe"));
+    EXPECT_TRUE( has( ":WGEN:FUNCtion DC"));
+}
+
+TEST( Dsox1202GWgen, TheLoadIsSentOnlyWhenTheScriptNamedIt)
+{
+    auto bench = generator();
+
+    applyDriver( bench->Unit.sine().frequency( 1_kHz).config());
+    applyDriver( bench->Unit.sine().frequency( 1_kHz).into( Termination::Ohms50).config());
+
+    EXPECT_EQ( std::ranges::count( sentByGenerator( *bench), std::string( ":WGEN:OUTPut:LOAD FIFTy")), 1);
+    EXPECT_EQ( std::ranges::count( sentByGenerator( *bench), std::string( ":WGEN:OUTPut:LOAD ONEMeg")), 0);
+    EXPECT_EQ( bench->Unit.termination(), Termination::Ohms50);
+}
+
+TEST( Dsox1202GWgen, TheLimitsAreEnforcedBeforeAnythingIsSent)
+{
+    auto bench = generator();
+
+    static_cast<void>( bench->Unit.session());
+    const auto before = bench->Wire->sent().size();
+
+    using gen::SettingOutOfRange;
+
+    // 100 kHz is a ramp's ceiling; 1 MHz is past it.
+    EXPECT_THROW( applyDriver( bench->Unit.ramp().frequency( 1_MHz).config()), SettingOutOfRange);
+    EXPECT_THROW( applyDriver( bench->Unit.sine().frequency( 30_MHz).config()), SettingOutOfRange);
+    EXPECT_THROW( applyDriver( bench->Unit.sine().frequency( 0.01_Hz).config()), SettingOutOfRange);
+
+    // 2.5 Vpp into 50 Ohm, 5 Vpp into an open circuit.
+    EXPECT_THROW( applyDriver( bench->Unit.sine().amplitude( 3_V).into( Termination::Ohms50).config()), SettingOutOfRange);
+    EXPECT_NO_THROW( applyDriver( bench->Unit.sine().amplitude( 3_V).into( Termination::HighImpedance).config()));
+    EXPECT_THROW( applyDriver( bench->Unit.sine().amplitude( 5.5_V).config()), SettingOutOfRange);
+    EXPECT_THROW( applyDriver( bench->Unit.sine().amplitude( 5_mV).config()), SettingOutOfRange);
+
+    EXPECT_THROW( applyDriver( bench->Unit.square().dutyCycle( 10.0).config()), SettingOutOfRange);
+    EXPECT_THROW( applyDriver( bench->Unit.ramp().symmetry( 101.0).config()), SettingOutOfRange);
+    EXPECT_THROW( applyDriver( bench->Unit.pulse().width( 10_ns).config()), SettingOutOfRange);
+    EXPECT_THROW( applyDriver( bench->Unit.pulse().frequency( 1_MHz).width( 990_ns).config()), SettingOutOfRange);
+
+    // 4 Vpp leaves 0.5 V of headroom each way of a 2.5 V peak.
+    EXPECT_THROW( applyDriver( bench->Unit.sine().amplitude( 4_V).offset( 1_V).config()), SettingOutOfRange);
+
+    // Everything above was refused but the one that was fine.
+    EXPECT_EQ( std::ranges::count( sentByGenerator( *bench), std::string( ":WGEN:OUTPut ON")), 1);
+    EXPECT_GE( bench->Wire->sent().size(), before);
+}
+
+TEST( Dsox1202GWgen, RemoveTurnsTheOutputOff)
+{
+    auto bench = generator();
+
+    applyDriver( bench->Unit.sine().frequency( 1_kHz).config());
+    removeDriver( bench->Unit.sine().config());
+
+    EXPECT_EQ( sentByGenerator( *bench).back(), ":WGEN:OUTPut OFF");
+    EXPECT_FALSE( bench->Unit.isEnabled());
+}
+
+TEST( Dsox1202GWgen, TheInterlockAsksTheInstrumentNotTheDriversMemory)
+{
+    auto bench = generator();
+
+    applyDriver( bench->Unit.sine().frequency( 1_kHz).config());
+
+    // Switched off from the front panel: the driver thinks it is on.
+    bench->Wire->GeneratorOn = false;
+    EXPECT_FALSE( isEnergised( bench->Unit.sine().config()));
+
+    bench->Wire->GeneratorOn = true;
+    EXPECT_TRUE( isEnergised( bench->Unit.sine().config()));
+}
+
+TEST( Dsox1202GWgen, ARefusedCommandIsAFaultNamingIt)
+{
+    auto bench = generator();
+
+    static_cast<void>( bench->Unit.session());
+
+    bench->Wire->Errors.push_back( "-222,\"Data out of range\"");
+
+    EXPECT_THROW( applyDriver( bench->Unit.sine().frequency( 1_kHz).config()), hal::io::ScpiFault);
+}
+
+TEST( Dsox1202GWgen, ADsox1202AHasNoGeneratorAndIsRefused)
+{
+    auto bench = generator();
+
+    bench->Wire->Identity = "KEYSIGHT TECHNOLOGIES,DSO-X 1202A,CN12345678,01.20.2019030220";
+
+    EXPECT_THROW( static_cast<void>( bench->Unit.session()), hal::io::ScpiFault);
+}
+
+TEST( Dsox1202GWgen, SafeSwitchesOffThenRestoresFactoryStateOnAnOpenSessionOnly)
+{
+    // No session anywhere: nothing to send down, and no attempt to open one.
+    WGEN idle{ anyId(), hal::Lan( "wgen-never-opened.invalid") };
+
+    EXPECT_NO_THROW( idle.safe());
+
+    auto bench = generator();
+
+    applyDriver( bench->Unit.sine().frequency( 1_kHz).config());
+    bench->Unit.safe();
+
+    const auto sent = sentByGenerator( *bench);
+
+    ASSERT_GE( sent.size(), 2u);
+    EXPECT_EQ( sent[ sent.size() - 2], ":WGEN:OUTPut OFF");
+    EXPECT_EQ( sent.back(),            ":WGEN:RST");
+    EXPECT_FALSE( bench->Unit.isEnabled());
+    EXPECT_FALSE( bench->Unit.amplitude().has_value());
+}
+
+TEST( Dsox1202GWgen, TheGeneratorSharesTheScopesSessionAndPreparesItForItself)
+{
+    hal::keysight_dsox1202g::DSOX1202G scope{ anyId(), hal::Lan( "wgen-shares-scope.invalid") };
+    WGEN                               unit{ anyId(), hal::Lan( "wgen-shares-scope.invalid") };
+
+    auto  fake = std::make_unique<FakeScope>();
+    auto *wire = fake.get();
+
+    scope.useTransport( std::move( fake));
+
+    static_cast<void>( scope.session());
+    applyDriver( unit.sine().frequency( 1_kHz).config());
+
+    EXPECT_EQ( std::ranges::count( wire->sent(), std::string( "*IDN?")), 2) << "one identity check per family";
+
+    scope.closeSession();
+}
+
+TEST( Dsox1202GWgen, ASimulatedGeneratorRemembersAndSendsNothing)
+{
+    WGEN unit{ anyId(), hal::Simulated{} };
+
+    applyDriver( unit.sine().frequency( 2_kHz).amplitude( 1_V).offset( 0.1_V).into( Termination::Ohms50).config());
+
+    EXPECT_TRUE( unit.isEnabled());
+    EXPECT_EQ( unit.frequency(), 2_kHz);
+    EXPECT_EQ( unit.amplitude(), 1_V);
+    EXPECT_EQ( unit.offset(), 0.1_V);
+    EXPECT_TRUE( unit.outputIsOn());
+
+    removeDriver( unit.sine().config());
+
+    EXPECT_FALSE( unit.outputIsOn());
 }

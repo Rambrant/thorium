@@ -462,6 +462,11 @@ namespace hal::keysight_dsox1202g
 
     auto DSOX1202G::verifyIdentity( io::ScpiSession & opened) -> std::string
     {
+        return detail::verifyScope( opened);
+    }
+
+    auto detail::verifyScope( io::ScpiSession & opened, const bool requireGenerator) -> std::string
+    {
         const std::string identity = opened.identify();
         const auto        token    = modelToken( modelOf( identity));
 
@@ -486,6 +491,14 @@ namespace hal::keysight_dsox1202g
                 io::ScpiError{ 0,
                     "expected a DSOX1202G or a DSOX1202A and found \"" + identity
                     + "\" -- check this instrument's address in the rig's instrument table" });
+        }
+
+        if( requireGenerator && token != "DSOX1202G")
+        {
+            throw io::ScpiFault( opened.description(), "*IDN?",
+                io::ScpiError{ 0,
+                    "\"" + identity + "\" has no built-in waveform generator -- only the G-suffix"
+                    " model has one, so a row naming keysight_dsox1202g::WGEN needs a DSOX1202G" });
         }
 
         return identity;

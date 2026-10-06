@@ -101,11 +101,9 @@ namespace hal::keysight_dsox1202g
     // Also still deliberately deferred:
     //   - Segmented acquisition (:ACQuire:MODE SEGMented) -- a licensed
     //     option, see AcquisitionType.
-    //   - The waveform generator. This is the G model, so there is a 20 MHz
-    //     function generator behind the front panel, and it is a *source*:
-    //     modelling it means applyDriver, removeDriver and a place in the
-    //     rig's safing sequence, not one more Setup. It is a second
-    //     instrument sharing one chassis, and this rig does not use it.
+    //   - The waveform generator is not this class: it is a source, so it is
+    //     a second instrument sharing this one's box, hal::keysight_dsox1202g::
+    //     WGEN (wgen.hpp), with its own row, session family and safing.
     //   - Duty cycle, overshoot, preshoot -- see Channel's own comment on why
     //     these wait on a core decision, not a driver one.
     //   - The trigger kinds beyond edge (:TRIGger:MODE GLITch / PATTern / TV /

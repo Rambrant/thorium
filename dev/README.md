@@ -400,6 +400,14 @@ Its unit tests hand `Swu1` a fake of this rack built from the same hal models,
 because the driver's own simulation knows the slots and not the modules -- it
 would accept any channel, and would not select 1-of-4.
 
+**ScopeGenerator** is the scope's built-in waveform generator, `Wfg2` -- the same
+box as `Osc1`, sharing its session -- checked by the scope it is built into: one
+BNC from Gen Out to CH1, and the group runs whole. Sine, square duty cycle, ramp
+symmetry, pulse width, DC levels, the termination and Remove, against the same
+criteria `WfgIntoScope` uses. The generator is a G-model feature and reaches 5 Vpp
+into an open circuit, so every setting is well inside that. See
+`instruments/keysight_dsox1202g/README.md`.
+
 The chassis is an **instrument row**, `Swu1`, which it was not until this desk
 needed one: preflight checks it, `THORIUM_ADDRESS_Swu1` reaches it, and safing
 opens its relays after every source is off (`hal::RelayHoldingInstrument`, and

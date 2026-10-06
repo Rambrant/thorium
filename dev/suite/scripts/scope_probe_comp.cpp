@@ -19,8 +19,8 @@
 //   acquisition  the four acquisition types, each still reading the square
 //   coupling   AC coupling and the bandwidth limit
 //
-// What it does not: the built-in waveform generator, which the driver does not
-// model yet (see instruments/keysight_dsox1202g/README.md, "Still to come"),
+// What it does not: the built-in waveform generator, which is its own face of
+// the box (Wfg2, see scope_generator.cpp),
 // and the setting builders' every value -- a volts/div or a holdoff is
 // exercised by being sent, and a wrong one shows up as a reading off screen.
 //

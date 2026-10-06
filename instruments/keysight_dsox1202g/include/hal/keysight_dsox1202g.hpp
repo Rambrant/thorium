@@ -46,6 +46,7 @@ THORIUM_REQUIRE_HAL_API( 3);
 //   keysight_dsox1202g/single.hpp         :SINGle      config + builder (Arm, Await)
 //   keysight_dsox1202g/waveform.hpp       :WAVeform    config + builder (Fetch)
 //   keysight_dsox1202g/dsox1202g.hpp      the instrument class
+//   keysight_dsox1202g/wgen.hpp           the built-in waveform generator, a second face of the box
 //   keysight_dsox1202g/channel_view.hpp   Channel<N>, and the Ports it hands out
 //   keysight_dsox1202g/customization.hpp  the ADL hooks the verbs and the journal find
 //
@@ -89,5 +90,6 @@ THORIUM_REQUIRE_HAL_API( 3);
 #include "hal/keysight_dsox1202g/single.hpp"
 #include "hal/keysight_dsox1202g/waveform.hpp"
 #include "hal/keysight_dsox1202g/dsox1202g.hpp"
+#include "hal/keysight_dsox1202g/wgen.hpp"
 #include "hal/keysight_dsox1202g/channel_view.hpp"
 #include "hal/keysight_dsox1202g/customization.hpp"

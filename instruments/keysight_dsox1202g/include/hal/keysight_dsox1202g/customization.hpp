@@ -38,10 +38,10 @@ namespace hal::keysight_dsox1202g
     // That is worth one extra line on this model specifically, because it is
     // the one claim here that a datasheet could be read as contradicting: the
     // G in DSOX1202G is a built-in 20 MHz waveform generator, which genuinely
-    // is an output that energises things. It is not modelled (see this
-    // driver's own comment on what is deferred), so this remains true of the
-    // driver; the day somebody models it, this instrument grows applyDriver and
-    // a place in rig/wiring.inc's safing order, and stops being passive.
+    // is an output that energises things. It is modelled -- but as a separate
+    // face of the box, hal::keysight_dsox1202g::WGEN (wgen.hpp), which has the
+    // applyDriver and removeDriver and the safing this class does not; so this
+    // remains true of the scope itself.
     //
     // Nor connectDriver/disconnectDriver: this scope reaches its DUT point
     // through the matrix, and Measure closes and reopens that route around each

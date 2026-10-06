@@ -63,3 +63,12 @@ auto swuDmmFitted() -> void;
 auto swuDmmOpenBus() -> void;
 auto swuDmmPathOntoNothing() -> void;
 auto swuDmmThroughTheMatrix() -> void;
+
+// ScopeGenerator -- dev/suite/scripts/scope_generator.cpp
+auto wgenSine() -> void;
+auto wgenSquareDutyCycle() -> void;
+auto wgenRampSymmetry() -> void;
+auto wgenPulseWidth() -> void;
+auto wgenDcLevels() -> void;
+auto wgenTermination() -> void;
+auto wgenOutputOff() -> void;

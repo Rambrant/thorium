@@ -103,6 +103,65 @@ instrument it is touching, and the split matches how the settings interact.
 An unset field means *leave whatever is already configured*, so a `Setup` naming
 only the trigger level does not reset the slope.
 
+## The waveform generator: the box's other face
+
+The G in DSOX1202G is a built-in function generator, one output (the Gen Out
+BNC), and it is a *source* — so it is not part of the scope's own class, where
+`Apply( Osc1... )` stays a compile error. It is `hal::keysight_dsox1202g::WGEN`,
+a second face of the scope's box in the way the 34980A's internal DMM is (see
+`keysight_34980a/README.md`): a row of its own, sharing the scope's one session
+and preparing it as its own family.
+
+```cpp
+INSTRUMENT( Scope1, keysight_dsox1202g::DSOX1202G, Osc1, Usb( "CN64504143"))
+INSTRUMENT( Scope1, keysight_dsox1202g::WGEN,      Wfg2, Usb( "CN64504143"))
+```
+
+```cpp
+Apply(  Wfg2.sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( Termination::HighImpedance));
+Apply(  Wfg2.square().frequency( 1_kHz).amplitude( 2_V).dutyCycle( 25.0));
+Apply(  Wfg2.pulse().frequency( 1_kHz).width( 100_us));
+Remove( Wfg2.sine());
+```
+
+One output, so no `channel<N>()`: the instance is the output. Shapes are tags, as
+the 33522B's are, and a builder offers only what its shape has:
+
+| Entry point | `:WGEN:FUNCtion` | Frequency | Shape setting |
+|---|---|---|---|
+| `.sine()` | `SINusoid` | 100 mHz – 20 MHz | |
+| `.square()` | `SQUare` | 100 mHz – 10 MHz | `dutyCycle()`, 20 – 80 % |
+| `.ramp()` | `RAMP` | 100 mHz – 100 kHz | `symmetry()`, 0 – 100 % |
+| `.pulse()` | `PULSe` | 100 mHz – 10 MHz | `width()`, 20 ns – period − 20 ns |
+| `.noise()` | `NOISe` | — | |
+| `.dc()` | `DC` | — | |
+
+There is no triangle: it is `ramp().symmetry( 50.0)`. Amplitude is 10 mVpp – 2.5 Vpp
+into 50 Ω and 20 mVpp – 5 Vpp into an open circuit, and `.into( ...)` is
+`:WGEN:OUTPut:LOAD` — the load the generator *assumes*, not one it can see, so
+the wrong one is a voltage off by two with nothing complaining. The limits are
+checked here and throw `SettingOutOfRange` before anything is sent, as the
+33522B's are.
+
+Things worth knowing:
+
+- **G only.** An A is the same scope with no generator: the scope face accepts
+  either, and this face refuses an A at its identity check, saying why.
+- **The order on the wire** is the 33522B's, for the same reasons: load, function,
+  frequency, shape setting, amplitude, offset, output on. No `:WGEN:RST` on the
+  way.
+- **Safing** is `:WGEN:OUTPut OFF` and then `:WGEN:RST` (1 kHz sine, 500 mVpp, no
+  offset, 1 MΩ, output off) — one command that cannot be refused, in place of
+  collapsing the amplitude to a minimum that depends on the load, whose refusal
+  would sit in the error queue the next face to use the box reads.
+- **The offset limit is an assumption.** The guide states none; this driver uses
+  half the largest amplitude, the most the output stage can swing either way. An
+  offset the instrument refuses is an `hal::io::ScpiFault` naming the command.
+- **Not modelled:** modulation (AM, FM, FSK), `:WGEN:OUTPut:POLarity`, and the
+  high/low-level voltage pair, which says what amplitude and offset already say.
+- **Unconfirmed on hardware.** Written from the 1000 X-Series programmer's
+  guide's `:WGEN` chapter; not yet run against the desk's scope.
+
 ## What a ported script has to re-decide
 
 Six differences from the Infiniium driver, each of them a fact about the
@@ -348,11 +407,6 @@ two-channel bound would silently confine a script to half of it.
 
 **Binary waveform transfer**, and the counted read in `hal/io/` it needs — see
 **The trace** above for when that becomes worth doing.
-
-**The waveform generator.** The G in DSOX1202G is a built-in 20 MHz function
-generator. It is a *source*: modelling it means `applyDriver`, `removeDriver` and
-a place in the rig's safing sequence, not one more `Setup`. This rig does not use
-it, so the driver is passive and `Apply( Osc1... )` is a compile error.
 
 **Segmented acquisition**, which is a licensed option (SGM) this instrument may
 not even have, and **the trigger kinds beyond edge** (`GLITch`, `PATTern`, `TV`,
