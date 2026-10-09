@@ -301,3 +301,122 @@ TEST( CoreQuantity, IntegerLiteralsCarryTheSameScaleFactorAsTheirDecimalSpelling
 
     SUCCEED();
 }
+
+//
+// Compound assignment. The values are checked at runtime; what matters more is
+// which forms do NOT compile, so those are pinned as requires-expressions --
+// a refusal that quietly became an acceptance would otherwise go unnoticed.
+//
+namespace
+{
+    template< typename L, typename R>
+    concept CanAddAssign = requires( L l, R r) { l += r; };
+
+    template< typename L, typename R>
+    concept CanSubAssign = requires( L l, R r) { l -= r; };
+
+    template< typename L, typename R>
+    concept CanMulAssign = requires( L l, R r) { l *= r; };
+
+    template< typename L, typename R>
+    concept CanDivAssign = requires( L l, R r) { l /= r; };
+}
+
+TEST( CoreQuantity, CompoundAssignmentUpdatesTheLeftHandSide)
+{
+    Voltage v = 5.0_V;
+
+    v += 3.0_V;
+    EXPECT_DOUBLE_EQ( v.value(), 8.0);
+
+    v -= 2.0_V;
+    EXPECT_DOUBLE_EQ( v.value(), 6.0);
+
+    v *= 2.0;
+    EXPECT_DOUBLE_EQ( v.value(), 12.0);
+
+    v /= 4.0;
+    EXPECT_DOUBLE_EQ( v.value(), 3.0);
+
+    static_assert( std::is_same_v<decltype( v += 1.0_V), Voltage &>);
+}
+
+TEST( CoreQuantity, CompoundAssignmentRefusesMixedOrUnitChangingForms)
+{
+    static_assert(   CanAddAssign<Voltage, Voltage>);
+    static_assert( ! CanAddAssign<Voltage, Current>);
+    static_assert( ! CanSubAssign<Voltage, Current>);
+
+    static_assert(   CanMulAssign<Voltage, double>);
+    static_assert(   CanDivAssign<Voltage, double>);
+    static_assert( ! CanMulAssign<Voltage, Current>);      // V * A is a VA
+    static_assert( ! CanDivAssign<Voltage, Current>);      // V / A is an Ohm
+    static_assert( ! CanMulAssign<Voltage, Voltage>);
+    static_assert( ! CanDivAssign<Power, PowerFactor>);    // P / PF is a VA
+}
+
+TEST( CoreQuantity, CompoundAssignmentKeepsTemperaturePointsAndDifferencesApart)
+{
+    Temperature      t = 25.0_degC;
+    TemperatureDelta d = 5.0_K;
+
+    t += 20.0_K;
+    EXPECT_DOUBLE_EQ( t.value(), 45.0);
+
+    t -= 5.0_K;
+    EXPECT_DOUBLE_EQ( t.value(), 40.0);
+
+    d += 5.0_K;
+    d *= 2.0;
+    EXPECT_DOUBLE_EQ( d.value(), 20.0);
+
+    static_assert(   CanAddAssign<Temperature, TemperatureDelta>);
+    static_assert(   CanSubAssign<Temperature, TemperatureDelta>);
+    static_assert( ! CanAddAssign<Temperature, Temperature>);   // two points have no sum
+    static_assert( ! CanSubAssign<Temperature, Temperature>);   // point - point is a delta
+    static_assert( ! CanMulAssign<Temperature, double>);        // a point cannot be scaled
+    static_assert( ! CanDivAssign<Temperature, double>);
+    static_assert( ! CanAddAssign<TemperatureDelta, Temperature>);
+    static_assert(   CanAddAssign<TemperatureDelta, TemperatureDelta>);
+}
+
+TEST( CoreQuantity, IntegerScalarsScaleWithoutLosingTheUnit)
+{
+    static_assert( std::is_same_v<decltype( 5.0_V * 2),  Voltage>);
+    static_assert( std::is_same_v<decltype( 2 * 5.0_V),  Voltage>);
+    static_assert( std::is_same_v<decltype( 5.0_V / 2),  Voltage>);
+    static_assert( std::is_same_v<decltype( 5.0_V * 2u), Voltage>);
+
+    EXPECT_DOUBLE_EQ( ( 5.0_V * 2).value(), 10.0);
+    EXPECT_DOUBLE_EQ( ( 2 * 5.0_V).value(), 10.0);
+    EXPECT_DOUBLE_EQ( ( 5.0_V / 2).value(), 2.5);     // not truncated to 2
+
+    Voltage v = 3.0_V;
+    v *= 3;
+    EXPECT_DOUBLE_EQ( v.value(), 9.0);
+    v /= 2;
+    EXPECT_DOUBLE_EQ( v.value(), 4.5);
+
+    TemperatureDelta d = 5.0_K;
+    d *= 4;
+    EXPECT_DOUBLE_EQ( d.value(), 20.0);
+
+    static_assert( ! CanMulAssign<Temperature, int>);   // a point still cannot be scaled
+    static_assert( ! CanDivAssign<Temperature, int>);
+    static_assert( ! CanMulAssign<Voltage, bool>);
+    static_assert( ! CanMulAssign<Voltage, Current>);
+}
+
+TEST( CoreQuantity, ConstructibleFromIntegersButNotBool)
+{
+    static_assert( std::is_constructible_v<Voltage, int>);
+    static_assert( std::is_constructible_v<Voltage, unsigned long long>);
+    static_assert( std::is_constructible_v<Voltage, double>);
+    static_assert( ! std::is_constructible_v<Voltage, bool>);
+    static_assert( ! std::is_convertible_v<int, Voltage>);       // still explicit
+    static_assert( ! std::is_constructible_v<Voltage, Current>);
+
+    EXPECT_DOUBLE_EQ( Voltage{ 5}.value(),  5.0);
+    EXPECT_DOUBLE_EQ( Voltage{ -3}.value(), -3.0);
+    EXPECT_DOUBLE_EQ( PowerFactor{ 1}.value(), 1.0);
+}

@@ -200,6 +200,22 @@ namespace core
         template<typename Unit>
         concept AffineUnit = ! std::same_as<DifferenceUnit<Unit>, Unit>;
 
+        //
+        // What a quantity may be built from or scaled by: any floating-point or
+        // integer type, so `Voltage{ 5}` and `v * 2` work as well as
+        // `Voltage{ 5.0}` and `v * 2.0`. bool is excluded -- it is integral,
+        // and `Voltage{ true}` or `v * true` compiles but means nothing.
+        // Quantity itself is neither, so the cross-unit overloads below can
+        // never collide with the scalar ones.
+        //
+        // The value is always stored as a double and a scaled result is always
+        // Quantity<Unit>: an integer is converted to double before any
+        // arithmetic, so the unit survives and no integer arithmetic
+        // (truncating division, overflow) ever touches the value.
+        //
+        template<typename T>
+        concept Scalar = ( std::floating_point<T> || std::integral<T>) && ! std::same_as<std::remove_cv_t<T>, bool>;
+
         template< typename Unit>
         class Quantity
         {
@@ -208,7 +224,7 @@ namespace core
 
                 constexpr Quantity() = default;
 
-                template< std::floating_point T>
+                template< Scalar T>
                 constexpr explicit Quantity( T value) : mValue( static_cast<double>( value)) {}
 
                 [[nodiscard]]
@@ -544,14 +560,14 @@ namespace core
         // perfectly well, and that is the value a script has when it wants to
         // halve or double a margin.
         //
-        template< typename Unit, std::floating_point T> requires ( ! AffineUnit<Unit>)
+        template< typename Unit, Scalar T> requires ( ! AffineUnit<Unit>)
         [[nodiscard]]
         constexpr auto operator*( Quantity<Unit> q, T scalar) -> Quantity<Unit>
         {
             return Quantity<Unit>{ q.value() * static_cast<double>( scalar) };
         }
 
-        template< typename Unit, std::floating_point T> requires ( ! AffineUnit<Unit>)
+        template< typename Unit, Scalar T> requires ( ! AffineUnit<Unit>)
         [[nodiscard]]
         constexpr auto operator*( T scalar, Quantity<Unit> q) -> Quantity<Unit>
         {
@@ -566,11 +582,62 @@ namespace core
         // (W / W) is likewise not provided yet -- it would need a dimensionless
         // ratio result, which is a separate design question from this pass.
         //
-        template< typename Unit, std::floating_point T> requires ( ! AffineUnit<Unit>)
+        template< typename Unit, Scalar T> requires ( ! AffineUnit<Unit>)
         [[nodiscard]]
         constexpr auto operator/( Quantity<Unit> q, T scalar) -> Quantity<Unit>
         {
             return Quantity<Unit>{ q.value() / static_cast<double>( scalar) };
+        }
+
+        //
+        // Compound assignment: +=, -=, *= and /=.
+        //
+        // Each is defined as "lhs = lhs OP rhs" and is available only when that
+        // binary expression exists AND yields the left-hand type again. That
+        // single rule is the whole of the type safety, and it is inherited
+        // rather than restated, so the compound forms can never disagree with
+        // the binary ones above:
+        //
+        //     Voltage v;       v += 5.0_V;        // ok:      V + V is a V
+        //     Voltage v;       v *= 2.0;          // ok:      V * scalar is a V
+        //     Voltage v;       v += 1.0_A;        // refused: no V + A
+        //     Voltage v;       v *= 2.0_A;        // refused: V * A is a VA, not a V
+        //     Temperature t;   t += 20.0_K;       // ok:      point + difference is a point
+        //     Temperature t;   t += 20.0_degC;    // refused: two points have no sum
+        //     Temperature t;   t -= 20.0_degC;    // refused: point - point is a delta
+        //     Temperature t;   t *= 2.0;          // refused: a point cannot be scaled
+        //
+        // The "yields the left-hand type" half is what rejects the cases where
+        // a binary operator exists but changes the unit (V * A, V / A, P / PF):
+        // there is no sensible value to store back into the left-hand side, and
+        // silently converting would defeat the point of the types.
+        //
+        template< QuantityType Q, typename Rhs>
+            requires requires( Q lhs, Rhs rhs) { { lhs + rhs } -> std::same_as<Q>; }
+        constexpr auto operator+=( Q & lhs, Rhs rhs) -> Q &
+        {
+            return lhs = lhs + rhs;
+        }
+
+        template< QuantityType Q, typename Rhs>
+            requires requires( Q lhs, Rhs rhs) { { lhs - rhs } -> std::same_as<Q>; }
+        constexpr auto operator-=( Q & lhs, Rhs rhs) -> Q &
+        {
+            return lhs = lhs - rhs;
+        }
+
+        template< QuantityType Q, typename Rhs>
+            requires requires( Q lhs, Rhs rhs) { { lhs * rhs } -> std::same_as<Q>; }
+        constexpr auto operator*=( Q & lhs, Rhs rhs) -> Q &
+        {
+            return lhs = lhs * rhs;
+        }
+
+        template< QuantityType Q, typename Rhs>
+            requires requires( Q lhs, Rhs rhs) { { lhs / rhs } -> std::same_as<Q>; }
+        constexpr auto operator/=( Q & lhs, Rhs rhs) -> Q &
+        {
+            return lhs = lhs / rhs;
         }
 
         //

@@ -164,10 +164,12 @@ namespace
     static_assert( !Multipliable<ReactivePower, ReactivePower> );
 
     //
-    // Quantity's converting constructor is constrained to floating_point,
-    // so an int (or any other non-floating-point value) can't construct one.
+    // Quantity's converting constructor takes any floating-point or integer
+    // value (so Voltage{ 5} is 5 V), but not bool, and not another unit.
     //
-    static_assert( !QuantityConstructibleFrom<V_Type, int> );
+    static_assert(  QuantityConstructibleFrom<V_Type, int> );
+    static_assert( !QuantityConstructibleFrom<V_Type, bool> );
+    static_assert( !QuantityConstructibleFrom<V_Type, Current> );
 
     //
     // MASK is restricted to std::integral -- a float or a Quantity<Unit>
