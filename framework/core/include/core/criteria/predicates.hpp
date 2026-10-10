@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/quantities/bytes.hpp"
+#include "core/quantities/mask.hpp"
 #include "core/quantities/quantity.hpp"
 
 #include <array>
@@ -373,8 +374,32 @@ namespace core
         // can be written against directly, instead of every call site first
         // converting it to an int and losing the fact that it is one octet.
         //
+        // A typed Mask<Tag, Rep> (core/quantities/mask.hpp) is admitted too --
+        // it is a bit pattern by definition -- but with one rule an integer does
+        // not have, see BitCompatible below.
+        //
         template<typename T>
-        concept BitPattern = std::integral<T> || std::same_as<T, std::byte>;
+        concept BitPattern = std::integral<T> || std::same_as<T, std::byte> || MaskType<T>;
+
+        //
+        // A typed mask only means something against the register it is a mask
+        // OF, so a pattern and the value it is checked against must either both
+        // be plain bit patterns (integral / std::byte, the long-standing
+        // behaviour: MASK( 0x0Fu, 0x05u) against a uint8_t, an int or a byte)
+        // or, if either one is a Mask, be exactly the same Mask type.
+        //
+        //     MASK( Relays{ 0x0F}, Relays{ 0x05})( relays)   // ok
+        //     MASK( Relays{ 0x0F}, Relays{ 0x05})( faults)   // refused: another register
+        //     MASK( Relays{ 0x0F}, Relays{ 0x05})( 0x05u)    // refused: a bare number
+        //     MASK( 0x0Fu, 0x05u)( relays)                   // refused: untyped pattern
+        //
+        // The last two are the point, not a limitation: they are the mixups the
+        // tag exists to catch, and a criteria table is where they would
+        // otherwise go unnoticed.
+        //
+        template<typename Pattern, typename Actual>
+        concept BitCompatible =
+            ( ! MaskType<Pattern> && ! MaskType<Actual>) || std::same_as<Pattern, Actual>;
 
         namespace detail
         {
@@ -390,7 +415,11 @@ namespace core
             template<BitPattern T>
             constexpr auto toBits( const T value) -> std::uint64_t
             {
-                if constexpr( std::same_as<T, std::byte>)
+                if constexpr( MaskType<T>)
+                {
+                    return static_cast<std::uint64_t>( value.value());
+                }
+                else if constexpr( std::same_as<T, std::byte>)
                 {
                     return static_cast<std::uint64_t>( std::to_integer<unsigned char>( value));
                 }
@@ -405,7 +434,14 @@ namespace core
             template<BitPattern T>
             constexpr auto bitWidth() -> unsigned
             {
-                return static_cast<unsigned>( sizeof( T) * 8u);
+                if constexpr( MaskType<T>)
+                {
+                    return static_cast<unsigned>( T::Width);
+                }
+                else
+                {
+                    return static_cast<unsigned>( sizeof( T) * 8u);
+                }
             }
         } // namespace detail
 
@@ -432,7 +468,7 @@ namespace core
             T mask;
             T expected;
 
-            template<BitPattern ActualT>
+            template<BitPattern ActualT> requires BitCompatible<T, ActualT>
             constexpr auto operator()( const ActualT & value) const -> bool
             {
                 return ( detail::toBits( value) & detail::toBits( mask)) == detail::toBits( expected);
@@ -466,7 +502,7 @@ namespace core
         {
             T mask;
 
-            template<BitPattern ActualT>
+            template<BitPattern ActualT> requires BitCompatible<T, ActualT>
             constexpr auto operator()( const ActualT & value) const -> bool
             {
                 const auto masked = detail::toBits( value) & detail::toBits( mask);

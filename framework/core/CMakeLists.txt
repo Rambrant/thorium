@@ -55,6 +55,7 @@ add_library(core STATIC
         include/core/quantities/quantity_kind.hpp  # header-only apart from src/quantities/quantity_kind.cpp
         include/core/quantities/format.hpp         # header-only apart from src/quantities/format.cpp
         include/core/quantities/bytes.hpp          # header-only apart from src/quantities/bytes.cpp
+        include/core/quantities/mask.hpp           # header-only
         include/core/quantities/waveform.hpp       # header-only apart from src/quantities/waveform.cpp
         # --- core/session: where a reading comes from, and whether an
         # instruction goes anywhere. session.hpp is live/replayed/injected

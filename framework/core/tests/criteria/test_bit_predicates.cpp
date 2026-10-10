@@ -182,3 +182,86 @@ TEST( CoreBitPredicates, AByteIsLoggedAsExactlyTwoHexDigits)
     EXPECT_EQ( core::describeValue( std::byte{ 0xF5 }), "0xF5");
     EXPECT_EQ( core::numericOf( std::byte{ 0xF5 }),     245.0);
 }
+
+//
+// A typed Mask is a bit pattern too, but one that only means something against
+// the register it belongs to: the pattern and the checked value must be the
+// same Mask type. What is pinned here is both directions -- that it works, and
+// that each mixup the tag exists to catch is a compile error.
+//
+namespace
+{
+    struct RelayBank {};
+    struct FaultWord {};
+
+    using Relays = core::quantities::Mask<RelayBank, std::uint8_t>;
+    using Faults = core::quantities::Mask<FaultWord, std::uint16_t>;
+
+    template< typename Mask, typename Expected>
+    concept CanMask = requires( Mask m, Expected e) { MASK( m, e); };
+
+    template< typename Predicate, typename Value>
+    concept Checks = requires( Predicate p, Value v) { { p( v) } -> std::convertible_to<bool>; };
+}
+
+TEST( CoreBitPredicates, MaskPredicateAcceptsTypedMasksOfTheSameRegister)
+{
+    constexpr auto pred = MASK( Relays{ 0x0F}, Relays{ 0x05});
+
+    static_assert(  pred( Relays{ 0xA5}));
+    static_assert( !pred( Relays{ 0xA6}));
+
+    EXPECT_TRUE(  pred( Relays{ 0xF5}));
+    EXPECT_FALSE( pred( Relays{ 0xF4}));
+}
+
+TEST( CoreBitPredicates, TypedMasksRefuseTheMixupsTheTagExistsToCatch)
+{
+    using Typed = decltype( MASK( Relays{ 1}, Relays{ 1}));
+    using Plain = decltype( MASK( 1u, 1u));
+
+    static_assert(   Checks<Typed, Relays>);
+    static_assert( ! Checks<Typed, Faults>);          // another register's bits
+    static_assert( ! Checks<Typed, std::uint8_t>);    // a bare number
+    static_assert( ! Checks<Typed, std::byte>);
+
+    static_assert(   Checks<Plain, std::uint8_t>);    // unchanged: integers and bytes
+    static_assert(   Checks<Plain, std::byte>);
+    static_assert( ! Checks<Plain, Relays>);          // an untyped pattern on a typed value
+
+    using SetTyped = decltype( BITS_SET( Relays{ 1}));
+    static_assert(   Checks<SetTyped, Relays>);
+    static_assert( ! Checks<SetTyped, Faults>);
+    static_assert( ! Checks<SetTyped, unsigned>);
+
+    // MASK itself still takes one type for both arguments, so a pattern and an
+    // expectation cannot come from two registers either.
+    static_assert(   CanMask<Relays, Relays>);
+    static_assert( ! CanMask<Relays, Faults>);
+    static_assert( ! CanMask<Relays, unsigned>);
+
+    SUCCEED();
+}
+
+TEST( CoreBitPredicates, BitsAndNumberedBitPredicatesWorkOnTypedMasks)
+{
+    EXPECT_TRUE(  BITS_SET( Relays{ 0b0110})( Relays{ 0b1111}));
+    EXPECT_FALSE( BITS_SET( Relays{ 0b0110})( Relays{ 0b0100}));
+    EXPECT_TRUE(  BITS_CLEAR( Relays{ 0b0110})( Relays{ 0b1001}));
+
+    EXPECT_TRUE(  BIT_SET<3>()( Relays{ 0b1000}));
+    EXPECT_TRUE(  BIT_CLEAR<3>()( Relays{ 0b0111}));
+    EXPECT_TRUE(  BIT_SET<15>()( Faults{ 0x8000}));
+
+    // The register's own width bounds the bit number, as a byte's does.
+    using Bit8OnRelays = decltype( BIT_SET<8>());
+    using Bit8OnFaults = decltype( BIT_SET<8>());
+    static_assert( ! Checks<Bit8OnRelays, Relays>);
+    static_assert(   Checks<Bit8OnFaults, Faults>);
+}
+
+TEST( CoreBitPredicates, TypedMaskCriteriaDescribeThemselvesAsPatterns)
+{
+    EXPECT_EQ( core::describeCriterion( MASK( Relays{ 0x0F}, Relays{ 0x05})), "(value & 0xF) == 0x5");
+    EXPECT_EQ( core::describeCriterion( BITS_SET( Faults{ 0x00C0})),          "bits 0xC0 set");
+}

@@ -187,6 +187,57 @@ namespace core
         return result;
     }
 
+    namespace
+    {
+        //
+        // The one place the equal-length rule is stated, applied by each of
+        // the three compound operators with its own combining step.
+        //
+        template<typename Op>
+        auto combine( std::vector<std::byte> & lhs, const Bytes & rhs, const char * name, Op op) -> void
+        {
+            if( lhs.size() != rhs.size())
+            {
+                throw std::invalid_argument(
+                    std::string( "Bytes::") + name + ": operands differ in length (" +
+                    std::to_string( lhs.size()) + " vs " + std::to_string( rhs.size()) + ") -- " +
+                    "a bitwise operation needs one octet on each side");
+            }
+
+            std::transform( lhs.begin(), lhs.end(), rhs.begin(), lhs.begin(), op);
+        }
+    } // namespace
+
+    auto Bytes::operator|=( const Bytes & rhs) -> Bytes &
+    {
+        combine( mData, rhs, "operator|", []( std::byte a, std::byte b) { return a | b; });
+        return *this;
+    }
+
+    auto Bytes::operator&=( const Bytes & rhs) -> Bytes &
+    {
+        combine( mData, rhs, "operator&", []( std::byte a, std::byte b) { return a & b; });
+        return *this;
+    }
+
+    auto Bytes::operator^=( const Bytes & rhs) -> Bytes &
+    {
+        combine( mData, rhs, "operator^", []( std::byte a, std::byte b) { return a ^ b; });
+        return *this;
+    }
+
+    auto Bytes::operator~() const -> Bytes
+    {
+        Bytes result = *this;
+
+        for( auto & octet : result.mData)
+        {
+            octet = ~octet;
+        }
+
+        return result;
+    }
+
     auto Bytes::slice( const std::size_t offset, const std::size_t count) const -> Bytes
     {
         //

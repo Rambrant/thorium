@@ -117,6 +117,31 @@ namespace core
             [[nodiscard]] auto startsWith( const Bytes & prefix) const -> bool;
             [[nodiscard]] auto endsWith(   const Bytes & suffix) const -> bool;
 
+            //
+            // Bitwise combination, octet by octet -- a frame's flag byte masked
+            // with |, a checksum folded in with ^, a field cleared with & ~.
+            // Both operands must be the same length, and a mismatch throws
+            // std::invalid_argument rather than padding or truncating: a
+            // five-byte mask applied to a four-byte reply is a protocol error
+            // the script author should see, not a result with a byte invented
+            // for it. (A BytePattern<N> has its length in its type, so the
+            // same mistake is a compile error there -- see below.)
+            //
+            // Compound forms are members and the binary ones are built from
+            // them, so the length check is written once. Word spellings
+            // (`bitor`, `bitand`, `xor`, `compl`) are standard alternative
+            // tokens and need nothing here.
+            //
+            auto operator|=( const Bytes & rhs) -> Bytes &;
+            auto operator&=( const Bytes & rhs) -> Bytes &;
+            auto operator^=( const Bytes & rhs) -> Bytes &;
+
+            [[nodiscard]] auto operator~() const -> Bytes;
+
+            [[nodiscard]] friend auto operator|( Bytes lhs, const Bytes & rhs) -> Bytes { lhs |= rhs; return lhs; }
+            [[nodiscard]] friend auto operator&( Bytes lhs, const Bytes & rhs) -> Bytes { lhs &= rhs; return lhs; }
+            [[nodiscard]] friend auto operator^( Bytes lhs, const Bytes & rhs) -> Bytes { lhs ^= rhs; return lhs; }
+
             [[nodiscard]] auto operator==( const Bytes &) const -> bool = default;
             [[nodiscard]] auto operator<=>( const Bytes &) const = default;
 
@@ -190,6 +215,44 @@ namespace core
 
         [[nodiscard]]
         constexpr auto operator==( const BytePattern & other) const -> bool = default;
+
+        //
+        // Bitwise combination of two patterns of the same length -- the same
+        // length because it is the same N, so unlike Bytes there is no runtime
+        // mismatch to throw about. Constexpr, so a derived expected value
+        // (`ack ^ flags`) can still be a CRIT constant.
+        //
+        [[nodiscard]]
+        friend constexpr auto operator|( BytePattern lhs, const BytePattern & rhs) -> BytePattern
+        {
+            for( std::size_t i = 0; i < N; ++i) { lhs.Data[ i] |= rhs.Data[ i]; }
+            return lhs;
+        }
+
+        [[nodiscard]]
+        friend constexpr auto operator&( BytePattern lhs, const BytePattern & rhs) -> BytePattern
+        {
+            for( std::size_t i = 0; i < N; ++i) { lhs.Data[ i] &= rhs.Data[ i]; }
+            return lhs;
+        }
+
+        [[nodiscard]]
+        friend constexpr auto operator^( BytePattern lhs, const BytePattern & rhs) -> BytePattern
+        {
+            for( std::size_t i = 0; i < N; ++i) { lhs.Data[ i] ^= rhs.Data[ i]; }
+            return lhs;
+        }
+
+        [[nodiscard]]
+        friend constexpr auto operator~( BytePattern p) -> BytePattern
+        {
+            for( std::size_t i = 0; i < N; ++i) { p.Data[ i] = ~p.Data[ i]; }
+            return p;
+        }
+
+        friend constexpr auto operator|=( BytePattern & lhs, const BytePattern & rhs) -> BytePattern & { return lhs = lhs | rhs; }
+        friend constexpr auto operator&=( BytePattern & lhs, const BytePattern & rhs) -> BytePattern & { return lhs = lhs & rhs; }
+        friend constexpr auto operator^=( BytePattern & lhs, const BytePattern & rhs) -> BytePattern & { return lhs = lhs ^ rhs; }
     };
 
     //
