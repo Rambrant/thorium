@@ -81,7 +81,9 @@ installed suite to pick from.
 operator and criteria before a run, and the run's own `runStart` header once
 it has started -- the catalog as a collapsible tree with checkboxes, where
 ticking a group ticks every test in it, and the old console's colour-coded
-results list (with the raw event stream one tab away). It does not yet have the generated
+results list (with the raw event stream one tab away). The setup row also carries the readings choice -- live bench, record to a file, or replay from one --
+since `--record` and `--replay` are exclusive in `run_scripts`; the path is typed, because a
+browser never reveals a real one, and is resolved from where `run_scripts` runs. It does not yet have the generated
 form for the rest of the flags; `GET /api/options` already serves what that
 would be built from, and see "Generating a form from `--describe-options`"
 below for the rules the old console followed, which still apply to whoever

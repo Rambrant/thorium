@@ -4,8 +4,20 @@
     {
       "name": "webui",
       "runtimeExecutable": "build/debug/framework/webui/thorium_webui",
-      "runtimeArgs": ["--run-scripts=build/install/bin/run_scripts", "--port=8421"],
+      "runtimeArgs": [
+        "--run-scripts=build/install/bin/run_scripts",
+        "--port=8421"
+      ],
       "port": 8421
+    },
+    {
+      "name": "webui-dev",
+      "runtimeExecutable": "build/dev/framework/webui/thorium_webui",
+      "runtimeArgs": [
+        "--run-scripts=build/dev/bin/run_scripts",
+        "--port=8422"
+      ],
+      "port": 8422
     }
   ]
 }

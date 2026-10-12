@@ -43,6 +43,7 @@ set(WEBUI_STATIC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/static/js/catalog.js
     ${CMAKE_CURRENT_SOURCE_DIR}/static/js/header.js
     ${CMAKE_CURRENT_SOURCE_DIR}/static/js/logs.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/readings.js
     ${CMAKE_CURRENT_SOURCE_DIR}/static/js/run.js
     ${CMAKE_CURRENT_SOURCE_DIR}/static/js/model/format.js
     ${CMAKE_CURRENT_SOURCE_DIR}/static/js/model/catalog.js
@@ -50,6 +51,7 @@ set(WEBUI_STATIC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/static/js/model/header.js
     ${CMAKE_CURRENT_SOURCE_DIR}/static/js/model/run.js
     ${CMAKE_CURRENT_SOURCE_DIR}/static/js/model/logs.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/static/js/model/readings.js
 )
 set(WEBUI_STATIC_CPP ${CMAKE_CURRENT_BINARY_DIR}/generated/static_content.cpp)
 add_custom_command(

@@ -12,6 +12,7 @@ import { addStderr, clearResults, resultRows } from './results.js';
 import { catalog, clearVerdicts, selection, setVerdict, updateSelection } from './catalog.js';
 import { headerSettings, showRunInfo } from './header.js';
 import { setSavableLogs, updateSaveLog } from './logs.js';
+import { readingsSettings, setReadingsDisabled } from './readings.js';
 
 let currentSource = null;
 
@@ -20,6 +21,7 @@ function setRunning(value) {
   for (const box of $('tree').querySelectorAll('input[type=checkbox]')) box.disabled = value;
   for (const id of ['dutSerial', 'operator', 'criteria', 'selAll', 'selNone']) $(id).disabled = value;
   // The Safe button is untouched, deliberately: it is live at every moment.
+  setReadingsDisabled(value);
   updateSelection();
   updateSaveLog();
 }
@@ -62,7 +64,12 @@ function watchEvents() {
 }
 
 $('run').addEventListener('click', async () => {
-  const request = { selection: selection(), settings: headerSettings(), extra: [] };
+  const readings = readingsSettings();
+  if (readings.error) {
+    setStatus(readings.error, 'fail');
+    return;
+  }
+  const request = { selection: selection(), settings: [...headerSettings(), ...readings.settings], extra: [] };
   clearRaw();
   clearResults();
   $('runinfo').hidden = true;

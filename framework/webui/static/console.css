@@ -23,6 +23,9 @@ input:disabled, select:disabled { opacity: 0.6; }
 #setup .field.serial   { width: 12rem; }
 #setup .field.operator { width: 14rem; }
 #setup .field.criteria { width: 11rem; }
+#setup .field.readings { width: 11rem; }
+#setup .field.path     { width: 16rem; }
+#setup .field.path:has(input[hidden]) { display: none; }
 @media (max-width: 760px) { #panes { grid-template-columns: 1fr; } }
 .note { color: var(--quiet); font-size: 0.8rem; white-space: nowrap; }
 

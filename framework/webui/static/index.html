@@ -15,6 +15,10 @@
       Verify green or red, each reading plain, stderr as a red ERROR.
       The raw event stream is one tab away.
 
+    - record / replay. One choice -- live bench, record to a file, replay
+      from one -- because run_scripts makes --record and --replay exclusive.
+      A replay detaches the bench, and the run's header says so.
+
   A finished run's RTF or SARIF log can be saved from the bar (see
   GET /api/log/ in main.cpp). Still not here: the generated options
   form README.md's "Generating a form from --describe-options" describes.
@@ -44,6 +48,19 @@
     <div class="field criteria">
       <label for="criteria">Criteria</label>
       <input type="text" id="criteria" placeholder="the build's default" autocomplete="off">
+    </div>
+    <div class="field readings">
+      <label for="readingsMode">Readings</label>
+      <select id="readingsMode" title="Where the run's readings come from">
+        <option value="live">Live bench</option>
+        <option value="record">Record to file</option>
+        <option value="replay">Replay from file</option>
+      </select>
+    </div>
+    <div class="field path">
+      <label for="readingsPath">File</label>
+      <input type="text" id="readingsPath" hidden placeholder="readings.tsv" autocomplete="off"
+             title="Relative paths are resolved from where run_scripts runs (build/ under tools/run-webui.sh)">
     </div>
   </div>
 
