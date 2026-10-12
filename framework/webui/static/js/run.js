@@ -13,13 +13,15 @@ import { catalog, clearVerdicts, selection, setVerdict, updateSelection } from '
 import { headerSettings, showRunInfo } from './header.js';
 import { setSavableLogs, updateSaveLog } from './logs.js';
 import { readingsSettings, setReadingsDisabled } from './readings.js';
+import { repeatSettings } from './repeat.js';
+import { expectedTests } from './model/repeat.js';
 
 let currentSource = null;
 
 function setRunning(value) {
   state.running = value;
   for (const box of $('tree').querySelectorAll('input[type=checkbox]')) box.disabled = value;
-  for (const id of ['dutSerial', 'operator', 'criteria', 'selAll', 'selNone']) $(id).disabled = value;
+  for (const id of ['dutSerial', 'operator', 'criteria', 'passes', 'stopOnFailure', 'selAll', 'selNone']) $(id).disabled = value;
   // The Safe button is untouched, deliberately: it is live at every moment.
   setReadingsDisabled(value);
   updateSelection();
@@ -69,13 +71,22 @@ $('run').addEventListener('click', async () => {
     setStatus(readings.error, 'fail');
     return;
   }
-  const request = { selection: selection(), settings: [...headerSettings(), ...readings.settings], extra: [] };
+  const repeat = repeatSettings();
+  if (repeat.error) {
+    setStatus(repeat.error, 'fail');
+    return;
+  }
+  const request = {
+    selection: selection(),
+    settings: [...headerSettings(), ...readings.settings, ...repeat.settings],
+    extra: [],
+  };
   clearRaw();
   clearResults();
   $('runinfo').hidden = true;
   clearVerdicts();
   setSavableLogs({});
-  state.run = newRun(request.selection.length || catalog.length);
+  state.run = newRun(expectedTests(request.selection.length || catalog.length, repeat.passes));
 
   setRunning(true);
   setStatus('Starting run...');

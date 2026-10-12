@@ -83,7 +83,10 @@ it has started -- the catalog as a collapsible tree with checkboxes, where
 ticking a group ticks every test in it, and the old console's colour-coded
 results list (with the raw event stream one tab away). The setup row also carries the readings choice -- live bench, record to a file, or replay from one --
 since `--record` and `--replay` are exclusive in `run_scripts`; the path is typed, because a
-browser never reveals a real one, and is resolved from where `run_scripts` runs. It does not yet have the generated
+browser never reveals a real one, and is resolved from where `run_scripts` runs.
+It also carries a pass count (`--repeat`) and a "stop at first failure" box (`--until-failure`). The box
+requires the count: unbounded, a DUT that never fails would run until the server was killed, because
+this console has no way to stop a run and `run_scripts` handles no signal. It does not yet have the generated
 form for the rest of the flags; `GET /api/options` already serves what that
 would be built from, and see "Generating a form from `--describe-options`"
 below for the rules the old console followed, which still apply to whoever
