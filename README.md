@@ -1444,6 +1444,7 @@ fails that build rather than being reported.
 | `--criteria=NAME` | apply that tolerance variant — `production`, `stress`, `aged` |
 | `--repeat=N` | run the selection N times over |
 | `--until-failure` | stop as soon as a pass fails |
+| `--stop-on-stdin` | end the run after the current test when stdin says `stop` — how a supervising console stops one |
 | `--safe` | drop the rig to idle and exit — no test, no log |
 | `--record=PATH` | write every reading the run took, in order (heavy payloads go to `PATH.d/`) |
 | `--replay=PATH` | take every reading from that file instead of the rig (honours `--select`) |
@@ -1480,6 +1481,14 @@ build/debug/bin/run_scripts --repeat=50                    # fifty passes
 build/debug/bin/run_scripts --until-failure                # until something breaks
 build/debug/bin/run_scripts --repeat=50 --until-failure    # at most fifty, stop on failure
 ```
+
+**Ending a run early.** Ctrl-C (`SIGINT`, or `SIGTERM`) is a request, not a kill: the run
+stops starting new work — it is checked between tests, groups and passes, never inside a script — and
+ends the way a run ends. The current test finishes, the teardown hooks run, the rig is safed, both
+logs and any recording are written, and the report notes `stopped by operator`. The exit status is
+non-zero: a stopped run did not do what it was asked to, whatever its checks said. A second Ctrl-C
+kills the process on the spot, and then the rig is as the run left it — run `--safe`. A signal
+arriving during preflight is still the ordinary kill, because nothing has been energised yet.
 
 `--until-failure` on its own has no bound, deliberately: how many passes a DUT
 survives is what such a run is trying to find out, so requiring the number up

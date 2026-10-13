@@ -5,8 +5,7 @@
 
 import { $, setStatus } from './dom.js';
 import { state } from './state.js';
-import { plural } from './model/format.js';
-import { applyEvent, newRun, outcome, progressText } from './model/run.js';
+import { applyEvent, emergencyOutcome, newRun, outcome, progressText, runningText } from './model/run.js';
 import { append, clearRaw } from './raw.js';
 import { addStderr, clearResults, resultRows } from './results.js';
 import { catalog, clearVerdicts, selection, setVerdict, updateSelection } from './catalog.js';
@@ -23,6 +22,9 @@ function setRunning(value) {
   for (const box of $('tree').querySelectorAll('input[type=checkbox]')) box.disabled = value;
   for (const id of ['dutSerial', 'operator', 'criteria', 'passes', 'stopOnFailure', 'selAll', 'selNone']) $(id).disabled = value;
   // The Safe button is untouched, deliberately: it is live at every moment.
+  // Stop and Emergency are the opposite: only a run gives them anything to do.
+  $('stop').disabled = !value;
+  $('emergency').disabled = !value;
   setReadingsDisabled(value);
   updateSelection();
   updateSaveLog();
@@ -41,6 +43,8 @@ function onEvent(parsed) {
 
 function runFinished() {
   setRunning(false);
+  // The emergency button's own reply says how it went, and may already have.
+  if (state.run.stopped === 'emergency') return;
   const { text, tone } = outcome(state.run);
   setStatus(text, tone);
 }
@@ -100,7 +104,7 @@ $('run').addEventListener('click', async () => {
     setStatus('A run is already active.', 'fail');
     return;
   }
-  setStatus('Running ' + plural(state.run.expected, 'test') + '...');
+  setStatus(runningText(state.run.expected));
   watchEvents();
 });
 
@@ -110,4 +114,33 @@ $('safe').addEventListener('click', async () => {
   const body = await response.json();
   if (body.ok) setStatus('Rig safed: all outputs off, all relays open.');
   else setStatus('SAFING FAILED -- do not approach the fixture', 'fail');
+});
+
+$('stop').addEventListener('click', async () => {
+  $('stop').disabled = true;
+  // Before the request, not after: the run may end before the reply does, and
+  // the outcome it ends with must already know it was asked to.
+  state.run.stopped = 'stop';
+  setStatus('Stopping after the current test...');
+  const response = await fetch('/api/stop', { method: 'POST' });
+  if (!response.ok) {
+    // 409: the run ended between the click and the request.
+    state.run.stopped = null;
+    if (state.running) setStatus('There was no run to stop.');
+  }
+});
+
+// No confirmation, on purpose: this is the button for when there is no time
+// for one, and Stop is the calm way out.
+$('emergency').addEventListener('click', async () => {
+  $('stop').disabled = true;
+  $('emergency').disabled = true;
+  state.run.stopped = 'emergency';
+  setStatus('EMERGENCY STOP -- killing the run and safing the rig...', 'fail');
+  let reply = { killed: false, safed: false };
+  try {
+    reply = await (await fetch('/api/emergency', { method: 'POST' })).json();
+  } catch (e) { /* the server did not answer: safed stays false */ }
+  const { text, tone } = emergencyOutcome(reply);
+  setStatus(text, tone);
 });

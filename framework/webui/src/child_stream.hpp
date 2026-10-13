@@ -69,6 +69,26 @@ namespace webui
             //
             auto join() -> void;
 
+            //
+            // Asks the run to end the way Ctrl-C does: writes "stop" to the
+            // child's stdin, which run_scripts reads under --stop-on-stdin (see
+            // framework/runner/src/stop_request.hpp). The child finishes its
+            // current test, runs its teardown, safes the rig and writes its
+            // logs. A pipe rather than a signal because Windows has no way to
+            // signal a child that has no console. False if the child has
+            // already gone or the write failed; true only means the request
+            // was delivered, not that the run has noticed it.
+            //
+            auto requestStop() -> bool;
+
+            //
+            // Ends the child at once, with no chance to wind down: SIGKILL, or
+            // TerminateProcess. The rig is left as it was, so a caller must
+            // follow it with a --safe; no logs are written. False if the child
+            // has already been reaped.
+            //
+            auto kill() -> bool;
+
         private:
             auto readLoop() -> void;
             auto readStderrLoop() -> void;

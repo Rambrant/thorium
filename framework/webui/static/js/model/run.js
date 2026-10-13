@@ -7,7 +7,9 @@
 import { plural } from './format.js';
 
 export function newRun(expected) {
-  return { sawRunStart: false, passed: undefined, finished: 0, failed: 0, errors: [], current: '', expected };
+  // `stopped` is what this page asked for, not what happened: null, 'stop' or
+  // 'emergency'. `expected` is null for a run with no bound.
+  return { sawRunStart: false, passed: undefined, finished: 0, failed: 0, errors: [], current: '', expected, stopped: null };
 }
 
 // Updates the record for one event, and says which test's verdict in the
@@ -32,12 +34,22 @@ export function applyEvent(run, e) {
 }
 
 export function progressText(run) {
+  if (run.expected === null) return plural(run.finished, 'test') + ' run -- ' + run.failed + ' failed';
   return run.finished + '/' + run.expected + ' -- ' + run.failed + ' failed';
 }
 
 // The four outcomes README.md's "What a run means" lists, told apart by the
 // stream rather than by an exit code this page never sees.
 export function outcome(run) {
+  // Asked to end early and did: run_scripts reports that as not passed -- a run
+  // that ended early did not make the claim a pass makes -- so what the page
+  // says is its own. Tone follows the checks that did run, never the exit.
+  if (run.stopped === 'stop' && run.passed === false) {
+    return run.failed === 0
+      ? { text: 'STOPPED -- ' + plural(run.finished, 'test') + ', none failed (the run did not finish)', tone: 'pass' }
+      : { text: 'STOPPED -- ' + run.failed + ' of ' + run.finished + ' failed', tone: 'fail' };
+  }
+
   if (!run.sawRunStart) {
     return { text: 'The run did not start' + (run.errors.length ? ': ' + run.errors.join(' ') : ''), tone: 'fail' };
   }
@@ -46,4 +58,22 @@ export function outcome(run) {
   }
   if (run.passed) return { text: 'PASSED -- ' + plural(run.finished, 'test'), tone: 'pass' };
   return { text: 'FAILED -- ' + run.failed + ' of ' + run.finished, tone: 'fail' };
+}
+
+// What the status line says while a run is going.
+export function runningText(expected) {
+  return expected === null ? 'Running until a test fails or you stop it...' : 'Running ' + plural(expected, 'test') + '...';
+}
+
+// What the page says once an emergency stop has been answered: { killed, safed }
+// from /api/emergency. The run's logs are never written on this path, and the
+// rig is only known idle if --safe reported so.
+export function emergencyOutcome(reply) {
+  if (!reply.safed) return { text: 'SAFING FAILED -- do not approach the fixture', tone: 'fail' };
+  return {
+    text: reply.killed
+      ? 'EMERGENCY STOP -- run killed, rig safed. This run wrote no logs.'
+      : 'Rig safed: all outputs off, all relays open.',
+    tone: 'fail',
+  };
 }

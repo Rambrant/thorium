@@ -13,6 +13,7 @@
     // -D, applied before any header is parsed, has no such ordering to lose.
     #include <windows.h>
 #else
+    #include <csignal>
     #include <sys/wait.h>
     #include <unistd.h>
     #include <fcntl.h>
@@ -151,6 +152,11 @@ namespace webui
         HANDLE  Thread{ nullptr };
         HANDLE  ReadEnd{ nullptr };
         HANDLE  StderrReadEnd{ nullptr };
+
+        // Guards StdinWrite and Process, which requestStop() and kill() use
+        // from a request thread while the reader thread closes them.
+        std::mutex  Mutex;
+        HANDLE      StdinWrite{ nullptr };
     };
 
     ChildStream::ChildStream( Handlers handlers)
@@ -188,21 +194,29 @@ namespace webui
         }
         SetHandleInformation( platform->StderrReadEnd, HANDLE_FLAG_INHERIT, 0);
 
-        // The child gets no stdin of its own -- it points at NUL, so a
-        // program that unexpectedly reads it does not block waiting for us.
+        // stdin is a pipe too, the one way this program can tell a run to stop
+        // (see requestStop). Nothing else is ever written to it, and a child
+        // that reads it without being asked to (no --stop-on-stdin) simply
+        // blocks, which is what it did on NUL's cousin anyway.
         // stdout and stderr each get their own pipe: see child_stream.hpp's
         // Handlers comment on why a preflight failure's explanation must not
         // be silently discarded, and must not be folded into OnLine's stream
         // either.
-        const auto  nul = CreateFileW(
-            L"NUL", GENERIC_READ | GENERIC_WRITE,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
-            &pipeAttrs, OPEN_EXISTING, 0, nullptr);
+        HANDLE  stdinRead = nullptr;
+        if ( CreatePipe( &stdinRead, &platform->StdinWrite, &pipeAttrs, 0) == 0)
+        {
+            CloseHandle( platform->ReadEnd);
+            CloseHandle( writeEnd);
+            CloseHandle( platform->StderrReadEnd);
+            CloseHandle( stderrWriteEnd);
+            return false;
+        }
+        SetHandleInformation( platform->StdinWrite, HANDLE_FLAG_INHERIT, 0);
 
         STARTUPINFOW  startup{};
         startup.cb = sizeof( startup);
         startup.dwFlags = STARTF_USESTDHANDLES;
-        startup.hStdInput = nul;
+        startup.hStdInput = stdinRead;
         startup.hStdOutput = writeEnd;
         startup.hStdError = stderrWriteEnd;
 
@@ -224,15 +238,13 @@ namespace webui
 
         CloseHandle( writeEnd);
         CloseHandle( stderrWriteEnd);
-        if ( nul != nullptr && nul != INVALID_HANDLE_VALUE)
-        {
-            CloseHandle( nul);
-        }
+        CloseHandle( stdinRead);
 
         if ( created == 0)
         {
             CloseHandle( platform->ReadEnd);
             CloseHandle( platform->StderrReadEnd);
+            CloseHandle( platform->StdinWrite);
             return false;
         }
 
@@ -273,6 +285,12 @@ namespace webui
 
         CloseHandle( mPlatform->ReadEnd);
 
+        {
+            std::lock_guard  lock( mPlatform->Mutex);
+            CloseHandle( mPlatform->StdinWrite);
+            mPlatform->StdinWrite = nullptr;
+        }
+
         // Drain stderr before reporting the exit, not after: a caller told
         // "it's over" must already have every stderr line a preflight
         // failure wrote, not receive it as a straggler after OnExit.
@@ -286,7 +304,11 @@ namespace webui
         DWORD  exitCode = 0;
         GetExitCodeProcess( mPlatform->Process, &exitCode);
 
-        CloseHandle( mPlatform->Process);
+        {
+            std::lock_guard  lock( mPlatform->Mutex);
+            CloseHandle( mPlatform->Process);
+            mPlatform->Process = nullptr;
+        }
         CloseHandle( mPlatform->Thread);
 
         if ( mHandlers.OnExit)
@@ -330,6 +352,39 @@ namespace webui
         {
             mReader.join();
         }
+    }
+
+    auto ChildStream::requestStop() -> bool
+    {
+        if ( mPlatform == nullptr)
+        {
+            return false;
+        }
+
+        std::lock_guard  lock( mPlatform->Mutex);
+
+        if ( mPlatform->StdinWrite == nullptr)
+        {
+            return false;
+        }
+
+        static constexpr char  kStop[] = "stop\n";
+        DWORD  written = 0;
+
+        return WriteFile( mPlatform->StdinWrite, kStop, sizeof( kStop) - 1, &written, nullptr) != 0
+            && written == sizeof( kStop) - 1;
+    }
+
+    auto ChildStream::kill() -> bool
+    {
+        if ( mPlatform == nullptr)
+        {
+            return false;
+        }
+
+        std::lock_guard  lock( mPlatform->Mutex);
+
+        return mPlatform->Process != nullptr && TerminateProcess( mPlatform->Process, 1) != 0;
     }
 
     auto runBlocking( std::vector<std::string> argv) -> BlockingResult
@@ -386,6 +441,12 @@ namespace webui
         pid_t  Pid{ -1 };
         int    ReadFd{ -1 };
         int    StderrReadFd{ -1 };
+
+        // Guards StdinFd and Reaped, which requestStop() and kill() use from a
+        // request thread while the reader thread closes and reaps.
+        std::mutex  Mutex;
+        int         StdinFd{ -1 };
+        bool        Reaped{ false };
     };
 
     ChildStream::ChildStream( Handlers handlers)
@@ -420,8 +481,8 @@ namespace webui
             return false;
         }
 
-        const auto  pid = fork();
-        if ( pid < 0)
+        int  stdinPipeFds[ 2];
+        if ( pipe( stdinPipeFds) != 0)
         {
             close( pipeFds[ 0]);
             close( pipeFds[ 1]);
@@ -430,26 +491,40 @@ namespace webui
             return false;
         }
 
+        // Writing "stop" to a child that has already exited is an ordinary
+        // outcome of a click that raced the end of a run, and must be an error
+        // return rather than a SIGPIPE that ends this server.
+        std::signal( SIGPIPE, SIG_IGN);
+
+        const auto  pid = fork();
+        if ( pid < 0)
+        {
+            close( pipeFds[ 0]);
+            close( pipeFds[ 1]);
+            close( stderrPipeFds[ 0]);
+            close( stderrPipeFds[ 1]);
+            close( stdinPipeFds[ 0]);
+            close( stdinPipeFds[ 1]);
+            return false;
+        }
+
         if ( pid == 0)
         {
-            // Child: stdout and stderr each go to their own pipe, stdin to
-            // /dev/null -- see child_stream.hpp's Handlers comment on why
-            // stderr is captured rather than discarded, and kept separate
-            // from stdout's own stream.
+            // Child: stdout and stderr each go to their own pipe -- see
+            // child_stream.hpp's Handlers comment on why stderr is captured
+            // rather than discarded, and kept separate from stdout's own
+            // stream -- and stdin to a third, the one way this program can
+            // tell a run to stop (see requestStop).
             dup2( pipeFds[ 1], STDOUT_FILENO);
             dup2( stderrPipeFds[ 1], STDERR_FILENO);
-
-            const auto  nullFd = open( "/dev/null", O_RDONLY);
-            if ( nullFd >= 0)
-            {
-                dup2( nullFd, STDIN_FILENO);
-                close( nullFd);
-            }
+            dup2( stdinPipeFds[ 0], STDIN_FILENO);
 
             close( pipeFds[ 0]);
             close( pipeFds[ 1]);
             close( stderrPipeFds[ 0]);
             close( stderrPipeFds[ 1]);
+            close( stdinPipeFds[ 0]);
+            close( stdinPipeFds[ 1]);
 
             std::vector<char *>  storage;
             execvp( argv.front().c_str(), buildArgv( argv, storage));
@@ -462,8 +537,14 @@ namespace webui
 
         close( pipeFds[ 1]);
         close( stderrPipeFds[ 1]);
+        close( stdinPipeFds[ 0]);
+
+        // Not inherited by any later child (--safe, the next run's): a second
+        // holder of this end is a pipe that never closes.
+        fcntl( stdinPipeFds[ 1], F_SETFD, FD_CLOEXEC);
 
         auto  platform = std::make_unique<Platform>();
+        platform->StdinFd = stdinPipeFds[ 1];
         platform->Pid = pid;
         platform->ReadFd = pipeFds[ 0];
         platform->StderrReadFd = stderrPipeFds[ 0];
@@ -496,6 +577,12 @@ namespace webui
 
         close( mPlatform->ReadFd);
 
+        {
+            std::lock_guard  lock( mPlatform->Mutex);
+            close( mPlatform->StdinFd);
+            mPlatform->StdinFd = -1;
+        }
+
         // Drain stderr before reporting the exit, not after -- same ordering
         // as the Windows readLoop, and the same reason.
         if ( mStderrReader.joinable())
@@ -503,8 +590,28 @@ namespace webui
             mStderrReader.join();
         }
 
+        //
+        // Polled rather than blocked in, and under the lock: kill() must never
+        // signal a pid that has been reaped and may have been handed to
+        // another process, so reaping and "has been reaped" change together.
+        // The child has closed its stdout by now, so this is a few
+        // milliseconds, not a wait on the run.
+        //
         int  status = 0;
-        waitpid( mPlatform->Pid, &status, 0);
+        for ( ;;)
+        {
+            {
+                std::lock_guard  lock( mPlatform->Mutex);
+
+                if ( waitpid( mPlatform->Pid, &status, WNOHANG) != 0)
+                {
+                    mPlatform->Reaped = true;
+                    break;
+                }
+            }
+
+            usleep( 5000);
+        }
 
         const auto  exitCode = WIFEXITED( status) ? WEXITSTATUS( status) : -1;
 
@@ -543,6 +650,38 @@ namespace webui
         {
             mReader.join();
         }
+    }
+
+    auto ChildStream::requestStop() -> bool
+    {
+        if ( mPlatform == nullptr)
+        {
+            return false;
+        }
+
+        std::lock_guard  lock( mPlatform->Mutex);
+
+        if ( mPlatform->StdinFd < 0)
+        {
+            return false;
+        }
+
+        static constexpr char  kStop[] = "stop\n";
+
+        return write( mPlatform->StdinFd, kStop, sizeof( kStop) - 1)
+            == static_cast<ssize_t>( sizeof( kStop) - 1);
+    }
+
+    auto ChildStream::kill() -> bool
+    {
+        if ( mPlatform == nullptr)
+        {
+            return false;
+        }
+
+        std::lock_guard  lock( mPlatform->Mutex);
+
+        return !mPlatform->Reaped && ::kill( mPlatform->Pid, SIGKILL) == 0;
     }
 
     auto runBlocking( std::vector<std::string> argv) -> BlockingResult

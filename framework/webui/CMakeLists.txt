@@ -101,6 +101,14 @@ if(BUILD_TESTING_LAYERS)
     )
     add_dependencies(webui_protocol_tests run_scripts)
 
+    # The two files that start and end a child process are not in the library
+    # (the server is their only consumer), but the tests of stopping a run need
+    # them -- see tests/test_run_session.cpp.
+    target_sources(webui_protocol_tests PRIVATE src/run_session.cpp src/child_stream.cpp)
+    if(WIN32)
+        target_compile_definitions(webui_protocol_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+    endif()
+
     # The page's JavaScript -- static/js/model/, the part of it that never
     # touches the page -- tested in headless Chrome by cmake/RunJsTests.cmake;
     # see there for why Chrome and not Node. Nothing to build: the test page

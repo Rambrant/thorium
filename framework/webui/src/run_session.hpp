@@ -66,6 +66,24 @@ namespace webui
             [[nodiscard]]
             auto lines() const -> std::vector<std::string>;
 
+            //
+            // Asks the active run to end after its current test -- see
+            // ChildStream::requestStop. False if no run is active or the
+            // request could not be delivered; the run's own stream says when
+            // it has actually ended. Never changes what a run *is*: it is not
+            // a verdict, and run_scripts reports a stopped run as not passed.
+            //
+            auto stop() -> bool;
+
+            //
+            // Kills the active run at once and waits, briefly, for it to be
+            // gone. True if a run was killed and is no longer active when this
+            // returns. The caller owes the rig a --safe afterwards -- this
+            // class does not run it, so that "stop the process" and "make the
+            // rig idle" stay two steps that can each be reported on.
+            //
+            auto kill() -> bool;
+
         private:
             mutable std::mutex          mMutex;
             std::condition_variable     mCv;

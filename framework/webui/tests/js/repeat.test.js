@@ -17,10 +17,9 @@ test('repeatSettings: stopping at the first failure adds --until-failure after t
   assertEqual(flags(repeatSettings({ passes: '10', stopOnFailure: true })), ['--repeat=10', '--until-failure']);
 });
 
-test('repeatSettings: stopping at the first failure without a count is an error, never unbounded', () => {
+test('repeatSettings: stopping at the first failure without a count is unbounded, and says so', () => {
   const r = repeatSettings({ passes: '', stopOnFailure: true });
-  assertEqual(r.settings, []);
-  assertEqual(typeof r.error, 'string');
+  assertEqual([flags(r), r.passes, r.error], [['--until-failure'], null, null]);
 });
 
 test('repeatSettings: zero, negative, fractional and non-numeric counts are refused', () => {
@@ -29,6 +28,7 @@ test('repeatSettings: zero, negative, fractional and non-numeric counts are refu
   }
 });
 
-test('expectedTests: the selection, once per pass', () => {
+test('expectedTests: the selection, once per pass -- and nothing to expect when unbounded', () => {
   assertEqual(expectedTests(9, 3), 27);
+  assertEqual(expectedTests(9, null), null);
 });

@@ -13,6 +13,7 @@ namespace webui
             argv.emplace_back( "--quiet");
             argv.emplace_back( "--no-color");
             argv.emplace_back( "--events=-");
+            argv.emplace_back( "--stop-on-stdin");
         }
 
         auto joined( const std::vector<std::string> & values, const char separator) -> std::string

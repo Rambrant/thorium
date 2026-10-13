@@ -94,7 +94,9 @@ target_compile_definitions(scripts PUBLIC
 # framework to maintaining it as such. It is this runner's parser and lives
 # beside the only file that includes it.
 add_executable(run_scripts src/main.cpp)
-target_link_libraries(run_scripts PRIVATE scripts)
+# Threads: src/stop_request.hpp reads stdin for "stop" on a thread of its own.
+find_package(Threads REQUIRED)
+target_link_libraries(run_scripts PRIVATE scripts Threads::Threads)
 
 # Pinned rather than left to land beside this CMakeLists.txt, so the path a
 # developer types is a property of the build tree instead of a property of where

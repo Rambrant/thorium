@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "cli.hpp"
+#include "stop_request.hpp"
 #include "core/catalog/active_test_catalog.hpp"
 #include "core/session/bench.hpp"
 #include "core/journal/console_sink.hpp"
@@ -360,6 +361,18 @@ namespace
         [[= cli::Flag{ "--until-failure" },
            = cli::Doc{ "stop as soon as a pass fails" }]]
         bool                           UntilFailure{ false };
+
+        //
+        // For a supervising process: a line reading "stop" on stdin asks the
+        // run to end the way Ctrl-C does -- after the current test, with the
+        // rig safed and both logs written. Off unless asked for, because
+        // reading stdin is wrong for a run started from a terminal, where
+        // Ctrl-C is the way and stdin is somebody's keyboard. See
+        // stop_request.hpp.
+        //
+        [[= cli::Flag{ "--stop-on-stdin" },
+           = cli::Doc{ "end the run after the current test when stdin says \"stop\"" }]]
+        bool                           StopOnStdin{ false };
 
         //
         // The replayable value stream (core/session/recording.hpp), separate from the
@@ -887,6 +900,13 @@ namespace
             if ( !anySelected( group, selection))
                 continue;
 
+            //
+            // Before the group opens, so a stop does not pay for a group's
+            // SETUP and TEARDOWN to run no tests.
+            //
+            if ( runner::stopNow())
+                break;
+
             core::journal().beginGroup( group.name, group.description);
 
             //
@@ -960,6 +980,14 @@ namespace
         {
             if ( !isSelected( test.id, selection))
                 continue;
+
+            //
+            // Between tests and nowhere else: a stop request ends the run the
+            // way a run ends, which a script abandoned half way would not.
+            // See stop_request.hpp.
+            //
+            if ( runner::stopNow())
+                return;
 
             core::journal().beginTest( test.id, test.description);
 
@@ -1146,6 +1174,9 @@ namespace
 
         for ( std::uint64_t pass = 0; pass < passes; ++pass)
         {
+            if ( runner::stopNow())
+                break;
+
             //
             // Recorded only when there is more than one, so an ordinary single
             // run's log is unchanged. Without it a repeated run's log is the
@@ -1179,6 +1210,27 @@ namespace
 
                 break;
             }
+        }
+
+        //
+        // Said once, here, whichever boundary noticed. A stopped run is never a
+        // pass: the exit status is the claim that every selected test passed,
+        // and a run that ended early did not make it. Not printed to stderr
+        // under --stop-on-stdin, where the console would draw it as an error
+        // and the event stream already carries it.
+        //
+        if ( runner::stopHonoured())
+        {
+            if ( !options.StopOnStdin)
+                std::cerr << "Stopped by operator.\n";
+
+            core::journal().post( core::JournalRecord{
+                .Method  = core::Verb::Note,
+                .Subject = "run",
+                .Detail  = "stopped by operator"
+            });
+
+            allPassed = false;
         }
     }
 
@@ -1774,6 +1826,17 @@ int main( int argc, char ** argv)
 
     if ( !armReadings( options))
         return 1;
+
+    //
+    // After everything that can fail before the run, so a Ctrl-C during
+    // preflight is still the ordinary kill it always was: nothing is energised
+    // yet and there is nothing to wind down. From here on it is a request, not
+    // a kill -- see stop_request.hpp.
+    //
+    runner::installStopSignals();
+
+    if ( options.StopOnStdin)
+        runner::watchStdinForStop();
 
     core::journal().begin( runInfo);
 

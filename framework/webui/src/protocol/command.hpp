@@ -67,6 +67,11 @@ namespace webui
     //                otherwise, because JSON and coloured prose on one stdout
     //                is neither (see parseOptions in main.cpp)
     //   --no-color   because nothing renders ANSI here
+    //   --stop-on-stdin
+    //                the way the Stop button reaches the run: the child's stdin
+    //                is a pipe this program writes "stop" to (see
+    //                ChildStream::requestStop). Without it a run could only be
+    //                ended by killing it
     //
     // Deliberately absent: --no-logs. A run started from this window leaves the
     // same RTF and SARIF a terminal run does, because a run's record must not

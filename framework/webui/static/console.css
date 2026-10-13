@@ -8,7 +8,8 @@ button { font-size: 0.95rem; padding: 0.45rem 0.9rem; cursor: pointer; border-ra
          border: 1px solid var(--line); background: #333; color: var(--text); }
 button:disabled { opacity: 0.45; cursor: default; }
 button.small { font-size: 0.8rem; padding: 0.2rem 0.55rem; }
-#safe { background: #7a1f1f; color: white; border: none; }
+#safe, #emergency { background: #7a1f1f; color: white; border: none; }
+#emergency { background: #b3261e; font-weight: 600; }
 #run { background: #1f5c3a; color: white; border: none; }
 input[type=text], select { font: inherit; padding: 0.35rem 0.5rem; background: #111; color: var(--text);
                            border: 1px solid var(--line); border-radius: 4px; width: 100%; }
@@ -99,7 +100,7 @@ input:disabled, select:disabled { opacity: 0.6; }
 
 /* --- the bar ------------------------------------------------------- */
 #bar { display: flex; gap: 0.5rem; align-items: center; }
-#bar #safe { margin-left: 1.25rem; }
+#bar #stop { margin-left: 1.25rem; }
 #bar #logKind { width: auto; margin-left: 1.25rem; }
 #status { margin-left: auto; color: var(--quiet); }
 #status.pass { color: var(--pass); font-weight: 600; }

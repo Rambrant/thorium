@@ -101,6 +101,31 @@ namespace webui
         return mActive;
     }
 
+    auto RunSession::stop() -> bool
+    {
+        std::lock_guard  lock( mMutex);
+
+        return mActive && mChild && mChild->requestStop();
+    }
+
+    auto RunSession::kill() -> bool
+    {
+        std::unique_lock  lock( mMutex);
+
+        if ( !mActive || !mChild || !mChild->kill())
+        {
+            return false;
+        }
+
+        //
+        // OnExit takes this same mutex to clear mActive, so waiting on the
+        // condition variable is what lets it. Bounded: a SIGKILLed process is
+        // gone in milliseconds, and a caller must not be held for ever by one
+        // the kernel has not yet reaped.
+        //
+        return mCv.wait_for( lock, std::chrono::seconds( 5), [ this] { return !mActive; });
+    }
+
     auto RunSession::waitForUpdate( std::size_t from) -> Update
     {
         std::unique_lock  lock( mMutex);

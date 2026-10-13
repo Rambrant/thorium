@@ -202,6 +202,43 @@ auto main( int argc, char ** argv) -> int
         res.set_content( result.Started ? R"({"ok":true})" : R"({"ok":false})", "application/json");
     });
 
+    //
+    // Ending a run early, in two strengths, because they are two different
+    // promises. Neither is gated on anything but a run existing.
+    //
+    // /api/stop asks it to finish the way a run finishes -- after the current
+    // test, with the teardown hooks run, the rig safed and both logs written.
+    // 409 if there is no run to stop. The reply only says the request was
+    // delivered; the run's own stream is how a page learns it has ended.
+    //
+    // /api/emergency does not ask. It kills the run and then runs --safe, the
+    // recovery the "crashed" outcome in README.md's "What a run means" has
+    // always called for, now done in one step because whoever pressed this
+    // does not want a second button between them and an idle rig. The run's
+    // logs are not written. Works with no run active, where it is --safe with
+    // a different name -- an emergency is not the moment to be told the rig
+    // was already quiet and refused.
+    //
+    server.Post( "/api/stop", [ &session]( const httplib::Request &, httplib::Response & res)
+    {
+        const auto  delivered = session.stop();
+
+        res.status = delivered ? 200 : 409;
+        res.set_content( delivered ? R"({"ok":true})" : R"({"error":"no run to stop"})", "application/json");
+    });
+
+    server.Post( "/api/emergency", [ &suite, &session]( const httplib::Request &, httplib::Response & res)
+    {
+        const auto  killed = session.kill();
+        const auto  safed  = webui::runBlocking( webui::buildSafeCommand( suite));
+        const auto  ok     = safed.Started && safed.ExitCode == 0;
+
+        res.status = safed.Started ? 200 : 500;
+        res.set_content( std::string( R"({"killed":)") + ( killed ? "true" : "false")
+                         + R"(,"safed":)" + ( ok ? "true" : "false") + "}",
+                         "application/json");
+    });
+
     server.Post( "/api/run", [ &suite, &session]( const httplib::Request & req, httplib::Response & res)
     {
         const auto      body = webui::Json::parse( req.body);

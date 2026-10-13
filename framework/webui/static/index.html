@@ -18,9 +18,11 @@
     - record / replay. One choice -- live bench, record to a file, replay
       from one -- because run_scripts makes --record and --replay exclusive.
       A replay detaches the bench, and the run's header says so.
-    - repeat. A pass count, and "stop at first failure", which needs the
-      count: run_scripts would run until something broke, and this page
-      cannot stop a run.
+    - repeat. A pass count, and "stop at first failure". With no count that
+      runs until something breaks -- ended, if nothing does, by Stop.
+    - Stop and Emergency stop, in the bar while a run is going. Stop asks the
+      run to finish after its current test, the way Ctrl-C does at a terminal;
+      Emergency kills it and safes the rig, and costs the run its logs.
 
   A finished run's RTF or SARIF log can be saved from the bar (see
   GET /api/log/ in main.cpp). Still not here: the generated options
@@ -68,7 +70,7 @@
     <div class="field passes">
       <label for="passes">Passes</label>
       <input type="text" id="passes" inputmode="numeric" placeholder="1" autocomplete="off"
-             title="Run the selection this many times over; empty is once">
+             title="Run the selection this many times over; empty is once, or until a test fails with Stop at first failure">
     </div>
     <label class="check"><input type="checkbox" id="stopOnFailure">Stop at first failure</label>
   </div>
@@ -106,6 +108,8 @@
 
   <div id="bar">
     <button id="run" disabled>Run</button>
+    <button id="stop" disabled title="End the run after the current test: teardown runs, the rig is safed, the logs are written">Stop</button>
+    <button id="emergency" disabled title="Kill the run now and safe the rig. The run writes no logs.">Emergency stop</button>
     <button id="safe">Safe the rig</button>
     <select id="logKind" title="Which of the run's two logs to save">
       <option value="rtf">RTF report</option>
