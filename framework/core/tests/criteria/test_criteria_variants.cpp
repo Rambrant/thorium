@@ -8,7 +8,7 @@
 
 #include "core/criteria/criterion.hpp"
 #include "core/criteria/predicates.hpp"
-#include "core/criteria/verify.hpp"
+#include "core/verbs/verify.hpp"
 
 using namespace core::quantities;
 

@@ -1,4 +1,5 @@
 {
     "cmake.useCMakePresets": "always",
-    "cmake.options.statusBarVisibility": "visible"
+    "cmake.options.statusBarVisibility": "visible",
+    "sarif-viewer.connectToGithubCodeScanning": "off"
 }

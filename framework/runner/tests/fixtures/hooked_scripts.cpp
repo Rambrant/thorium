@@ -6,7 +6,7 @@
 #include <string_view>
 
 #include "core/criteria/predicates.hpp"
-#include "core/criteria/verify.hpp"
+#include "core/verbs/verify.hpp"
 
 //
 // The suite behind run_scripts_hooked: two scripts and four hooks -- the pair

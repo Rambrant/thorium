@@ -15,9 +15,9 @@ add_library(core STATIC
         src/journal/sarif_sink.cpp
         src/journal/event_sink.cpp
         src/journal/json.cpp
-        src/criteria/verify.cpp
-        src/criteria/criteria_variants.cpp
+        src/verbs/verify.cpp
         src/verbs/interlock.cpp
+        src/criteria/criteria_variants.cpp
         # --- Ungrouped ---
         # meta.hpp is generic enum reflection: it belongs to no layer, is used
         # by several, and is the one file in core with no group.
@@ -61,7 +61,7 @@ add_library(core STATIC
         # instruction goes anywhere. session.hpp is live/replayed/injected
         # value sourcing, recording.hpp the on-disk sample format, stimulus.hpp
         # the injection side, and bench.hpp the attachment flag -- the two
-        # halves --replay/--inject/--skeleton set together (see bench.hpp's own
+        # halves --replay/--inject/--skeleton set together (see bench.hpp own
         # comment on why they are separate facts).
         include/core/session/session.hpp    # header-only apart from src/session/session.cpp
         include/core/session/recording.hpp  # header-only apart from src/session/recording.cpp
@@ -80,9 +80,10 @@ add_library(core STATIC
         include/core/verbs/transfer.hpp  # header-only
         include/core/verbs/at.hpp        # header-only
         include/core/verbs/interlock.hpp # header-only apart from src/verbs/interlock.cpp
+        include/core/verbs/verify.hpp    # header-only apart from src/verbs/verify.cpp
         # --- core/journal: the machine-readable event stream, and the sinks
         # that render it. journal.hpp is the one every other layer posts to and
-        # is the group's only inward-facing header; report.hpp and
+        # is the group only inward-facing header; report.hpp and
         # human_sink.hpp are the two halves the human-readable sinks (console,
         # rtf) share -- what the stream says, and which hook says it -- leaving
         # each sink only its own medium, while sarif_sink writes the
@@ -100,21 +101,20 @@ add_library(core STATIC
         include/core/journal/json.hpp
         # --- core/criteria: the CRITERIA/CRIT tables, the predicate vocabulary
         # they are written in, how a run picks a tolerance variant, and Verify.
-        # Closed against the rest of core: only verify.hpp is reached from
+        # Closed against the rest of core: only predicate_text.hpp is reached from
         # outside the group, and the group reaches out only to quantities/
         # and journal/.
         include/core/criteria/criterion.hpp        # header-only
         include/core/criteria/active_criteria.hpp  # header-only
         include/core/criteria/predicates.hpp       # header-only
         include/core/criteria/predicate_text.hpp   # header-only
-        include/core/criteria/verify.hpp           # header-only apart from src/criteria/verify.cpp
         include/core/criteria/criteria_variants.hpp
-        # --- core/testing: what a deployment's own tests are written with ---
-        # Shipped and installed like any other header, because a deployment's
-        # rig/ and suite/ tests are not this framework's tests and cannot reach
-        # into framework/core/tests/ -- see core::CapturingSink's own comment.
+        # --- core/testing: what a deployment own tests are written with ---
+        # Shipped and installed like any other header, because a deployment rig/
+        # and suite/ tests are not this framework tests and cannot reach
+        # into framework/core/tests/ -- see core::CapturingSink own comment.
         # Nothing in core links against it; it is here so that the three test
-        # targets that need it (core's, the rig's, the suite's) all have it.
+        # targets that need it (core tests, the rig tests, the suite tests) all have it.
         include/core/testing/capturing_sink.hpp    # header-only
 )
 
@@ -151,7 +151,7 @@ target_include_directories(core PUBLIC
 #
 # THORIUM_DUT_NAME / THORIUM_RIG_NAME are set here rather than derived from
 # dut/ or rig/: neither of those is reachable from here (framework/ knows nothing
-# about this deployment's content -- see the top-level CMakeLists.txt's own
+# about this deployment content -- see the top-level CMakeLists.txt own
 # comment on that split), and the DUT a rig tests is exactly the kind of fact a
 # separate rig repo consuming this framework needs to set for itself.
 #
@@ -164,7 +164,7 @@ target_include_directories(core PUBLIC
 #
 # Deliberately NOT `set(... CACHE STRING ...)`, which is what these were first
 # written as and which is a trap for exactly this kind of value. A cache
-# variable's default is consulted only when the entry does not already exist, so
+# variable default is consulted only when the entry does not already exist, so
 # renaming the DUT here had no effect at all on an already-configured build
 # directory: the cached old name stayed, the compile definition kept it, and both
 # logs went on reporting the previous DUT. A stale name in a traceability field
@@ -190,8 +190,8 @@ message(STATUS "DUT: ${THORIUM_DUT_NAME} on rig: ${THORIUM_RIG_NAME}")
 
 # THORIUM_SUITE_VERSION / THORIUM_DUT_VERSION / THORIUM_RIG_VERSION are set by
 # the top-level CMakeLists.txt (derived from git -- see its own comment on why
-# they live there rather than here: detecting the *enclosing deployment's*
-# revision is not something the framework can sensibly do for itself). Empty
+# they live there rather than here: detecting the *enclosing deployment revision is not something the framework can sensibly do
+# for itself). Empty
 # when core is configured standalone, which journal.cpp reports as "unknown".
 target_compile_definitions(core PRIVATE
         THORIUM_FRAMEWORK_VERSION="${PROJECT_VERSION}"
@@ -206,10 +206,10 @@ target_compile_definitions(core PRIVATE
 )
 
 # Thorium::core -- usable under this name whether core is consumed in-tree
-# (this repo's own dut/dsl/hal) or by a separate rig repo pulling this
+# (this repo own dut/dsl/hal) or by a separate rig repo pulling this
 # package in via add_subdirectory/FetchContent, which gets no automatic
 # namespacing the way find_package(Thorium) + ThoriumTargets.cmake does; see
-# the top-level CMakeLists.txt's own comment on the Thorium package export.
+# the top-level CMakeLists.txt own comment on the Thorium package export.
 add_library(Thorium::core ALIAS core)
 
 install(TARGETS core
@@ -227,15 +227,15 @@ if(BUILD_TESTING_LAYERS)
     # --- Fixture catalog, for tests/catalog/test_run_hooks.cpp ---
     # A catalog declaring all four hooks -- RUN_SETUP/RUN_TEARDOWN and, on one of
     # its two groups, SETUP/TEARDOWN -- where the shipped suite/test_catalog.inc
-    # declares only the run-level pair. See that test's own header comment for
+    # declares only the run-level pair. See that test own header comment for
     # why the undeclared-hook half needs no fixture of its own.
     #
-    # framework/runner's, not one of core's. There used to be a copy of it here, and
+    # framework/runner, not one of core. There used to be a copy of it here, and
     # the copy was the problem rather than the duplication: the two files stated
     # the same catalog in the same shape and were free to drift, so a change to
     # the hook mechanism could be made to pass here against a fixture the runner
     # no longer matched. One fixture cannot do that. What it costs is that this
-    # test's expected descriptions are the ones framework/runner's acceptance tests
+    # test expected descriptions are the ones framework/runner acceptance tests
     # print and assert on -- editing them for either reason fails the other,
     # loudly and in one obvious place, which is the trade this is making.
     #

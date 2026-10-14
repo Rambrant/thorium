@@ -1,4 +1,4 @@
-#include "core/criteria/verify.hpp"
+#include "core/verbs/verify.hpp"
 
 #include <gtest/gtest.h>
 

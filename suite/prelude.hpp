@@ -1,5 +1,4 @@
 #pragma once
-
 //
 // Everything a test script is written against, in one include -- so a script
 // begins with `#include "../prelude.hpp"` and nothing else, and the list of
@@ -34,7 +33,6 @@
 // signature the catalog will call it by.
 //
 #include "scripts.hpp"
-
 //
 // The rig: Dmm1, Osc1, DcP5.. as globals a script addresses by name, and the
 // verbs they are pointed through -- Measure, and the Apply/Connect/Disconnect/
@@ -46,7 +44,6 @@
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/acquire.hpp"
 #include "hal/verbs/trace.hpp"
-
 //
 // The verdict verbs, unqualified -- so a script writes Verify( ...) next to
 // Measure( ...), rather than core::Verify( ...) next to a bare Measure. That
@@ -64,11 +61,10 @@
 // using-directives, and for the same reason -- see its comment on why the
 // merged tables have to land unqualified.
 //
-#include "core/criteria/verify.hpp"
+#include "core/verbs/verify.hpp"
 
 using core::Verify;
 using core::Fail;
-
 //
 // The tolerances -- every variant merged into the one table a script names
 // (FS_Supply_1::FS_Supply_5V0, ...) -- and with them the unqualified predicate
@@ -77,7 +73,6 @@ using core::Fail;
 // EQ( 12.0_V).epsilon( 0.05_V) needs no further include of its own.
 //
 #include "core/criteria/active_criteria.hpp"
-
 //
 // The adapter points -- dut::Output5V and friends. hal/topology/adapter.hpp has to come
 // first, for the ADAPTER/POINT macros the .inc is written in; that ordering

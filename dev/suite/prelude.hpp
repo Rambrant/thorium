@@ -1,5 +1,4 @@
 #pragma once
-
 //
 // What a dev script's body is written against -- the sibling of
 // suite/prelude.hpp, and deliberately its own file rather than a reuse of it.
@@ -28,13 +27,12 @@
 #include "hal/verbs/acquire.hpp"
 #include "hal/verbs/trace.hpp"
 
-#include "core/criteria/verify.hpp"
+#include "core/verbs/verify.hpp"
 
 using core::Verify;
 using core::Fail;
 
 #include "core/criteria/active_criteria.hpp"
-
 //
 // Included for the same reason the bench's prelude includes it, even though the
 // table it opens is empty (see dev/dut/adapter.inc): at( ...) resolves through
