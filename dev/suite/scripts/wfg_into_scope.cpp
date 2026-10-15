@@ -153,7 +153,7 @@ auto wfgAmplitudeAndOffset() -> void
 //
 auto wfgSquareDutyCycle() -> void
 {
-    Apply( Wfg1.channel<1>().square().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).dutyCycle( 25.0).into( kOpen));
+    Apply( Wfg1.channel<1>().square().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).dutyCycle( 25_pct).into( kOpen));
     watch<1>( 500_mV, 0_V, 200_us, 0_V);
 
     Verify( DEV_Wfg_1::DEV_Wfg_Top1V,       Measure( Osc1.channel<1>().vtop()));
@@ -172,7 +172,7 @@ auto wfgSquareDutyCycle() -> void
 //
 auto wfgRampAndTriangle() -> void
 {
-    Apply( Wfg1.channel<1>().ramp().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).symmetry( 100.0).into( kOpen));
+    Apply( Wfg1.channel<1>().ramp().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).symmetry( 100_pct).into( kOpen));
     watch<1>( 500_mV, 0_V, 200_us, 0_V);
 
     Verify( DEV_Wfg_1::DEV_Wfg_RampEdge, Measure( Osc1.channel<1>().riseTime()));
@@ -195,7 +195,7 @@ auto wfgRampAndTriangle() -> void
 //
 auto wfgPulse() -> void
 {
-    Apply( Wfg1.channel<1>().pulse().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).dutyCycle( 10.0).into( kOpen));
+    Apply( Wfg1.channel<1>().pulse().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).dutyCycle( 10_pct).into( kOpen));
     watch<1>( 500_mV, 0_V, 200_us, 0_V);
 
     Verify( DEV_Wfg_1::DEV_Wfg_Width100us, Measure( Osc1.channel<1>().positiveWidth()));

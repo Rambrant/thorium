@@ -201,15 +201,15 @@ namespace hal::keysight_dsox1202g
             }
 
             [[nodiscard]]
-            auto dutyCycle( const double percent) const requires HasDutyCycle<Shape>
+            auto dutyCycle( core::quantities::Percentage pct) const requires HasDutyCycle<Shape>
             {
-                return this->with( &Config::DutyCycle, percent);
+                return this->with( &Config::DutyCycle, pct.value());
             }
 
             [[nodiscard]]
-            auto symmetry( const double percent) const requires HasSymmetry<Shape>
+            auto symmetry( core::quantities::Percentage pct) const requires HasSymmetry<Shape>
             {
-                return this->with( &Config::Symmetry, percent);
+                return this->with( &Config::Symmetry, pct.value());
             }
 
             [[nodiscard]]

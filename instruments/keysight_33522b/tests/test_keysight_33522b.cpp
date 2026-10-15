@@ -91,10 +91,10 @@ namespace
     // gets instead of a setting the instrument would silently ignore.
     //
     template<typename BuilderT>
-    concept CanDutyCycle = requires( const BuilderT & b) { b.dutyCycle( 50.0); };
+    concept CanDutyCycle = requires( const BuilderT & b) { b.dutyCycle( 50_pct); };
 
     template<typename BuilderT>
-    concept CanSymmetry = requires( const BuilderT & b) { b.symmetry( 50.0); };
+    concept CanSymmetry = requires( const BuilderT & b) { b.symmetry( 50_pct); };
 
     template<typename BuilderT>
     concept CanFrequency = requires( const BuilderT & b) { b.frequency( 1.0_kHz); };
@@ -206,7 +206,7 @@ TEST( Wfg33522B, TheTwoChannelsDoNotDisturbEachOther)
     Wfg33522B wfg{ anyId(), hal::Simulated{} };
 
     applied( wfg.channel<1>().sine().frequency( 1.0_kHz).amplitude( 2.0_V));
-    applied( wfg.channel<2>().square().frequency( 10.0_kHz).amplitude( 3.3_V).dutyCycle( 25.0));
+    applied( wfg.channel<2>().square().frequency( 10.0_kHz).amplitude( 3.3_V).dutyCycle( 25_pct));
 
     EXPECT_EQ( wfg.function( 1), "sine");
     EXPECT_EQ( wfg.function( 2), "square");
@@ -304,7 +304,7 @@ TEST( Wfg33522B, SafeTakesBothChannelsDown)
     Wfg33522B wfg{ anyId(), hal::Simulated{} };
 
     applied( wfg.channel<1>().sine().amplitude( 1.0_V));
-    applied( wfg.channel<2>().ramp().amplitude( 1.0_V).symmetry( 50.0));
+    applied( wfg.channel<2>().ramp().amplitude( 1.0_V).symmetry( 50_pct));
 
     wfg.safe();
 
@@ -348,7 +348,7 @@ TEST( Wfg33522B, DescribeConfigNamesTheChannelAndTheShapeBeforeAnyNumbers)
     Wfg33522B wfg{ anyId(), hal::Simulated{} };
 
     const auto described = describeConfig(
-        wfg.channel<2>().square().frequency( 10.0_kHz).amplitude( 3.3_V).dutyCycle( 25.0).config());
+        wfg.channel<2>().square().frequency( 10.0_kHz).amplitude( 3.3_V).dutyCycle( 25_pct).config());
 
     EXPECT_NE( described.Settings.find( "channel 2"),  std::string::npos) << described.Settings;
     EXPECT_NE( described.Settings.find( "square"),     std::string::npos) << described.Settings;
@@ -443,26 +443,26 @@ TEST( Wfg33522BLimits, ADutyCycleOutsideTheInstrumentsRangeIsRefused)
 {
     Wfg33522B wfg{ anyId(), hal::Simulated{} };
 
-    EXPECT_THROW( applied( wfg.channel<1>().square().amplitude( 1.0_V).dutyCycle( 0.0)),
+    EXPECT_THROW( applied( wfg.channel<1>().square().amplitude( 1.0_V).dutyCycle( 0_pct)),
                   SettingOutOfRange);
 
-    EXPECT_THROW( applied( wfg.channel<1>().square().amplitude( 1.0_V).dutyCycle( 100.0)),
+    EXPECT_THROW( applied( wfg.channel<1>().square().amplitude( 1.0_V).dutyCycle( 100_pct)),
                   SettingOutOfRange);
 
-    EXPECT_NO_THROW( applied( wfg.channel<1>().square().amplitude( 1.0_V).dutyCycle( 0.01)));
+    EXPECT_NO_THROW( applied( wfg.channel<1>().square().amplitude( 1.0_V).dutyCycle( 0.01_pct)));
 }
 
 TEST( Wfg33522BLimits, ASymmetryOutsideZeroToOneHundredIsRefused)
 {
     Wfg33522B wfg{ anyId(), hal::Simulated{} };
 
-    EXPECT_THROW( applied( wfg.channel<1>().ramp().amplitude( 1.0_V).symmetry( 101.0)),
+    EXPECT_THROW( applied( wfg.channel<1>().ramp().amplitude( 1.0_V).symmetry( 101_pct)),
                   SettingOutOfRange);
 
     // Both ends are legal on a ramp -- 0% is a falling sawtooth, 100% a rising
     // one -- unlike a duty cycle, whose ends are not.
-    EXPECT_NO_THROW( applied( wfg.channel<1>().ramp().amplitude( 1.0_V).symmetry(   0.0)));
-    EXPECT_NO_THROW( applied( wfg.channel<1>().ramp().amplitude( 1.0_V).symmetry( 100.0)));
+    EXPECT_NO_THROW( applied( wfg.channel<1>().ramp().amplitude( 1.0_V).symmetry( 0_pct)));
+    EXPECT_NO_THROW( applied( wfg.channel<1>().ramp().amplitude( 1.0_V).symmetry( 100_pct)));
 }
 
 TEST( Wfg33522BLimits, TheRefusalNamesTheInstrumentTheSettingAndTheLimit)
@@ -701,7 +701,7 @@ TEST( Wfg33522BWire, ApplySendsLoadThenFunctionThenFrequencyThenShapeThenAmplitu
                .frequency( 10.0_kHz)
                .amplitude( 3.3_V)
                .offset( 0.5_V)
-               .dutyCycle( 25.0)
+               .dutyCycle( 25_pct)
                .into( Termination::HighImpedance));
 
     EXPECT_EQ( commandsOnly( *bench->Wire),
@@ -720,7 +720,7 @@ TEST( Wfg33522BWire, EveryCommandCarriesTheChannelTheConfigNamed)
 {
     auto bench = attached();
 
-    applied( bench->Generator.channel<2>().ramp().frequency( 100.0_Hz).amplitude( 1.0_V).symmetry( 50.0));
+    applied( bench->Generator.channel<2>().ramp().frequency( 100.0_Hz).amplitude( 1.0_V).symmetry( 50_pct));
 
     EXPECT_EQ( commandsOnly( *bench->Wire),
                ( std::vector<std::string>{
@@ -740,7 +740,7 @@ TEST( Wfg33522BWire, APulsesDutyCycleIsADifferentCommandFromASquares)
 {
     auto bench = attached();
 
-    applied( bench->Generator.channel<1>().pulse().frequency( 1.0_kHz).amplitude( 1.0_V).dutyCycle( 10.0));
+    applied( bench->Generator.channel<1>().pulse().frequency( 1.0_kHz).amplitude( 1.0_V).dutyCycle( 10_pct));
 
     const auto commands = commandsOnly( *bench->Wire);
 
@@ -797,7 +797,7 @@ TEST( Wfg33522BWire, NothingThisDriverSendsIsApplyOrResetsTheInstrument)
 {
     auto bench = attached();
 
-    applied( bench->Generator.channel<1>().square().frequency( 1.0_kHz).amplitude( 1.0_V).dutyCycle( 30.0));
+    applied( bench->Generator.channel<1>().square().frequency( 1.0_kHz).amplitude( 1.0_V).dutyCycle( 30_pct));
     removed( bench->Generator.channel<1>().square());
 
     for( const auto & command : bench->Wire->sent())

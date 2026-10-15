@@ -92,7 +92,7 @@ auto wgenSine() -> void
 //
 auto wgenSquareDutyCycle() -> void
 {
-    Apply( Wfg2.square().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).dutyCycle( 25.0).into( kOpen));
+    Apply( Wfg2.square().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).dutyCycle( 25_pct).into( kOpen));
     watch( 500_mV, 0_V, 200_us);
 
     Verify( DEV_Wfg_1::DEV_Wfg_Top1V,       Measure( Osc1.channel<1>().vtop()));
@@ -109,7 +109,7 @@ auto wgenSquareDutyCycle() -> void
 //
 auto wgenRampSymmetry() -> void
 {
-    Apply( Wfg2.ramp().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).symmetry( 100.0).into( kOpen));
+    Apply( Wfg2.ramp().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).symmetry( 100_pct).into( kOpen));
     watch( 500_mV, 0_V, 200_us);
 
     Verify( DEV_Wfg_1::DEV_Wfg_RampEdge, Measure( Osc1.channel<1>().riseTime()));

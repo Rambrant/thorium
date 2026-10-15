@@ -388,19 +388,18 @@ namespace hal::keysight_33522b
             }
 
             //
-            // A percentage, not a quantity: core::quantities has no
-            // dimensionless ratio, and a duty cycle is one of the few settings
-            // on a bench instrument that genuinely has no unit. Same
-            // distinction core::MeasureSetup draws for NPLC.
+            // A percentage on a 0-100 scale. The caller provides
+            // core::quantities::Percentage (e.g. 25_pct) and this extracts
+            // the raw value for the instrument command.
             //
             // Square and pulse only, and they reach two different commands --
             // FUNC:SQU:DCYC and FUNC:PULS:DCYC -- which is why the command is
             // on the shape tag rather than in the .cpp.
             //
             [[nodiscard]]
-            auto dutyCycle( const double percent) const requires HasDutyCycle<Shape>
+            auto dutyCycle( core::quantities::Percentage pct) const requires HasDutyCycle<Shape>
             {
-                return this->with( &Config::DutyCycle, percent);
+                return this->with( &Config::DutyCycle, pct.value());
             }
 
             //
@@ -409,9 +408,9 @@ namespace hal::keysight_33522b
             // Ramp only.
             //
             [[nodiscard]]
-            auto symmetry( const double percent) const requires HasSymmetry<Shape>
+            auto symmetry( core::quantities::Percentage pct) const requires HasSymmetry<Shape>
             {
-                return this->with( &Config::Symmetry, percent);
+                return this->with( &Config::Symmetry, pct.value());
             }
 
             //

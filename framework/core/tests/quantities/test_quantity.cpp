@@ -528,4 +528,5 @@ TEST( CoreQuantity, PercentageTypeSafety)
     static_assert( ! CanMulAssign<Percentage, Percentage>);  // 5% * 5% has no meaning
     static_assert( ! CanMulAssign<Voltage, Voltage>);        // V * V is not defined
     static_assert(   CanAddAssign<Voltage, Percentage>);     // V + % is relative increase
+    static_assert(   CanSubAssign<Voltage, Percentage>);     // V + % is relative decrease
 }

@@ -1541,8 +1541,8 @@ namespace
     //
     // Each shape offers only its own settings.
     //
-    template<typename B> concept CanDuty      = requires( B b) { b.dutyCycle( 25.0); };
-    template<typename B> concept CanSymmetry  = requires( B b) { b.symmetry( 25.0); };
+    template<typename B> concept CanDuty      = requires( B b) { b.dutyCycle( 25_pct); };
+    template<typename B> concept CanSymmetry  = requires( B b) { b.symmetry( 25_pct); };
     template<typename B> concept CanWidth     = requires( B b) { b.width( 1_us); };
     template<typename B> concept CanFrequency = requires( B b) { b.frequency( 1_kHz); };
     template<typename B> concept CanAmplitude = requires( B b) { b.amplitude( 1_V); };
@@ -1596,7 +1596,7 @@ TEST( Dsox1202GWgen, ASquareIsProgrammedInTheOrderTheMeaningsDependOn)
 {
     auto bench = generator();
 
-    applyDriver( bench->Unit.square().frequency( 10_kHz).amplitude( 2_V).offset( 0.5_V).dutyCycle( 25.0)
+    applyDriver( bench->Unit.square().frequency( 10_kHz).amplitude( 2_V).offset( 0.5_V).dutyCycle( 25_pct)
                      .into( Termination::HighImpedance).config());
 
     const std::vector<std::string> expected{
@@ -1617,7 +1617,7 @@ TEST( Dsox1202GWgen, EachShapeSelectsItsOwnFunctionAndShapeCommand)
 {
     auto bench = generator();
 
-    applyDriver( bench->Unit.ramp().frequency( 1_kHz).symmetry( 100.0).config());
+    applyDriver( bench->Unit.ramp().frequency( 1_kHz).symmetry( 100_pct).config());
     applyDriver( bench->Unit.pulse().frequency( 1_kHz).width( 100_us).config());
     applyDriver( bench->Unit.sine().frequency( 1_kHz).config());
     applyDriver( bench->Unit.noise().amplitude( 1_V).config());
@@ -1670,8 +1670,8 @@ TEST( Dsox1202GWgen, TheLimitsAreEnforcedBeforeAnythingIsSent)
     EXPECT_THROW( applyDriver( bench->Unit.sine().amplitude( 5.5_V).config()), SettingOutOfRange);
     EXPECT_THROW( applyDriver( bench->Unit.sine().amplitude( 5_mV).config()), SettingOutOfRange);
 
-    EXPECT_THROW( applyDriver( bench->Unit.square().dutyCycle( 10.0).config()), SettingOutOfRange);
-    EXPECT_THROW( applyDriver( bench->Unit.ramp().symmetry( 101.0).config()), SettingOutOfRange);
+    EXPECT_THROW( applyDriver( bench->Unit.square().dutyCycle( 10_pct).config()), SettingOutOfRange);
+    EXPECT_THROW( applyDriver( bench->Unit.ramp().symmetry( 101_pct).config()), SettingOutOfRange);
     EXPECT_THROW( applyDriver( bench->Unit.pulse().width( 10_ns).config()), SettingOutOfRange);
     EXPECT_THROW( applyDriver( bench->Unit.pulse().frequency( 1_MHz).width( 990_ns).config()), SettingOutOfRange);
 
