@@ -420,3 +420,112 @@ TEST( CoreQuantity, ConstructibleFromIntegersButNotBool)
     EXPECT_DOUBLE_EQ( Voltage{ -3}.value(), -3.0);
     EXPECT_DOUBLE_EQ( PowerFactor{ 1}.value(), 1.0);
 }
+
+
+//
+// Percentage literals. The _pct suffix produces a Percentage on a 0-100 scale,
+// distinct from a bare double scalar. Integer and decimal spellings both work.
+//
+TEST( CoreQuantity, PercentageLiteralsProduceExpectedValue)
+{
+    EXPECT_DOUBLE_EQ( (5.0_pct).value(), 5.0);
+    EXPECT_DOUBLE_EQ( (5_pct).value(), 5.0);
+    EXPECT_DOUBLE_EQ( (100_pct).value(), 100.0);
+    EXPECT_DOUBLE_EQ( (0.5_pct).value(), 0.5);
+
+    static_assert( std::is_same_v<decltype( 5_pct), Percentage>);
+    static_assert( std::is_same_v<decltype( 5.0_pct), Percentage>);
+}
+
+//
+// Percentage arithmetic: addition and subtraction stay in Percentage.
+//
+TEST( CoreQuantity, PercentageArithmeticWorks)
+{
+    const Percentage sum = 25_pct + 25_pct;
+    const Percentage diff = 100_pct - 30_pct;
+
+    EXPECT_DOUBLE_EQ( sum.value(), 50.0);
+    EXPECT_DOUBLE_EQ( diff.value(), 70.0);
+
+    static_assert( std::is_same_v<decltype( 25_pct + 25_pct), Percentage>);
+    static_assert( std::is_same_v<decltype( 100_pct - 30_pct), Percentage>);
+}
+
+//
+// Quantity minus/plus Percentage: relative change.
+// "12_V - 5_pct" means "12V minus 5% of 12V" = 11.4V.
+//
+TEST( CoreQuantity, QuantityMinusPercentageIsRelativeChange)
+{
+    const auto margin = 12.0_V - 5_pct;
+    const auto boost = 12.0_V + 10_pct;
+
+    EXPECT_DOUBLE_EQ( margin.value(), 11.4);   // 12 * (1 - 0.05)
+    EXPECT_DOUBLE_EQ( boost.value(), 13.2);    // 12 * (1 + 0.10)
+
+    static_assert( std::is_same_v<decltype( 12.0_V - 5_pct), Voltage>);
+    static_assert( std::is_same_v<decltype( 12.0_V + 5_pct), Voltage>);
+}
+
+//
+// Quantity times Percentage: "X percent of that quantity".
+// "12_V * 5_pct" means "5% of 12V" = 0.6V.
+//
+TEST( CoreQuantity, QuantityTimesPercentageIsPercentOf)
+{
+    const auto fivePercent = 12.0_V * 5_pct;
+    const auto alsoFivePercent = 5_pct * 12.0_V;
+    const auto half = 100.0_W * 50_pct;
+
+    EXPECT_DOUBLE_EQ( fivePercent.value(), 0.6);    // 12 * 0.05
+    EXPECT_DOUBLE_EQ( alsoFivePercent.value(), 0.6);
+    EXPECT_DOUBLE_EQ( half.value(), 50.0);          // 100 * 0.50
+
+    static_assert( std::is_same_v<decltype( 12.0_V * 5_pct), Voltage>);
+    static_assert( std::is_same_v<decltype( 5_pct * 12.0_V), Voltage>);
+}
+
+//
+// Compound assignment with Percentage: -= and += for relative change.
+//
+TEST( CoreQuantity, CompoundAssignmentWithPercentage)
+{
+    Voltage v = 12.0_V;
+
+    v -= 5_pct;
+    EXPECT_DOUBLE_EQ( v.value(), 11.4);   // 12 * 0.95
+
+    v += 10_pct;
+    EXPECT_DOUBLE_EQ( v.value(), 12.54);  // 11.4 * 1.10
+
+    static_assert( CanSubAssign<Voltage, Percentage>);
+    static_assert( CanAddAssign<Voltage, Percentage>);
+}
+
+//
+// Percentage compound assignment with itself.
+//
+TEST( CoreQuantity, PercentageCompoundAssignment)
+{
+    Percentage p = 50_pct;
+
+    p += 25_pct;
+    EXPECT_DOUBLE_EQ( p.value(), 75.0);
+
+    p -= 10_pct;
+    EXPECT_DOUBLE_EQ( p.value(), 65.0);
+
+    static_assert( CanAddAssign<Percentage, Percentage>);
+    static_assert( CanSubAssign<Percentage, Percentage>);
+}
+
+//
+// Type safety: Percentage operations refuse invalid combinations.
+//
+TEST( CoreQuantity, PercentageTypeSafety)
+{
+    static_assert( ! CanMulAssign<Percentage, Percentage>);  // 5% * 5% has no meaning
+    static_assert( ! CanMulAssign<Voltage, Voltage>);        // V * V is not defined
+    static_assert(   CanAddAssign<Voltage, Percentage>);     // V + % is relative increase
+}

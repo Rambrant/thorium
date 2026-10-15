@@ -82,7 +82,12 @@ namespace core
         // rather than a preference: a kind's position IS the alternative index
         // of QuantityVariant.
         //
-        Capacitance
+        Capacitance,
+        //
+        // Appended for the same reason the others were: a kind's position IS
+        // the alternative index of QuantityVariant.
+        //
+        Percentage
     };
 
     namespace detail

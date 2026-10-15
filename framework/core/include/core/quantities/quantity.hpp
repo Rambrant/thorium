@@ -98,6 +98,16 @@ namespace core
         struct Hz_Type   { static constexpr std::string_view Symbol = "Hz";  static constexpr SiPrefixRange Prefixes{   0, 9 }; };
         struct time_Type { static constexpr std::string_view Symbol = "s";   static constexpr SiPrefixRange Prefixes{ -12, 0 }; };
         struct PF_Type   { static constexpr std::string_view Symbol = "";    };
+        //
+        // Percentage: a relative change or tolerance, expressed on a 0-100 scale.
+        // Unlike Ratio (a bare double scalar), Percentage carries its symbol and
+        // participates in type-safe arithmetic with other quantities.
+        //
+        // Usage: `12_V - 5_pct` means "12V minus 5% of 12V" = 11.4V.
+        // Percentage is for relative changes (add/subtract from a value),
+        // while scalars are for scaling (multiply/divide a value).
+        //
+        struct Pct_Type    { static constexpr std::string_view Symbol = "%";    };
         struct var_Type  { static constexpr std::string_view Symbol = "var"; static constexpr SiPrefixRange Prefixes{  -3, 3 }; };
 
         //
@@ -336,6 +346,12 @@ namespace core
         using Frequency     = Quantity< Hz_Type>;
         using PowerFactor   = Quantity< PF_Type>;
         using ReactivePower = Quantity< var_Type>;
+
+        //
+        // Percentage: relative change or tolerance on a 0-100 scale.
+        // See Pct_Type above for the semantic reasoning.
+        //
+        using Percentage  = Quantity< Pct_Type>;
 
         //
         // Capacitance is here as an ordinary unit and, like Temperature below,
@@ -590,6 +606,57 @@ namespace core
         }
 
         //
+        // Percentage arithmetic: relative change to a quantity.
+        //
+        // A quantity minus a percentage means "subtract X% of that quantity":
+        //
+        //     const auto margin = 12_V - 5_pct;  // 11.4_V (12V minus 5% of 12V)
+        //
+        // The reverse order (percentage minus quantity) is not provided: a
+        // percentage is a relative change, not an absolute value to subtract from.
+        //
+        // Addition mirrors subtraction for "increase by X%":
+        //
+        //     const auto boost = 12_V + 10_pct;  // 13.2_V (12V plus 10% of 12V)
+        //
+        template< typename Unit>
+        [[nodiscard]]
+        constexpr auto operator-( const Quantity<Unit> q, Percentage p) -> Quantity<Unit>
+        {
+            return Quantity<Unit>{ q.value() * ( 1.0 - p.value() / 100.0) };
+        }
+
+        template< typename Unit>
+        [[nodiscard]]
+        constexpr auto operator+( const Quantity<Unit> q, Percentage p) -> Quantity<Unit>
+        {
+            return Quantity<Unit>{ q.value() * ( 1.0 + p.value() / 100.0) };
+        }
+
+        //
+        // Quantity times Percentage: "X percent of that quantity".
+        //
+        // This is distinct from relative change (add/subtract): it answers
+        // "what is 5% of 12V?" rather than "what is 12V minus 5%?".
+        //
+        //     const auto fivePercent = 12_V * 5_pct;  // 0.6_V
+        //
+        // The reverse order is also provided for symmetry.
+        //
+        template< typename Unit>
+        [[nodiscard]]
+        constexpr auto operator*( const Quantity<Unit> q, Percentage p) -> Quantity<Unit>
+        {
+            return Quantity<Unit>{ q.value() * ( p.value() / 100.0) };
+        }
+
+        template< typename Unit>
+        [[nodiscard]]
+        constexpr auto operator*( Percentage p, const Quantity<Unit> q) -> Quantity<Unit>
+        {
+            return q * p;
+        }
+        //
         // Compound assignment: +=, -=, *= and /=.
         //
         // Each is defined as "lhs = lhs OP rhs" and is available only when that
@@ -807,5 +874,11 @@ namespace core
         //
         constexpr quantities::TemperatureDelta operator""_K( long double v ) { return quantities::TemperatureDelta{ static_cast<double>(v) }; }
         constexpr quantities::TemperatureDelta operator""_K( unsigned long long v ) { return operator""_K( static_cast<long double>( v)); }
+        //
+        // Percentage literal: 5_pct = 5.0 (on a 0-100 scale).
+        // See Pct_Type above for the semantic reasoning.
+        //
+        constexpr quantities::Percentage operator""_pct( long double v ) { return quantities::Percentage{ static_cast<double>( v)}; }
+        constexpr quantities::Percentage operator""_pct( unsigned long long v ) { return operator""_pct( static_cast<long double>( v)); }
     } // namespace literals
 }     // namespace core
