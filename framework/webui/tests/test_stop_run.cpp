@@ -216,6 +216,8 @@ namespace
         int                       OtherScripts{ 0 };
         std::vector<std::string>  Teardowns;      // hook announcements, in order
         int                       TestEnds{ 0 };
+        std::vector<bool>         Verdicts;       // each test's, in order
+        std::vector<std::string>  DelayDetails;   // what each Delay event said
     };
 
     auto summarise( const std::vector<std::string> & lines) -> Outcome
@@ -241,7 +243,12 @@ namespace
                 using Kind = webui::RunEvent::Kind;
 
                 if( event.Which == Kind::RunEnd)  { outcome.AllPassed = event.Passed; }
-                if( event.Which == Kind::TestEnd) { ++outcome.TestEnds; }
+                if( event.Which == Kind::TestEnd)
+                {
+                    ++outcome.TestEnds;
+                    outcome.Verdicts.push_back( event.Passed.value_or( false));
+                }
+                if( event.Which == Kind::Event && event.Verb == "Delay") { outcome.DelayDetails.push_back( event.Detail); }
                 if( event.Which == Kind::Event && event.Verb == "Note") { outcome.Notes.push_back( event.Detail); }
             }
         }
@@ -407,6 +414,105 @@ TEST_F( StopRun, StdinEndingIsAConsoleThatWentAwayAndEndsTheRunToo)
     expectEndedTheWayARunEnds( outcome, "the console that started this run went away");
     ASSERT_TRUE( status.has_value());
     EXPECT_EQ( WEXITSTATUS( *status), 1);
+}
+
+// ---------------------------------------------------------------------------
+// A stop inside core::Delay
+// ---------------------------------------------------------------------------
+//
+// The tests above stop a run whose script is in a sleep_for, which a stop can
+// only wait out. core::Delay is the verb that can be ended -- so these give the
+// script a thirty-second Delay and expect the run to be over in a small
+// fraction of that, with the test closed as failed rather than left open or
+// passed, and the hooks and the rest of the wind-down intact.
+//
+namespace
+{
+    constexpr const char * kLongDelayVerbMs = "30000";
+
+    class StopRunInDelay : public StopRun
+    {
+        protected:
+            auto SetUp() -> void override
+            {
+                StopRun::SetUp();
+                ::unsetenv( "THORIUM_FIXTURE_SCRIPT_DELAY_MS");
+                ::setenv( "THORIUM_FIXTURE_SCRIPT_DELAY_VERB_MS", kLongDelayVerbMs, 1);
+            }
+
+            auto TearDown() -> void override
+            {
+                ::unsetenv( "THORIUM_FIXTURE_SCRIPT_DELAY_VERB_MS");
+                StopRun::TearDown();
+            }
+
+            // What a stop in the middle of a long Delay must produce.
+            static auto expectEndedInsideTheDelay( const Outcome & outcome, const Clock::time_point stoppedAt,
+                                                    const std::string & why) -> void
+            {
+                EXPECT_LT( Clock::now() - stoppedAt, std::chrono::seconds( 5)) << "it did not wait out the thirty seconds";
+
+                ASSERT_TRUE( outcome.AllPassed.has_value()) << "a stopped run still closes itself out";
+                EXPECT_FALSE( *outcome.AllPassed);
+                EXPECT_TRUE( hasNote( outcome, why));
+
+                ASSERT_EQ( outcome.TestEnds, 1) << "the interrupted test was closed, not left open";
+                EXPECT_FALSE( outcome.Verdicts.at( 0)) << "and closed as failed: it did not finish";
+                EXPECT_EQ( outcome.OtherScripts, 0) << "nothing further began";
+
+                ASSERT_EQ( outcome.Teardowns.size(), 2u) << "both hooks still ran";
+                EXPECT_EQ( outcome.Teardowns[ 0], "group-teardown");
+                EXPECT_EQ( outcome.Teardowns[ 1], "teardown");
+
+                ASSERT_EQ( outcome.DelayDetails.size(), 2u);
+                EXPECT_EQ( outcome.DelayDetails[ 0], "waiting");
+                EXPECT_NE( outcome.DelayDetails[ 1].find( "interrupted by a stop request"), std::string::npos);
+            }
+    };
+}
+
+TEST_F( StopRunInDelay, AStopLineEndsTheTestAtOnceInsteadOfWaitingOutTheDelay)
+{
+    auto child = startLongRun();
+
+    const auto stoppedAt = Clock::now();
+    ASSERT_EQ( ::write( child.In, "stop\n", 5), 5);
+
+    const auto outcome = finish( child);
+    const auto status  = reap( child, std::chrono::seconds( 10));
+
+    expectEndedInsideTheDelay( outcome, stoppedAt, "stopped by operator");
+    ASSERT_TRUE( status.has_value());
+    EXPECT_EQ( WEXITSTATUS( *status), 1);
+}
+
+TEST_F( StopRunInDelay, CtrlCEndsTheTestAtOnceInsteadOfWaitingOutTheDelay)
+{
+    auto child = startLongRun();
+
+    const auto stoppedAt = Clock::now();
+    ASSERT_EQ( ::kill( child.Pid, SIGINT), 0);
+
+    const auto outcome = finish( child);
+    const auto status  = reap( child, std::chrono::seconds( 10));
+
+    expectEndedInsideTheDelay( outcome, stoppedAt, "stopped by operator");
+    ASSERT_TRUE( status.has_value());
+    EXPECT_TRUE( WIFEXITED( *status));
+    EXPECT_EQ( WEXITSTATUS( *status), 1);
+}
+
+TEST_F( StopRunInDelay, TheConsoleGoingAwayEndsItToo)
+{
+    auto child = startLongRun();
+
+    const auto stoppedAt = Clock::now();
+    ::close( child.In);
+    child.In = -1;
+
+    const auto outcome = finish( child);
+
+    expectEndedInsideTheDelay( outcome, stoppedAt, "the console that started this run went away");
 }
 
 // ---------------------------------------------------------------------------

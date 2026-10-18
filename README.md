@@ -373,7 +373,7 @@ the moment of reading, so adding a point costs one wiring line — not one line 
 (instrument, pin) pair.
 
 **One event stream, many renderings.** Every verb — `Measure`, `Setup`, `Apply`,
-`Remove`, `Connect`, `Disconnect`, `Write`, `Read`, `Arm`, `Await`, `Verify`, plus
+`Remove`, `Connect`, `Disconnect`, `Write`, `Read`, `Arm`, `Await`, `Delay`, `Verify`, plus
 the safing pass — posts to `core::Journal`. Sinks decide what to show. Neither filtering nor
 formatting lives at a call site, which is why a third log format needs no change
 to any verb.
@@ -1192,6 +1192,34 @@ Fetch.inject( "Osc1.Channel2", capturedEarlier);
 digitizer or a logger with a memory behind it hands back the same shape.
 `hal::keysight_dsox1202g::DSOX1202G` is simply the first driver to answer to `fetchDriver`.
 
+### Pause for a fixed time
+
+```cpp
+Apply( DcP1.output( 5_V));
+Delay( 250_ms, "supply settles");
+const auto volts = Measure( Output5V);
+```
+
+`Delay( time, reason)` waits that long and returns, whatever has or has not happened. It is
+named for what it does: it waits for *nothing*. Waiting **for** something — a capture to land, a
+reading to settle — is a different verb with a different answer to "and if it never does", and
+`Await` is the one that exists; a fixed delay is the weaker tool, for where the physics has a time
+constant and the instrument cannot say it is done. The reason is for the log: `"supply settles"` is
+what explains a test that takes forty seconds longer than its checks.
+
+- **It is an instruction, like `Apply`.** With the bench detached (`--replay`, `--inject`,
+  `--skeleton`) it does not wait — a delay exists for physics, and a replay has none — and the log
+  says `skipped: no bench attached` with the time it would have been.
+- **It is logged when it starts**, as a `Delay` event with its reason and duration, because a watcher
+  of a long run is who most wants to know what it is doing for the next forty seconds. Machine
+  stream only; it is not an observation and has no pass/fail.
+- **It is where a long test can be stopped.** Taken in 20 ms slices, a stop request
+  (Ctrl-C, or the console's Stop) ends it at once: a second event says how far it got, the script is
+  abandoned, the test is closed as **failed** (`stopped by operator before this test finished` — a
+  partial pass is not a result), and the run winds down as any stopped run does. Only in a test
+  script: in a teardown hook or `RUN_SETUP` it waits in full, because a throw out of a hook that is
+  running during an unwind is `std::terminate`. A script must not catch `core::StopRequested`.
+
 ### When an instrument cannot make the measurement
 
 A real instrument has a third answer besides a number and a fault: *"I could not
@@ -1483,8 +1511,8 @@ build/debug/bin/run_scripts --repeat=50 --until-failure    # at most fifty, stop
 ```
 
 **Ending a run early.** Ctrl-C (`SIGINT`, or `SIGTERM`) is a request, not a kill: the run
-stops starting new work — it is checked between tests, groups and passes, never inside a script — and
-ends the way a run ends. The current test finishes, the teardown hooks run, the rig is safed, both
+stops starting new work — it is checked between tests, groups and passes, and inside a
+[`Delay`](#pause-for-a-fixed-time), and nowhere else in a script — and ends the way a run ends. The current test finishes, the teardown hooks run, the rig is safed, both
 logs and any recording are written, and the report notes `stopped by operator`. The exit status is
 non-zero: a stopped run did not do what it was asked to, whatever its checks said. A second Ctrl-C
 kills the process on the spot, and then the rig is as the run left it — run `--safe`. A signal

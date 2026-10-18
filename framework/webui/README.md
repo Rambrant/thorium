@@ -102,7 +102,10 @@ Two ways, because they are two different promises. **Stop** is the Run button wh
 **Stop** asks. The server writes `stop` to the run's stdin; `run_scripts` (which the
 window always starts with `--stop-on-stdin`) checks that between tests, groups and passes and, when
 it has been told, ends the way a run ends: the current test finishes, the teardown hooks run, the
-rig is safed, both logs and any recording are written. It never interrupts a script. The run is
+rig is safed, both logs and any recording are written. It never interrupts a script, with one
+exception: a script that is inside a `Delay` (`core/verbs/delay.hpp`) is ended there, at once,
+and its test is recorded as failed -- so the long settles are where a Stop is felt immediately.
+A test blocked in an instrument call, or one that is simply computing, still runs to its end. The run is
 reported as **not passed** whatever its checks said -- the exit status claims every selected test
 passed, and a run that ended early did not make that claim -- and the page says `STOPPED`, not
 `FAILED`, and reads it as a pass when no check failed. A stop that arrives during the last test cuts
@@ -114,7 +117,7 @@ never reaches `runEnd`. There is no confirmation, on purpose; Stop is the calm w
 
 The transport is a pipe rather than a signal because Windows has no way to signal a child that has no
 console. At a terminal the same request is Ctrl-C (`SIGINT`/`SIGTERM`): the first asks as above, a
-second kills the process, and the rig then needs a `--safe` -- see `framework/runner/src/stop_request.hpp`.
+second kills the process, and the rig then needs a `--safe` -- see `framework/runner/src/stop_sources.hpp`.
 End of input on the pipe **is** a stop. The server holds the pipe's other end for as long as the run
 is being watched, so an end means the console has gone -- closed, crashed or killed -- and an
 unbounded run with nobody watching must not carry on energising a rig. The run ends the same

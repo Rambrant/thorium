@@ -8,6 +8,8 @@
 #include <thread>
 
 #include "core/criteria/predicates.hpp"
+#include "core/session/bench.hpp"
+#include "core/verbs/delay.hpp"
 #include "core/verbs/verify.hpp"
 
 //
@@ -103,6 +105,27 @@ auto fixtureScript() -> void
     if( const auto * delay = std::getenv( "THORIUM_FIXTURE_SCRIPT_DELAY_MS"))
     {
         std::this_thread::sleep_for( std::chrono::milliseconds( std::atol( delay)));
+    }
+
+    //
+    // The same, through core::Delay -- the verb that a stop can end early, which
+    // a sleep_for cannot. The fixture runs under --replay, which detaches the
+    // bench, and a detached bench skips every delay (that is the verb's rule, and
+    // the point of it); so for the length of this one wait the script attaches it
+    // again, and puts it back however it leaves -- a Delay that is stopped
+    // throws, and the safing pass on the way out must still see a detached bench.
+    //
+    if( const auto * delay = std::getenv( "THORIUM_FIXTURE_SCRIPT_DELAY_VERB_MS"))
+    {
+        struct Restore
+        {
+            bool Was{ core::bench().isAttached() };
+            ~Restore() { if( !Was) { core::bench().detach(); } }
+        } restore;
+
+        core::bench().attach();
+
+        core::Delay( core::quantities::Time{ static_cast<double>( std::atol( delay)) / 1000.0 }, "fixture settle");
     }
 
     if( isSet( "THORIUM_FIXTURE_SCRIPT_THROWS"))

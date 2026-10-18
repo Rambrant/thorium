@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "cli.hpp"
-#include "stop_request.hpp"
+#include "stop_sources.hpp"
 #include "core/catalog/active_test_catalog.hpp"
 #include "core/session/bench.hpp"
 #include "core/journal/console_sink.hpp"
@@ -25,6 +25,7 @@
 #include "core/journal/rtf_sink.hpp"
 #include "core/journal/sarif_sink.hpp"
 #include "core/session/stimulus.hpp"
+#include "core/verbs/verify.hpp"
 #include "hal/verbs/measure.hpp"
 #include "hal/verbs/preflight.hpp"
 #include "hal/verbs/safing.hpp"
@@ -368,7 +369,7 @@ namespace
         // test, with the rig safed and both logs written. Off unless asked for, because
         // reading stdin is wrong for a run started from a terminal, where
         // Ctrl-C is the way and stdin is somebody's keyboard. See
-        // stop_request.hpp.
+        // stop_sources.hpp.
         //
         [[= cli::Flag{ "--stop-on-stdin" },
            = cli::Doc{ "end the run after the current test when stdin says \"stop\" or is closed" }]]
@@ -904,7 +905,7 @@ namespace
             // Before the group opens, so a stop does not pay for a group's
             // SETUP and TEARDOWN to run no tests.
             //
-            if ( runner::stopNow())
+            if ( core::stopNow())
                 break;
 
             core::journal().beginGroup( group.name, group.description);
@@ -982,11 +983,11 @@ namespace
                 continue;
 
             //
-            // Between tests and nowhere else: a stop request ends the run the
-            // way a run ends, which a script abandoned half way would not.
-            // See stop_request.hpp.
+            // Between tests, and inside a core::Delay (see below): a stop
+            // request ends the run the way a run ends, which a script abandoned
+            // at an arbitrary point would not. See core/control/stop_request.hpp.
             //
-            if ( runner::stopNow())
+            if ( core::stopNow())
                 return;
 
             core::journal().beginTest( test.id, test.description);
@@ -1007,7 +1008,35 @@ namespace
             // script's signature). This loop's own fold is unchanged -- it
             // is a fold over *tests*, which is a fact no single test has.
             //
-            test.script();
+            //
+            // Armed for this call and no other, so that a verb which is going to
+            // take a while (core::Delay) may end the script on a stop request --
+            // and a teardown hook, run from a destructor, may not. See
+            // core/control/stop_request.hpp.
+            //
+            // The one place StopRequested is caught. The test is closed with a
+            // failing check naming the stop rather than left open or passed on
+            // the strength of whatever it had checked so far: it did not finish,
+            // and a partial pass is not a result. Then this returns, exactly as
+            // the between-tests check above does, and the run winds down the
+            // ordinary way -- group teardown, run teardown, safing, logs.
+            //
+            try
+            {
+                const core::StopArmed armed;
+
+                test.script();
+            }
+            catch ( const core::StopRequested &)
+            {
+                static_cast<void>( core::stopNow());   // records that a stop cut this short
+
+                core::Fail( "stopped by operator before this test finished");
+
+                allPassed &= core::journal().endTest();
+
+                return;
+            }
 
             const bool passed = core::journal().endTest();
 
@@ -1174,7 +1203,7 @@ namespace
 
         for ( std::uint64_t pass = 0; pass < passes; ++pass)
         {
-            if ( runner::stopNow())
+            if ( core::stopNow())
                 break;
 
             //
@@ -1219,9 +1248,9 @@ namespace
         // under --stop-on-stdin, where the console would draw it as an error
         // and the event stream already carries it.
         //
-        if ( runner::stopHonoured())
+        if ( core::stopHonoured())
         {
-            const bool consoleGone = runner::stopReason() == runner::StopReason::ConsoleGone;
+            const bool consoleGone = core::stopReason() == core::StopReason::ConsoleGone;
             const std::string what = consoleGone
                 ? "stopped: the console that started this run went away"
                 : "stopped by operator";
@@ -1836,7 +1865,7 @@ int main( int argc, char ** argv)
     // After everything that can fail before the run, so a Ctrl-C during
     // preflight is still the ordinary kill it always was: nothing is energised
     // yet and there is nothing to wind down. From here on it is a request, not
-    // a kill -- see stop_request.hpp.
+    // a kill -- see stop_sources.hpp.
     //
     runner::installStopSignals();
 

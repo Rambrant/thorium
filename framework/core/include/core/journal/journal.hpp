@@ -103,6 +103,16 @@ namespace core
         // to reproduce it.
         //
         Fetch,
+
+        //
+        // A fixed pause (see core/verbs/delay.hpp). Neither a stimulus nor an
+        // observation -- it touches no instrument and returns nothing -- but it
+        // is something the bench did, with a duration, and a log in which a
+        // test takes forty seconds longer than its checks explain is a log that
+        // cannot be read. On the stimulus side of the line, then: machine
+        // stream only, like Apply and Connect.
+        //
+        Delay,
         Verify,
         Safe,
         Note

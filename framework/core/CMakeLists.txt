@@ -16,6 +16,7 @@ add_library(core STATIC
         src/journal/event_sink.cpp
         src/journal/json.cpp
         src/verbs/verify.cpp
+        src/verbs/delay.cpp
         src/verbs/interlock.cpp
         src/criteria/criteria_variants.cpp
         # --- Ungrouped ---
@@ -81,6 +82,11 @@ add_library(core STATIC
         include/core/verbs/at.hpp        # header-only
         include/core/verbs/interlock.hpp # header-only apart from src/verbs/interlock.cpp
         include/core/verbs/verify.hpp    # header-only apart from src/verbs/verify.cpp
+        include/core/verbs/delay.hpp     # declaration only: src/verbs/delay.cpp
+        # --- core/control: asking a run to end early. The flag, the scope that arms
+        # it for a test script, and the exception a verb throws to obey it; what
+        # sets it is the process's (framework/runner/src/stop_sources.hpp).
+        include/core/control/stop_request.hpp   # header-only
         # --- core/journal: the machine-readable event stream, and the sinks
         # that render it. journal.hpp is the one every other layer posts to and
         # is the group only inward-facing header; report.hpp and
