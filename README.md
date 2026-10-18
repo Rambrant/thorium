@@ -1444,7 +1444,7 @@ fails that build rather than being reported.
 | `--criteria=NAME` | apply that tolerance variant — `production`, `stress`, `aged` |
 | `--repeat=N` | run the selection N times over |
 | `--until-failure` | stop as soon as a pass fails |
-| `--stop-on-stdin` | end the run after the current test when stdin says `stop` — how a supervising console stops one |
+| `--stop-on-stdin` | end the run after the current test when stdin says `stop`, or ends — how a supervising console stops one, and what happens to a run whose console went away |
 | `--safe` | drop the rig to idle and exit — no test, no log |
 | `--record=PATH` | write every reading the run took, in order (heavy payloads go to `PATH.d/`) |
 | `--replay=PATH` | take every reading from that file instead of the rig (honours `--select`) |

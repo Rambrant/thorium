@@ -363,15 +363,15 @@ namespace
         bool                           UntilFailure{ false };
 
         //
-        // For a supervising process: a line reading "stop" on stdin asks the
-        // run to end the way Ctrl-C does -- after the current test, with the
-        // rig safed and both logs written. Off unless asked for, because
+        // For a supervising process: a line reading "stop" on stdin, or stdin
+        // ending, asks the run to end the way Ctrl-C does -- after the current
+        // test, with the rig safed and both logs written. Off unless asked for, because
         // reading stdin is wrong for a run started from a terminal, where
         // Ctrl-C is the way and stdin is somebody's keyboard. See
         // stop_request.hpp.
         //
         [[= cli::Flag{ "--stop-on-stdin" },
-           = cli::Doc{ "end the run after the current test when stdin says \"stop\"" }]]
+           = cli::Doc{ "end the run after the current test when stdin says \"stop\" or is closed" }]]
         bool                           StopOnStdin{ false };
 
         //
@@ -1221,13 +1221,18 @@ namespace
         //
         if ( runner::stopHonoured())
         {
+            const bool consoleGone = runner::stopReason() == runner::StopReason::ConsoleGone;
+            const std::string what = consoleGone
+                ? "stopped: the console that started this run went away"
+                : "stopped by operator";
+
             if ( !options.StopOnStdin)
-                std::cerr << "Stopped by operator.\n";
+                std::cerr << what << ".\n";
 
             core::journal().post( core::JournalRecord{
                 .Method  = core::Verb::Note,
                 .Subject = "run",
-                .Detail  = "stopped by operator"
+                .Detail  = what
             });
 
             allPassed = false;

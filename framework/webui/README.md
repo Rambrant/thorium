@@ -115,9 +115,12 @@ never reaches `runEnd`. There is no confirmation, on purpose; Stop is the calm w
 The transport is a pipe rather than a signal because Windows has no way to signal a child that has no
 console. At a terminal the same request is Ctrl-C (`SIGINT`/`SIGTERM`): the first asks as above, a
 second kills the process, and the rig then needs a `--safe` -- see `framework/runner/src/stop_request.hpp`.
-End of input on the pipe is **not** a stop: a console that has gone away is not an instruction, so a
-run whose console dies is left running. That is the one open edge here, and it matters most for an
-unbounded run.
+End of input on the pipe **is** a stop. The server holds the pipe's other end for as long as the run
+is being watched, so an end means the console has gone -- closed, crashed or killed -- and an
+unbounded run with nobody watching must not carry on energising a rig. The run ends the same
+way, and the log says `stopped: the console that started this run went away` rather than `stopped by
+operator`. (A kill that never reaches the runner at a boundary -- a hung instrument read -- is still
+the rig watchdog's job.)
 
 ### Generating a form from `--describe-options`
 
@@ -186,6 +189,15 @@ unlike the old console this one is not a separate CMake project. It points
 itself at the `run_scripts` this same build produces
 (`$<TARGET_FILE:run_scripts>`), so there is nothing to configure by hand the
 way `THORIUM_UI_TEST_BINARY` once had to be.
+
+Ending a run early is tested end to end in `tests/test_stop_run.cpp` (POSIX only): the real runner and
+the real server, against `run_scripts_hooked` whose script is told to take 1.5 s
+(`THORIUM_FIXTURE_SCRIPT_DELAY_MS`), repeated 100000 times under `--replay` so that a run which was
+*not* stopped is seen to be still going. A stop line, Ctrl-C and a closed stdin each must leave the test
+in progress to finish, run both teardown hooks, start nothing further and report not-passed; a second
+Ctrl-C must kill at once; and through the server, a killed console must leave an orphaned run that ends
+itself and writes its logs, Emergency must kill and safe within a second, and Stop must not. Every wait
+is bounded, so a stop that stops working fails a test instead of hanging the suite.
 
 `webui_js_tests` is the page's JavaScript, and it is testable because the page
 is split in two:

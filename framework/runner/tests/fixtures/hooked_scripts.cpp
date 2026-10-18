@@ -2,8 +2,10 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <chrono>
 #include <stdexcept>
 #include <string_view>
+#include <thread>
 
 #include "core/criteria/predicates.hpp"
 #include "core/verbs/verify.hpp"
@@ -92,6 +94,16 @@ auto fixtureGroupTeardown() -> bool
 auto fixtureScript() -> void
 {
     announce( "script");
+
+    //
+    // A script that takes a while, for the tests of ending a run early: a stop
+    // is only observable against a run that is still going when it arrives, and
+    // the fixture's own scripts finish in microseconds. Milliseconds, whole.
+    //
+    if( const auto * delay = std::getenv( "THORIUM_FIXTURE_SCRIPT_DELAY_MS"))
+    {
+        std::this_thread::sleep_for( std::chrono::milliseconds( std::atol( delay)));
+    }
 
     if( isSet( "THORIUM_FIXTURE_SCRIPT_THROWS"))
     {

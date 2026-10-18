@@ -626,52 +626,9 @@ TEST_F( EventStream, AnUnloggedRunNamesNoLogs)
 // ---------------------------------------------------------------------------
 // Stopping a run
 // ---------------------------------------------------------------------------
-
-#ifndef _WIN32
-TEST( StopOnStdin, AStopLineEndsARunTheWayARunEndsAndIsNeverAPass)
-{
-    //
-    // Against the real binary, for the same reason as every test here. A
-    // skeleton replay is a run with no rig; three passes of it would run out
-    // of readings in the second (a skeleton holds one pass's worth), so a run
-    // that reached pass 2 would end in an uncaught exception -- and this one
-    // must end because it was asked to.
-    //
-    // "stop" is waiting on stdin before the first test starts, so it is seen at
-    // the first boundary: the interesting property is how the run ends, not how
-    // far it got.
-    //
-    const auto dir      = std::filesystem::temp_directory_path() / "thorium-ui-stop-test";
-    const auto skeleton = ( dir / "readings.tsv").string();
-
-    std::filesystem::remove_all( dir);
-    std::filesystem::create_directories( dir);
-
-    capture( kBinary + " --quiet --no-logs --skeleton=" + skeleton);
-
-    webui::EventStream reader;
-    const auto events = reader.consume( capture( "printf 'stop\\n' | " + kBinary +
-        " --quiet --no-logs --events=- --stop-on-stdin --replay=" + skeleton + " --repeat=3"));
-
-    ASSERT_FALSE( events.empty());
-    EXPECT_EQ( events.front().Which, webui::RunEvent::Kind::RunStart);
-    ASSERT_EQ( events.back().Which, webui::RunEvent::Kind::RunEnd) << "a stopped run still closes itself out";
-    EXPECT_EQ( events.back().Passed, std::optional<bool>{ false}) << "a stopped run is never a pass";
-
-    const auto noted = std::any_of( events.begin(), events.end(), []( const webui::RunEvent & e)
-    {
-        return e.Detail.find( "stopped by operator") != std::string::npos;
-    });
-
-    EXPECT_TRUE( noted);
-
-    const auto crashed = std::any_of( events.begin(), events.end(), []( const webui::RunEvent & e)
-    {
-        return e.Detail.find( "no programmed value left") != std::string::npos;
-    });
-
-    EXPECT_FALSE( crashed) << "it ended because it was asked to, not because it ran out of readings";
-
-    std::filesystem::remove_all( dir);
-}
-#endif
+//
+// Tested in test_stop_run.cpp, against a run that is genuinely mid-test when the
+// request arrives. An earlier pair of tests here raced a "stop" against a replay
+// that finishes in tens of milliseconds, and failed under load whenever the
+// runner got to the next pass first: a stop can only be asserted on a run that
+// is still going when it lands.

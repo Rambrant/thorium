@@ -181,7 +181,8 @@ if(BUILD_TESTING_LAYERS)
     )
 
     add_executable(run_scripts_hooked src/main.cpp)
-    target_link_libraries(run_scripts_hooked PRIVATE hooked_scripts)
+    # Threads for the same reason run_scripts has it: the same main.cpp.
+    target_link_libraries(run_scripts_hooked PRIVATE hooked_scripts Threads::Threads)
 
     set_target_properties(run_scripts_hooked PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)

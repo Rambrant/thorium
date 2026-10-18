@@ -27,8 +27,11 @@
 //   - a line reading "stop" on stdin, under --stop-on-stdin, for the console
 //     that supervises this process. A signal is not the transport because
 //     Windows has no way to send one to a child that has no console; a pipe is
-//     the same on both. End of input is NOT a stop -- a parent that has gone
-//     away is not an instruction -- see the console's README.
+//     the same on both. End of input is a stop too: the console holds the
+//     other end for exactly as long as it is there to watch, so an end means
+//     it is gone -- closed, crashed or killed -- and an unbounded run with
+//     nobody watching is not one to leave energising a rig. It is recorded
+//     as a different reason, so the log says which happened.
 //
 // It is read only between tests, groups and passes (see runSelectedTests,
 // runOnePass and runPasses in main.cpp). Nothing here interrupts a script:
@@ -45,6 +48,9 @@ namespace runner
         // makes touching it from a signal handler permitted.
         //
         inline std::atomic<bool>  gStopRequested{ false };
+
+        // Why, as a StopReason; the first request to arrive wins.
+        inline std::atomic<int>   gStopReason{ 0 };
 
         // Whether a boundary check actually cut work short -- see stopNow().
         inline std::atomic<bool>  gStopHonoured{ false };
@@ -73,9 +79,24 @@ namespace runner
         }
     } // namespace detail
 
-    inline auto requestStop() noexcept -> void
+    enum class StopReason : int
     {
+        None = 0,
+        Operator,       // Ctrl-C, SIGTERM, or a "stop" line
+        ConsoleGone     // stdin ended: whoever was supervising this run is not there
+    };
+
+    inline auto requestStop( StopReason reason = StopReason::Operator) noexcept -> void
+    {
+        int expected = 0;
+        detail::gStopReason.compare_exchange_strong( expected, static_cast<int>( reason));
         detail::gStopRequested.store( true);
+    }
+
+    [[nodiscard]]
+    inline auto stopReason() noexcept -> StopReason
+    {
+        return static_cast<StopReason>( detail::gStopReason.load());
     }
 
     [[nodiscard]]
@@ -115,10 +136,10 @@ namespace runner
     }
 
     //
-    // Reads stdin for the word "stop", on a thread that is never joined: it is
-    // blocked in a read for the life of the process, and process exit is what
-    // ends it. Anything else on a line is ignored, so a future command does not
-    // break an older runner.
+    // Reads stdin for the word "stop", and for its end, on a thread that is
+    // never joined: it is blocked in a read for the life of the process, and
+    // process exit is what ends it. Anything else on a line is ignored, so a
+    // future command does not break an older runner.
     //
     inline auto watchStdinForStop() -> void
     {
@@ -131,6 +152,8 @@ namespace runner
                 if ( line == "stop" || line == "stop\r")
                     requestStop();
             }
+
+            requestStop( StopReason::ConsoleGone);
         }).detach();
     }
 } // namespace runner

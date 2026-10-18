@@ -101,6 +101,18 @@ if(BUILD_TESTING_LAYERS)
     )
     add_dependencies(webui_protocol_tests run_scripts)
 
+    # tests/test_stop_run.cpp ends real runs early, mid-test, and so needs a run
+    # that lasts: run_scripts_hooked, whose script can be told to take a while
+    # (THORIUM_FIXTURE_SCRIPT_DELAY_MS), and the real server to supervise one.
+    # The shipped suite is left alone for the same reason the hook tests have a
+    # fixture of their own. httplib is the client for the server half.
+    target_compile_definitions(webui_protocol_tests PRIVATE
+        THORIUM_WEBUI_HOOKED_BINARY="$<TARGET_FILE:run_scripts_hooked>"
+        THORIUM_WEBUI_SERVER_BINARY="$<TARGET_FILE:thorium_webui>"
+    )
+    add_dependencies(webui_protocol_tests run_scripts_hooked thorium_webui)
+    target_link_libraries(webui_protocol_tests PRIVATE httplib::httplib)
+
     # The two files that start and end a child process are not in the library
     # (the server is their only consumer), but the tests of stopping a run need
     # them -- see tests/test_run_session.cpp.
