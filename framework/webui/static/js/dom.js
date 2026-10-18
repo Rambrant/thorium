@@ -12,7 +12,11 @@ export function el(tag, props, ...children) {
 
 const statusEl = $('status');
 
-export function setStatus(text, tone) {
+// `detail` is the whole of what `text` abbreviates, kept in the tooltip: the
+// line is one line however long the message, so it can never take room from
+// the buttons beside it.
+export function setStatus(text, tone, detail) {
   statusEl.textContent = text;
   statusEl.className = tone || '';
+  statusEl.title = detail || '';
 }

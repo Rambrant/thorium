@@ -1,31 +1,47 @@
 import { test, assertEqual } from './harness.js';
-import { repeatSettings, expectedTests } from '../../static/js/model/repeat.js';
+import { repeatSettings, countField, expectedTests } from '../../static/js/model/repeat.js';
 
 const flags = (r) => r.settings.map((s) => s.flag + (s.value ? '=' + s.value : ''));
 
-test('repeatSettings: untouched controls contribute no flag, and one pass', () => {
-  const r = repeatSettings({ passes: '  ', stopOnFailure: false });
+test('repeatSettings: once contributes no flag, and is one pass -- whatever the count field holds', () => {
+  const r = repeatSettings({ mode: 'once', count: '50' });
   assertEqual([r.settings, r.passes, r.error], [[], 1, null]);
 });
 
-test('repeatSettings: a count is --repeat, and is the pass count', () => {
-  const r = repeatSettings({ passes: ' 50 ', stopOnFailure: false });
+test('repeatSettings: a number of times is --repeat, and is the pass count', () => {
+  const r = repeatSettings({ mode: 'times', count: ' 50 ' });
   assertEqual([flags(r), r.passes, r.error], [['--repeat=50'], 50, null]);
 });
 
-test('repeatSettings: stopping at the first failure adds --until-failure after the count', () => {
-  assertEqual(flags(repeatSettings({ passes: '10', stopOnFailure: true })), ['--repeat=10', '--until-failure']);
+test('repeatSettings: a number of times needs the number', () => {
+  const r = repeatSettings({ mode: 'times', count: '' });
+  assertEqual(r.settings, []);
+  assertEqual(typeof r.error, 'string');
 });
 
-test('repeatSettings: stopping at the first failure without a count is unbounded, and says so', () => {
-  const r = repeatSettings({ passes: '', stopOnFailure: true });
+test('repeatSettings: until a test fails, with no limit, is unbounded and says so', () => {
+  const r = repeatSettings({ mode: 'until', count: '  ' });
   assertEqual([flags(r), r.passes, r.error], [['--until-failure'], null, null]);
 });
 
+test('repeatSettings: until a test fails, at most N, is both flags and a bounded count', () => {
+  const r = repeatSettings({ mode: 'until', count: '10' });
+  assertEqual([flags(r), r.passes, r.error], [['--repeat=10', '--until-failure'], 10, null]);
+});
+
 test('repeatSettings: zero, negative, fractional and non-numeric counts are refused', () => {
-  for (const passes of ['0', '-3', '2.5', 'ten', '1e3']) {
-    assertEqual(typeof repeatSettings({ passes, stopOnFailure: false }).error, 'string');
+  for (const mode of ['times', 'until']) {
+    for (const count of ['0', '-3', '2.5', 'ten', '1e3']) {
+      assertEqual(typeof repeatSettings({ mode, count }).error, 'string');
+    }
   }
+});
+
+test('countField: shown for the two repeating modes, labelled for what it means', () => {
+  assertEqual(countField('once').shown, false);
+  assertEqual(countField('times').label, 'Times');
+  assertEqual(countField('until').label, 'At most (optional)');
+  assertEqual(countField('until').shown, true);
 });
 
 test('expectedTests: the selection, once per pass -- and nothing to expect when unbounded', () => {

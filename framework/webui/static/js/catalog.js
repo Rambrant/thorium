@@ -92,7 +92,8 @@ export function updateSelection() {
   }
   const selected = model.selectedIds(catalog, isTicked).length;
   $('selCount').textContent = model.selectionSummary(selected, catalog.length);
-  $('run').disabled = state.running || catalog.length === 0 || selected === 0;
+  // One button, two jobs: Run before a run, Stop during one (see run.js).
+  $('run').disabled = state.running ? state.stopping : catalog.length === 0 || selected === 0;
 }
 
 export function selection() {

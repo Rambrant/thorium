@@ -20,14 +20,25 @@ let currentSource = null;
 function setRunning(value) {
   state.running = value;
   for (const box of $('tree').querySelectorAll('input[type=checkbox]')) box.disabled = value;
-  for (const id of ['dutSerial', 'operator', 'criteria', 'passes', 'stopOnFailure', 'selAll', 'selNone']) $(id).disabled = value;
+  for (const id of ['dutSerial', 'operator', 'criteria', 'repeatMode', 'repeatCount', 'selAll', 'selNone']) $(id).disabled = value;
   // The Safe button is untouched, deliberately: it is live at every moment.
-  // Stop and Emergency are the opposite: only a run gives them anything to do.
-  $('stop').disabled = !value;
+  // Emergency is the opposite: only a run gives it anything to do. And the
+  // Run button is the Stop button while there is one (see updateRunButton).
+  state.stopping = false;
   $('emergency').disabled = !value;
+  updateRunButton();
   setReadingsDisabled(value);
   updateSelection();
   updateSaveLog();
+}
+
+function updateRunButton() {
+  const button = $('run');
+  button.textContent = !state.running ? 'Run' : state.stopping ? 'Stopping...' : 'Stop';
+  button.classList.toggle('is-stop', state.running);
+  button.title = state.running
+    ? 'End the run after the current test: teardown runs, the rig is safed, the logs are written'
+    : '';
 }
 
 function onEvent(parsed) {
@@ -45,8 +56,8 @@ function runFinished() {
   setRunning(false);
   // The emergency button's own reply says how it went, and may already have.
   if (state.run.stopped === 'emergency') return;
-  const { text, tone } = outcome(state.run);
-  setStatus(text, tone);
+  const { text, tone, detail } = outcome(state.run);
+  setStatus(text, tone, detail);
 }
 
 function watchEvents() {
@@ -69,7 +80,7 @@ function watchEvents() {
   currentSource.onerror = () => { currentSource.close(); currentSource = null; runFinished(); };
 }
 
-$('run').addEventListener('click', async () => {
+async function startRun() {
   const readings = readingsSettings();
   if (readings.error) {
     setStatus(readings.error, 'fail');
@@ -106,7 +117,7 @@ $('run').addEventListener('click', async () => {
   }
   setStatus(runningText(state.run.expected));
   watchEvents();
-});
+}
 
 $('safe').addEventListener('click', async () => {
   setStatus('Safing the rig...');
@@ -116,24 +127,31 @@ $('safe').addEventListener('click', async () => {
   else setStatus('SAFING FAILED -- do not approach the fixture', 'fail');
 });
 
-$('stop').addEventListener('click', async () => {
-  $('stop').disabled = true;
+async function stopRun() {
   // Before the request, not after: the run may end before the reply does, and
   // the outcome it ends with must already know it was asked to.
   state.run.stopped = 'stop';
+  state.stopping = true;
+  updateRunButton();
+  updateSelection();
   setStatus('Stopping after the current test...');
   const response = await fetch('/api/stop', { method: 'POST' });
   if (!response.ok) {
     // 409: the run ended between the click and the request.
     state.run.stopped = null;
+    state.stopping = false;
+    updateRunButton();
+    updateSelection();
     if (state.running) setStatus('There was no run to stop.');
   }
-});
+}
+
+// The one button: Run when idle, Stop while a run is going.
+$('run').addEventListener('click', () => (state.running ? stopRun() : startRun()));
 
 // No confirmation, on purpose: this is the button for when there is no time
 // for one, and Stop is the calm way out.
 $('emergency').addEventListener('click', async () => {
-  $('stop').disabled = true;
   $('emergency').disabled = true;
   state.run.stopped = 'emergency';
   setStatus('EMERGENCY STOP -- killing the run and safing the rig...', 'fail');

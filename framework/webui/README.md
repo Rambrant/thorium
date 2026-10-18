@@ -83,12 +83,13 @@ installed suite to pick from.
 operator and criteria before a run, and the run's own `runStart` header once
 it has started -- the catalog as a collapsible tree with checkboxes, where
 ticking a group ticks every test in it, and the old console's colour-coded
-results list (with the raw event stream one tab away). The setup row also carries the readings choice -- live bench, record to a file, or replay from one --
-since `--record` and `--replay` are exclusive in `run_scripts`; the path is typed, because a
-browser never reveals a real one, and is resolved from where `run_scripts` runs.
-It also carries a pass count (`--repeat`) and a "stop at first failure" box (`--until-failure`). With
-no count the box makes the run unbounded -- until a test fails, or the operator presses **Stop**.
-The bar has two ways to end a run early (see "Stopping a run" below). It does not yet have the generated
+results list (with the raw event stream one tab away). A second setup row says where the readings come from -- the bench or a replayed recording,
+with a "Record readings" box for the bench (never both: `run_scripts` refuses to record a
+replay) -- and how often to run: once, a number of times (`--repeat`), or until a test fails
+(`--until-failure`, with an optional "at most" count). The path is typed, because a browser never
+reveals a real one, and is resolved from where `run_scripts` runs. With no count, "until a test fails"
+is unbounded: it ends when a test fails or the operator presses **Stop**. Run and Stop are one
+button, and **Emergency stop** sits in the top corner; see "Stopping a run" below. It does not yet have the generated
 form for the rest of the flags; `GET /api/options` already serves what that
 would be built from, and see "Generating a form from `--describe-options`"
 below for the rules the old console followed, which still apply to whoever
@@ -96,7 +97,7 @@ builds it.
 
 ## Stopping a run
 
-Two buttons, because they are two different promises.
+Two ways, because they are two different promises. **Stop** is the Run button while a run is going; **Emergency stop** is in the top-right corner.
 
 **Stop** asks. The server writes `stop` to the run's stdin; `run_scripts` (which the
 window always starts with `--stop-on-stdin`) checks that between tests, groups and passes and, when

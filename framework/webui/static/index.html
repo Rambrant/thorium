@@ -15,14 +15,14 @@
       Verify green or red, each reading plain, stderr as a red ERROR.
       The raw event stream is one tab away.
 
-    - record / replay. One choice -- live bench, record to a file, replay
-      from one -- because run_scripts makes --record and --replay exclusive.
-      A replay detaches the bench, and the run's header says so.
-    - repeat. A pass count, and "stop at first failure". With no count that
-      runs until something breaks -- ended, if nothing does, by Stop.
-    - Stop and Emergency stop, in the bar while a run is going. Stop asks the
-      run to finish after its current test, the way Ctrl-C does at a terminal;
-      Emergency kills it and safes the rig, and costs the run its logs.
+    - readings and repetition, on a second row: replay a recording instead of
+      the bench, or save the bench's readings to a file (never both --
+      run_scripts refuses to record a replay); run the selection once, a
+      number of times, or until a test fails. A replay detaches the bench,
+      and the run's header says so.
+    - one button for Run and Stop, and Emergency stop in the corner. Stop asks
+      the run to finish after its current test, the way Ctrl-C does at a
+      terminal; Emergency kills it and safes the rig, and costs the run its logs.
 
   A finished run's RTF or SARIF log can be saved from the bar (see
   GET /api/log/ in main.cpp). Still not here: the generated options
@@ -39,40 +39,55 @@
 <link rel="stylesheet" href="console.css">
 </head>
 <body>
-  <h1>Thorium Bench Console</h1>
+  <header id="top">
+    <h1>Thorium Bench Console</h1>
+    <button id="emergency" disabled title="Kill the run now and safe the rig. The run writes no logs.">Emergency stop</button>
+  </header>
 
   <div id="setup">
-    <div class="field serial">
-      <label for="dutSerial">DUT serial</label>
-      <input type="text" id="dutSerial" placeholder="SN-000123" autocomplete="off">
+    <div class="row">
+      <div class="field serial">
+        <label for="dutSerial">DUT serial</label>
+        <input type="text" id="dutSerial" placeholder="SN-000123" autocomplete="off">
+      </div>
+      <div class="field operator">
+        <label for="operator">Operator</label>
+        <input type="text" id="operator" placeholder="recorded in both logs" autocomplete="off">
+      </div>
+      <div class="field criteria">
+        <label for="criteria">Criteria</label>
+        <input type="text" id="criteria" placeholder="the build's default" autocomplete="off">
+      </div>
     </div>
-    <div class="field operator">
-      <label for="operator">Operator</label>
-      <input type="text" id="operator" placeholder="recorded in both logs" autocomplete="off">
+    <div class="row">
+      <div class="field source">
+        <label for="readingsSource">Readings</label>
+        <select id="readingsSource" title="Where the run's readings come from">
+          <option value="live">Live bench</option>
+          <option value="replay">Replay a recording</option>
+        </select>
+      </div>
+      <label class="check" title="Write every reading the run takes to a file, to replay later. Not available when replaying.">
+        <input type="checkbox" id="recordReadings">Record readings
+      </label>
+      <div class="field path" id="pathField" hidden>
+        <label for="readingsPath" id="readingsPathLabel">File</label>
+        <input type="text" id="readingsPath" placeholder="readings.tsv" autocomplete="off"
+               title="Relative paths are resolved from where run_scripts runs (build/ under tools/run-webui.sh)">
+      </div>
+      <div class="field repeat">
+        <label for="repeatMode">Run</label>
+        <select id="repeatMode" title="How often to run the selected tests">
+          <option value="once">Once</option>
+          <option value="times">A number of times</option>
+          <option value="until">Until a test fails</option>
+        </select>
+      </div>
+      <div class="field count" id="countField" hidden>
+        <label for="repeatCount" id="countLabel">Times</label>
+        <input type="text" id="repeatCount" inputmode="numeric" autocomplete="off">
+      </div>
     </div>
-    <div class="field criteria">
-      <label for="criteria">Criteria</label>
-      <input type="text" id="criteria" placeholder="the build's default" autocomplete="off">
-    </div>
-    <div class="field readings">
-      <label for="readingsMode">Readings</label>
-      <select id="readingsMode" title="Where the run's readings come from">
-        <option value="live">Live bench</option>
-        <option value="record">Record to file</option>
-        <option value="replay">Replay from file</option>
-      </select>
-    </div>
-    <div class="field path">
-      <label for="readingsPath">File</label>
-      <input type="text" id="readingsPath" hidden placeholder="readings.tsv" autocomplete="off"
-             title="Relative paths are resolved from where run_scripts runs (build/ under tools/run-webui.sh)">
-    </div>
-    <div class="field passes">
-      <label for="passes">Passes</label>
-      <input type="text" id="passes" inputmode="numeric" placeholder="1" autocomplete="off"
-             title="Run the selection this many times over; empty is once, or until a test fails with Stop at first failure">
-    </div>
-    <label class="check"><input type="checkbox" id="stopOnFailure">Stop at first failure</label>
   </div>
 
   <div id="runinfo" hidden></div>
@@ -108,8 +123,6 @@
 
   <div id="bar">
     <button id="run" disabled>Run</button>
-    <button id="stop" disabled title="End the run after the current test: teardown runs, the rig is safed, the logs are written">Stop</button>
-    <button id="emergency" disabled title="Kill the run now and safe the rig. The run writes no logs.">Emergency stop</button>
     <button id="safe">Safe the rig</button>
     <select id="logKind" title="Which of the run's two logs to save">
       <option value="rtf">RTF report</option>

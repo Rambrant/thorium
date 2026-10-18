@@ -51,7 +51,16 @@ export function outcome(run) {
   }
 
   if (!run.sawRunStart) {
-    return { text: 'The run did not start' + (run.errors.length ? ': ' + run.errors.join(' ') : ''), tone: 'fail' };
+    // The Results table already shows every stderr line as an ERROR row, so
+    // the status only needs the headline of the first: what comes before its
+    // first colon ("Preflight failed"). The whole of it stays in the tooltip.
+    const first = run.errors[0] || '';
+    const headline = first.split(':')[0].trim();
+    return {
+      text: 'The run did not start' + (headline ? ': ' + headline : ''),
+      tone: 'fail',
+      detail: run.errors.join(' '),
+    };
   }
   if (run.passed === undefined) {
     return { text: 'Run ended without reporting a result -- the rig state is unknown; safe the rig', tone: 'fail' };

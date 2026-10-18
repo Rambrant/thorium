@@ -1,30 +1,45 @@
-// --- repeat and until-failure, as settings ----------------------------
+// --- how often to run, as settings ------------------------------------
 
-// What the passes control and the stop box ask of the run:
-// { settings, passes, error }. `passes` is how many times the selection will
-// be run, for the progress count: 1 when nothing was asked for, and null when
-// the run is unbounded.
+export const ONCE = 'once';
+export const TIMES = 'times';
+export const UNTIL_FAILURE = 'until';
+
+// What the "Run" choice and its count ask of the run: { settings, passes, error }.
+// `passes` is how many times the selection will be run, for the progress count:
+// 1 when nothing was asked for, and null when the run is unbounded.
 //
-// An empty count is no --repeat, like every control left alone. With the stop
-// box ticked that is --until-failure alone, which run_scripts takes as "until
-// something breaks, however long" -- a run this page can end with Stop.
-export function repeatSettings({ passes, stopOnFailure }) {
-  const text = passes.trim();
+//   once              no flag, like every control left alone
+//   a number of times --repeat=N, N required
+//   until a test fails
+//                     --until-failure, with --repeat=N as an optional ceiling
+//                     ("at most N passes"). With no count that is run_scripts'
+//                     own unbounded form -- a run the page ends with Stop.
+export function repeatSettings({ mode, count }) {
+  if (mode !== TIMES && mode !== UNTIL_FAILURE) return { settings: [], passes: 1, error: null };
+
+  const text = count.trim();
   const settings = [];
-  let count = 1;
+  let passes = null;
 
   if (text) {
     if (!/^\d+$/.test(text) || Number(text) < 1) {
-      return { settings: [], passes: 1, error: 'Passes must be a whole number, 1 or more.' };
+      return { settings: [], passes: 1, error: 'The number of times must be a whole number, 1 or more.' };
     }
-    count = Number(text);
-    settings.push({ flag: '--repeat', value: String(count), present: true });
-  } else if (stopOnFailure) {
-    count = null;
+    passes = Number(text);
+    settings.push({ flag: '--repeat', value: String(passes), present: true });
+  } else if (mode === TIMES) {
+    return { settings: [], passes: 1, error: 'How many times? Enter a number first.' };
   }
 
-  if (stopOnFailure) settings.push({ flag: '--until-failure', value: '', present: true });
-  return { settings, passes: count, error: null };
+  if (mode === UNTIL_FAILURE) settings.push({ flag: '--until-failure', value: '', present: true });
+  return { settings, passes, error: null };
+}
+
+// What the count field is called, and whether it is shown at all.
+export function countField(mode) {
+  if (mode === TIMES) return { label: 'Times', placeholder: '10', shown: true };
+  if (mode === UNTIL_FAILURE) return { label: 'At most (optional)', placeholder: 'no limit', shown: true };
+  return { label: 'Times', placeholder: '', shown: false };
 }
 
 // The tests a run is expected to finish, for "n/expected": an upper bound

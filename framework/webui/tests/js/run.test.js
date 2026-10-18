@@ -32,9 +32,11 @@ test('progressText', () => {
 // README.md's "What a run means": four outcomes, told apart by the stream.
 test('outcome: no runStart -- the run did not start, with its stderr', () => {
   const run = newRun(1);
-  assertEqual(outcome(run), { text: 'The run did not start', tone: 'fail' });
-  run.errors.push('unknown test: X', 'see --list-tests');
-  assertEqual(outcome(run).text, 'The run did not start: unknown test: X see --list-tests');
+  assertEqual(outcome(run), { text: 'The run did not start', tone: 'fail', detail: '' });
+  run.errors.push('Preflight failed: no free instrument for box DeskDmm: all 1 candidates were busy', 'see --list-tests');
+  const { text, detail } = outcome(run);
+  assertEqual(text, 'The run did not start: Preflight failed');
+  assertEqual(detail, 'Preflight failed: no free instrument for box DeskDmm: all 1 candidates were busy see --list-tests');
 });
 
 test('outcome: runStart but no runEnd -- the rig state is unknown', () => {
