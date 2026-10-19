@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Starts the bench console: thorium_webui in front of a run_scripts, either
-# behind framework/launcher (menu-bar or tray icon, Chrome app window) or
+# behind framework/launcher (a Chrome app window) or
 # on its own with the page opened in the default browser.
 #
 # macOS and Windows both. On Windows it wants Git Bash, like every other script
@@ -46,8 +46,7 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # --- What differs between the two hosts ---
 # Everything platform-specific is here, so the rest of the script reads the
-# same on both: the executable suffix, where the launcher sits in a build
-# tree, what its icon is called, and three tools Git Bash does not ship -- lsof, pgrep and
+# same on both: the executable suffix, and three tools Git Bash does not ship -- lsof, pgrep and
 # open -- replaced by the Windows commands that answer the same questions.
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) windows=1 ;;
@@ -56,8 +55,6 @@ esac
 
 if [[ $windows -eq 1 ]]; then
     exe=".exe"
-    launcher_path="framework/launcher/thorium_launcher.exe"
-    icon="tray icon"
 
     # netstat's local-address column is "127.0.0.1:8420" or "[::]:8420"; the
     # trailing space keeps port 842 from matching 8420.
@@ -100,8 +97,6 @@ if [[ $windows -eq 1 ]]; then
     native_path() { cygpath -m "$1"; }
 else
     exe=""
-    launcher_path="framework/launcher/macos/thorium_launcher"
-    icon="menu-bar icon"
 
     port_in_use() { lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
     is_running()  { pgrep -f "$1" >/dev/null 2>&1; }
@@ -190,11 +185,11 @@ run_scripts="$(native_path "$(cd "$(dirname "$run_scripts")" && pwd)/$(basename 
 # to miss -- the window opens onto whichever server already has the port.
 # Named for its likeliest cause, because that cause is invisible: a console
 # whose window was closed during a run keeps going until the run ends, and
-# all that shows of it is the menu-bar or tray icon.
+# all that shows of it is a launcher process with no window.
 if port_in_use "$port"; then
     if is_running thorium_launcher; then
         echo "A bench console is already running (port $port is taken)." >&2
-        echo "Use its $icon: Show console to bring the window back, or Quit to stop it." >&2
+        echo "Open http://127.0.0.1:$port/ to use it. It quits by itself once its window is closed and no run is going." >&2
     elif is_running thorium_webui; then
         echo "A console server is already running on port $port, without the launcher." >&2
         echo "Open http://127.0.0.1:$port/ to use it, or stop it with: $stop_hint" >&2
@@ -209,7 +204,7 @@ fi
 # is part of the ordinary build): a launcher from another tree would be one
 # built on another day.
 webui_tree="$(dirname "$(dirname "$(dirname "$webui")")")"
-launcher="$webui_tree/$launcher_path"
+launcher="$webui_tree/framework/launcher/thorium_launcher$exe"
 
 if [[ $use_launcher -eq 1 && ! -x "$launcher" ]]; then
     echo "No launcher built at $launcher -- running the server on its own." >&2

@@ -3,9 +3,9 @@
 #include <cstdio>
 
 //
-// The whole test harness. The launcher is its own small CMake project with
-// no third-party dependency, and GoogleTest would be the first -- for two
-// test functions, a failure counter is enough.
+// The whole test harness. The launcher's tests need nothing from the rest of
+// the build, and GoogleTest would be the first thing they pulled in -- for one
+// test function, a failure counter is enough.
 //
 namespace launcher::tests
 {

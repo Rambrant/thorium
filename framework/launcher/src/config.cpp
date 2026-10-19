@@ -1,73 +1,62 @@
 #include "config.hpp"
 
 #include <cstdlib>
-
-#include <windows.h>
-
-#include <shellapi.h>
+#include <string_view>
 
 namespace launcher
 {
     namespace
     {
-        auto startsWith( const std::wstring & value, const wchar_t * prefix) -> bool
+        // The text after `prefix`, if `arg` starts with it.
+        auto valueOf( const std::string & arg, std::string_view prefix) -> std::optional<std::string>
         {
-            const auto len = wcslen( prefix);
-            return value.size() >= len && value.compare( 0, len, prefix) == 0;
+            if ( !arg.starts_with( prefix))
+            {
+                return std::nullopt;
+            }
+            return arg.substr( prefix.size());
         }
     }
 
-    auto parseConfig( std::wstring & error) -> std::optional<Config>
+    auto parseConfig( const std::vector<std::string> & args, std::string & error) -> std::optional<Config>
     {
-        int         argc = 0;
-        const auto  argv = CommandLineToArgvW( GetCommandLineW(), &argc);
-
-        if ( argv == nullptr)
-        {
-            error = L"CommandLineToArgvW failed";
-            return std::nullopt;
-        }
-
         Config  config;
 
-        for ( int i = 1; i < argc; ++i)
+        for ( const auto & arg : args)
         {
-            const std::wstring arg = argv[ i];
-
-            if ( startsWith( arg, L"--server="))
+            if ( const auto value = valueOf( arg, "--server="))
             {
-                config.ServerCommand = arg.substr( 9);
+                config.ServerCommand = *value;
             }
-            else if ( startsWith( arg, L"--server-arg="))
+            else if ( const auto value = valueOf( arg, "--server-arg="))
             {
-                config.ServerArgs.push_back( arg.substr( 13));
+                config.ServerArgs.push_back( *value);
             }
-            else if ( startsWith( arg, L"--browser-arg="))
+            else if ( const auto value = valueOf( arg, "--browser-arg="))
             {
-                config.BrowserArgs.push_back( arg.substr( 14));
+                config.BrowserArgs.push_back( *value);
             }
-            else if ( startsWith( arg, L"--port="))
+            else if ( const auto value = valueOf( arg, "--port="))
             {
-                config.Port = static_cast<unsigned short>(
-                    std::wcstoul( arg.substr( 7).c_str(), nullptr, 10));
-            }
-            else if ( startsWith( arg, L"--title="))
-            {
-                config.Title = arg.substr( 8);
+                char *      end = nullptr;
+                const auto  port = std::strtoul( value->c_str(), &end, 10);
+                if ( value->empty() || *end != '\0' || port == 0 || port > 65535)
+                {
+                    error = "Not a port number: " + arg;
+                    return std::nullopt;
+                }
+                config.Port = static_cast<unsigned short>( port);
             }
             else
             {
-                error = L"Unrecognised argument: " + arg;
-                LocalFree( argv);
+                error = "Unrecognised argument: " + arg;
                 return std::nullopt;
             }
         }
 
-        LocalFree( argv);
-
         if ( config.ServerCommand.empty())
         {
-            error = L"--server=<path to the console server executable> is required";
+            error = "--server=<path to the console server executable> is required";
             return std::nullopt;
         }
 

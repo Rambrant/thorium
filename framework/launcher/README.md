@@ -1,232 +1,187 @@
-# launcher/ -- the thing with the tray icon
+# launcher/ -- the thing that makes the console a window
 
 The native half of the browser-based bench console -- see
 [`framework/webui/README.md`](../webui/README.md)'s "History" for why a
 browser front end removes the two-compiler split the old wxWidgets console
-needed (GCC cannot build a GUI toolkit against macOS's Cocoa headers at all)
-and why the console should still not be a client-server product by default --
-bound to `127.0.0.1`, one operator at a time. This program is the "not a
-browser tab you have to go find" part of that answer.
+needed, and why the console should still not be a client-server product by
+default -- bound to `127.0.0.1`, one operator at a time. This program is the
+"not a browser tab you have to go find" part of that answer.
 
-There are two of it: `src/` is the Windows launcher and `macos/` the macOS
-one. They take the same flags and offer the same three menu actions, and
-share no code -- see "Why one launcher per platform" below.
+It is one program, the same on Windows and macOS: no tray icon, no menu bar
+item, nothing of the platform's GUI. Every platform difference is behind one
+header, `src/platform.hpp`, implemented once per *family*, not per product:
+`src/windows/platform.cpp`, `src/posix/platform.cpp` (the lock, the process
+group and watchdog, spawning -- what macOS and Linux share) and
+`src/posix/system_macos.cpp` (the few things a Mac does its own way: where the
+support directory is, where Chrome is, how an error is shown), with
+`src/posix/system_linux.cpp` its Linux counterpart. Everything else
+is ordinary C++ and the HTTP client the server itself is built on.
 
-It does four things, in order, every time it starts, and a fifth while it runs:
+It takes four flags, and has no config file:
 
-1. **Refuses to be a second instance.** On Windows, a named mutex
-   (`src/single_instance.hpp`), scoped `Local\` rather than `Global` -- one
-   console per interactive session, which is what "two operators" means on a
-   bench PC with one logged-in user. On macOS, an exclusive `flock()` on
-   `~/Library/Application Support/Thorium/launcher.lock`
-   (`macos/single_instance.hpp`) -- a lock the kernel drops when the process
-   dies, crash included, which is the property the mutex was chosen for.
-2. **Starts the console server as a supervised child** and waits for it to
-   bind its port (`health_check.hpp`) before doing anything else. Every child
-   this program spawns -- the server, each browser window -- is torn down
-   when the launcher goes, *including if the launcher itself crashes*:
-   - Windows: one Job object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`
-     (`src/process_job.hpp`). The kernel tears the job down when the last
-     handle to it closes.
-   - macOS has no Job object, so `macos/process_group.hpp` builds the same
-     promise from a process group and a watchdog: every child is spawned into
-     one group, and a small forked process leading that group holds the read
-     end of a pipe whose only write end is the launcher's. The launcher
-     exiting for any reason -- Quit, a crash, `kill -9` -- closes that write
-     end, the watchdog's `read()` returns 0, and it signals the whole group:
-     `SIGTERM`, two seconds' grace, then `SIGKILL`. `run_scripts` is covered
-     too, since `thorium_webui` starts it with a plain `fork()` that keeps
-     the group.
-3. **Opens Chrome in app mode** (`browser_launch.hpp`) against
-   `http://127.0.0.1:<port>` -- `--app=`, not `--kiosk` and not an embedded
-   `WebView2`/`WKWebView` control. No tab strip, no address bar, but a real,
-   resizable, closable window, against a profile of its own
-   (`%LOCALAPPDATA%\Thorium\chrome-profile`, or
-   `~/Library/Application Support/Thorium/chrome-profile`). An embedded
-   webview is the trap `framework/webui/README.md`'s "History" names
-   explicitly: it re-fences a per-platform native control behind the thing
-   this redesign exists to get out from behind. `--app=` needs none of that,
-   on any platform that has Chrome.
-
-   On macOS, Chrome's own output -- its updater, crash reporter and
-   push-message registration, none of it about the console -- goes to
-   `~/Library/Application Support/Thorium/chrome.log` (truncated per launch)
-   rather than to the terminal the console was started from. And a
-   `SingletonLock` left in the profile by the last session's Chrome is
-   removed before the first window opens (`clearStaleProfileLock` in
-   `macos/browser_launch.hpp`): the watchdog's `SIGKILL` leaves one every
-   time, and Chrome only clears a dead lock recorded under the Mac's
-   *current* hostname -- which follows the network -- so after moving
-   networks it reported the profile as "in use on another computer".
-4. **Puts an icon in the tray** -- the notification area on Windows
-   (`src/tray.hpp`), the menu bar on macOS (`macos/status_item.hpp`, with no
-   Dock icon of its own) -- with three actions: *Show console* (opens another
-   app-mode window -- see the note in `src/main.cpp` about why this does not
-   yet refocus an existing one), *Safe the rig* (posts to the server
-   directly, over HTTP, so it works even if the browser window has been
-   closed by mistake -- this is the one action
-   `framework/webui/README.md`'s "What a run means" says must never be
-   unavailable), and *Quit*.
-
-   If *Safe the rig* does not get a 2xx answer, both launchers say so --
-   an alert on macOS, a message box on Windows -- since a safe that silently
-   did not happen is the worst way this action can fail. `thorium_webui`
-   answers 500 when `run_scripts --safe` could not even start, and no
-   answer at all counts as a failure too.
-
-   On Windows 11 a new tray icon starts out in the notification area's
-   overflow (the `^` beside the clock), not on the taskbar itself, and there
-   is no API to promote it. The menu is on a right-click of the icon there;
-   drag it onto the taskbar to keep it in sight.
-
-5. **Quits when the console is closed** (`watchForClosedConsole` in
-   `src/main.cpp` and `macos/main.cpp`, the same logic on both). Closing the last console
-   window ends everything, the same as *Quit*, about three seconds later --
-   but never while a run is in flight: a window closed during a run leaves
-   the run, the server and *Safe the rig* going, and the console quits once
-   the run ends (unless *Show console* has brought a window back by then).
-   It cannot watch Chrome for this, because Chrome on macOS keeps running
-   when its last window closes. It asks the server instead: every open
-   console page holds `/api/presence` open, and `/api/status` reports how
-   many do and whether a run is active (see `framework/webui/README.md`).
-   The three seconds are what let a page reload -- which drops and reopens
-   that connection -- pass without being taken for a close. Windows asks
-   the server too, although watching the Chrome process would be enough
-   there, so that the two launchers cannot disagree about when to quit.
-
-   The Windows launcher starts its children with `CREATE_NO_WINDOW`
-   (`src/child_process.cpp`). It is a GUI program with no console, so
-   without that flag `thorium_webui` -- a console program -- would open a
-   console window of its own beside the real one.
-
-## What this is not yet
-
-The server now exists -- `framework/webui`'s `thorium_webui` -- and both
-launchers have been run against it end to end: the Windows one including a
-real `run_scripts` on a real deployment, the macOS one against the dev
-deployment (preflight refuses without the bench's meter attached, which is
-the "never started" outcome, and *Safe the rig*, *Show console*, Quit and a
-`kill -9` of the launcher all behave as described above). What is still
-missing:
-
-There is no config file. Command-line flags
-(`--server=`, `--server-arg=`, `--browser-arg=`, `--port=`, `--title=`) are
-the whole surface -- see `config.hpp`, one per platform. `--browser-arg=`
-adds one flag to every Chrome window the way `--server-arg=` adds one to the
-server; today only the teardown test uses it. A real deployment will want these to come
-from somewhere more permanent than a shortcut's target field, and
-`config.hpp` is the one place that changes when it does.
-
-The macOS launcher is a bare executable, not an `.app` bundle. It hides its
-own Dock icon at runtime, and runs fine from a terminal or a login item, but
-there is nothing to double-click in Finder -- and without a config file
-there would be nothing for a double-click to pass it anyway. The two arrive
-together.
-
-"Show console" always opens a fresh Chrome window rather than refocusing an
-existing one -- see the note in `src/main.cpp`'s `showConsole` lambda. Fine
-for a first cut since closing the console and clicking the tray icon again is
-the uncommon path; refocusing a specific app-mode window needs an
-`EnumWindows` search by title/class on Windows, and the Accessibility API on
-macOS.
-
-Single *operator* session (only one browser talking to the server at a time)
-is a server-side concern, not this program's -- see
-`framework/webui/README.md`'s "What it does not do yet". The launcher's
-lock only stops two *launchers*; a remote browser reaching the same server
-later would not go through this program at all.
-
-## Why one launcher per platform
-
-framework/ui was one wxWidgets program built by whichever compiler each of the
-three platforms had (deleted; see `framework/webui/README.md`'s "History").
-This is not that: everything this program does is platform-specific by
-nature. On Windows it is `CreateMutexW`, a Job object, `Shell_NotifyIcon` and
-the `App Paths` registry key; on macOS it is `flock()`, a watched process
-group, `NSStatusItem` and Launch Services. Those do not line up one-to-one --
-the Job object alone became a fork, a pipe and a signal sequence -- and what
-the two programs genuinely share is five command-line flags and three menu
-items, less than any abstraction over them would cost. So each platform gets
-its own few hundred lines, and a Linux bench gets a third when one is
-needed, not a portability layer grown over these. `--app=` mode itself is
-identical everywhere; only the handful of lines that spawn it and put an icon
-next to the clock are not.
-
-**Both are built by GCC -- on macOS too, even though the menu bar item is
-AppKit.** AppKit's headers are the Clang-only block syntax that ended
-framework/ui, so the macOS launcher never includes them. It reaches AppKit
-through the Objective-C runtime's plain C API instead (`objc_msgSend`, cast
-to each method's real signature -- see `macos/objc.hpp`), and GCC 16 builds
-it with the same `-Wall -Wextra -Wpedantic -Werror` as everything else. That
-keeps Thorium one compiler everywhere, the thing the browser front end was
-chosen for in the first place.
-
-The price is that the compiler no longer checks any AppKit call: a
-misspelt class is nil and every message to it silently does nothing, a
-misspelt selector aborts, a wrong cast is undefined behaviour. So every
-message the launcher sends is one row in `macos/appkit.hpp`, and the tests
-below check each row against the running system -- see "Testing the macOS
-launcher".
-
-## Building
-
-Part of the ordinary build, beside `framework/webui` -- the server it starts
-and the launcher are built together, by the same preset and the same GCC 16:
-
-```
-cmake --preset windows-dev     # or macos-dev, or any other preset
-cmake --build build/dev
-```
-
-Windows gets ordinary Win32 SDK headers, macOS AppKit through the
-Objective-C runtime; neither needs a third-party dependency. On Linux the
-top-level `CMakeLists.txt` leaves this directory out, since there is no
-launcher for it yet. It used to be a CMake project of its own, with its own
-presets and `build/launcher`, from when the macOS half needed a compiler the
-framework could not use; nothing here does any more.
-
-The build's `-static-libstdc++` applies here too, so unlike the old separate
-build the macOS launcher no longer needs Homebrew's GCC on the machine that
-runs it. The result is `<tree>/framework/launcher/thorium_launcher.exe` on
-Windows and `<tree>/framework/launcher/macos/thorium_launcher` on macOS, run
-with the same flags on both -- or let `tools/run-webui.sh` find it beside the
-server it picks:
+| Flag | |
+|---|---|
+| `--server=<path>` | the console server to start (required) |
+| `--server-arg=<arg>` | one more argument for it; repeatable |
+| `--browser-arg=<arg>` | one more flag for every Chrome window; repeatable -- today only the teardown test uses it |
+| `--port=<n>` | the port the server listens on, default 8420 |
 
 ```
 thorium_launcher --server=<path to thorium_webui> \
     --server-arg=--run-scripts=<path to run_scripts> --server-arg=--port=8420
 ```
 
-## Testing the macOS launcher
+## What it does
+
+In order, every time it starts, and a last thing while it runs:
+
+1. **Refuses to be a second console.** One launcher per interactive session --
+   a named mutex scoped `Local\` on Windows, an exclusive `flock()` on
+   `~/Library/Application Support/Thorium/launcher.lock` on macOS -- released
+   by the kernel however the holder dies, crash included. A second launcher
+   does not fail, though: it asks Chrome for another console window and
+   exits, since there is no menu to ask from. That is how an operator who
+   closed the window mid-run gets it back (see step 4), and it starts no
+   second server.
+2. **Starts the console server as a supervised child** and waits for it to
+   answer `GET /api/status`. Every child this program spawns -- the server,
+   each Chrome window -- is torn down when the launcher goes, *including if
+   the launcher itself crashes*:
+   - Windows: one Job object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. The
+     kernel tears the job down when the last handle to it closes.
+   - macOS has no Job object, so the same promise is built from a process
+     group and a watchdog: every child is spawned into one group, and a small
+     forked process leading that group holds the read end of a pipe whose
+     only write end is the launcher's. The launcher exiting for any reason --
+     a crash, `kill -9` -- closes that write end, the watchdog's `read()`
+     returns 0, and it signals the whole group: `SIGTERM`, two seconds'
+     grace, then `SIGKILL`. `run_scripts` is covered too, since
+     `thorium_webui` starts it with a plain `fork()` that keeps the group.
+3. **Opens Chrome in app mode** against `http://127.0.0.1:<port>` -- `--app=`,
+   not `--kiosk` and not an embedded `WebView2`/`WKWebView` control. No tab
+   strip, no address bar, but a real, resizable, closable window, against a
+   profile of its own (`%LOCALAPPDATA%\Thorium\chrome-profile`, or
+   `~/Library/Application Support/Thorium/chrome-profile`). An embedded
+   webview is the trap `framework/webui/README.md`'s "History" names: it
+   re-fences a per-platform native control behind the thing this redesign
+   exists to get out from behind.
+
+   On macOS, Chrome's own output -- its updater, crash reporter and
+   push-message registration, none of it about the console -- goes to
+   `~/Library/Application Support/Thorium/chrome.log` (truncated per launch)
+   rather than to the terminal the console was started from. And a
+   `SingletonLock` left in the profile by the last session's Chrome is
+   removed before the first window opens: the watchdog's `SIGKILL` leaves one
+   every time, and Chrome only clears a dead lock recorded under the Mac's
+   *current* hostname -- which follows the network -- so after moving networks
+   it reported the profile as "in use on another computer".
+4. **Quits when the console is closed.** Closing the last console window
+   ends everything about three seconds later -- but never while a run is in
+   flight: a window closed during a run leaves the run and the server going,
+   and the console quits once the run ends (unless the launcher has been run
+   again by then, which brings a window back). It cannot watch Chrome for
+   this, because Chrome on macOS keeps running when its last window closes. It
+   asks the server instead: every open console page holds `/api/presence`
+   open, and `/api/status` reports how many do and whether a run is active
+   (see `framework/webui/README.md`). The three seconds are what let a page
+   reload -- which drops and reopens that connection -- pass without being
+   taken for a close.
+
+   It also quits if the server dies: nothing listening on the port for five
+   seconds. *Refused*, specifically -- a server that accepts the connection
+   and does not answer is busy, and a busy server in the middle of a run is
+   never taken for a dead one.
+
+A failure to start is reported on stderr, and also as a dialog when stderr is
+not a terminal -- a `MessageBox` on Windows, an `osascript` alert on macOS --
+since a launcher started from a shortcut that fails silently is just a console
+that never appears.
+
+## What is not here
+
+There is no tray icon or menu bar item. It used to have one, with *Show
+console*, *Safe the rig* and *Quit*; nobody was going to use them, and they
+were the reason the program had to be two. *Show console* is now running the
+launcher again, *Quit* is closing the window, and *Safe the rig* is the
+console page's own control -- the server's `POST /safe` is unchanged, and
+still never gated on whether a run is active.
+
+The launcher is also not a double-clickable macOS `.app` bundle, and has no
+config file: the flags above are the whole surface. A real deployment will
+want them from somewhere more permanent than a shortcut's target field, and
+`config.hpp` is the one place that changes when it does.
+
+The Linux half, `src/posix/system_linux.cpp`, is an XDG support directory
+(`$XDG_DATA_HOME/thorium`), Chrome or Chromium from `PATH`, `/proc/<pid>/exe`
+for the stale-lock check, and a `zenity` or `notify-send` dialog. It was
+written on speculation, without a Linux machine: see "Testing".
+
+Single *operator* session (only one browser talking to the server at a time)
+is a server-side concern, not this program's -- see
+`framework/webui/README.md`'s "What it does not do yet". The launcher's lock
+only stops two *launchers*; a remote browser reaching the same server later
+would not go through this program at all.
+
+## Why a seam rather than a program per platform
+
+The first version was two programs sharing five flags and nothing else,
+because most of what each did was its own platform's GUI: `Shell_NotifyIcon`
+on one side, `NSStatusItem` on the other -- driven, under GCC, through the
+Objective-C runtime's C API with every message checked against the running
+system by a test of its own, since GCC cannot read AppKit's headers. Dropping
+the menu dropped all of that, and what is left that is genuinely different
+fits in `platform.hpp`: where the support directory is, the lock, the process
+group, where Chrome is, how to say an error. Windows and POSIX genuinely
+disagree about the lock and the process group -- the Job object alone becomes
+a fork, a pipe and a signal sequence -- and macOS differs from Linux only in
+the small system_macos.cpp; no abstraction over any of it would be smaller than the
+files it replaced.
+
+Both are built by GCC, with the same `-Wall -Wextra -Wpedantic -Werror` as
+everything else, and the build's `-static-libstdc++`, so the macOS launcher
+does not need Homebrew's GCC on the machine that runs it.
+
+## Building
+
+Part of the ordinary build, beside `framework/webui` -- the server it starts
+and the launcher are built together, by the same preset:
+
+```
+cmake --preset windows-dev     # or macos-dev, or any other preset
+cmake --build build/dev
+```
+
+The result is `<tree>/framework/launcher/thorium_launcher` (`.exe` on
+Windows) -- or let `tools/run-webui.sh` find it beside the server it picks.
+
+## Testing
 
 With the rest of a tree's tests, under `BUILD_TESTING_LAYERS` -- so
 `tools/run-ctest.sh` runs them in every tree, or just these with:
 
 ```
-ctest --test-dir build/dev -R launcher_macos
+ctest --test-dir build/dev -R launcher
 ```
 
-Split by what they need:
+`launcher.profile_lock` runs on any POSIX host; `launcher.teardown` is macOS
+only so far (it drives `launchctl`, `mdfind` and BSD `ps`):
 
 | Test | Needs | Catches |
 |---|---|---|
-| `launcher_macos.signatures` | nothing -- headless | For every row of `appkit.hpp`: the class exists, the method exists on it as a class or instance method as the row says, and its runtime type encoding is the one the row's C++ signature implies. The same for the launcher's own runtime-built menu-target class, against the `v@:@` its callers send. First, it proves it *can* fail: a deliberately misspelt class, a misspelt selector, a wrong cast and a wrong method kind must each be rejected. |
-| `launcher_macos.no_raw_runtime_calls` | nothing | Any `objc_msgSend`, `sel_registerName` or `objc_getClass` outside `objc.hpp` -- a message that skipped the table would skip the signature test too -- and any use of `<objc/objc.h>`'s `BOOL`/`YES`/`NO`, which are the wrong type under GCC (below). |
-| `launcher_macos.menu` | a logged-in desktop | The menu bar item built for real: the items and their order, each item reaching its own handler through its own target and action, the icon set as a template, and `postToMain()` + `stop()` waking and ending the event loop from another thread. What a signature check cannot see: the right method called on the wrong item, or not at all. |
-| `launcher_macos.teardown` | a desktop and Chrome | The real binary against a stand-in server: the console lands in the watchdog's process group (Chrome included), a second launcher refuses, and a `kill -9` of the launcher leaves nothing of it running. Opens one Chrome window for a few seconds, under a throwaway `$HOME`. |
+| `launcher.profile_lock` | nothing -- headless | `clearStaleProfileLock` against a real directory: the dead-Chrome-under-another-hostname case that put "profile in use on another computer" in the console's terminal. |
+| `launcher.teardown` | a desktop and Chrome | The real binary against a stand-in server (`tests/stand_in_server.py`, which answers only `/api/status`): the console lands in the watchdog's process group, Chrome included; a second launcher opens a window and exits without disturbing the server; and a `kill -9` of the launcher leaves nothing of it running. Opens one Chrome window for a few seconds, under a throwaway `$HOME`. Skipped, not failed, without a desktop session. |
 
-The last two report themselves skipped, not failed, without a desktop
-session, so a headless runner still gets the two that need none.
+Not covered: the Linux half. `system_linux.cpp` has been neither compiled nor
+run. WSL2 is a real Linux kernel, so the lock, the process group and the
+watchdog behave there as on a bench, and `launcher.profile_lock` plus the build
+itself can be checked in a WSL shell with GCC 16. Chrome and the dialogs need a
+display: Windows 11's WSLg provides one, and Chrome has to be installed inside
+the distribution (not Windows' own). The teardown test still needs a Linux port
+of its macOS-specific shell.
 
-Not covered by any of them: a clean Quit clicked from the real menu bar
-(that needs Accessibility permission a test cannot grant itself --
-`launcher_macos.menu` covers the handler and `stop()`, and the teardown test
-covers what closing the watchdog's pipe does), and anything visual -- that
-the icon *looks* right is still a look at the menu bar.
+Not covered: the Windows program. It is the same `main.cpp`, `config.cpp` and
+`console_client.cpp`, but `src/windows/platform.cpp` was written without a
+Windows build in reach and has been neither compiled nor run.
 
-The signature test earned its keep on its first run. `<objc/objc.h>` defines
-`BOOL` as `bool` only when a Clang-predefined macro says so; under GCC it is
-`signed char` on every architecture, where the arm64 ABI says `bool`. Seven
-messages were being called with the wrong type -- working by accident, and
-undefined behaviour. `objc.hpp`'s `Bool` is the ABI's type, and the raw-call
-test now bans the other one.
+Not covered anywhere: the operator closing the window (that needs a real
+console page holding `/api/presence`), and what a dialog looks like.

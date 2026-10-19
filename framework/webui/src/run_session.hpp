@@ -24,8 +24,8 @@ namespace webui
     //
     // Every line the run has produced is kept, not just the newest one, so a
     // browser tab opened after the run started -- or reopened after being
-    // closed, which framework/launcher's "Show console" does on every click
-    // -- sees the run from its own beginning rather than from whenever it
+    // closed, which running framework/launcher again does while a console is
+    // up -- sees the run from its own beginning rather than from whenever it
     // happened to connect.
     //
     class RunSession

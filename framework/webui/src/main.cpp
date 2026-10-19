@@ -192,9 +192,9 @@ auto main( int argc, char ** argv) -> int
     // Never gated on session.active(): the whole point of this endpoint,
     // per README.md's "What a run means", is that it is never unavailable,
     // including while a run is in progress and including after one has died.
-    // framework/launcher's tray icon calls this exact path -- see
-    // framework/launcher/src/rig_client.hpp -- so its spelling ("/safe", not
-    // "/api/safe") is fixed by what has already shipped there.
+    // The console page calls it (static/js/run.js), as the launcher's tray
+    // icon once did, so its spelling ("/safe", not "/api/safe") is fixed by
+    // what has already shipped.
     server.Post( "/safe", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
         const auto  result = webui::runBlocking( webui::buildSafeCommand( suite));

@@ -509,12 +509,7 @@ add_subdirectory(framework/hal)
 # at all (framework/ui, wxWidgets-based and deleted, never was).
 add_subdirectory(framework/webui)
 
-# The launcher only on the two hosts it has a program for -- a Linux bench
-# would get a third, small one (see framework/launcher/README.md), and until
-# then builds the server alone and opens the page in a browser.
-if(WIN32 OR APPLE)
-    add_subdirectory(framework/launcher)
-endif()
+add_subdirectory(framework/launcher)
 
 # --- Package export: core + hal + the drivers as the reusable "Thorium" framework ---
 # core, hal, hal_rig and every instrument driver register themselves into the

@@ -16,7 +16,7 @@
 
 #include <unistd.h>
 
-#include "browser_launch.hpp"
+#include "profile_lock.hpp"
 #include "check.hpp"
 
 namespace
@@ -55,29 +55,29 @@ auto runProfileLockTests() -> int
     const fs::path  dir = made;
 
     // Nothing there: nothing removed, nothing reported.
-    LAUNCHER_CHECK( !launcher::clearStaleProfileLock( dir.string()));
+    LAUNCHER_CHECK( !launcher::platform::clearStaleProfileLock( dir.string()));
 
     // A dead Chrome, recorded under the hostname the Mac had on another
     // network. pid_t tops out far below this on macOS, so it cannot be alive.
     makeLock( dir, "Mac.localdomain-99999999");
-    LAUNCHER_CHECK( launcher::clearStaleProfileLock( dir.string()));
+    LAUNCHER_CHECK( launcher::platform::clearStaleProfileLock( dir.string()));
     LAUNCHER_CHECK( !anyLeft( dir));
 
     // A live process that is not Chrome -- this test itself. A recycled pid
     // must not keep a dead Chrome's lock alive.
     makeLock( dir, "MacBook-Air.local-" + std::to_string( getpid()));
-    LAUNCHER_CHECK( launcher::clearStaleProfileLock( dir.string()));
+    LAUNCHER_CHECK( launcher::platform::clearStaleProfileLock( dir.string()));
     LAUNCHER_CHECK( !anyLeft( dir));
 
     // A lock whose target is not "<host>-<pid>" at all is stale too.
     makeLock( dir, "garbage");
-    LAUNCHER_CHECK( launcher::clearStaleProfileLock( dir.string()));
+    LAUNCHER_CHECK( launcher::platform::clearStaleProfileLock( dir.string()));
     LAUNCHER_CHECK( !anyLeft( dir));
 
     // Everything else in the profile is left alone.
     { std::FILE * keep = std::fopen( ( dir / "Preferences").c_str(), "w"); if ( keep) { std::fclose( keep); } }
     makeLock( dir, "Mac.localdomain-99999999");
-    (void)launcher::clearStaleProfileLock( dir.string());
+    (void)launcher::platform::clearStaleProfileLock( dir.string());
     LAUNCHER_CHECK( fs::exists( dir / "Preferences"));
 
     fs::remove_all( dir);

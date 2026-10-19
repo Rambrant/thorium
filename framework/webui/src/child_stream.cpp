@@ -224,11 +224,11 @@ namespace webui
         PROCESS_INFORMATION  info{};
 
         // No CREATE_SUSPENDED / job assignment here, unlike
-        // framework/launcher/src/child_process.cpp: this process inherits
+        // framework/launcher/src/windows/platform.cpp: this process inherits
         // whatever job the console server itself is a member of (it does not
         // set CREATE_BREAKAWAY_FROM_JOB), so when the launcher's job goes
         // down, this child goes down with it -- see framework/launcher's
-        // README on JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE.
+        // README on how the group is torn down.
         const auto  created = CreateProcessW(
             nullptr, commandLine.data(),
             nullptr, nullptr, TRUE,

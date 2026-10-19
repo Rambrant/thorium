@@ -7,28 +7,27 @@
 namespace launcher
 {
     //
-    // Everything the launcher needs to bring the console up. There is no
-    // config file: the server this drives does not exist yet, so a fixed set
-    // of command-line flags is the whole story until there is a real
-    // deployment to make configurable, at which point this struct is the one
-    // place that changes.
+    // The whole command-line surface, the same five flags on every platform:
+    //
+    //   --server=<path>      the console server to start (required)
+    //   --server-arg=<arg>   one more argument for it; repeatable
+    //   --browser-arg=<arg>  one more flag for every Chrome window; repeatable
+    //   --port=<n>           the port the server listens on (default 8420)
+    //
+    // UTF-8 throughout; platform::arguments() does the conversion on Windows.
     //
     struct Config
     {
-        std::wstring               ServerCommand;
-        std::vector<std::wstring>  ServerArgs;
-        std::vector<std::wstring>  BrowserArgs;
-        unsigned short             Port{ 8420 };
-        std::wstring               Title{ L"Thorium Bench Console" };
+        std::string               ServerCommand;
+        std::vector<std::string>  ServerArgs;
+        std::vector<std::string>  BrowserArgs;
+        unsigned short            Port{ 8420 };
     };
 
     //
-    // Reads this process's own command line. Empty optional plus a
-    // human-readable sentence in `error` on anything it cannot make sense of
-    // -- the only caller is wWinMain, and a message box is the right way to
-    // report it, which is why the message is a plain sentence rather than an
-    // exception type.
+    // Empty optional plus a plain sentence in `error` on anything it cannot
+    // make sense of -- the only caller is main, which reports that sentence.
     //
     [[nodiscard]]
-    auto parseConfig( std::wstring & error) -> std::optional<Config>;
+    auto parseConfig( const std::vector<std::string> & args, std::string & error) -> std::optional<Config>;
 }

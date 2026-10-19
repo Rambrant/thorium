@@ -7,24 +7,24 @@
 # program that matters most if it goes wrong: a leaked run_scripts is a rig
 # nobody is watching.
 #
-# Usage: teardown.sh <path to thorium_launcher>
+# Usage: teardown.sh <path to thorium_launcher> <path to stand_in_server.py>
 #
 # Needs a logged-in desktop and Chrome, since it starts the real thing:
 # skipped (exit 77) without either. It opens one Chrome app-mode window for
 # a few seconds, against a throwaway $HOME so it cannot collide with a
-# console that is really running. The "server" is Python's http.server --
-# the launcher only needs something that binds the port, and this test is
-# about the process group, not about thorium_webui.
+# console that is really running. The "server" is stand_in_server.py -- the
+# launcher needs something that answers /api/status, and this test is about
+# the process group, not about thorium_webui.
 #
-# A clean Quit is not driven from here: it needs a click on the menu bar,
-# which needs Accessibility permission a test cannot grant itself.
-# test_menu.cpp covers the Quit handler and stop(); what Quit then does to
-# the children -- close the watchdog's pipe -- is the same close a kill -9
-# causes, tested below.
+# A clean exit (the operator closing the window) is not driven from here: it
+# needs a real console page holding /api/presence open. What it does to the
+# children -- close the watchdog's pipe -- is the same close a kill -9 causes,
+# tested below.
 #
 set -u
 
 LAUNCHER=$1
+STAND_IN=$2
 PORT=8499
 PYTHON=/usr/bin/python3
 CHROME="/Applications/Google Chrome.app"
@@ -44,6 +44,9 @@ cleanup()
 {
     [ -n "$LAUNCHER_PID" ] && kill -9 "$LAUNCHER_PID" 2>/dev/null
     [ -n "$GROUP" ] && kill -9 -"$GROUP" 2>/dev/null
+    # Anything still on the throwaway profile, whatever group it is in -- the
+    # second launcher's Chrome is deliberately outside it.
+    pkill -9 -f "user-data-dir=$TEST_HOME" 2>/dev/null
     rm -rf "$TEST_HOME"
 }
 
@@ -61,9 +64,7 @@ listening && skip "port $PORT is already in use"
 HOME=$TEST_HOME "$LAUNCHER" \
     --server="$PYTHON" \
     --browser-arg=--use-mock-keychain \
-    --server-arg=-m --server-arg=http.server \
-    --server-arg=--bind --server-arg=127.0.0.1 \
-    --server-arg="$PORT" \
+    --server-arg="$STAND_IN" --server-arg="$PORT" \
     --port="$PORT" >"$TEST_HOME/launcher.log" 2>&1 &
 LAUNCHER_PID=$!
 
@@ -85,18 +86,38 @@ ps -A -o pgid=,comm= | awk -v g="$GROUP" '$1 == g' | grep -q "Google Chrome" \
     || fail "Chrome did not start in the console's process group"
 echo "started: launcher $LAUNCHER_PID, group $GROUP with $(members "$GROUP") processes"
 
-# --- A second launcher refuses ----------------------------------------------
-# It reports on stderr, then waits on an alert nobody will dismiss -- so read
-# the message, check it started nothing, and kill it.
-HOME=$TEST_HOME "$LAUNCHER" --server=/usr/bin/false >"$TEST_HOME/second.log" 2>&1 &
+# --- A second launcher asks for a window instead -----------------------------
+# With no menu to ask the first one from, running the launcher again is how an
+# operator whose window is closed gets it back. It must not start a second
+# console: it hands the window to the Chrome already on the profile, and exits.
+SERVER_BEFORE=$(lsof -t -iTCP:"$PORT" -sTCP:LISTEN | head -1)
+HOME=$TEST_HOME "$LAUNCHER" --server=/usr/bin/false --port="$PORT" --browser-arg=--use-mock-keychain \
+    >"$TEST_HOME/second.log" 2>&1 &
 SECOND_PID=$!
-for _ in $(seq 1 25); do grep -q "already running" "$TEST_HOME/second.log" && break; sleep 0.2; done
-grep -q "already running" "$TEST_HOME/second.log" \
-    || { kill -9 "$SECOND_PID" 2>/dev/null; fail "a second launcher did not refuse: $(cat "$TEST_HOME/second.log")"; }
-[ -z "$(pgrep -P "$SECOND_PID")" ] \
-    || { kill -9 "$SECOND_PID" 2>/dev/null; fail "the refused launcher started children anyway"; }
-kill -9 "$SECOND_PID" 2>/dev/null
-echo "second instance refused"
+for _ in $(seq 1 50); do kill -0 "$SECOND_PID" 2>/dev/null || break; sleep 0.1; done
+if kill -0 "$SECOND_PID" 2>/dev/null; then
+    kill -9 "$SECOND_PID" 2>/dev/null
+    fail "a second launcher did not exit: $(cat "$TEST_HOME/second.log")"
+fi
+wait "$SECOND_PID" || fail "a second launcher failed: $(cat "$TEST_HOME/second.log")"
+[ "$(lsof -t -iTCP:"$PORT" -sTCP:LISTEN | head -1)" = "$SERVER_BEFORE" ] \
+    || fail "the second launcher disturbed the console server"
+
+# Its Chrome is outside the group and has to hand the window to the running
+# one and exit. Wait for that: killing the first Chrome before it has would
+# leave this one as the only browser on the profile -- a stray window, open on
+# a console that is about to be gone.
+for _ in $(seq 1 100); do
+    pgrep -f "user-data-dir=$TEST_HOME" | while read -r pid; do
+        [ "$(ps -o pgid= -p "$pid" | tr -d ' ')" = "$GROUP" ] || echo "$pid"
+    done | grep -q . || break
+    sleep 0.1
+done
+OUTSIDERS=$(pgrep -f "user-data-dir=$TEST_HOME" | while read -r pid; do
+    [ "$(ps -o pgid= -p "$pid" | tr -d ' ')" = "$GROUP" ] || echo "$pid"
+done)
+[ -z "$OUTSIDERS" ] || fail "the second launcher's Chrome did not hand its window over: $OUTSIDERS"
+echo "second instance opened a window and exited"
 
 # --- kill -9 the launcher ---------------------------------------------------
 kill -9 "$LAUNCHER_PID"

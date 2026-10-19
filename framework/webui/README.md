@@ -9,7 +9,7 @@ replay it to a browser tab that connects late -- see `run_session.hpp`, and
 "What a run means" below on why a UI here "tallies nothing."
 
 It is paired with [`framework/launcher`](../launcher/README.md), which owns
-the tray icon and the browser window; this owns the rig.
+the Chrome window and the server's lifetime; this owns the rig.
 
 ## Endpoints
 
@@ -26,7 +26,7 @@ the tray icon and the browser window; this owns the rig.
 | `GET /api/status` | `{"viewers":N,"running":bool}`. `framework/launcher` polls it to quit the console once its last window has closed, but never during a run -- see its README |
 | `POST /api/stop` | asks the active run to end the way Ctrl-C does at a terminal: after its current test, with teardown run, the rig safed and both logs written. Writes `stop` to the run's stdin (`run_scripts --stop-on-stdin`, which `buildRunCommand` always passes). 200 once delivered, 409 if there is no run. The run's own stream says when it has ended; `run_scripts` reports a stopped run as **not passed** |
 | `POST /api/emergency` | kills the active run at once (`SIGKILL`, `TerminateProcess`) and then runs `--safe`: `{"killed":bool,"safed":bool}`. The run's logs are not written, and it ends with no `runEnd`. With no run active it is `/safe` under another name. Not gated on anything |
-| `POST /safe` | `run_scripts --safe`. Never gated on whether a run is active -- see "What a run means" below. Path fixed by `framework/launcher/src/rig_client.hpp`, which already calls it. |
+| `POST /safe` | `run_scripts --safe`. Never gated on whether a run is active -- see "What a run means" below. The console page's own *Safe* control calls it. |
 
 `/api/run` and `/api/events` are deliberately two requests, not one: a
 browser's `EventSource` can only issue `GET`, and `POST` is what a run needs
