@@ -1,5 +1,5 @@
 //
-// hal::keysight_34980a::Chassis's own tests.
+// hal::keysight_34980a::SwitchUnit's own tests.
 //
 // Linked against this driver alone -- hal and core and nothing else -- which is
 // what keeps this directory independently packageable (see
@@ -31,8 +31,8 @@
 
 using hal::keysight_34980a::AnalogBus;
 using hal::keysight_34980a::ChannelAddress;
-using hal::keysight_34980a::Chassis;
-using hal::keysight_34980a::InternalDmm;
+using hal::keysight_34980a::SwitchUnit;
+using hal::keysight_34980a::Multimeter;
 using hal::keysight_34980a::ModuleIdentity;
 using hal::keysight_34980a::NoSuchSlot;
 using hal::keysight_34980a::analogBus;
@@ -67,18 +67,18 @@ namespace
         return core::meta::values<hal::InstrumentId>[ 0];
     }
 
-    static_assert(   std::constructible_from< Chassis, hal::InstrumentId, hal::Gpib> );
-    static_assert(   std::constructible_from< Chassis, hal::InstrumentId, hal::Lan> );
-    static_assert(   std::constructible_from< Chassis, hal::InstrumentId, hal::Usb> );
-    static_assert(   std::constructible_from< Chassis, hal::InstrumentId, hal::Simulated> );
-    static_assert( ! std::constructible_from< Chassis, hal::InstrumentId, hal::Serial> );
+    static_assert(   std::constructible_from< SwitchUnit, hal::InstrumentId, hal::Gpib> );
+    static_assert(   std::constructible_from< SwitchUnit, hal::InstrumentId, hal::Lan> );
+    static_assert(   std::constructible_from< SwitchUnit, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< SwitchUnit, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< SwitchUnit, hal::InstrumentId, hal::Serial> );
 
     //
     // An address is not optional, and neither is the id: a chassis is a row in
     // instrument.inc now, and a row has both.
     //
-    static_assert( ! std::constructible_from< Chassis> );
-    static_assert( ! std::constructible_from< Chassis, hal::Lan> );
+    static_assert( ! std::constructible_from< SwitchUnit> );
+    static_assert( ! std::constructible_from< SwitchUnit, hal::Lan> );
 
     //
     // An instrument, and every contract that makes one: the tag safeRig() and
@@ -87,16 +87,16 @@ namespace
     // assertions -- "not an instrument" -- and were reversed deliberately; see
     // the header's preamble on why.
     //
-    static_assert( std::derived_from< Chassis, hal::InstrumentTag> );
-    static_assert( hal::SafeableInstrument< Chassis> );
-    static_assert( hal::AddressableInstrument< Chassis> );
-    static_assert( hal::ContactableInstrument< Chassis> );
+    static_assert( std::derived_from< SwitchUnit, hal::InstrumentTag> );
+    static_assert( hal::SafeableInstrument< SwitchUnit> );
+    static_assert( hal::AddressableInstrument< SwitchUnit> );
+    static_assert( hal::ContactableInstrument< SwitchUnit> );
 
     //
     // And the one contract only a relay-holding instrument has: its relays are
     // opened in safeRig()'s second pass, after every output, not in safe().
     //
-    static_assert( hal::RelayHoldingInstrument< Chassis> );
+    static_assert( hal::RelayHoldingInstrument< SwitchUnit> );
 
     static_assert( kSlots == 8);
 
@@ -209,7 +209,7 @@ TEST( Keysight34980AChannels, MatrixModulesUseBankTwosAnalogBusRelays)
 
 TEST( Keysight34980ASlots, ASlotTheChassisDoesNotHaveIsRefusedAtRuntime)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( chassis.close( ChannelAddress{ 0, 3 }), NoSuchSlot);
     EXPECT_THROW( chassis.close( ChannelAddress{ 9, 3 }), NoSuchSlot);
@@ -229,7 +229,7 @@ TEST( Keysight34980ASlots, ASlotTheChassisDoesNotHaveIsRefusedAtRuntime)
 //
 TEST( Keysight34980ASlots, TheRefusalNamesTheSlotAndTheRange)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     try
     {
@@ -253,7 +253,7 @@ TEST( Keysight34980ASlots, TheRefusalNamesTheSlotAndTheRange)
 //
 TEST( Keysight34980ASlots, AListWithOneBadSlotClosesNoneOfIt)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( chassis.close( std::vector<ChannelAddress>{ { 1, 3 }, { 9, 3 }, { 2, 4 } }), NoSuchSlot);
 
@@ -266,7 +266,7 @@ TEST( Keysight34980ASlots, AListWithOneBadSlotClosesNoneOfIt)
 
 TEST( Keysight34980A, CloseAndOpenTrackStateOnASimulatedChassis)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_FALSE( chassis.isClosed( ChannelAddress{ 1, 3 }));
 
@@ -289,7 +289,7 @@ TEST( Keysight34980A, CloseAndOpenTrackStateOnASimulatedChassis)
 //
 TEST( Keysight34980A, ARelayIsNotAUseCount)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     chassis.close( ChannelAddress{ 1, 3 });
     chassis.close( ChannelAddress{ 1, 3 });
@@ -300,7 +300,7 @@ TEST( Keysight34980A, ARelayIsNotAUseCount)
 
 TEST( Keysight34980A, OpenAllClearsOneSlotOrTheWholeChassis)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     chassis.close( std::vector<ChannelAddress>{ { 1, 3 }, { 1, 4 }, { 2, 5 } });
 
@@ -323,7 +323,7 @@ TEST( Keysight34980A, OpenAllClearsOneSlotOrTheWholeChassis)
 //
 TEST( Keysight34980A, CloseExclusivelyDropsEveryOtherChannelInThatSlotOnly)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     chassis.close( std::vector<ChannelAddress>{ { 1, 3 }, { 1, 4 }, { 2, 5 } });
 
@@ -339,7 +339,7 @@ TEST( Keysight34980A, CloseExclusivelyDropsEveryOtherChannelInThatSlotOnly)
 
 TEST( Keysight34980A, AnEmptyChannelListIsANoOpRatherThanAMalformedCommand)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_NO_THROW( chassis.close( std::vector<ChannelAddress>{}));
     EXPECT_NO_THROW( chassis.open( std::vector<ChannelAddress>{}));
@@ -349,7 +349,7 @@ TEST( Keysight34980A, AnEmptyChannelListIsANoOpRatherThanAMalformedCommand)
 
 TEST( Keysight34980A, ASimulatedChassisReportsEverySlotEmptyUntilToldOtherwise)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_TRUE( chassis.moduleIn( 4).Empty);
 
@@ -374,7 +374,7 @@ TEST( Keysight34980A, ASimulatedChassisReportsEverySlotEmptyUntilToldOtherwise)
 //
 TEST( Keysight34980A, ASimulatedChassisHasNoInternalDmmUnlessGivenOne)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_FALSE( chassis.internalDmmInstalled());
     EXPECT_FALSE( chassis.internalDmmEnabled());
@@ -402,7 +402,7 @@ TEST( Keysight34980A, ASimulatedChassisHasNoInternalDmmUnlessGivenOne)
 //
 TEST( Keysight34980A, WaitingOnASimulatedChassisTouchesNothing)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_NO_THROW( chassis.waitForSwitching());
     EXPECT_NO_THROW( chassis.waitForSwitching( 3));
@@ -433,7 +433,7 @@ TEST( Keysight34980A, WaitingOnASimulatedChassisTouchesNothing)
 // What this cannot test, and no test here could: that the *instrument* accepts
 // these strings, and that the channels named exist on whatever is plugged in.
 // The first is what the programmer's reference was read for (see
-// src/keysight_34980a.cpp for the document); the second is what the module
+// src/switch_unit.cpp for the document); the second is what the module
 // models will check, and they are deliberately not built yet -- so for now the
 // mainframe's own error queue is what catches it.
 //
@@ -507,7 +507,7 @@ namespace
                     //
                     // The internal DMM's readings. A refused one queues the
                     // instrument's error and sends no reply, as a SCPI
-                    // instrument does -- which is what InternalDmm::read()
+                    // instrument does -- which is what Multimeter::read()
                     // has to turn into something better than a timeout.
                     //
                     if( RefuseMeasure)
@@ -562,7 +562,7 @@ namespace
             // The record, as a handle that outlives this transport.
             //
             // Which is not gold-plating: the driver *owns* the transport (see
-            // Chassis::useTransport), so closeSession() destroys it -- and a
+            // SwitchUnit::useTransport), so closeSession() destroys it -- and a
             // test asking "did closing the session send anything" would
             // otherwise be reading freed memory to find out. This is the only
             // way to assert anything about what a driver does on its way out.
@@ -591,12 +591,12 @@ namespace
     //
     // A chassis with a fake transport already installed, and the fake still
     // reachable. A struct rather than two locals because the driver takes
-    // ownership of the transport (see Chassis::useTransport) and the test still
+    // ownership of the transport (see SwitchUnit::useTransport) and the test still
     // needs to read what was sent through it.
     //
     struct Bench
     {
-        Chassis       Unit{ anyId(), hal::Simulated{} };
+        SwitchUnit       Unit{ anyId(), hal::Simulated{} };
         FakeChassis * Wire{};
 
         //
@@ -640,7 +640,7 @@ namespace
 
 TEST( Keysight34980AWire, AnInjectedTransportMakesTheDriverStopSimulating)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_TRUE( chassis.isSimulated());
 
@@ -1063,7 +1063,7 @@ TEST( Keysight34980AWire, OpeningAnRfMultiplexerChannelIsRefusedByTheInstrument)
 //
 TEST( Keysight34980AWire, ASlotRefusalSendsNothing)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     auto  fake = std::make_unique<FakeChassis>();
     auto *wire = fake.get();
@@ -1125,14 +1125,14 @@ TEST( Keysight34980ASafing, SafeRelaysOpensEverySlotWithoutWaitingForAnAnswer)
 //
 TEST( Keysight34980ASafing, SafeRelaysOnANeverUsedChassisOpensNothing)
 {
-    Chassis chassis{ anyId(), hal::Lan( "no-such-host.invalid") };
+    SwitchUnit chassis{ anyId(), hal::Lan( "no-such-host.invalid") };
 
     EXPECT_NO_THROW( chassis.safeRelays());
 }
 
 TEST( Keysight34980ASafing, SafeRelaysOnASimulatedChassisForgetsWhatWasClosed)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     chassis.close( { { 1, 3 }, { 2, 15 } });
     chassis.safeRelays();
@@ -1160,7 +1160,7 @@ TEST( Keysight34980ARelayHealth, RelayCyclesAsksTheMainframeForOneChannel)
 //
 TEST( Keysight34980ARelayHealth, ASimulatedChassisCountsACyclePerCloseOfAnOpenChannel)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_EQ( chassis.relayCycles( { 1, 3 }), 0);
 
@@ -1177,7 +1177,7 @@ TEST( Keysight34980ARelayHealth, ASimulatedChassisCountsACyclePerCloseOfAnOpenCh
 
 TEST( Keysight34980ARelayHealth, RelayCyclesRefusesASlotTheChassisDoesNotHave)
 {
-    Chassis chassis{ anyId(), hal::Simulated{} };
+    SwitchUnit chassis{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( static_cast<void>( chassis.relayCycles( { 9, 3 })), NoSuchSlot);
 }
@@ -1212,31 +1212,31 @@ TEST( Keysight34980AAddress, UseAddressMovesTheRowAndDropsTheSessionSendingNothi
 
 namespace
 {
-    static_assert( std::derived_from< InternalDmm, hal::InstrumentTag> );
-    static_assert( hal::SafeableInstrument< InternalDmm> );
-    static_assert( hal::AddressableInstrument< InternalDmm> );
-    static_assert( hal::ContactableInstrument< InternalDmm> );
+    static_assert( std::derived_from< Multimeter, hal::InstrumentTag> );
+    static_assert( hal::SafeableInstrument< Multimeter> );
+    static_assert( hal::AddressableInstrument< Multimeter> );
+    static_assert( hal::ContactableInstrument< Multimeter> );
 
     //
     // A meter holds no relays -- its signal path is the chassis's, and so is
     // the safing of it.
     //
-    static_assert( ! hal::RelayHoldingInstrument< InternalDmm> );
+    static_assert( ! hal::RelayHoldingInstrument< Multimeter> );
 
     //
     // Reached over whatever the mainframe is reached over.
     //
-    static_assert(   std::constructible_from< InternalDmm, hal::InstrumentId, hal::Usb> );
-    static_assert(   std::constructible_from< InternalDmm, hal::InstrumentId, hal::Lan> );
-    static_assert(   std::constructible_from< InternalDmm, hal::InstrumentId, hal::Gpib> );
-    static_assert( ! std::constructible_from< InternalDmm, hal::InstrumentId, hal::Serial> );
+    static_assert(   std::constructible_from< Multimeter, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< Multimeter, hal::InstrumentId, hal::Lan> );
+    static_assert(   std::constructible_from< Multimeter, hal::InstrumentId, hal::Gpib> );
+    static_assert( ! std::constructible_from< Multimeter, hal::InstrumentId, hal::Serial> );
 
     //
     // A meter with a fake mainframe behind it, and the fake still reachable.
     //
     struct Meter
     {
-        InternalDmm   Dmm{ anyId(), hal::Simulated{} };
+        Multimeter   Unit{ anyId(), hal::Simulated{} };
         FakeChassis * Wire{};
     };
 
@@ -1247,7 +1247,7 @@ namespace
         auto fake  = std::make_unique<FakeChassis>();
 
         bench->Wire = fake.get();
-        bench->Dmm.useTransport( std::move( fake));
+        bench->Unit.useTransport( std::move( fake));
 
         return bench;
     }
@@ -1258,17 +1258,17 @@ namespace
 // checked to be a 34980A, and then the two facts a meter depends on -- in that
 // order, and nothing else. In particular, never INST:DMM ON.
 //
-TEST( Keysight34980ADmm, PreparingChecksTheBoxThenThatTheMeterIsFittedAndEnabled)
+TEST( Keysight34980AMultimeter, PreparingChecksTheBoxThenThatTheMeterIsFittedAndEnabled)
 {
     const auto bench = meter();
 
-    static_cast<void>( bench->Dmm.session());
+    static_cast<void>( bench->Unit.session());
 
     EXPECT_EQ( bench->Wire->sent(),
                ( std::vector<std::string>{ "SYST:ERR?", "*IDN?", "INST:DMM:INST?", "INST:DMM?" }));
 }
 
-TEST( Keysight34980ADmm, AMainframeWithNoMeterFittedIsRefusedSayingSo)
+TEST( Keysight34980AMultimeter, AMainframeWithNoMeterFittedIsRefusedSayingSo)
 {
     const auto bench = meter();
 
@@ -1276,7 +1276,7 @@ TEST( Keysight34980ADmm, AMainframeWithNoMeterFittedIsRefusedSayingSo)
 
     try
     {
-        static_cast<void>( bench->Dmm.session());
+        static_cast<void>( bench->Unit.session());
 
         FAIL() << "expected a mainframe with no meter to be refused";
     }
@@ -1290,14 +1290,14 @@ TEST( Keysight34980ADmm, AMainframeWithNoMeterFittedIsRefusedSayingSo)
 // Disabled is refused, not fixed: enabling the meter makes the mainframe issue
 // a factory reset, which would take the switching face's configuration with it.
 //
-TEST( Keysight34980ADmm, ADisabledMeterIsRefusedAndNeverEnabled)
+TEST( Keysight34980AMultimeter, ADisabledMeterIsRefusedAndNeverEnabled)
 {
     const auto bench  = meter();
     const auto record = bench->Wire->record();
 
     bench->Wire->DmmEnabledReply = "0";
 
-    EXPECT_THROW( static_cast<void>( bench->Dmm.session()), hal::io::ScpiFault);
+    EXPECT_THROW( static_cast<void>( bench->Unit.session()), hal::io::ScpiFault);
 
     for( const auto & command : *record)
     {
@@ -1308,23 +1308,23 @@ TEST( Keysight34980ADmm, ADisabledMeterIsRefusedAndNeverEnabled)
 //
 // One MEASure query per reading, with no channel list -- the Analog Bus.
 //
-TEST( Keysight34980ADmm, EachFunctionIsOneMeasureQueryOnTheAnalogBus)
+TEST( Keysight34980AMultimeter, EachFunctionIsOneMeasureQueryOnTheAnalogBus)
 {
     const auto bench = meter();
 
-    EXPECT_DOUBLE_EQ( bench->Dmm.voltage().rawMeasure().value(), 5.001);
+    EXPECT_DOUBLE_EQ( bench->Unit.voltage().rawMeasure().value(), 5.001);
     EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:VOLT:DC?");
 
-    static_cast<void>( bench->Dmm.acVoltage().rawMeasure());
+    static_cast<void>( bench->Unit.acVoltage().rawMeasure());
     EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:VOLT:AC?");
 
-    static_cast<void>( bench->Dmm.resistance().rawMeasure());
+    static_cast<void>( bench->Unit.resistance().rawMeasure());
     EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:RES?");
 
-    static_cast<void>( bench->Dmm.fourWireResistance().rawMeasure());
+    static_cast<void>( bench->Unit.fourWireResistance().rawMeasure());
     EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:FRES?");
 
-    static_cast<void>( bench->Dmm.frequency().rawMeasure());
+    static_cast<void>( bench->Unit.frequency().rawMeasure());
     EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:FREQ?");
 
     //
@@ -1334,28 +1334,28 @@ TEST( Keysight34980ADmm, EachFunctionIsOneMeasureQueryOnTheAnalogBus)
     EXPECT_EQ( bench->Wire->sent().back(), "SYST:ERR?");
 }
 
-TEST( Keysight34980ADmm, ARangeIsTheQuerysArgumentAndFrequencyTakesNone)
+TEST( Keysight34980AMultimeter, ARangeIsTheQuerysArgumentAndFrequencyTakesNone)
 {
     const auto bench = meter();
 
-    static_cast<void>( bench->Dmm.voltage().range( 10_V).rawMeasure());
+    static_cast<void>( bench->Unit.voltage().range( 10_V).rawMeasure());
     EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:VOLT:DC? 10");
 
     //
     // FREQ's range argument is the counted signal's *voltage* range, not a
     // frequency -- so a Frequency port's range is not sent as one.
     //
-    static_cast<void>( bench->Dmm.frequency().range( 1_kHz).rawMeasure());
+    static_cast<void>( bench->Unit.frequency().range( 1_kHz).rawMeasure());
     EXPECT_EQ( bench->Wire->sent()[ bench->Wire->sent().size() - 2], "MEAS:FREQ?");
 }
 
-TEST( Keysight34980ADmm, AnOverloadIsUnmeasurableNotANumber)
+TEST( Keysight34980AMultimeter, AnOverloadIsUnmeasurableNotANumber)
 {
     const auto bench = meter();
 
     bench->Wire->MeasureReply = "+9.90000000E+37";
 
-    EXPECT_THROW( static_cast<void>( bench->Dmm.resistance().rawMeasure()), core::UnmeasurableReading);
+    EXPECT_THROW( static_cast<void>( bench->Unit.resistance().rawMeasure()), core::UnmeasurableReading);
 }
 
 //
@@ -1363,7 +1363,7 @@ TEST( Keysight34980ADmm, AnOverloadIsUnmeasurableNotANumber)
 // the bare MEASure form sends no reply. That must arrive as the instrument's
 // own reason against the query that caused it, not as a timeout.
 //
-TEST( Keysight34980ADmm, ARefusedQueryIsReportedWithTheInstrumentsReasonNotAsATimeout)
+TEST( Keysight34980AMultimeter, ARefusedQueryIsReportedWithTheInstrumentsReasonNotAsATimeout)
 {
     const auto bench = meter();
 
@@ -1371,7 +1371,7 @@ TEST( Keysight34980ADmm, ARefusedQueryIsReportedWithTheInstrumentsReasonNotAsATi
 
     try
     {
-        static_cast<void>( bench->Dmm.voltage().rawMeasure());
+        static_cast<void>( bench->Unit.voltage().rawMeasure());
 
         FAIL() << "expected a refused query to be reported";
     }
@@ -1390,10 +1390,10 @@ TEST( Keysight34980ADmm, ARefusedQueryIsReportedWithTheInstrumentsReasonNotAsATi
 // close; the meter's first reading then prepares for itself -- its own
 // identity check and its fitted/enabled checks -- down the same wire.
 //
-TEST( Keysight34980ADmm, TheMeterSharesTheChassissSessionAndPreparesItForItself)
+TEST( Keysight34980AMultimeter, TheMeterSharesTheChassissSessionAndPreparesItForItself)
 {
-    Chassis     chassis{ anyId(), hal::Lan( "dmm-shares-chassis.invalid") };
-    InternalDmm dmm{ anyId(), hal::Lan( "dmm-shares-chassis.invalid") };
+    SwitchUnit     chassis{ anyId(), hal::Lan( "dmm-shares-chassis.invalid") };
+    Multimeter dmm{ anyId(), hal::Lan( "dmm-shares-chassis.invalid") };
 
     auto  fake   = std::make_unique<FakeChassis>();
     auto  record = fake->record();
@@ -1412,9 +1412,9 @@ TEST( Keysight34980ADmm, TheMeterSharesTheChassissSessionAndPreparesItForItself)
     chassis.closeSession();
 }
 
-TEST( Keysight34980ADmm, ASimulatedMeterReadsItsHooksAndAnOpenBusIsAnOverload)
+TEST( Keysight34980AMultimeter, ASimulatedMeterReadsItsHooksAndAnOpenBusIsAnOverload)
 {
-    InternalDmm dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
 
     dmm.setSimulatedVoltage( 2.5_V);
     EXPECT_EQ( dmm.voltage().rawMeasure(), 2.5_V);
@@ -1425,15 +1425,15 @@ TEST( Keysight34980ADmm, ASimulatedMeterReadsItsHooksAndAnOpenBusIsAnOverload)
     EXPECT_EQ( dmm.resistance().rawMeasure(), 1.0_kOhm);
 }
 
-TEST( Keysight34980ADmm, SafeSendsNothing)
+TEST( Keysight34980AMultimeter, SafeSendsNothing)
 {
     const auto bench = meter();
 
-    static_cast<void>( bench->Dmm.session());
+    static_cast<void>( bench->Unit.session());
 
     const auto before = bench->Wire->sent().size();
 
-    bench->Dmm.safe();
+    bench->Unit.safe();
 
     EXPECT_EQ( bench->Wire->sent().size(), before);
 }
@@ -1448,7 +1448,7 @@ TEST( Keysight34980ADmm, SafeSendsNothing)
 //
 TEST( Keysight34980ADetached, ADetachedBenchSwitchesNothingAndAnswersFromItsBookkeeping)
 {
-    Chassis chassis{ anyId(), hal::Lan( "detached.invalid") };
+    SwitchUnit chassis{ anyId(), hal::Lan( "detached.invalid") };
 
     core::bench().detach();
 

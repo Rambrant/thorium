@@ -13,7 +13,7 @@
 //     SWITCH_DEVICE( Swu1, Keysight34932A, Matrix1, Usb( "MY53154781"), Card( 1))
 //
 // is closed by the instrument row on box Swu1 that switches cards -- the
-// 34980A Chassis -- as ROUT:CLOS (@1<channel>), down the box's one session.
+// 34980A SwitchUnit -- as ROUT:CLOS (@1<channel>), down the box's one session.
 //
 // Two cases it deliberately leaves as bookkeeping:
 //

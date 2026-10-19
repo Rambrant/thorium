@@ -142,7 +142,7 @@ namespace hal
 
     //
     // An instrument that holds relays of its own -- a switching mainframe such
-    // as hal::keysight_34980a::Chassis -- and so has a second thing to put
+    // as hal::keysight_34980a::SwitchUnit -- and so has a second thing to put
     // right when a run fails, which safe() must not do.
     //
     // Why not safe(): hal::safeRig() calls every instrument's safe() in
@@ -168,7 +168,7 @@ namespace hal
 
     //
     // An instrument that switches the cards in its box -- a switching
-    // mainframe such as hal::keysight_34980a::Chassis, whose slots hold the
+    // mainframe such as hal::keysight_34980a::SwitchUnit, whose slots hold the
     // cards a rig declares in devices.inc as rows on the same box.
     //
     // What hal::SwitchFabric's rig driver looks for (see

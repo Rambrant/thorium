@@ -39,7 +39,8 @@ instruments/
         CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
         README.md
         include/hal/keysight_34980a.hpp
-        src/keysight_34980a.cpp      #   the SCPI: ROUT:CLOS/OPEN, slot inspection
+        include/hal/keysight_34980a_switch_unit.hpp, ..._multimeter.hpp   #   the two faces
+        src/switch_unit.cpp, src/multimeter.cpp   #   the SCPI: ROUT:CLOS/OPEN, slot inspection; MEASure
         tests/test_keysight_34980a.cpp
     keysight_ac6834b/           # three-phase AC source
     racal1260/                  # matrix-routed RS232 port

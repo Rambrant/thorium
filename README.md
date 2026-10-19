@@ -113,7 +113,7 @@ Being honest about the edges matters more than the table above:
   nine drivers. `hal::keysight_edu34450a::EDU34450A`,
   `hal::keysight_dsox1202g::Oscilloscope` and
   `hal::keysight_edu36311a::EDU36311A` open a SCPI session over the address
-  their rig row declares, and `hal::keysight_34980a::Chassis` over the address
+  their rig row declares, and `hal::keysight_34980a::SwitchUnit` over the address
   it is constructed with — it is a switching mainframe rather than an
   instrument, so no rig row names it yet (see `framework/hal/README.md` on
   `hal/io/`). Which makes three failures runtime facts rather than

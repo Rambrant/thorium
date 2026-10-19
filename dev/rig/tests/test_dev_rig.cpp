@@ -148,11 +148,11 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput3> );
     static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::Oscilloscope> );
     static_assert( hal::SafeableInstrument< hal::keysight_33522b::Wfg33522B> );
-    static_assert( hal::SafeableInstrument< hal::keysight_34980a::Chassis> );
-    static_assert( hal::RelayHoldingInstrument< hal::keysight_34980a::Chassis> );
-    static_assert( hal::CardIdentifyingInstrument< hal::keysight_34980a::Chassis> );
-    static_assert( hal::SafeableInstrument< hal::keysight_34980a::InternalDmm> );
-    static_assert( ! hal::RelayHoldingInstrument< hal::keysight_34980a::InternalDmm> );
+    static_assert( hal::SafeableInstrument< hal::keysight_34980a::SwitchUnit> );
+    static_assert( hal::RelayHoldingInstrument< hal::keysight_34980a::SwitchUnit> );
+    static_assert( hal::CardIdentifyingInstrument< hal::keysight_34980a::SwitchUnit> );
+    static_assert( hal::SafeableInstrument< hal::keysight_34980a::Multimeter> );
+    static_assert( ! hal::RelayHoldingInstrument< hal::keysight_34980a::Multimeter> );
     static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::WaveformGenerator> );
     static_assert( ! hal::RelayHoldingInstrument< hal::keysight_dsox1202g::WaveformGenerator> );
 } // namespace
@@ -685,7 +685,7 @@ TEST( DevRig, AnEmptySlotWithACardRowIsRefused)
 // -- The fabric, driving the switch unit -----------------------------------------
 //
 // hal::fabric with the rig's driver behind it, on this deployment's real cards
-// and the real Chassis, with one fake standing in for the mainframe -- so the
+// and the real SwitchUnit, with one fake standing in for the mainframe -- so the
 // relay moves the fabric decides on are read off what reached the wire.
 //
 namespace

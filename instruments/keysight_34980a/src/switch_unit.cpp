@@ -1,5 +1,5 @@
 //
-// hal::keysight_34980a::Chassis's real I/O: what this mainframe is actually
+// hal::keysight_34980a::SwitchUnit's real I/O: what this mainframe is actually
 // told, and what its answers mean.
 //
 // The fourth .cpp in instruments/ and the first belonging to a switching
@@ -193,7 +193,7 @@ namespace hal::keysight_34980a
         return list + ")";
     }
 
-    auto Chassis::validate( const int slot) -> void
+    auto SwitchUnit::validate( const int slot) -> void
     {
         if( !isSlot( slot))
         {
@@ -201,7 +201,7 @@ namespace hal::keysight_34980a
         }
     }
 
-    auto Chassis::validate( const std::vector<ChannelAddress> & channels) -> void
+    auto SwitchUnit::validate( const std::vector<ChannelAddress> & channels) -> void
     {
         //
         // Every channel checked before any command is built, so a list with one
@@ -215,7 +215,7 @@ namespace hal::keysight_34980a
         }
     }
 
-    auto Chassis::session() -> io::ScpiSession &
+    auto SwitchUnit::session() -> io::ScpiSession &
     {
         //
         // The box's session (see hal::BoxConnection), opened on first use by
@@ -233,50 +233,12 @@ namespace hal::keysight_34980a
         });
     }
 
-    auto Chassis::verifyIdentity( io::ScpiSession & opened) -> std::string
+    auto SwitchUnit::verifyIdentity( io::ScpiSession & opened) -> std::string
     {
         return detail::verifyMainframe( opened);
     }
 
-    auto detail::verifyMainframe( io::ScpiSession & opened) -> std::string
-    {
-        const std::string identity = opened.identify();
-        const auto        fields   = fieldsOf( identity);
-
-        //
-        // Field two of four is the model. A reply with fewer than two fields is
-        // not an identity at all and is refused rather than guessed at: a box
-        // that cannot say what it is is not a box to route a DUT through.
-        //
-        const std::string model = fields.size() >= 2 ? trimmed( fields[ 1]) : std::string{};
-
-        //
-        // The model only, and the vendor field deliberately not checked. This
-        // mainframe was an Agilent product and is a Keysight one, the same unit
-        // either way, and its own programmer's reference says "Agilent
-        // Technologies" on every example -- so a rack may hold two badges of
-        // one box and refusing either would be inventing a difference the
-        // hardware does not have. Contrast
-        // hal::keysight_edu36311a::EDU36311A, which refuses its sibling on
-        // purpose: there the two boxes really are different instruments
-        // sharing a command set.
-        //
-        // What is refused is everything else, which is the case worth catching:
-        // a DMM, a scope or a supply answering at the address a rig's switching
-        // was written against.
-        //
-        if( model != "34980A")
-        {
-            throw io::ScpiFault( opened.description(), "*IDN?",
-                io::ScpiError{ 0,
-                    "expected a 34980A and found \"" + identity
-                    + "\" -- check this chassis's address against the rack" });
-        }
-
-        return identity;
-    }
-
-    auto Chassis::identity() -> std::string
+    auto SwitchUnit::identity() -> std::string
     {
         //
         // session() has already asked and already checked the answer, so this
@@ -291,17 +253,17 @@ namespace hal::keysight_34980a
     // The switching face
     // ---------------------------------------------------------------------
 
-    auto Chassis::simulating() const -> bool
+    auto SwitchUnit::simulating() const -> bool
     {
         return isSimulated() || !core::bench().isAttached();
     }
 
-    auto Chassis::close( const ChannelAddress channel) -> void
+    auto SwitchUnit::close( const ChannelAddress channel) -> void
     {
         close( std::vector<ChannelAddress>{ channel });
     }
 
-    auto Chassis::close( const std::vector<ChannelAddress> & channels) -> void
+    auto SwitchUnit::close( const std::vector<ChannelAddress> & channels) -> void
     {
         validate( channels);
 
@@ -320,12 +282,12 @@ namespace hal::keysight_34980a
         session().checked( "ROUT:CLOS " + channelList( channels));
     }
 
-    auto Chassis::open( const ChannelAddress channel) -> void
+    auto SwitchUnit::open( const ChannelAddress channel) -> void
     {
         open( std::vector<ChannelAddress>{ channel });
     }
 
-    auto Chassis::open( const std::vector<ChannelAddress> & channels) -> void
+    auto SwitchUnit::open( const std::vector<ChannelAddress> & channels) -> void
     {
         validate( channels);
 
@@ -351,12 +313,12 @@ namespace hal::keysight_34980a
         session().checked( "ROUT:OPEN " + channelList( channels));
     }
 
-    auto Chassis::closeExclusively( const ChannelAddress channel) -> void
+    auto SwitchUnit::closeExclusively( const ChannelAddress channel) -> void
     {
         closeExclusively( std::vector<ChannelAddress>{ channel });
     }
 
-    auto Chassis::closeExclusively( const std::vector<ChannelAddress> & channels) -> void
+    auto SwitchUnit::closeExclusively( const std::vector<ChannelAddress> & channels) -> void
     {
         validate( channels);
 
@@ -398,7 +360,7 @@ namespace hal::keysight_34980a
         session().checked( "ROUT:CLOS:EXCL " + channelList( channels));
     }
 
-    auto Chassis::isClosed( const ChannelAddress channel) -> bool
+    auto SwitchUnit::isClosed( const ChannelAddress channel) -> bool
     {
         validate( channel.Slot);
 
@@ -419,7 +381,7 @@ namespace hal::keysight_34980a
         return session().queryNumber( "ROUT:CLOS? " + channelList( channel)) != 0.0;
     }
 
-    auto Chassis::openAll() -> void
+    auto SwitchUnit::openAll() -> void
     {
         if( simulating())
         {
@@ -431,7 +393,7 @@ namespace hal::keysight_34980a
         session().checked( "ROUT:OPEN:ALL " + std::string( kAllSlots));
     }
 
-    auto Chassis::openAll( const int slot) -> void
+    auto SwitchUnit::openAll( const int slot) -> void
     {
         validate( slot);
 
@@ -446,7 +408,7 @@ namespace hal::keysight_34980a
         session().checked( "ROUT:OPEN:ALL " + std::to_string( slot));
     }
 
-    auto Chassis::waitForSwitching() -> void
+    auto SwitchUnit::waitForSwitching() -> void
     {
         if( simulating())
         {
@@ -469,7 +431,7 @@ namespace hal::keysight_34980a
         static_cast<void>( session().queryNumber( "ROUT:MOD:WAIT? " + std::string( kAllSlots)));
     }
 
-    auto Chassis::waitForSwitching( const int slot) -> void
+    auto SwitchUnit::waitForSwitching( const int slot) -> void
     {
         validate( slot);
 
@@ -485,7 +447,7 @@ namespace hal::keysight_34980a
     // What is in the rack
     // ---------------------------------------------------------------------
 
-    auto Chassis::moduleIn( const int slot) -> ModuleIdentity
+    auto SwitchUnit::moduleIn( const int slot) -> ModuleIdentity
     {
         validate( slot);
 
@@ -533,7 +495,7 @@ namespace hal::keysight_34980a
         return module;
     }
 
-    auto Chassis::modules() -> std::vector<ModuleIdentity>
+    auto SwitchUnit::modules() -> std::vector<ModuleIdentity>
     {
         std::vector<ModuleIdentity> rack;
 
@@ -547,7 +509,7 @@ namespace hal::keysight_34980a
         return rack;
     }
 
-    auto Chassis::setSimulatedModule( const int slot, ModuleIdentity module) -> void
+    auto SwitchUnit::setSimulatedModule( const int slot, ModuleIdentity module) -> void
     {
         validate( slot);
 
@@ -558,7 +520,7 @@ namespace hal::keysight_34980a
     // The internal DMM, from the switch side
     // ---------------------------------------------------------------------
 
-    auto Chassis::internalDmmInstalled() -> bool
+    auto SwitchUnit::internalDmmInstalled() -> bool
     {
         if( simulating())
         {
@@ -568,7 +530,7 @@ namespace hal::keysight_34980a
         return session().queryNumber( "INST:DMM:INST?") != 0.0;
     }
 
-    auto Chassis::internalDmmEnabled() -> bool
+    auto SwitchUnit::internalDmmEnabled() -> bool
     {
         if( simulating())
         {
@@ -578,7 +540,7 @@ namespace hal::keysight_34980a
         return session().queryNumber( "INST:DMM?") != 0.0;
     }
 
-    auto Chassis::setInternalDmm( const bool enabled) -> void
+    auto SwitchUnit::setInternalDmm( const bool enabled) -> void
     {
         if( simulating())
         {
@@ -607,7 +569,7 @@ namespace hal::keysight_34980a
 
     // ---------------------------------------------------------------------
     // The simulated half
-    auto Chassis::relayCycles( const ChannelAddress channel) -> long
+    auto SwitchUnit::relayCycles( const ChannelAddress channel) -> long
     {
         validate( channel.Slot);
 
@@ -625,7 +587,7 @@ namespace hal::keysight_34980a
         return static_cast<long>( session().queryNumber( "DIAG:REL:CYCL? " + channelList( channel)));
     }
 
-    auto Chassis::safeRelays() -> void
+    auto SwitchUnit::safeRelays() -> void
     {
         if( isSimulated())
         {
@@ -663,7 +625,7 @@ namespace hal::keysight_34980a
 
     // ---------------------------------------------------------------------
 
-    auto Chassis::simulatedClose( const std::vector<ChannelAddress> & channels) -> void
+    auto SwitchUnit::simulatedClose( const std::vector<ChannelAddress> & channels) -> void
     {
         for( const auto channel : channels)
         {
@@ -683,7 +645,7 @@ namespace hal::keysight_34980a
         std::ranges::sort( mSimClosed);
     }
 
-    auto Chassis::simulatedOpen( const std::vector<ChannelAddress> & channels) -> void
+    auto SwitchUnit::simulatedOpen( const std::vector<ChannelAddress> & channels) -> void
     {
         for( const auto channel : channels)
         {
@@ -691,158 +653,41 @@ namespace hal::keysight_34980a
         }
     }
 
-    // ---------------------------------------------------------------------
-    // InternalDmm
-    // ---------------------------------------------------------------------
-
-    namespace
+    auto detail::verifyMainframe( io::ScpiSession & opened) -> std::string
     {
+        const std::string identity = opened.identify();
+        const auto        fields   = fieldsOf( identity);
+
         //
-        // The MEASure query for each function, and its name for a message.
-        // No channel list: the bare form measures the Analog Buses -- see the
-        // header's comment on InternalDmm, including what is not yet confirmed
-        // about it.
+        // Field two of four is the model. A reply with fewer than two fields is
+        // not an identity at all and is refused rather than guessed at: a box
+        // that cannot say what it is is not a box to route a DUT through.
         //
-        struct DmmCommand
+        const std::string model = fields.size() >= 2 ? trimmed( fields[ 1]) : std::string{};
+
+        //
+        // The model only, and the vendor field deliberately not checked. This
+        // mainframe was an Agilent product and is a Keysight one, the same unit
+        // either way, and its own programmer's reference says "Agilent
+        // Technologies" on every example -- so a rack may hold two badges of
+        // one box and refusing either would be inventing a difference the
+        // hardware does not have. Contrast
+        // hal::keysight_edu36311a::EDU36311A, which refuses its sibling on
+        // purpose: there the two boxes really are different instruments
+        // sharing a command set.
+        //
+        // What is refused is everything else, which is the case worth catching:
+        // a DMM, a scope or a supply answering at the address a rig's switching
+        // was written against.
+        //
+        if( model != "34980A")
         {
-            std::string_view Query;
-            std::string_view Name;
-            bool             TakesRange;
-        };
-
-        constexpr auto commandFor( const InternalDmm::Function function) -> DmmCommand
-        {
-            switch( function)
-            {
-                case InternalDmm::Function::DcVoltage:          return { "MEAS:VOLT:DC?", "DC voltage",       true  };
-                case InternalDmm::Function::AcVoltage:          return { "MEAS:VOLT:AC?", "AC voltage",       true  };
-                case InternalDmm::Function::Resistance:         return { "MEAS:RES?",     "resistance",       true  };
-                case InternalDmm::Function::FourWireResistance: return { "MEAS:FRES?",    "4-wire resistance", true  };
-
-                //
-                // No range: FREQ's range argument on this meter is the
-                // *voltage* range of the signal being counted, not a frequency,
-                // and a Frequency port's range() is a frequency. Sending one as
-                // the other would be a unit error the instrument cannot see.
-                //
-                case InternalDmm::Function::Frequency:          return { "MEAS:FREQ?",    "frequency",        false };
-            }
-
-            return { "", "", false };
-        }
-
-        //
-        // "1" or "0", checked -- INST:DMM:INST? and INST:DMM? both answer so.
-        //
-        [[nodiscard]]
-        auto answersYes( io::ScpiSession & session, const std::string_view question) -> bool
-        {
-            return session.queryNumber( question) != 0.0;
-        }
-    } // namespace
-
-    auto InternalDmm::prepare( io::ScpiSession & session) -> void
-    {
-        session.clearErrors();
-
-        static_cast<void>( detail::verifyMainframe( session));
-
-        //
-        // The two facts a meter on this box depends on, asked before the
-        // first reading rather than discovered by one: a box with no meter
-        // fitted answers every MEASure with an error that says less than this.
-        //
-        if( !answersYes( session, "INST:DMM:INST?"))
-        {
-            throw io::ScpiFault( session.description(), "INST:DMM:INST?",
+            throw io::ScpiFault( opened.description(), "*IDN?",
                 io::ScpiError{ 0,
-                    "this 34980A has no internal DMM fitted -- a row naming keysight_34980a::InternalDmm"
-                    " needs the optional DMM assembly" });
+                    "expected a 34980A and found \"" + identity
+                    + "\" -- check this chassis's address against the rack" });
         }
 
-        //
-        // Disabled is not refused here by enabling it: INST:DMM ON makes the
-        // mainframe issue a factory reset, and this face shares the box with
-        // the switching (see Chassis::setInternalDmm). So it says so and stops.
-        //
-        if( !answersYes( session, "INST:DMM?"))
-        {
-            throw io::ScpiFault( session.description(), "INST:DMM?",
-                io::ScpiError{ 0,
-                    "this 34980A's internal DMM is disabled, so it is not on the Analog Buses. Enable"
-                    " it from the front panel or a bring-up session (INST:DMM ON) -- this driver"
-                    " will not, because enabling it issues a factory reset" });
-        }
-    }
-
-    auto InternalDmm::session() -> io::ScpiSession &
-    {
-        return mConnection.session( "keysight_34980a.dmm", []( io::ScpiSession & opened)
-        {
-            prepare( opened);
-        });
-    }
-
-    auto InternalDmm::identity() -> std::string
-    {
-        return session().identify();
-    }
-
-    auto InternalDmm::read( const Function function, const std::optional<double> range) -> double
-    {
-        auto &     scpi    = session();
-        const auto command = commandFor( function);
-
-        std::string query{ command.Query };
-
-        if( range && command.TakesRange)
-        {
-            query += " " + io::ScpiSession::number( *range);
-        }
-
-        //
-        // A query the instrument refuses gets no reply, so the refusal shows
-        // up first as a timeout -- and a timeout alone says nothing about why.
-        // So on one, ask the error queue: an entry there is the instrument's
-        // own reason, reported against the query that caused it; an empty
-        // queue is a real timeout, rethrown as it was.
-        //
-        double reading = 0.0;
-
-        try
-        {
-            reading = scpi.queryNumbers( query).front();
-        }
-        catch( const io::TransportTimeout &)
-        {
-            if( const auto refusal = scpi.nextError())
-            {
-                throw io::ScpiFault( scpi.description(), query, *refusal);
-            }
-
-            throw;
-        }
-
-        //
-        // And one that did answer may still have queued an error -- a range
-        // the meter clamped, say -- which is the reading being of something
-        // other than what was asked for.
-        //
-        if( const auto error = scpi.nextError())
-        {
-            throw io::ScpiFault( scpi.description(), query, *error);
-        }
-
-        if( io::ScpiSession::isOverload( reading))
-        {
-            const std::string where = range && command.TakesRange
-                ? "the " + io::ScpiSession::number( *range) + " range"
-                : "autoranging";
-
-            throw core::UnmeasurableReading(
-                std::string( command.Name) + " overload on the Analog Bus -- the input is beyond " + where);
-        }
-
-        return reading;
+        return identity;
     }
 } // namespace hal::keysight_34980a

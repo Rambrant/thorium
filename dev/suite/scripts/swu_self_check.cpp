@@ -80,7 +80,7 @@ namespace
 
     //
     // Whether the instrument refused this close -- which is what checked()
-    // turns a queued SCPI error into (see Chassis::close()). A close that went
+    // turns a queued SCPI error into (see SwitchUnit::close()). A close that went
     // through is the failure, and is undone so the rack is left as found.
     //
     auto refusesToClose( const ChannelAddress channel) -> bool
@@ -257,7 +257,7 @@ auto swuRefusesMissingChannels() -> void
 //
 // Left with every bank on channel 01, which is this desk's defined idle: an RF
 // bank stays wherever it was put, and safing cannot open it (see
-// Chassis::safeRelays()).
+// SwitchUnit::safeRelays()).
 //
 auto swuRfMultiplexer() -> void
 {

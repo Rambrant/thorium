@@ -121,7 +121,7 @@
 // -- The switch unit ----------------------------------------------------------
 //
 // Swu1: a Keysight (formerly Agilent) 34980A mainframe, GPIB, LAN or USB (see
-// hal::keysight_34980a::Chassis::Buses) -- USB to start with. Four 34932A
+// hal::keysight_34980a::SwitchUnit::Buses) -- USB to start with. Four 34932A
 // matrices (34932T terminal blocks) in slots 1-4 and a 34941A RF multiplexer in
 // slot 5. Its scripts need nothing wired to it, see
 // dev/suite/scripts/swu_self_check.cpp.
@@ -158,7 +158,7 @@ INSTRUMENTS
     INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput3, DcP7, Usb( "CN65100272"))   // 30 V / 1 A
     INSTRUMENT( Scope1,  keysight_dsox1202g::Oscilloscope,     Osc1, Usb( "CN64504143"))   // 
     INSTRUMENT( Wfg1,    keysight_33522b::Wfg33522B,        Wfg1, Usb( "MY52803613"))   //
-    INSTRUMENT( Swu1,    keysight_34980a::Chassis,          Swu1, Usb( "MY53154781"))   // 
-    INSTRUMENT( Swu1,    keysight_34980a::InternalDmm,      Dmm2, Usb( "MY53154781"))   // the same box's internal DMM -- see above
+    INSTRUMENT( Swu1,    keysight_34980a::SwitchUnit, Swu1, Usb( "MY53154781"))   // 
+    INSTRUMENT( Swu1,    keysight_34980a::Multimeter, Dmm2, Usb( "MY53154781"))   // the same box's internal DMM -- see above
     INSTRUMENT( Scope1,  keysight_dsox1202g::WaveformGenerator,          Wfg2, Usb( "CN64504143"))   // the scope's built-in generator -- see above
 END_INSTRUMENTS

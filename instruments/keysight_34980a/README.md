@@ -1,4 +1,4 @@
-# hal::keysight_34980a::Chassis
+# hal::keysight_34980a::SwitchUnit
 
 A Keysight (Agilent) 34980A Multifunction Switch/Measure Unit **mainframe**:
 eight slots of plug-in switching modules, one address, one session, and the
@@ -10,7 +10,7 @@ Target: `hal_keysight_34980a` / `Thorium::hal_keysight_34980a`. Depends on
 
 **The first switching device under `instruments/`.** It measures nothing and
 sources nothing — it is switching hardware — and it is an instrument *row* all
-the same: `INSTRUMENT( Swu1, keysight_34980a::Chassis, Swu1, Usb( ...))`, so preflight,
+the same: `INSTRUMENT( Swu1, keysight_34980a::SwitchUnit, Swu1, Usb( ...))`, so preflight,
 `--address` and safing reach it (see **An instrument row** below). `hal/fabric/switch_device.hpp` named this directory as the
 destination for switch-card drivers before there were any:
 
@@ -48,7 +48,7 @@ protocol modernised.
 `(@sccc)` — slot 1-8, then the channel, three digits.
 
 ```cpp
-hal::keysight_34980a::Chassis chassis{ hal::Lan( "bench-switch") };
+hal::keysight_34980a::SwitchUnit chassis{ hal::Lan( "bench-switch") };
 
 chassis.close( hal::keysight_34980a::channel<1, 3>());        // ROUT:CLOS (@1003)
 chassis.close( { { 1, 5 }, { 1, 13 }, { 2, 15 } });           // ROUT:CLOS (@1005,1013,2015)
@@ -223,15 +223,15 @@ which is a fact about the switching topology and the reason these live here.
 > configuration does not. This is a bring-up operation, not something a script
 > calls mid-run.
 
-## Two faces: `Chassis` and `InternalDmm`
+## Two faces: `SwitchUnit` and `Multimeter`
 
 The 34980A is a switch **and** a measure unit, and this package has a type for
-each face: `Chassis`, the switching, and `InternalDmm`, the meter fitted inside
+each face: `SwitchUnit`, the switching, and `Multimeter`, the meter fitted inside
 the mainframe. Both are instrument rows on one **box**:
 
 ```cpp
-INSTRUMENT( Swu1, keysight_34980a::Chassis,     Swu1, Usb( "MY53154781"))
-INSTRUMENT( Swu1, keysight_34980a::InternalDmm, Dmm2, Usb( "MY53154781"))
+INSTRUMENT( Swu1, keysight_34980a::SwitchUnit,     Swu1, Usb( "MY53154781"))
+INSTRUMENT( Swu1, keysight_34980a::Multimeter, Dmm2, Usb( "MY53154781"))
 ```
 
 The one thing that must not happen with two faces is **a second session**: two
@@ -267,7 +267,7 @@ channels (041-044), not the buses. No capacitance or temperature either.
 
 ### Detached runs
 
-A script may still call `Chassis` directly (`Swu1.close()`) -- the SwitchUnit
+A script may still call `SwitchUnit` directly (`Swu1.close()`) -- the SwitchUnit
 scripts do, to test the driver itself -- and a direct call asks no verb whether
 the bench is attached. So the chassis
 asks for itself: on a detached bench (`--skeleton`, `--replay`, `--inject`) every
@@ -279,11 +279,11 @@ a reason to widen the driver.
 
 ## An instrument row
 
-`Chassis` inherits `hal::InstrumentTag` and takes an `hal::InstrumentId`, so a rig
+`SwitchUnit` inherits `hal::InstrumentTag` and takes an `hal::InstrumentId`, so a rig
 names it in `instrument.inc` like anything else it talks to:
 
 ```cpp
-INSTRUMENT( Swu1, keysight_34980a::Chassis, Swu1, Usb( "MY12345678"))
+INSTRUMENT( Swu1, keysight_34980a::SwitchUnit, Swu1, Usb( "MY12345678"))
 ```
 
 It started out as the opposite — no tag, no id — on the argument that a switching
@@ -325,7 +325,7 @@ counts one cycle per close of an open channel.
 
 ## A chassis is not a card
 
-A `Chassis` has an `hal::InstrumentId` and no `hal::SwitchDeviceId` — those are one
+A `SwitchUnit` has an `hal::InstrumentId` and no `hal::SwitchDeviceId` — those are one
 per *card*, and a mainframe has no channels of its own. When module rows arrive in
 `devices.inc` they will share its **box** -- `SWITCH_DEVICE( Swu1, Keysight34932A,
 Matrix1, ...)` -- and the build holds a box's rows to one address (see
@@ -380,9 +380,9 @@ GPIB, LAN and USB are all standard on this mainframe, so the constructor
 constraint rules out only `hal::Serial`:
 
 ```cpp
-hal::keysight_34980a::Chassis chassis{ hal::Lan( "bench-switch") };   // raw SCPI socket, port 5025
-hal::keysight_34980a::Chassis chassis{ hal::Usb( "MY44001234") };     // through VISA
-hal::keysight_34980a::Chassis chassis{ hal::Gpib( 0, 9) };            // through VISA
+hal::keysight_34980a::SwitchUnit chassis{ hal::Lan( "bench-switch") };   // raw SCPI socket, port 5025
+hal::keysight_34980a::SwitchUnit chassis{ hal::Usb( "MY44001234") };     // through VISA
+hal::keysight_34980a::SwitchUnit chassis{ hal::Gpib( 0, 9) };            // through VISA
 ```
 
 | Failure | Cause |

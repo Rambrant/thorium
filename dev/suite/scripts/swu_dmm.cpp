@@ -116,7 +116,7 @@ auto swuDmmPathOntoNothing() -> void
 // The whole chain, wired: the supply onto dut::DeskTerminal -- ABUS Matrix 2
 // C1 of slot 1 -- and the meter reading it the framework's way, a routed Measure
 // at the point. The fabric composes the path from dev/rig/wiring.inc (Dmm2's bus
-// relay 921, the terminal's crosspoint 501), closes it through the Chassis,
+// relay 921, the terminal's crosspoint 501), closes it through the SwitchUnit,
 // reads, and opens it again -- the relay moves the scripts above make by hand,
 // made by the fabric, and journalled.
 //

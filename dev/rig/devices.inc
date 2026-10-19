@@ -11,7 +11,7 @@
 //
 // It is now, and the cards below are why. They are the 34980A's switching
 // faces, on box Swu1, and the fabric drives them: a routed reading at a point
-// dev/rig/wiring.inc reaches closes real relays through the box's Chassis
+// dev/rig/wiring.inc reaches closes real relays through the box's SwitchUnit
 // instrument row, reads, and opens them (see hal/fabric/rig_switching.hpp). The
 // readings that need no route -- every other instrument on the desk -- are
 // still point-free readbacks, and that is not a gap: those instruments' leads
@@ -24,7 +24,7 @@
 // these are its switching faces: one row per card, on the same box -- so the
 // same address, which the build holds them to (hal/topology/boxes.hpp) -- with
 // the card's slot as its Card( n). The fabric moves these cards' relays through
-// the instrument on box Swu1 that switches cards, the Chassis row in
+// the instrument on box Swu1 that switches cards, the SwitchUnit row in
 // instrument.inc, down the box's one session (see hal/fabric/rig_switching.hpp).
 //
 // Named for the slot they sit in, because that is what a person standing at

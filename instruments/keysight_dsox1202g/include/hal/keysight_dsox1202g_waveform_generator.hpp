@@ -256,7 +256,7 @@ namespace hal::keysight_dsox1202g
     // beside the scope's inputs, 100 mHz to 20 MHz.
     //
     // A second face of the scope's box, the same shape as
-    // hal::keysight_34980a::InternalDmm: one address, one session, and a row of
+    // hal::keysight_34980a::Multimeter: one address, one session, and a row of
     // its own on the box --
     //
     //     INSTRUMENT( Scope1, keysight_dsox1202g::Oscilloscope, Osc1, Usb( "CN64504143"))

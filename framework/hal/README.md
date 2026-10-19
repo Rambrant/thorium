@@ -148,9 +148,9 @@ call site -- moving a driver out changed its build location and nothing else.
 | `hal::keysight_edu36311a::EDU36311A` | `instruments/keysight_edu36311a/` |
 | `hal::keysight_ac6834b::Ac6834B` | `instruments/keysight_ac6834b/` |
 | `hal::racal1260::Racal1260` | `instruments/racal1260/` |
-| `hal::keysight_34980a::Chassis` | `instruments/keysight_34980a/` (a switching mainframe -- see below) |
+| `hal::keysight_34980a::SwitchUnit` | `instruments/keysight_34980a/` (a switching mainframe -- see below) |
 
-One row there measures and sources nothing. `hal::keysight_34980a::Chassis` is a
+One row there measures and sources nothing. `hal::keysight_34980a::SwitchUnit` is a
 34980A switch/measure *mainframe*, and an instrument row all the same: it has an
 `hal::InstrumentId` and inherits `hal::InstrumentTag`, so preflight and
 `--address` reach it, and `hal::safeRig()` opens its relays -- in a second pass,
@@ -450,7 +450,7 @@ unconditionally, which is what driver tests construct with.
 | `hal::keysight_edu36311a::EDU36311A` | `Lan`, `Usb` |
 | `hal::keysight_ac6834b::Ac6834B` | `Gpib`, `Serial` |
 | `hal::racal1260::Racal1260` | `Serial`, `Gpib` |
-| `hal::keysight_34980a::Chassis` | `Gpib`, `Lan`, `Usb` |
+| `hal::keysight_34980a::SwitchUnit` | `Gpib`, `Lan`, `Usb` |
 
 `hal::keysight_edu36311a::EDU36311A` shares the EDU34450A's pair, and for the
 same reason: both are Smart Bench Essentials boxes with gigabit LAN and a rear
@@ -465,7 +465,7 @@ the dev desk turned out to have a LAN port. The list follows the hardware in
 hand; a panel written from a document is a claim, and the instrument is the
 check.
 
-`hal::keysight_34980a::Chassis` is the only row with *three*, and it is the
+`hal::keysight_34980a::SwitchUnit` is the only row with *three*, and it is the
 boring end of this table for a good reason: GPIB, LAN and USB are all standard
 on that mainframe, so its constraint rules out `hal::Serial` and nothing else.
 Written as a constraint anyway -- "this box has no serial port" is a fact worth
@@ -493,7 +493,7 @@ path is not.
 Four drivers read their address now -- `hal::keysight_edu34450a::EDU34450A`
 over LAN or USB, `hal::keysight_dsox1202g::Oscilloscope` over USB,
 `hal::keysight_edu36311a::EDU36311A` over either, and
-`hal::keysight_34980a::Chassis` over any of its three (see the next section).
+`hal::keysight_34980a::SwitchUnit` over any of its three (see the next section).
 The other four still carry theirs the way `hal::keysight_edu36311a::EDU36311A` carried
 its mainframe slot before any driver needed it, so that the rig table can state
 the fact at all.

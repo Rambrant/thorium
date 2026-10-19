@@ -1,4 +1,4 @@
-# --- hal::keysight_34980a::Chassis -- Keysight 34980A switch/measure mainframe ---
+# --- hal::keysight_34980a::SwitchUnit -- Keysight 34980A switch/measure mainframe ---
 # One driver, self-contained: its header, its tests, its README, and this file.
 # Nothing outside this directory names any of them -- the tree above discovers
 # this directory and hands framework/hal the path (see the top-level
@@ -16,15 +16,16 @@
 # a deployment that names neither of this package's types in an INSTRUMENT()
 # row -- the bench, today -- gets no #include for it and no code from it. That
 # is the "availability is not use" case instruments/README.md describes. The dev
-# desk names both (Chassis and InternalDmm, on box Swu1), and its fabric drives
-# the Chassis's cards.
+# desk names both (SwitchUnit and Multimeter, on box Swu1), and its fabric drives
+# the SwitchUnit's cards.
 #
 # STATIC, like the three drivers that talk. Everything that speaks SCPI is in
-# src/keysight_34980a.cpp; the header carries the types a call site names.
+# src/switch_unit.cpp and src/multimeter.cpp; the header carries the types a call site names.
 # Unlike keysight_edu36311a, nothing here is a template, so the .cpp holds
 # ordinary out-of-line members.
 add_library(hal_keysight_34980a STATIC
-    src/keysight_34980a.cpp
+    src/switch_unit.cpp
+    src/multimeter.cpp
 )
 
 # include/hal/keysight_34980a.hpp, not include/keysight_34980a.hpp: this driver
