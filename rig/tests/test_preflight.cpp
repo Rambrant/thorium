@@ -136,9 +136,9 @@ namespace
 
         const auto bindings = bindAddresses( AddressPlan{});
 
-        EXPECT_EQ( bindingFor( bindings, InstrumentId::Dmm1).Type, "keysight_edu34450a::EDU34450A");
+        EXPECT_EQ( bindingFor( bindings, InstrumentId::Dmm1).Type, "keysight_edu34450a::Multimeter");
         EXPECT_EQ( bindingFor( bindings, InstrumentId::DcP5).Type,
-                   "keysight_edu36311a::EDU36311A<Output1, DirectWiring>");
+                   "keysight_edu36311a::DcSource<Output1, DirectWiring>");
     }
 
     //
@@ -303,7 +303,7 @@ namespace
             const std::string message{ refused.what() };
 
             EXPECT_NE( message.find( "AcP1"),         std::string::npos);
-            EXPECT_NE( message.find( "Ac6834B"),      std::string::npos);
+            EXPECT_NE( message.find( "AcSource"),     std::string::npos);
             EXPECT_NE( message.find( "Usb"),          std::string::npos);
             EXPECT_NE( message.find( "Gpib, Serial"), std::string::npos);
         }
@@ -501,7 +501,7 @@ namespace
 
         ASSERT_FALSE( dmm1.empty());
 
-        EXPECT_NE( dmm1.find( "keysight_edu34450a::EDU34450A"), std::string::npos);
+        EXPECT_NE( dmm1.find( "keysight_edu34450a::Multimeter"), std::string::npos);
         EXPECT_NE( dmm1.find( "Simulated"),                     std::string::npos);
         EXPECT_NE( dmm1.find( "table"),                         std::string::npos);
         EXPECT_NE( dmm1.find( "simulated -- no instrument"),    std::string::npos);

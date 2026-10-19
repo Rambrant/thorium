@@ -85,7 +85,7 @@
 // an address with more than one field be one macro argument at all.
 //
 // Anything after address is handed to the driver's constructor untouched --
-// hal::keysight_edu36311a::EDU36311A's mainframe slot is the only such argument on
+// hal::keysight_edu36311a::DcSource's mainframe slot is the only such argument on
 // this repo's bench rig. That slot is deliberately NOT folded into the
 // address, even though "GPIB 14, slot 3" is how you would say aloud where
 // DcP3 is: one address is one box on the bus (DcP1..DcP4 share a mainframe

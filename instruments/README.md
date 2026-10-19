@@ -12,6 +12,8 @@ instruments/
         CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
         README.md
         include/hal/keysight_edu34450a.hpp
+        include/hal/keysight_edu34450a_multimeter.hpp   #   the instrument
+        include/hal/keysight_edu34450a/   #   the parts: vocabulary
         src/keysight_edu34450a.cpp   #   the SCPI: command table, ranges, overload
         tests/test_keysight_edu34450a.cpp
     keysight_dsox1202g/         # two-channel oscilloscope -- Osc1, talks to real hardware
@@ -27,12 +29,16 @@ instruments/
         CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
         README.md
         include/hal/keysight_edu36311a.hpp
+        include/hal/keysight_edu36311a_dc_source.hpp   #   the instrument
+        include/hal/keysight_edu36311a/   #   the parts: vocabulary, builder, wire, customization
         src/keysight_edu36311a.cpp   #   the SCPI: the Apply ordering, readback, safing
         tests/test_keysight_edu36311a.cpp
     keysight_33522b/            # two-channel 30 MHz waveform generator -- Wfg1, talks to real hardware
         CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
         README.md
         include/hal/keysight_33522b.hpp
+        include/hal/keysight_33522b_waveform_generator.hpp   #   the instrument
+        include/hal/keysight_33522b/   #   the parts: vocabulary, builder, wire, channel_view, customization
         src/keysight_33522b.cpp      #   the SCPI: the Apply ordering, why not APPLy, safing
         tests/test_keysight_33522b.cpp
     keysight_34980a/            # switch/measure MAINFRAME -- a row that measures nothing

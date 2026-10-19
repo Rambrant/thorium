@@ -134,8 +134,8 @@ namespace hal
 
         //
         // The driver's own qualified type name, minus this namespace --
-        // "keysight_edu34450a::EDU34450A" rather than
-        // "hal::keysight_edu34450a::EDU34450A".
+        // "keysight_edu34450a::Multimeter" rather than
+        // "hal::keysight_edu34450a::Multimeter".
         //
         // Off the reflection rather than out of a table: the INSTRUMENT row's
         // type column and this are the same fact, and this is the copy that
@@ -150,10 +150,10 @@ namespace hal
         // keysight_edu36311a::DirectOutput1, and an alias is exactly what
         // reflection does not preserve: what arrives here is the underlying
         // specialisation, and untrimmed it reads
-        // "keysight_edu36311a::EDU36311A<hal::keysight_edu36311a::Output1,
+        // "keysight_edu36311a::DcSource<hal::keysight_edu36311a::Output1,
         // hal::keysight_edu36311a::DirectWiring>" -- a hundred columns to
         // make five rows of this banner unreadable. Trimmed it is
-        // "keysight_edu36311a::EDU36311A<Output1, DirectWiring>", which is
+        // "keysight_edu36311a::DcSource<Output1, DirectWiring>", which is
         // both narrow enough and says more than the alias did: which physical
         // output, and whether it has an isolation relay.
         //

@@ -83,7 +83,7 @@
 // -- DcP5..DcP7 are one box, and a differently shaped one -------------------
 //
 // DcP5, DcP6 and DcP7 are the three outputs of one Keysight EDU36311A
-// triple-output bench supply (hal::keysight_edu36311a::EDU36311A), 90 W in one
+// triple-output bench supply (hal::keysight_edu36311a::DcSource), 90 W in one
 // chassis as 6 V / 5 A, 30 V / 1 A and 30 V / 1 A. So this table has a "one
 // box, several endpoints" group in it, the shape DcP1..DcP4 used to have
 // behind their mainframe -- and the two were worth comparing, which is why the
@@ -223,7 +223,7 @@
 // is kept here even though Dmm2 has gone, because it is the thing a reader
 // adding a second meter is most likely to get wrong. They were two
 // L4411A instances -- two wiring facts sharing one C++
-// type -- and Dmm1 became a 5.5-digit hal::keysight_edu34450a::EDU34450A
+// type -- and Dmm1 became a 5.5-digit hal::keysight_edu34450a::Multimeter
 // against the L4411A's 6.5. A script measuring a rail cannot tell two meters
 // apart, and a criterion tightened past 5.5 digits can; anything reaching for
 // .nplc() can too, since this family has no NPLC command at all. So a second
@@ -237,7 +237,7 @@
 // read its address at all: an invented hostname was then a note to a reviewer
 // and nothing more.
 //
-// hal::keysight_edu34450a::EDU34450A changed that. It was the first driver here
+// hal::keysight_edu34450a::Multimeter changed that. It was the first driver here
 // that opens a real session -- SCPI over a socket to the address in this column
 // (see hal/io/transport.hpp) -- so for that row this column stopped being a
 // note and became an instruction. "Lan( "bench-dmm1")" would mean *connect to
@@ -334,13 +334,13 @@
 // a reason to keep this row wrong.
 //
 INSTRUMENTS
-    INSTRUMENT( BenchDmm,   keysight_edu34450a::EDU34450A,     Dmm1, Simulated{})        // TODO(bench): Lan( "<host>") or Usb( "<serial>") once a meter answers -- this driver connects
-    INSTRUMENT( BenchScope, keysight_dsox1202g::Oscilloscope,     Osc1, Simulated{})        // TODO(bench): Usb( "<serial>") off the scope's own *IDN? -- this driver connects
-    INSTRUMENT( BenchPsu,   keysight_edu36311a::DirectOutput1, DcP5, Simulated{})        // 6 V / 5 A, hard-wired: no relay in this rack carries 5 A. A spare -- nothing on this DUT wants 6 V
-    INSTRUMENT( BenchPsu,   keysight_edu36311a::RelayOutput2,  DcP6, Simulated{})        // 30 V / 1 A -> dut::BackupSupply,  isolation relay on Spst1/6
-    INSTRUMENT( BenchPsu,   keysight_edu36311a::RelayOutput3,  DcP7, Simulated{})        // 30 V / 1 A -> dut::BatterySupply, isolation relay on Spst1/7
-    INSTRUMENT( AcSource,   keysight_ac6834b::Ac6834B,         AcP1, Gpib( 0, 5))        // simulated: kept for the Transient group, see this file's own comment
-    INSTRUMENT( BenchWfg,   keysight_33522b::Wfg33522B,        Wfg1, Simulated{})        // TODO(bench): Lan( "<host>"), Usb( "<serial>") or Gpib( ...) -- this driver connects
-    INSTRUMENT( Scope1,  keysight_dsox1202g::WaveformGenerator,          Wfg2, Simulated{})   // the scope's built-in generator -- see above
-    INSTRUMENT( DutConsole, racal1260::Racal1260,              Ser1, Serial( "/dev/ttyUSB0"))
+    INSTRUMENT( BenchDmm,   keysight_edu34450a::Multimeter,         Dmm1, Simulated{})        // TODO(bench): Lan( "<host>") or Usb( "<serial>") once a meter answers -- this driver connects
+    INSTRUMENT( BenchScope, keysight_dsox1202g::Oscilloscope,       Osc1, Simulated{})        // TODO(bench): Usb( "<serial>") off the scope's own *IDN? -- this driver connects
+    INSTRUMENT( BenchPsu,   keysight_edu36311a::DirectOutput1,      DcP5, Simulated{})        // 6 V / 5 A, hard-wired: no relay in this rack carries 5 A. A spare -- nothing on this DUT wants 6 V
+    INSTRUMENT( BenchPsu,   keysight_edu36311a::RelayOutput2,       DcP6, Simulated{})        // 30 V / 1 A -> dut::BackupSupply,  isolation relay on Spst1/6
+    INSTRUMENT( BenchPsu,   keysight_edu36311a::RelayOutput3,       DcP7, Simulated{})        // 30 V / 1 A -> dut::BatterySupply, isolation relay on Spst1/7
+    INSTRUMENT( AcSource,   keysight_ac6834b::AcSource,             AcP1, Gpib( 0, 5))        // simulated: kept for the Transient group, see this file's own comment
+    INSTRUMENT( BenchWfg,   keysight_33522b::WaveformGenerator,     Wfg1, Simulated{})        // TODO(bench): Lan( "<host>"), Usb( "<serial>") or Gpib( ...) -- this driver connects
+    INSTRUMENT( Scope1,     keysight_dsox1202g::WaveformGenerator,  Wfg2, Simulated{})   // the scope's built-in generator -- see above
+    INSTRUMENT( DutConsole, racal1260::Racal1260,                   Ser1, Serial( "/dev/ttyUSB0"))
 END_INSTRUMENTS

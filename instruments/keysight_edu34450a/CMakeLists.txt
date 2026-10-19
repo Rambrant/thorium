@@ -1,4 +1,4 @@
-# --- hal::keysight_edu34450a::EDU34450A -- Keysight EDU34450A 5.5-digit DMM ---
+# --- hal::keysight_edu34450a::Multimeter -- Keysight EDU34450A 5.5-digit DMM ---
 # One instrument driver, self-contained: its header, its tests, its README, and
 # this file. Nothing outside this directory names any of them -- the tree above
 # discovers this directory and hands framework/hal the path (see the top-level

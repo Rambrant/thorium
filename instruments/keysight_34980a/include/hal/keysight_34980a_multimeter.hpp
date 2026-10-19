@@ -191,7 +191,7 @@ namespace hal::keysight_34980a
             //
             // 4-wire ohms: source on ABus1, sense on ABus2, so the path's own
             // resistance is sensed out -- which is why it requires a sense
-            // path, as hal::keysight_edu34450a::EDU34450A's does.
+            // path, as hal::keysight_edu34450a::Multimeter's does.
             //
             [[nodiscard]]
             auto fourWireResistance() -> core::Port<core::quantities::Resistance, Multimeter, core::SensePath::Required>
@@ -202,7 +202,7 @@ namespace hal::keysight_34980a
 
             //
             // The frequency counter -- a reading, not a setting (see
-            // hal::keysight_edu34450a::EDU34450A::frequency() on the two).
+            // hal::keysight_edu34450a::Multimeter::frequency() on the two).
             //
             [[nodiscard]]
             auto frequency() -> core::Port<core::quantities::Frequency, Multimeter>

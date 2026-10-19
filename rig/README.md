@@ -66,7 +66,7 @@ separate constructor argument rather than a field on the address (see
 `hal/topology/active_instruments.hpp`'s own comment for that argument in full).
 
 `DcP5`..`DcP7` are a second box of that shape and the comparison is instructive
-rather than repetitive: three outputs of one `hal::keysight_edu36311a::EDU36311A`
+rather than repetitive: three outputs of one `hal::keysight_edu36311a::DcSource`
 triple-output supply, 6 V/5 A and two of 30 V/1 A. One address again, but the
 endpoint is in the *type* column (`DirectOutput1`, `RelayOutput2`,
 `RelayOutput3`) rather than a trailing argument, because these three outputs are
@@ -83,7 +83,7 @@ inventing one would be inventing a DUT fact.
 
 `Wfg1` is a third box of that shape and answers the question the other way,
 which is what makes it worth reading next to them: a
-`hal::keysight_33522b::Wfg33522B` has two independent 30 MHz outputs behind one
+`hal::keysight_33522b::WaveformGenerator` has two independent 30 MHz outputs behind one
 address, and it gets **one** row rather than two. The test is whether an
 endpoint is separately wired and separately rated. An EDU36311A's outputs are --
 different ratings, different DUT rails, different isolation -- so they are three
@@ -98,7 +98,7 @@ is a stimulus point yet. See `instruments/keysight_33522b/README.md`, and
 `Dmm1` and `Dmm2` are two *different* models, which is the easiest thing in this
 table to skim past. They were two L4411A instances --
 two wiring facts sharing one C++ type, the way `DcP1`..`DcP4` still are -- and
-`Dmm1` is now a 5.5-digit `hal::keysight_edu34450a::EDU34450A` against the
+`Dmm1` is now a 5.5-digit `hal::keysight_edu34450a::Multimeter` against the
 L4411A's 6.5. A script measuring a rail cannot tell them apart; a criterion
 tightened past 5.5 digits can, and so can anything reaching for `.nplc()`, which
 the EDU34450A has no command for. See

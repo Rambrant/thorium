@@ -46,7 +46,7 @@ namespace
         hal::TapWiring         tapWiring;
 
         hal::keysight_edu36311a::RelayOutput3  dcP7{ hal::InstrumentId::DcP7, hal::Simulated{} };
-        hal::keysight_ac6834b::Ac6834B      acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
+        hal::keysight_ac6834b::AcSource      acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ApplyEngine    apply{};
         ConnectEngine  connect{ fabric, instrumentWiring, connectorWiring };

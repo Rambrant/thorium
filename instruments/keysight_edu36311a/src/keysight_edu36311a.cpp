@@ -1,5 +1,5 @@
 //
-// hal::keysight_edu36311a::EDU36311A's real I/O: what this supply is actually
+// hal::keysight_edu36311a::DcSource's real I/O: what this supply is actually
 // told, in the order it is told it, and what its answers mean.
 //
 // The third .cpp in instruments/, after the meter's and the scope's, and the
@@ -150,7 +150,7 @@ namespace hal::keysight_edu36311a::detail
 
         //
         // This model and no other, which is a narrower rule than the meter
-        // driver's (hal::keysight_edu34450a::EDU34450A accepts its
+        // driver's (hal::keysight_edu34450a::Multimeter accepts its
         // professional sibling too, because the two really are one instrument
         // in two boxes). Here the sibling is the difference: an E36311A shares
         // this command set exactly and has a -25 V rail on channel 3 and a
@@ -291,14 +291,14 @@ namespace hal::keysight_edu36311a::detail
     {
         //
         // The output off, and nothing else -- the setpoint stays where the
-        // script put it (see EDU36311A::removeOutput on why that differs from
+        // script put it (see DcSource::removeOutput on why that differs from
         // safe()).
         //
         // *OPC? afterwards for the same reason program() ends with one, and it
         // matters more here than it looks: the line after a Remove is very
         // often a Disconnect, which moves the isolation relay in this rail's
         // lead. The interlock asks the instrument whether the output is live
-        // before allowing that (see EDU36311A::isEnabled), and an OUTP 0 that
+        // before allowing that (see DcSource::isEnabled), and an OUTP 0 that
         // had not yet been executed would be answered by an instrument that is
         // still on -- which is the correct answer to the question asked and
         // the wrong outcome for the script. Waiting here is what makes "off,

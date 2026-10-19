@@ -143,10 +143,10 @@ call site -- moving a driver out changed its build location and nothing else.
 
 | Driver | Directory |
 |---|---|
-| `hal::keysight_edu34450a::EDU34450A` | `instruments/keysight_edu34450a/` |
+| `hal::keysight_edu34450a::Multimeter` | `instruments/keysight_edu34450a/` |
 | `hal::keysight_dsox1202g::Oscilloscope` | `instruments/keysight_dsox1202g/` |
-| `hal::keysight_edu36311a::EDU36311A` | `instruments/keysight_edu36311a/` |
-| `hal::keysight_ac6834b::Ac6834B` | `instruments/keysight_ac6834b/` |
+| `hal::keysight_edu36311a::DcSource` | `instruments/keysight_edu36311a/` |
+| `hal::keysight_ac6834b::AcSource` | `instruments/keysight_ac6834b/` |
 | `hal::racal1260::Racal1260` | `instruments/racal1260/` |
 | `hal::keysight_34980a::SwitchUnit` | `instruments/keysight_34980a/` (a switching mainframe -- see below) |
 
@@ -295,7 +295,7 @@ Apply(  AcP1.ac().phaseVoltage( 115_V).frequency( 400_Hz).currentLimit( 3_A));
 
 Neither takes an `at(...)`: a source instrument here is fixed-wired straight to
 its VPC pin (or four, for `AcP1`), so there is no point left to choose -- see
-`hal::keysight_edu36311a::EDU36311A`'s own comment on why a real power rail is cabled rather than
+`hal::keysight_edu36311a::DcSource`'s own comment on why a real power rail is cabled rather than
 routed. Where a relay does exist in the path, `Connect` closes it before the
 output comes up and `Disconnect` opens it after the output goes down, so the
 contacts never move under load -- see `core/verbs/source.hpp`. A sequence that gets
@@ -329,12 +329,12 @@ picks:
   `Dmm1` doesn't encode which literal DMM model is plugged in. A script never
   needs to know or care that `DcP6` happens to be one output of an EDU36311A
   underneath.
-- **The C++ class** (`hal::keysight_edu36311a::EDU36311A`,
-  `hal::keysight_ac6834b::Ac6834B`) is named after the physical instrument
+- **The C++ class** (`hal::keysight_edu36311a::DcSource`,
+  `hal::keysight_ac6834b::AcSource`) is named after the physical instrument
   model. A real power-supply driver's SCPI dialect and channel-addressing
   scheme is inherently tied to its exact model, so naming the class after the
   model documents that non-portability rather than hiding it -- the same
-  reasoning that named `hal::keysight_edu34450a::EDU34450A` (Dmm1's concrete
+  reasoning that named `hal::keysight_edu34450a::Multimeter` (Dmm1's concrete
   type) and `hal::keysight_dsox1202g::Oscilloscope` (Osc1's) after their real
   models, once each was known, retiring the old generic
   `hal::Dmm`/`hal::Oscilloscope` placeholders that stood in for "roughly any
@@ -350,7 +350,7 @@ so rows and settings the old driver accepted stopped compiling). The
 Infiniium driver has since been deleted along with the rest of the hardware
 this bench does not have -- see `rig/instrument.inc`.
 
-`DcP5`..`DcP7` are three separate `hal::keysight_edu36311a::EDU36311A`
+`DcP5`..`DcP7` are three separate `hal::keysight_edu36311a::DcSource`
 instances, one per output of a single physical EDU36311A chassis -- not three
 different supplies. Which output an instance is lives in its *type*
 (`DirectOutput1`, `RelayOutput2`, `RelayOutput3`), because on that instrument
@@ -372,7 +372,7 @@ third axis, and the section below is about it.
 
 `DcP5`..`DcP7` are the same pattern with the endpoint in the other place, and
 the pair is worth comparing because it says what "one shared box" does and does
-not settle. They are three `hal::keysight_edu36311a::EDU36311A` instances,
+not settle. They are three `hal::keysight_edu36311a::DcSource` instances,
 three outputs of one chassis, one address repeated three times -- so far
 identical. But that driver takes its output as a *template* parameter
 (`DirectOutput1`, `RelayOutput2`, ...) rather than a constructor argument,
@@ -428,7 +428,7 @@ bus's kind.
 
 **A constructor value, not a template parameter.** The rule this codebase
 follows is: template parameter when it changes what compiles, constructor
-argument when it does not. `hal::keysight_edu36311a::EDU36311A`'s `Isolation` is a template parameter
+argument when it does not. `hal::keysight_edu36311a::DcSource`'s `Isolation` is a template parameter
 because `DirectWiring` genuinely removes `Connect`/`Disconnect` from the API.
 An address removes nothing -- a driver's interface is identical whichever
 number a technician set on the rear-panel switch -- and templating on it would
@@ -445,14 +445,14 @@ unconditionally, which is what driver tests construct with.
 
 | Driver | Reachable over |
 |---|---|
-| `hal::keysight_edu34450a::EDU34450A` | `Lan`, `Usb` |
+| `hal::keysight_edu34450a::Multimeter` | `Lan`, `Usb` |
 | `hal::keysight_dsox1202g::Oscilloscope` | `Usb` |
-| `hal::keysight_edu36311a::EDU36311A` | `Lan`, `Usb` |
-| `hal::keysight_ac6834b::Ac6834B` | `Gpib`, `Serial` |
+| `hal::keysight_edu36311a::DcSource` | `Lan`, `Usb` |
+| `hal::keysight_ac6834b::AcSource` | `Gpib`, `Serial` |
 | `hal::racal1260::Racal1260` | `Serial`, `Gpib` |
 | `hal::keysight_34980a::SwitchUnit` | `Gpib`, `Lan`, `Usb` |
 
-`hal::keysight_edu36311a::EDU36311A` shares the EDU34450A's pair, and for the
+`hal::keysight_edu36311a::DcSource` shares the EDU34450A's pair, and for the
 same reason: both are Smart Bench Essentials boxes with gigabit LAN and a rear
 USBTMC port and no GPIB option -- so the two boxes on this bench that *can* be
 reached over GPIB are both ones with no transport to use it: the Ac6834B and the
@@ -490,11 +490,11 @@ path is not.
 
 ### What still has no address
 
-Four drivers read their address now -- `hal::keysight_edu34450a::EDU34450A`
+Four drivers read their address now -- `hal::keysight_edu34450a::Multimeter`
 over LAN or USB, `hal::keysight_dsox1202g::Oscilloscope` over USB,
-`hal::keysight_edu36311a::EDU36311A` over either, and
+`hal::keysight_edu36311a::DcSource` over either, and
 `hal::keysight_34980a::SwitchUnit` over any of its three (see the next section).
-The other four still carry theirs the way `hal::keysight_edu36311a::EDU36311A` carried
+The other four still carry theirs the way `hal::keysight_edu36311a::DcSource` carried
 its mainframe slot before any driver needed it, so that the rig table can state
 the fact at all.
 
@@ -791,7 +791,7 @@ over — which is why hop zero has to be distinguishable, and therefore why a
 `Path` being written **endpoint-first** is now a rule rather than a habit.
 
 **Naming.** This codebase keeps three words doing three jobs, and the split is
-load-bearing: **driver** is the code that speaks to hardware (`hal::keysight_edu34450a::EDU34450A`),
+load-bearing: **driver** is the code that speaks to hardware (`hal::keysight_edu34450a::Multimeter`),
 **instrument** is the hardware a script names (`Dmm1` and `Dmm2` are two
 instruments sharing one driver), and **switch device** is the plumbing only
 wiring names. Collapsing them all into "drivers" would make "two instruments,

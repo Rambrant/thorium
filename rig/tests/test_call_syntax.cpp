@@ -14,7 +14,7 @@
 // state with each other.
 //
 // This also demonstrates the two shapes Connect/Disconnect can take side by
-// side: DcP7 is fixed-wired (hal::keysight_edu36311a::EDU36311A::dc() takes no point at all --
+// side: DcP7 is fixed-wired (hal::keysight_edu36311a::DcSource::dc() takes no point at all --
 // see that header's own comment; DcP7 specifically has a real isolation
 // relay -- hal::keysight_edu36311a::RelayOutput3 -- unlike DcP5/DcP6, which have none at all),
 // Osc1 is routed (hal::keysight_dsox1202g::Oscilloscope's Port takes at(...) on every Measure()) --
@@ -45,7 +45,7 @@ namespace
 
     // Output5V/ClockOut are only ever named on the Measure() side below --
     // DcP7 reaches the same physical Output5V pin too, but as a fixed wire,
-    // not as an at(...) argument (see hal::keysight_edu36311a::EDU36311A's own comment).
+    // not as an at(...) argument (see hal::keysight_edu36311a::DcSource's own comment).
     constexpr core::AdapterPointTag<kOutput5V>        Output5V{ "Output5V", "5Vdc supply port" };
     constexpr core::AdapterPointTag<kClockOut>        ClockOut{ "ClockOut", "clock edge test point" };
     constexpr core::AdapterPointTag<kResistancePoint> ResistancePoint{ "ResistancePoint", "4-wire Kelvin test point" };
@@ -66,7 +66,7 @@ namespace
 
         hal::keysight_edu36311a::RelayOutput3  dcP7{ hal::InstrumentId::DcP7, hal::Simulated{} };
         hal::keysight_dsox1202g::Oscilloscope osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
-        hal::keysight_edu34450a::EDU34450A  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
+        hal::keysight_edu34450a::Multimeter  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};

@@ -94,7 +94,7 @@
 // script that only Applies, Removes and reads back, which is all these do.
 //
 // One box, Psu1, for all three -- the three outputs are one unit behind one
-// interface (see hal::keysight_edu36311a::EDU36311A::Buses) -- so one address,
+// interface (see hal::keysight_edu36311a::DcSource::Buses) -- so one address,
 // written on each row and held equal by the build (hal/topology/boxes.hpp).
 // One flag moves all three:
 //
@@ -113,7 +113,7 @@
 // -- The waveform generator ---------------------------------------------------
 //
 // Wfg1, the bench's name for it: a Keysight (formerly Agilent) 33522B, two
-// channels, LAN, USB or GPIB (see hal::keysight_33522b::Wfg33522B::Buses). USB
+// channels, LAN, USB or GPIB (see hal::keysight_33522b::WaveformGenerator::Buses). USB
 // to start with; LAN is one --address away. Its scripts are checked by the
 // scope -- generator channel 1 cabled to scope channel 1, 2 to 2 -- see
 // dev/suite/scripts/wfg_into_scope.cpp.
@@ -152,13 +152,13 @@
 // generator on the desk.
 //
 INSTRUMENTS
-    INSTRUMENT( DeskDmm, keysight_edu34450a::EDU34450A,     Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
-    INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput1, DcP5, Usb( "CN65100272"))   // 6 V / 5 A
-    INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput2, DcP6, Usb( "CN65100272"))   // 30 V / 1 A
-    INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput3, DcP7, Usb( "CN65100272"))   // 30 V / 1 A
-    INSTRUMENT( Scope1,  keysight_dsox1202g::Oscilloscope,     Osc1, Usb( "CN64504143"))   // 
-    INSTRUMENT( Wfg1,    keysight_33522b::Wfg33522B,        Wfg1, Usb( "MY52803613"))   //
-    INSTRUMENT( Swu1,    keysight_34980a::SwitchUnit, Swu1, Usb( "MY53154781"))   // 
-    INSTRUMENT( Swu1,    keysight_34980a::Multimeter, Dmm2, Usb( "MY53154781"))   // the same box's internal DMM -- see above
-    INSTRUMENT( Scope1,  keysight_dsox1202g::WaveformGenerator,          Wfg2, Usb( "CN64504143"))   // the scope's built-in generator -- see above
+    INSTRUMENT( DeskDmm, keysight_edu34450a::Multimeter,        Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
+    INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput1,     DcP5, Usb( "CN65100272"))   // 6 V / 5 A
+    INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput2,     DcP6, Usb( "CN65100272"))   // 30 V / 1 A
+    INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput3,     DcP7, Usb( "CN65100272"))   // 30 V / 1 A
+    INSTRUMENT( Scope1,  keysight_dsox1202g::Oscilloscope,      Osc1, Usb( "CN64504143"))   //
+    INSTRUMENT( Wfg1,    keysight_33522b::WaveformGenerator,    Wfg1, Usb( "MY52803613"))   //
+    INSTRUMENT( Swu1,    keysight_34980a::SwitchUnit,           Swu1, Usb( "MY53154781"))   //
+    INSTRUMENT( Swu1,    keysight_34980a::Multimeter,           Dmm2, Usb( "MY53154781"))   // the same box's internal DMM -- see above
+    INSTRUMENT( Scope1,  keysight_dsox1202g::WaveformGenerator, Wfg2, Usb( "CN64504143"))   // the scope's built-in generator -- see above
 END_INSTRUMENTS

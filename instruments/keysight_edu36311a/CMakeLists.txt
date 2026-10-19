@@ -1,4 +1,4 @@
-# --- hal::keysight_edu36311a::EDU36311A -- Keysight EDU36311A triple-output DC power supply ---
+# --- hal::keysight_edu36311a::DcSource -- Keysight EDU36311A triple-output DC power supply ---
 # One instrument driver, self-contained: its header, its tests, its README, and
 # this file. Nothing outside this directory names any of them -- the tree above
 # discovers this directory and hands framework/hal the path (see the top-level

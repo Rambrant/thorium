@@ -124,8 +124,8 @@ dut/adapter.inc             a BUNDLE for the interface it talks to
 ```
 
 Both halves of the route are rig data and live nowhere in this directory. Note
-that this driver needs `WIRE_CONNECTOR` rows where `hal::keysight_edu36311a::EDU36311A` and
-`hal::keysight_ac6834b::Ac6834B` need `WIRE_SOURCE` ones: their outputs are cabled to a known pin,
+that this driver needs `WIRE_CONNECTOR` rows where `hal::keysight_edu36311a::DcSource` and
+`hal::keysight_ac6834b::AcSource` need `WIRE_SOURCE` ones: their outputs are cabled to a known pin,
 where a console is switched onto the DUT and off again.
 
 Which of this port's channels meets which DUT line is not asserted anywhere in

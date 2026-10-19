@@ -2504,14 +2504,14 @@ TEST_F( AcceptanceBench, TheReportHeaderNamesTheInstrumentsTheRunBound)
     // whole line arrived, and specific enough to fail if the columns were
     // ever assembled from something other than the binding.
     //
-    EXPECT_TRUE( containsText( outPath(), mOut, "keysight_edu34450a::EDU34450A"));
+    EXPECT_TRUE( containsText( outPath(), mOut, "keysight_edu34450a::Multimeter"));
     EXPECT_TRUE( containsText( outPath(), mOut, "simulated -- no instrument at this address"));
 
     const auto rtfPath = findArtifact( ".rtf");
 
     ASSERT_FALSE( rtfPath.empty());
 
-    EXPECT_TRUE( containsText( rtfPath, readFile( rtfPath), "keysight_edu34450a::EDU34450A"));
+    EXPECT_TRUE( containsText( rtfPath, readFile( rtfPath), "keysight_edu34450a::Multimeter"));
 }
 
 //
@@ -2530,7 +2530,7 @@ TEST_F( AcceptanceBench, TheMachineLogCarriesTheInstrumentsAsAnArray)
     const auto sarif = readFile( sarifPath);
 
     EXPECT_TRUE( containsText( sarifPath, sarif, "\"instruments\": ["));
-    EXPECT_TRUE( containsText( sarifPath, sarif, "keysight_edu34450a::EDU34450A"));
+    EXPECT_TRUE( containsText( sarifPath, sarif, "keysight_edu34450a::Multimeter"));
 }
 
 //

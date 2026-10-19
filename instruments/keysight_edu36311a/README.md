@@ -1,4 +1,4 @@
-# hal::keysight_edu36311a::EDU36311A
+# hal::keysight_edu36311a::DcSource
 
 One output of a Keysight EDU36311A triple-output DC bench power supply — 90 W
 in one chassis as 6 V/5 A, 30 V/1 A and 30 V/1 A, each independently
@@ -86,7 +86,7 @@ anything.
 `DirectOutput*` instance has no `connectDriver` overload that compiles at all,
 so `Connect( DcP5.dc())` is a compile error rather than a call that quietly
 closes nothing — `hal::keysight_edu36311a::SwitchableIsolation` doing the work,
-the same mechanism `hal::keysight_edu36311a::EDU36311A` uses.
+the same mechanism `hal::keysight_edu36311a::DcSource` uses.
 
 Because it is a concept rather than a per-tag overload, a new relay-having
 isolation tag gets `Connect`/`Disconnect` for free with no change here — which

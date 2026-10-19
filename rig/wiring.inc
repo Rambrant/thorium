@@ -109,7 +109,7 @@ INSTRUMENT_WIRING
 
     // AcP1 is fixed-wired on four channels, not one -- phases A/B/C plus
     // the neutral/ground return, all closed and opened together (see
-    // hal::keysight_ac6834b::Ac6834B's own comment on why the return is included, and
+    // hal::keysight_ac6834b::AcSource's own comment on why the return is included, and
     // hal::InstrumentWiring::findAll() for how a script-facing Connect/
     // Disconnect gets all four back from one InstrumentId). Each is its
     // own single-hop entry here -- four independent Paths under one

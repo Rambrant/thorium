@@ -142,7 +142,7 @@ namespace core
     // Generic over InstrumentT: this header has no idea what a real
     // instrument looks like, only that it has a templated rawMeasure<Q>()
     // (with or without a MeasureSetup argument, dispatched at compile time)
-    // and an id() -- hal::keysight_edu34450a::EDU34450A/hal::keysight_dsox1202g::Oscilloscope/etc (see hal/driver/instrument.hpp,
+    // and an id() -- hal::keysight_edu34450a::Multimeter/hal::keysight_dsox1202g::Oscilloscope/etc (see hal/driver/instrument.hpp,
     // hal/keysight_edu34450a.hpp, hal/keysight_dsox1202g.hpp) are simply concrete instrument types
     // that happen to satisfy this shape, not something this type depends on.
     //
@@ -319,7 +319,7 @@ namespace core
             // (there is no argument: a reading either wants its sense path or
             // it doesn't, and not calling this at all is how "doesn't" is
             // spelled), so an instrument's 4-wire builder method -- e.g.
-            // hal::keysight_edu34450a::EDU34450A::fourWireResistance() -- chains it on
+            // hal::keysight_edu34450a::Multimeter::fourWireResistance() -- chains it on
             // unconditionally, the same way riseTime()/fallTime() chain
             // lowThreshold()/highThreshold().
             //
@@ -345,7 +345,7 @@ namespace core
             //
             // Names which of an instrument's several possible answers this
             // reading is -- one phase of a three-phase source (see
-            // hal::keysight_ac6834b::Ac6834B::measuredVoltage), or which of an oscilloscope's
+            // hal::keysight_ac6834b::AcSource::measuredVoltage), or which of an oscilloscope's
             // fourteen automatic measurements is being taken about one pin (see
             // hal::keysight_dsox1202g::Channel). Empty for the ordinary case of an
             // instrument that gives one answer about one thing.

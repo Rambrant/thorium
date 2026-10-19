@@ -18,7 +18,7 @@ namespace hal::io
     // kind, which host, which primary address. What it deliberately does not
     // say is how to get a command down that bus, and every driver in this tree
     // answered its readings out of its own mSimVoltage instead (see
-    // hal::keysight_edu34450a::EDU34450A's simulation hooks, which are still
+    // hal::keysight_edu34450a::Multimeter's simulation hooks, which are still
     // there and still what a test uses). This is the missing half: an Address
     // goes in, an object that can carry one SCPI line each way comes out.
     //
@@ -189,7 +189,7 @@ namespace hal::io
     // is a *value* a rig table wrote down and a driver carries, and the driver
     // must not have to know which alternative it got. A driver holds an
     // Address, calls this once, and is done -- see
-    // hal::keysight_edu34450a::EDU34450A::session().
+    // hal::keysight_edu34450a::Multimeter::session().
     //
     // Returns a non-null pointer or throws. Never nullptr-on-failure: an
     // instrument that could not be opened is not a smaller instrument, it is a

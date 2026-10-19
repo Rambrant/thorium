@@ -672,7 +672,7 @@ namespace hal::keysight_34980a
         // Technologies" on every example -- so a rack may hold two badges of
         // one box and refusing either would be inventing a difference the
         // hardware does not have. Contrast
-        // hal::keysight_edu36311a::EDU36311A, which refuses its sibling on
+        // hal::keysight_edu36311a::DcSource, which refuses its sibling on
         // purpose: there the two boxes really are different instruments
         // sharing a command set.
         //

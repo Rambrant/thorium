@@ -1,4 +1,4 @@
-# hal::keysight_ac6834b::Ac6834B
+# hal::keysight_ac6834b::AcSource
 
 Agilent/Keysight 6834B AC Power Source/Analyzer — 4500 VA total (1500 VA per
 phase), two output ranges (150 V/30 A and 300 V/15 A), three-phase, SCPI over
@@ -101,8 +101,8 @@ disconnects them as a unit — a three-phase source with one phase live and its
 return open is not a state worth being able to reach.
 
 This is why `findAll()` exists alongside `find()`: single-channel instruments
-like `hal::keysight_edu34450a::EDU34450A` and the retired Infiniium driver use `find()`, while this driver and
-relay-isolated `hal::keysight_edu36311a::EDU36311A` outputs with remote sense need every entry for
+like `hal::keysight_edu34450a::Multimeter` and the retired Infiniium driver use `find()`, while this driver and
+relay-isolated `hal::keysight_edu36311a::DcSource` outputs with remote sense need every entry for
 their id at once.
 
 ## Adding it to a rig

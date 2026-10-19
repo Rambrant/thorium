@@ -75,7 +75,7 @@
 //        fluent config chain is written on. Purely additive -- a driver at 1
 //        writes its setters out by hand and compiles here unchanged, which is
 //        why OLDEST_SUPPORTED stays at 1 -- but a driver that *uses* the base
-//        needs a hal that has it, so hal::keysight_ac6834b::Ac6834B and
+//        needs a hal that has it, so hal::keysight_ac6834b::AcSource and
 //        hal::racal1260::Racal1260 ask for 2. Two more did -- an N6701A and a
 //        DSO8064A -- and were deleted with the hardware this bench does not
 //        have (see rig/instrument.inc).
@@ -86,7 +86,7 @@
 //        Purely additive, so OLDEST_SUPPORTED stays at 1 and every driver at 1
 //        or 2 compiles here unchanged and stays simulated. A driver that opens
 //        a session needs a hal that has one, so
-//        hal::keysight_edu34450a::EDU34450A and
+//        hal::keysight_edu34450a::Multimeter and
 //        hal::keysight_dsox1202g::Oscilloscope ask for 3.
 //
 //        The scope is the one that moved: it asked for 2 while it answered

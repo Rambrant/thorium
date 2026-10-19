@@ -365,7 +365,7 @@ namespace core
         //
         // A DMM measures this directly -- a known current into the node, and
         // the slope of the ramp it produces (see
-        // hal::keysight_edu34450a::EDU34450A::capacitance) -- so unlike
+        // hal::keysight_edu34450a::Multimeter::capacitance) -- so unlike
         // Temperature there is no Transducer in the way. What that costs
         // instead is the node: charging it is sourcing into it, which is why
         // core::requiresDeadNode names this kind alongside Current and
@@ -825,7 +825,7 @@ namespace core
         //
         // Megahertz, which arrived with the first instrument on this bench
         // whose settings are routinely written there -- a 30 MHz waveform
-        // generator (hal::keysight_33522b::Wfg33522B). Without it the only
+        // generator (hal::keysight_33522b::WaveformGenerator). Without it the only
         // spellings for its top end were 30000.0_kHz and Frequency{ 30.0e6 },
         // and neither is a number anyone would check against a datasheet. The
         // same argument the capacitance suffixes below are made from.

@@ -1,5 +1,5 @@
 //
-// hal::keysight_edu36311a::EDU36311A's own tests.
+// hal::keysight_edu36311a::DcSource's own tests.
 //
 // Linked against this driver alone -- hal and core and nothing else -- which is
 // what keeps this directory independently packageable (see
@@ -43,7 +43,7 @@
 // all like that.
 //
 // And no channel argument, which is where this differs from
-// hal::keysight_edu36311a::EDU36311A: an EDU36311A's three outputs are three types,
+// hal::keysight_edu36311a::DcSource: an EDU36311A's three outputs are three types,
 // not one type with a slot number (see the header on Output1).
 //
 namespace
@@ -245,7 +245,7 @@ TEST( Edu36311A, ApplyWithNothingSetIsZeroVoltsAndEnabled)
 
 //
 // Safing zeroes the setpoint as well as disabling the output, which Remove
-// deliberately does not -- see EDU36311A::safe() for the unattended-re-enable
+// deliberately does not -- see DcSource::safe() for the unattended-re-enable
 // argument. The current limit and the trip level survive both, also
 // deliberately.
 //
@@ -556,7 +556,7 @@ namespace
     //
     // A supply with a fake transport already installed, and the fake still
     // reachable. A struct rather than two locals because the driver takes
-    // ownership of the transport (see EDU36311A::useTransport) and the test
+    // ownership of the transport (see DcSource::useTransport) and the test
     // still needs to read what was sent through it.
     //
     struct Bench

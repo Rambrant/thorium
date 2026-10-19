@@ -1,5 +1,5 @@
 //
-// hal::keysight_edu34450a::EDU34450A's real I/O: what this meter is actually
+// hal::keysight_edu34450a::Multimeter's real I/O: what this meter is actually
 // told, and what its answers mean.
 //
 // The first .cpp in instruments/ -- every driver here was header-only, because
@@ -131,12 +131,12 @@ namespace hal::keysight_edu34450a
         // has no effect on actual measurements.
         //
         [[nodiscard]]
-        constexpr auto resolutionFor( const EDU34450A::Resolution resolution) -> std::string_view
+        constexpr auto resolutionFor( const Multimeter::Resolution resolution) -> std::string_view
         {
             switch( resolution)
             {
-                case EDU34450A::Resolution::Slow:   return "MIN";
-                case EDU34450A::Resolution::Fast:   return "MAX";
+                case Multimeter::Resolution::Slow:   return "MIN";
+                case Multimeter::Resolution::Fast:   return "MAX";
             }
 
             return "MIN";
@@ -168,7 +168,7 @@ namespace hal::keysight_edu34450a
         }
     } // namespace
 
-    auto EDU34450A::session() -> io::ScpiSession &
+    auto Multimeter::session() -> io::ScpiSession &
     {
         //
         // The box's session (see hal::BoxConnection), opened on first use by
@@ -186,7 +186,7 @@ namespace hal::keysight_edu34450a
         });
     }
 
-    auto EDU34450A::verifyIdentity( io::ScpiSession & opened) -> std::string
+    auto Multimeter::verifyIdentity( io::ScpiSession & opened) -> std::string
     {
         const std::string identity = opened.identify();
         const auto        model    = modelOf( identity);
@@ -215,7 +215,7 @@ namespace hal::keysight_edu34450a
         return identity;
     }
 
-    auto EDU34450A::identity() -> std::string
+    auto Multimeter::identity() -> std::string
     {
         //
         // session() has already asked and already checked the answer, so this
@@ -227,7 +227,7 @@ namespace hal::keysight_edu34450a
         return session().identify();
     }
 
-    auto EDU34450A::read( const Function function, const std::optional<double> range) -> double
+    auto Multimeter::read( const Function function, const std::optional<double> range) -> double
     {
         auto &     scpi     = session();
         const auto commands = commandsFor( function);

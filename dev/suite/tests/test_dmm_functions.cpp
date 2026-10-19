@@ -41,7 +41,7 @@ namespace
             }
     };
 
-    using Resolution = hal::keysight_edu34450a::EDU34450A::Resolution;
+    using Resolution = hal::keysight_edu34450a::Multimeter::Resolution;
 } // namespace
 
 //

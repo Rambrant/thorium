@@ -31,8 +31,8 @@ namespace
     //
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput1> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::RelayOutput3> );
-    static_assert( hal::SafeableInstrument< hal::keysight_ac6834b::Ac6834B> );
-    static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::EDU34450A> );
+    static_assert( hal::SafeableInstrument< hal::keysight_ac6834b::AcSource> );
+    static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::Multimeter> );
     static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::Oscilloscope> );
     static_assert( hal::SafeableInstrument< hal::racal1260::Racal1260> );
 
@@ -44,7 +44,7 @@ namespace
     // hal/driver/instrument.hpp) -- a type satisfying SafeableInstrument without
     // also deriving from InstrumentTag would not fail any static_assert at
     // all, because safeRig()'s loop would simply never reach it; there is
-    // no case to fall into, the same silent-skip shape hal::keysight_edu34450a::EDU34450A::safe()'s
+    // no case to fall into, the same silent-skip shape hal::keysight_edu34450a::Multimeter::safe()'s
     // own comment warns an opt-in mechanism would have. These static_asserts
     // are what actually closes that gap: every real driver type is checked
     // against both requirements independently here, so a future driver
@@ -53,8 +53,8 @@ namespace
     //
     static_assert( std::derived_from< hal::keysight_edu36311a::DirectOutput1, hal::InstrumentTag> );
     static_assert( std::derived_from< hal::keysight_edu36311a::RelayOutput3,  hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::keysight_ac6834b::Ac6834B,         hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::keysight_edu34450a::EDU34450A,     hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_ac6834b::AcSource,         hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_edu34450a::Multimeter,     hal::InstrumentTag> );
     static_assert( std::derived_from< hal::keysight_dsox1202g::Oscilloscope,     hal::InstrumentTag> );
     static_assert( std::derived_from< hal::racal1260::Racal1260,              hal::InstrumentTag> );
 
@@ -73,7 +73,7 @@ namespace
         // whose author never wrote safe(). If hal::safeRig() had been
         // built as an opt-in customization point defaulting to a no-op,
         // this type would be silently accepted and never safed; see
-        // hal::keysight_edu34450a::EDU34450A::safe() for why it isn't.
+        // hal::keysight_edu34450a::Multimeter::safe() for why it isn't.
     };
 
     static_assert( !hal::SafeableInstrument< DriverThatForgotToSafe> );
@@ -128,7 +128,7 @@ TEST_F( SafingFixture, SafeRigDisablesEveryDcSourceAndZeroesItsSetpoint)
 
     //
     // Both halves matter: the output is off, and the setpoint it would come
-    // back at is zero -- see hal::keysight_edu36311a::EDU36311A::safe() on why
+    // back at is zero -- see hal::keysight_edu36311a::DcSource::safe() on why
     // safing clears the setpoint rather than only disabling the output.
     //
     // All three outputs of one supply, reached by reflection over the globals
@@ -168,7 +168,7 @@ TEST_F( SafingFixture, SafeRigLeavesCurrentLimitsInPlace)
     // Not an oversight -- with the output off and the setpoint at zero a
     // stale limit has nothing to limit, and an accidental re-enable is
     // better off finding one still set than finding none. See
-    // hal::keysight_edu36311a::EDU36311A::safe().
+    // hal::keysight_edu36311a::DcSource::safe().
     ASSERT_TRUE( DcP5.currentLimit().has_value());
     EXPECT_DOUBLE_EQ( DcP5.currentLimit()->value(), 4.0);   // what energiseEverything() set
 }

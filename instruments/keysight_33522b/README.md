@@ -1,4 +1,4 @@
-# hal::keysight_33522b::Wfg33522B
+# hal::keysight_33522b::WaveformGenerator
 
 A Keysight (Agilent) 33522B Trueform waveform generator — two independent
 30 MHz outputs, 1 µHz frequency resolution, 16 bits of vertical resolution,
@@ -314,7 +314,7 @@ Over **LAN**, put the hostname in the rig row and the driver opens a raw SCPI
 socket on port 5025:
 
 ```
-INSTRUMENT( BenchWfg, keysight_33522b::Wfg33522B, Wfg1, Lan( "bench-wfg1"))
+INSTRUMENT( BenchWfg, keysight_33522b::WaveformGenerator, Wfg1, Lan( "bench-wfg1"))
 ```
 
 Over **USB**, put the serial number from the instrument's own `*IDN?` or its
@@ -322,13 +322,13 @@ Over **USB**, put the serial number from the instrument's own `*IDN?` or its
 installed:
 
 ```
-INSTRUMENT( BenchWfg, keysight_33522b::Wfg33522B, Wfg1, Usb( "MY59003130"))
+INSTRUMENT( BenchWfg, keysight_33522b::WaveformGenerator, Wfg1, Usb( "MY59003130"))
 ```
 
 Over **GPIB**, if the option module is fitted:
 
 ```
-INSTRUMENT( BenchWfg, keysight_33522b::Wfg33522B, Wfg1, Gpib( 0, 10))
+INSTRUMENT( BenchWfg, keysight_33522b::WaveformGenerator, Wfg1, Gpib( 0, 10))
 ```
 
 ### What the failures mean
@@ -345,7 +345,7 @@ INSTRUMENT( BenchWfg, keysight_33522b::Wfg33522B, Wfg1, Gpib( 0, 10))
 ## Adding it to a rig
 
 ```
-rig/instrument.inc     INSTRUMENT( BenchWfg, keysight_33522b::Wfg33522B, Wfg1, Simulated{})
+rig/instrument.inc     INSTRUMENT( BenchWfg, keysight_33522b::WaveformGenerator, Wfg1, Simulated{})
 rig/wiring.inc         nothing -- this generator's outputs are hard-cabled, see above
 ```
 

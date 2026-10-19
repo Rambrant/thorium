@@ -17,7 +17,7 @@ using DisconnectEngine = core::DisconnectEngine<hal::SwitchFabric, hal::Instrume
 //
 // The two routing calls every script frames its sourcing with -- DcP1/AcP1
 // take no at(...) point: they're fixed-wired straight to one VPC pin (or four,
-// for AcP1's three phases plus ground -- see hal::keysight_ac6834b::Ac6834B's own comment), so
+// for AcP1's three phases plus ground -- see hal::keysight_ac6834b::AcSource's own comment), so
 // there's nothing left to choose. A routed, measuring instrument like
 // hal::keysight_dsox1202g::Oscilloscope still takes at(...) -- see hal/verbs/measure.hpp -- since it
 // genuinely can reach more than one point through the mux, and a console

@@ -54,7 +54,7 @@ auto rigPowerOn() -> bool
     // instrument what it is delivering over its own interface, which is a
     // different question from what a DMM would see at a DUT pin: a supply's
     // rail does not travel the signal matrix (see
-    // hal::keysight_edu36311a::EDU36311A's own comment on why a supply's
+    // hal::keysight_edu36311a::DcSource's own comment on why a supply's
     // output is cabled rather than routed), so there is no route to name. Note that
     // passing at(...) here anyway *compiles* -- it selects the routed overload
     // and closes a mux path for a reading that never leaves the instrument. If
@@ -68,7 +68,7 @@ auto rigPowerOn() -> bool
     //
     // All three phases, not one. This used to read a single unqualified
     // measuredVoltage(), which was sound only while the three were equal by
-    // construction -- with per-phase setpoints available (see hal::keysight_ac6834b::Ac6834B),
+    // construction -- with per-phase setpoints available (see hal::keysight_ac6834b::AcSource),
     // checking phase A alone would pass a rig that had lost B or C entirely.
     // The Apply above is balanced, so all three are held to the same
     // criterion; an unbalanced power-up would want one criterion per phase.

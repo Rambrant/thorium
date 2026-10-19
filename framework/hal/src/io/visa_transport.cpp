@@ -179,7 +179,7 @@ namespace hal::io
         // A function-local static rather than a global, so it is initialised on
         // first use (thread-safely, and after main() has started) rather than
         // during static initialisation -- the same reasoning as
-        // hal::keysight_edu34450a::EDU34450A's lazily-opened session, and for
+        // hal::keysight_edu34450a::Multimeter's lazily-opened session, and for
         // the same reason: a rig's instruments are globals, and nothing that
         // reaches for vendor software may run before main().
         //

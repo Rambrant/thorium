@@ -110,9 +110,9 @@ Being honest about the edges matters more than the table above:
   far, but a hand-typed flag has no such help.
 - **Bench I/O.** Real hardware is absent, mis-addressed or lying. That
   is what the runtime is for — and it is no longer hypothetical for four of the
-  nine drivers. `hal::keysight_edu34450a::EDU34450A`,
+  nine drivers. `hal::keysight_edu34450a::Multimeter`,
   `hal::keysight_dsox1202g::Oscilloscope` and
-  `hal::keysight_edu36311a::EDU36311A` open a SCPI session over the address
+  `hal::keysight_edu36311a::DcSource` open a SCPI session over the address
   their rig row declares, and `hal::keysight_34980a::SwitchUnit` over the address
   it is constructed with — it is a switching mainframe rather than an
   instrument, so no rig row names it yet (see `framework/hal/README.md` on
@@ -394,7 +394,7 @@ arguments.
 
 ```cpp
 INSTRUMENTS
-    INSTRUMENT( BenchDmm3, keysight_edu34450a::EDU34450A,    Dmm3, Lan( "bench-dmm3"))  // a third DMM
+    INSTRUMENT( BenchDmm3, keysight_edu34450a::Multimeter,    Dmm3, Lan( "bench-dmm3"))  // a third DMM
     INSTRUMENT( BenchPsu2, keysight_edu36311a::RelayOutput2, DcP8, Lan( "bench-psu2"))  // relay-isolated
 END_INSTRUMENTS
 ```

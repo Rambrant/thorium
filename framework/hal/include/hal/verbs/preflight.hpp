@@ -88,7 +88,7 @@ namespace hal
     // static_asserted, and the asymmetry with the concept above is the
     // interesting part of this file.
     //
-    // hal::keysight_ac6834b::Ac6834B and hal::racal1260::Racal1260 have no
+    // hal::keysight_ac6834b::AcSource and hal::racal1260::Racal1260 have no
     // identity() and no closeSession(), because they open no session at all:
     // they answer from their own simulation hooks, and rig/instrument.inc
     // keeps both deliberately (AcP1 for the Transient group, Ser1 for the
@@ -200,9 +200,9 @@ namespace hal
     // on a fleet of identical benches, and on a desk where the meter changes
     // daily.
     //
-    //     Dmm1  keysight_edu34450a::EDU34450A  Lan dev-dmm-3:5025  --address    Keysight Technologies,EDU34450A,MY60012345,01.00-01.00
+    //     Dmm1  keysight_edu34450a::Multimeter  Lan dev-dmm-3:5025  --address    Keysight Technologies,EDU34450A,MY60012345,01.00-01.00
     //     Osc1  keysight_dsox1202g::Oscilloscope  Usb CN59176621      pool 2 of 3  KEYSIGHT TECHNOLOGIES,DSO-X 1202G,CN59176621,01.20
-    //     AcP1  keysight_ac6834b::Ac6834B      Gpib 0::5           table        no session -- answers from its own hooks
+    //     AcP1  keysight_ac6834b::AcSource      Gpib 0::5           table        no session -- answers from its own hooks
     //
     // The address column is hal::to_string( address), which already exists and
     // already spells every kind. The provenance column is the one a reader

@@ -10,7 +10,7 @@ with USB cables to them.
 It exists for the work the bench cannot host: developing an instrument driver
 against real hardware. Doing that on the rack means booking the rack.
 
-**The first driver has landed.** `hal::keysight_edu34450a::EDU34450A` — this
+**The first driver has landed.** `hal::keysight_edu34450a::Multimeter` — this
 deployment's one instrument — opens a real SCPI session over a socket and reads
 the meter (see `framework/hal/README.md` on `hal/io/`, and that driver's own
 README for what it sends). So this directory is no longer waiting for something:

@@ -138,7 +138,7 @@ namespace hal
         std::string_view Box{};
 
         //
-        // The driver's own type name -- "keysight_edu34450a::EDU34450A" --
+        // The driver's own type name -- "keysight_edu34450a::Multimeter" --
         // taken off the reflection rather than out of a table. The INSTRUMENT
         // row's type column and this are the same fact, and this is the copy
         // that cannot drift.

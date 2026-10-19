@@ -11,11 +11,11 @@
 // knows about.
 //
 // A handful of these points are also where a fixed-wired source instrument
-// (hal::keysight_edu36311a::EDU36311A/hal::DcP5..DcP7, hal::keysight_ac6834b::Ac6834B/hal::AcP1) permanently lands --
+// (hal::keysight_edu36311a::DcSource/hal::DcP5..DcP7, hal::keysight_ac6834b::AcSource/hal::AcP1) permanently lands --
 // Output5V and BackupSupply look like DC rails, AcInput_A/B/C/N look like a
 // three-phase-plus-neutral AC input, for instance. hal:: itself has no idea
 // any of that -- DcP6's fixed channel (rig/wiring.inc) is a bare
-// SwitchElementId with no notion of "Output5V" attached (see hal::keysight_edu36311a::EDU36311A's
+// SwitchElementId with no notion of "Output5V" attached (see hal::keysight_edu36311a::DcSource's
 // own comment on why) -- so if that association matters to a reader here,
 // it belongs as a comment on the specific POINT() below, once it's known
 // which DcP/AcP instance is actually cabled to which pin on this rig. Not

@@ -20,7 +20,7 @@ namespace
 {
     //
     // AcP1's four fixed channels -- the three phases and the neutral return,
-    // which connectDriver closes and opens as one unit (see hal::keysight_ac6834b::Ac6834B).
+    // which connectDriver closes and opens as one unit (see hal::keysight_ac6834b::AcSource).
     // Phase A alone would not catch a restore that reconnected some of them.
     //
     constexpr hal::SwitchElementId kAcP1PhaseA { hal::SwitchDeviceId::Spst1, 0 };

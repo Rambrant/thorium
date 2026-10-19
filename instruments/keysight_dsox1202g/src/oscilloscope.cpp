@@ -544,7 +544,7 @@ namespace hal::keysight_dsox1202g
         // The session is deliberately *not* closed: its error queue is the best
         // evidence of what went wrong, and dropping it is closeSession()'s job
         // and the caller's call. Same argument
-        // hal::keysight_edu34450a::EDU34450A::safe() makes for doing nothing at
+        // hal::keysight_edu34450a::Multimeter::safe() makes for doing nothing at
         // all.
         //
         auto * const open = mConnection.openSession();

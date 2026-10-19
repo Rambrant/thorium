@@ -272,7 +272,7 @@ namespace hal::keysight_dsox1202g
     //     Remove( Wfg2.sine());
     //
     // One output, so there is no channel<N>() -- the instance is the output,
-    // where hal::keysight_33522b::Wfg33522B has two and names one at the call
+    // where hal::keysight_33522b::WaveformGenerator has two and names one at the call
     // site.
     //
     // -- What it does not do -------------------------------------------------

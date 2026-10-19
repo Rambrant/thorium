@@ -1,5 +1,5 @@
 //
-// hal::keysight_33522b::Wfg33522B's real I/O: what this generator is actually
+// hal::keysight_33522b::WaveformGenerator's real I/O: what this generator is actually
 // told, in the order it is told it, and what its answers mean.
 //
 // The fourth .cpp in instruments/, after the meter's, the scope's and the
@@ -166,7 +166,7 @@ namespace hal::keysight_33522b::detail
         // on the badge would refuse a box on the strength of an acquisition.
         //
         // This model and no other, which is the same narrow rule
-        // hal::keysight_edu36311a::EDU36311A applies to its own sibling, and
+        // hal::keysight_edu36311a::DcSource applies to its own sibling, and
         // for a sharper reason: every other member of the 33500B Series speaks
         // this exact command set, so *nothing this driver sends would be
         // refused* by the wrong one. A 33521B (one channel) would accept every
@@ -332,7 +332,7 @@ namespace hal::keysight_33522b::detail
     {
         //
         // The connector off, and nothing else -- every setting stays where the
-        // script put it (see Wfg33522B::removeOutput on why that differs from
+        // script put it (see WaveformGenerator::removeOutput on why that differs from
         // safe()).
         //
         // *OPC? afterwards for the same reason program() ends with one: the

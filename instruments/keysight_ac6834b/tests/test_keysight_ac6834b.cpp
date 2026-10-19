@@ -1,5 +1,5 @@
 //
-// hal::keysight_ac6834b::Ac6834B's own tests, split out of rig/tests/test_source_instruments.cpp
+// hal::keysight_ac6834b::AcSource's own tests, split out of rig/tests/test_source_instruments.cpp
 // when this driver moved into its own directory -- the N6701A half went to
 // instruments/keysight_edu36311a/tests/ at the same time, and that file's own comment
 // explains the shared fixture the two used to hold in common.
@@ -32,12 +32,12 @@
 //
 namespace
 {
-    static_assert(   std::constructible_from< hal::keysight_ac6834b::Ac6834B, hal::InstrumentId, hal::Gpib> );
-    static_assert(   std::constructible_from< hal::keysight_ac6834b::Ac6834B, hal::InstrumentId, hal::Serial> );
-    static_assert(   std::constructible_from< hal::keysight_ac6834b::Ac6834B, hal::InstrumentId, hal::Simulated> );
-    static_assert( ! std::constructible_from< hal::keysight_ac6834b::Ac6834B, hal::InstrumentId, hal::Lan> );
-    static_assert( ! std::constructible_from< hal::keysight_ac6834b::Ac6834B, hal::InstrumentId, hal::Usb> );
-    static_assert( ! std::constructible_from< hal::keysight_ac6834b::Ac6834B, hal::InstrumentId> );
+    static_assert(   std::constructible_from< hal::keysight_ac6834b::AcSource, hal::InstrumentId, hal::Gpib> );
+    static_assert(   std::constructible_from< hal::keysight_ac6834b::AcSource, hal::InstrumentId, hal::Serial> );
+    static_assert(   std::constructible_from< hal::keysight_ac6834b::AcSource, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< hal::keysight_ac6834b::AcSource, hal::InstrumentId, hal::Lan> );
+    static_assert( ! std::constructible_from< hal::keysight_ac6834b::AcSource, hal::InstrumentId, hal::Usb> );
+    static_assert( ! std::constructible_from< hal::keysight_ac6834b::AcSource, hal::InstrumentId> );
 } // namespace
 
 #include <type_traits>
@@ -79,7 +79,7 @@ namespace
         hal::InstrumentWiring  instrumentWiring;
         hal::ConnectorWiring   connectorWiring;
 
-        hal::keysight_ac6834b::Ac6834B           acP1{ anyId(), hal::Simulated{} };
+        hal::keysight_ac6834b::AcSource           acP1{ anyId(), hal::Simulated{} };
 
         ApplyEngine      apply{};
         RemoveEngine     remove{};
@@ -91,7 +91,7 @@ namespace
             if constexpr( ! switchDeviceIds.empty())
             {
                 // Four fixed channels -- phases A/B/C plus the neutral/
-                // ground return (see hal::keysight_ac6834b::Ac6834B's own comment on why the
+                // ground return (see hal::keysight_ac6834b::AcSource's own comment on why the
                 // return is included), all under the same InstrumentId so
                 // hal::InstrumentWiring::findAll() returns all four together.
                 instrumentWiring.addWire( anyId(), { switchDeviceIds[ 0], 0 });
@@ -370,7 +370,7 @@ TEST_F( SourceInstrumentFixture, AcPhaseNamesComeFromTheEnumeratorsThemselves)
 // The three the 6834B answers for the source as a whole rather than per phase
 // -- MEASure:FREQuency?, MEASure:POWer:AC:TOTal? and MEASure:CURRent:NEUTral?,
 // none of which the programming guide marks "Phase Selectable". See
-// hal::keysight_ac6834b::Ac6834B::measuredFrequency and its neighbours.
+// hal::keysight_ac6834b::AcSource::measuredFrequency and its neighbours.
 //
 TEST_F( SourceInstrumentFixture, AcFrequencyReadsBackWithoutNamingAPhase)
 {
@@ -441,9 +441,9 @@ namespace
 TEST_F( SourceInstrumentFixture, AcHasNoUnqualifiedVoltageReading)
 {
     // The control: no-argument readings do exist where the instrument has one.
-    static_assert( HasUnqualifiedFrequency<hal::keysight_ac6834b::Ac6834B>);
+    static_assert( HasUnqualifiedFrequency<hal::keysight_ac6834b::AcSource>);
 
-    static_assert( ! HasUnqualifiedVoltage<hal::keysight_ac6834b::Ac6834B>,
+    static_assert( ! HasUnqualifiedVoltage<hal::keysight_ac6834b::AcSource>,
                    "measuredVoltage() must require a phase -- MEASure:VOLTage is Phase Selectable "
                    "and the instrument cannot answer an unqualified voltage query");
 }

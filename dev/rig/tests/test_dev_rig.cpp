@@ -142,12 +142,12 @@ namespace
     // supply's is the one that matters: it is the only instrument here that
     // sources anything, so it is the only one safing has anything to do to.
     //
-    static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::EDU34450A> );
+    static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::Multimeter> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput1> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput2> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput3> );
     static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::Oscilloscope> );
-    static_assert( hal::SafeableInstrument< hal::keysight_33522b::Wfg33522B> );
+    static_assert( hal::SafeableInstrument< hal::keysight_33522b::WaveformGenerator> );
     static_assert( hal::SafeableInstrument< hal::keysight_34980a::SwitchUnit> );
     static_assert( hal::RelayHoldingInstrument< hal::keysight_34980a::SwitchUnit> );
     static_assert( hal::CardIdentifyingInstrument< hal::keysight_34980a::SwitchUnit> );

@@ -525,7 +525,7 @@ namespace core
             // This is how current is actually read on a rig whose matrix
             // carries signals only: a supply's own readback measures its rail
             // at full load, where routing that current through signal relays
-            // would be neither possible nor safe (see hal::keysight_edu36311a::EDU36311A's own comment
+            // would be neither possible nor safe (see hal::keysight_edu36311a::DcSource's own comment
             // on why its output is hard-wired in the first place).
             //
             // Still goes through the session seam, so injection and replay work
@@ -591,7 +591,7 @@ namespace core
                 // than one output: a three-phase source reports a voltage per
                 // phase, and all three share one InstrumentId, so the port may
                 // also carry a qualifier naming which one -- "AcP1.B.Voltage"
-                // (see core::Port::qualifiedBy and hal::keysight_ac6834b::Ac6834B::measuredVoltage).
+                // (see core::Port::qualifiedBy and hal::keysight_ac6834b::AcSource::measuredVoltage).
                 // Ports that name a single output leave it empty and key
                 // exactly as they always did.
                 //

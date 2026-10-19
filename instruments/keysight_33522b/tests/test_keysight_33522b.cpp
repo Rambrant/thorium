@@ -1,5 +1,5 @@
 //
-// hal::keysight_33522b::Wfg33522B's own tests.
+// hal::keysight_33522b::WaveformGenerator's own tests.
 //
 // Two halves, the same split every driver package in this tree has. The first
 // tests the simulated driver -- what a script sees, what it is refused, and
@@ -47,12 +47,12 @@
 //
 namespace
 {
-    static_assert(   std::constructible_from< hal::keysight_33522b::Wfg33522B, hal::InstrumentId, hal::Lan> );
-    static_assert(   std::constructible_from< hal::keysight_33522b::Wfg33522B, hal::InstrumentId, hal::Usb> );
-    static_assert(   std::constructible_from< hal::keysight_33522b::Wfg33522B, hal::InstrumentId, hal::Gpib> );
-    static_assert(   std::constructible_from< hal::keysight_33522b::Wfg33522B, hal::InstrumentId, hal::Simulated> );
-    static_assert( ! std::constructible_from< hal::keysight_33522b::Wfg33522B, hal::InstrumentId, hal::Serial> );
-    static_assert( ! std::constructible_from< hal::keysight_33522b::Wfg33522B, hal::InstrumentId> );
+    static_assert(   std::constructible_from< hal::keysight_33522b::WaveformGenerator, hal::InstrumentId, hal::Lan> );
+    static_assert(   std::constructible_from< hal::keysight_33522b::WaveformGenerator, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< hal::keysight_33522b::WaveformGenerator, hal::InstrumentId, hal::Gpib> );
+    static_assert(   std::constructible_from< hal::keysight_33522b::WaveformGenerator, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< hal::keysight_33522b::WaveformGenerator, hal::InstrumentId, hal::Serial> );
+    static_assert( ! std::constructible_from< hal::keysight_33522b::WaveformGenerator, hal::InstrumentId> );
 } // namespace
 
 using namespace core::literals;
@@ -60,7 +60,7 @@ using namespace core::quantities;
 
 using hal::keysight_33522b::SettingOutOfRange;
 using hal::keysight_33522b::Termination;
-using hal::keysight_33522b::Wfg33522B;
+using hal::keysight_33522b::WaveformGenerator;
 
 namespace
 {
@@ -78,7 +78,7 @@ namespace
     // channel<3>() on a two-channel box.
     //
     template<unsigned N>
-    concept CanChannel = requires( Wfg33522B & wfg) { wfg.template channel<N>(); };
+    concept CanChannel = requires( WaveformGenerator & wfg) { wfg.template channel<N>(); };
 
     static_assert(  CanChannel<1> );
     static_assert(  CanChannel<2> );
@@ -179,9 +179,9 @@ namespace
 // The simulated driver
 // ===========================================================================
 
-TEST( Wfg33522B, AppliedSettingsReadBackPerChannel)
+TEST( WaveformGenerator, AppliedSettingsReadBackPerChannel)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     applied( wfg.channel<1>().sine().frequency( 1.0_kHz).amplitude( 2.0_V));
 
@@ -201,9 +201,9 @@ TEST( Wfg33522B, AppliedSettingsReadBackPerChannel)
 // the EDU36311A, whose three outputs are three instruments precisely because
 // they are not interchangeable this way.
 //
-TEST( Wfg33522B, TheTwoChannelsDoNotDisturbEachOther)
+TEST( WaveformGenerator, TheTwoChannelsDoNotDisturbEachOther)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     applied( wfg.channel<1>().sine().frequency( 1.0_kHz).amplitude( 2.0_V));
     applied( wfg.channel<2>().square().frequency( 10.0_kHz).amplitude( 3.3_V).dutyCycle( 25_pct));
@@ -224,9 +224,9 @@ TEST( Wfg33522B, TheTwoChannelsDoNotDisturbEachOther)
 // The no-argument isEnabled() the electrical interlock asks -- "either
 // output", not "channel one". A generator with one connector live is live.
 //
-TEST( Wfg33522B, TheInstrumentWideIsEnabledIsTrueIfEitherOutputIs)
+TEST( WaveformGenerator, TheInstrumentWideIsEnabledIsTrueIfEitherOutputIs)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     EXPECT_FALSE( wfg.isEnabled());
 
@@ -239,9 +239,9 @@ TEST( Wfg33522B, TheInstrumentWideIsEnabledIsTrueIfEitherOutputIs)
     EXPECT_FALSE( wfg.isEnabled());
 }
 
-TEST( Wfg33522B, TheNoArgumentRemoveOutputTakesBothChannelsDown)
+TEST( WaveformGenerator, TheNoArgumentRemoveOutputTakesBothChannelsDown)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     applied( wfg.channel<1>().sine().amplitude( 1.0_V));
     applied( wfg.channel<2>().sine().amplitude( 1.0_V));
@@ -257,9 +257,9 @@ TEST( Wfg33522B, TheNoArgumentRemoveOutputTakesBothChannelsDown)
 // believes until an Apply says otherwise -- and it has to believe *something*,
 // because the amplitude and offset limits are quoted against it.
 //
-TEST( Wfg33522B, TheTerminationDefaultsToFiftyOhmAndIsRememberedOnceNamed)
+TEST( WaveformGenerator, TheTerminationDefaultsToFiftyOhmAndIsRememberedOnceNamed)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     EXPECT_EQ( wfg.termination( 1), Termination::Ohms50);
 
@@ -278,9 +278,9 @@ TEST( Wfg33522B, TheTerminationDefaultsToFiftyOhmAndIsRememberedOnceNamed)
 // matters after an unattended re-enable: Remove leaves the signal programmed,
 // safe collapses it.
 //
-TEST( Wfg33522B, SafeCollapsesTheSignalWhereRemoveLeavesIt)
+TEST( WaveformGenerator, SafeCollapsesTheSignalWhereRemoveLeavesIt)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     applied( wfg.channel<1>().sine().frequency( 1.0_kHz).amplitude( 5.0_V).offset( 1.0_V));
 
@@ -299,9 +299,9 @@ TEST( Wfg33522B, SafeCollapsesTheSignalWhereRemoveLeavesIt)
     EXPECT_FALSE( wfg.offset( 1).has_value());
 }
 
-TEST( Wfg33522B, SafeTakesBothChannelsDown)
+TEST( WaveformGenerator, SafeTakesBothChannelsDown)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     applied( wfg.channel<1>().sine().amplitude( 1.0_V));
     applied( wfg.channel<2>().ramp().amplitude( 1.0_V).symmetry( 50_pct));
@@ -318,20 +318,20 @@ TEST( Wfg33522B, SafeTakesBothChannelsDown)
 // fires at rig link time rather than here, so it is worth asserting locally
 // too, where the diagnostic names this driver.
 //
-TEST( Wfg33522B, SatisfiesTheSafingAndInterlockContracts)
+TEST( WaveformGenerator, SatisfiesTheSafingAndInterlockContracts)
 {
-    static_assert( hal::SafeableInstrument<Wfg33522B> );
-    static_assert( std::derived_from<Wfg33522B, hal::InstrumentTag> );
+    static_assert( hal::SafeableInstrument<WaveformGenerator> );
+    static_assert( std::derived_from<WaveformGenerator, hal::InstrumentTag> );
 
-    static_assert( requires( Wfg33522B & w)       { w.removeOutput(); } );
-    static_assert( requires( const Wfg33522B & w) { { w.isEnabled() } -> std::convertible_to<bool>; } );
+    static_assert( requires( WaveformGenerator & w)       { w.removeOutput(); } );
+    static_assert( requires( const WaveformGenerator & w) { { w.isEnabled() } -> std::convertible_to<bool>; } );
 
     SUCCEED();
 }
 
-TEST( Wfg33522B, IsEnergisedFollowsTheOutputTheConfigNames)
+TEST( WaveformGenerator, IsEnergisedFollowsTheOutputTheConfigNames)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     applied( wfg.channel<1>().sine().amplitude( 1.0_V));
 
@@ -343,9 +343,9 @@ TEST( Wfg33522B, IsEnergisedFollowsTheOutputTheConfigNames)
 // The journal line
 // ===========================================================================
 
-TEST( Wfg33522B, DescribeConfigNamesTheChannelAndTheShapeBeforeAnyNumbers)
+TEST( WaveformGenerator, DescribeConfigNamesTheChannelAndTheShapeBeforeAnyNumbers)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     const auto described = describeConfig(
         wfg.channel<2>().square().frequency( 10.0_kHz).amplitude( 3.3_V).dutyCycle( 25_pct).config());
@@ -356,9 +356,9 @@ TEST( Wfg33522B, DescribeConfigNamesTheChannelAndTheShapeBeforeAnyNumbers)
     EXPECT_NE( described.Settings.find( "25"),         std::string::npos) << described.Settings;
 }
 
-TEST( Wfg33522B, DescribeConfigOmitsSettingsTheChainNeverNamed)
+TEST( WaveformGenerator, DescribeConfigOmitsSettingsTheChainNeverNamed)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     const auto described = describeConfig( wfg.channel<1>().sine().amplitude( 1.0_V).config());
 
@@ -380,7 +380,7 @@ TEST( Wfg33522B, DescribeConfigOmitsSettingsTheChainNeverNamed)
 
 TEST( Wfg33522BLimits, ARampAbove200kHzIsRefusedEvenThoughASineThatFastIsFine)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     EXPECT_NO_THROW( applied( wfg.channel<1>().sine().frequency( 20.0_MHz).amplitude( 1.0_V)));
 
@@ -390,7 +390,7 @@ TEST( Wfg33522BLimits, ARampAbove200kHzIsRefusedEvenThoughASineThatFastIsFine)
 
 TEST( Wfg33522BLimits, ASineAboveThisModelsThirtyMegahertzIsRefused)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( applied( wfg.channel<1>().sine().frequency( 40.0_MHz).amplitude( 1.0_V)),
                   SettingOutOfRange);
@@ -403,7 +403,7 @@ TEST( Wfg33522BLimits, ASineAboveThisModelsThirtyMegahertzIsRefused)
 //
 TEST( Wfg33522BLimits, AmplitudeIsBoundedByTheTerminationItIsQuotedAgainst)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( applied( wfg.channel<1>().sine().amplitude( 15.0_V).into( Termination::Ohms50)),
                   SettingOutOfRange);
@@ -413,7 +413,7 @@ TEST( Wfg33522BLimits, AmplitudeIsBoundedByTheTerminationItIsQuotedAgainst)
 
 TEST( Wfg33522BLimits, AnAmplitudeBelowOneMillivoltIsRefused)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( applied( wfg.channel<1>().sine().amplitude( 0.0001_V)), SettingOutOfRange);
 }
@@ -425,7 +425,7 @@ TEST( Wfg33522BLimits, AnAmplitudeBelowOneMillivoltIsRefused)
 //
 TEST( Wfg33522BLimits, AnOffsetWithNoHeadroomLeftByTheAmplitudeIsRefused)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     // 4 V of offset alone is fine into 50 Ohm (the peak limit is 5 V) ...
     EXPECT_NO_THROW( applied( wfg.channel<1>().dc().offset( 4.0_V)));
@@ -441,7 +441,7 @@ TEST( Wfg33522BLimits, AnOffsetWithNoHeadroomLeftByTheAmplitudeIsRefused)
 
 TEST( Wfg33522BLimits, ADutyCycleOutsideTheInstrumentsRangeIsRefused)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( applied( wfg.channel<1>().square().amplitude( 1.0_V).dutyCycle( 0_pct)),
                   SettingOutOfRange);
@@ -454,7 +454,7 @@ TEST( Wfg33522BLimits, ADutyCycleOutsideTheInstrumentsRangeIsRefused)
 
 TEST( Wfg33522BLimits, ASymmetryOutsideZeroToOneHundredIsRefused)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     EXPECT_THROW( applied( wfg.channel<1>().ramp().amplitude( 1.0_V).symmetry( 101_pct)),
                   SettingOutOfRange);
@@ -467,7 +467,7 @@ TEST( Wfg33522BLimits, ASymmetryOutsideZeroToOneHundredIsRefused)
 
 TEST( Wfg33522BLimits, TheRefusalNamesTheInstrumentTheSettingAndTheLimit)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     try
     {
@@ -487,7 +487,7 @@ TEST( Wfg33522BLimits, TheRefusalNamesTheInstrumentTheSettingAndTheLimit)
 
 TEST( Wfg33522BLimits, ARefusedApplyLeavesTheOutputAsItWas)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     applied( wfg.channel<1>().sine().frequency( 1.0_kHz).amplitude( 2.0_V));
 
@@ -599,12 +599,12 @@ namespace
     //
     // A generator with a fake transport already installed, and the fake still
     // reachable. A struct rather than two locals because the driver takes
-    // ownership of the transport (see Wfg33522B::useTransport) and the test
+    // ownership of the transport (see WaveformGenerator::useTransport) and the test
     // still needs to read what was sent through it.
     //
     struct Bench
     {
-        Wfg33522B       Generator{ anyId(), hal::Simulated{} };
+        WaveformGenerator       Generator{ anyId(), hal::Simulated{} };
         FakeGenerator * Wire{};
     };
 
@@ -667,7 +667,7 @@ namespace
 //
 TEST( Wfg33522BWire, AnInjectedTransportMakesTheDriverStopSimulating)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     EXPECT_TRUE( wfg.isSimulated());
 
@@ -910,10 +910,10 @@ TEST( Wfg33522BWire, SafeNeverAsksForAnAmplitudeOfZero)
 
 TEST( Wfg33522BWire, SafeOnANeverUsedGeneratorOpensNothing)
 {
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     // No transport, no session, and safing must not try to make one -- see
-    // Wfg33522B::safe().
+    // WaveformGenerator::safe().
     EXPECT_NO_THROW( wfg.safe());
 }
 
@@ -945,7 +945,7 @@ TEST( Wfg33522BWire, ASafingSendThatFailsIsSwallowed)
             }
     };
 
-    Wfg33522B wfg{ anyId(), hal::Simulated{} };
+    WaveformGenerator wfg{ anyId(), hal::Simulated{} };
 
     wfg.useTransport( std::make_unique<DeadTransport>());
 

@@ -1,5 +1,5 @@
 //
-// hal::keysight_edu34450a::EDU34450A's own tests.
+// hal::keysight_edu34450a::Multimeter's own tests.
 //
 // Linked against this driver alone -- hal and core and nothing else -- which is
 // what keeps this directory independently packageable (see
@@ -40,18 +40,18 @@
 //
 namespace
 {
-    static_assert(   std::constructible_from< hal::keysight_edu34450a::EDU34450A, hal::InstrumentId, hal::Lan> );
-    static_assert(   std::constructible_from< hal::keysight_edu34450a::EDU34450A, hal::InstrumentId, hal::Usb> );
-    static_assert(   std::constructible_from< hal::keysight_edu34450a::EDU34450A, hal::InstrumentId, hal::Simulated> );
-    static_assert( ! std::constructible_from< hal::keysight_edu34450a::EDU34450A, hal::InstrumentId, hal::Gpib> );
-    static_assert( ! std::constructible_from< hal::keysight_edu34450a::EDU34450A, hal::InstrumentId, hal::Serial> );
+    static_assert(   std::constructible_from< hal::keysight_edu34450a::Multimeter, hal::InstrumentId, hal::Lan> );
+    static_assert(   std::constructible_from< hal::keysight_edu34450a::Multimeter, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< hal::keysight_edu34450a::Multimeter, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< hal::keysight_edu34450a::Multimeter, hal::InstrumentId, hal::Gpib> );
+    static_assert( ! std::constructible_from< hal::keysight_edu34450a::Multimeter, hal::InstrumentId, hal::Serial> );
 
     //
     // And an address is not optional: an instrument the PC cannot reach is not
     // an instrument a rig has -- see hal/topology/active_instruments.hpp on
     // why the INSTRUMENT() column is mandatory rather than defaulted.
     //
-    static_assert( ! std::constructible_from< hal::keysight_edu34450a::EDU34450A, hal::InstrumentId> );
+    static_assert( ! std::constructible_from< hal::keysight_edu34450a::Multimeter, hal::InstrumentId> );
 
     //
     // The safing contract, asserted here rather than only in
@@ -59,8 +59,8 @@ namespace
     // list and so can only run where a rig is linked, but whether *this* driver
     // satisfies the concept is a fact about this directory.
     //
-    static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::EDU34450A> );
-    static_assert( std::derived_from< hal::keysight_edu34450a::EDU34450A, hal::InstrumentTag> );
+    static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::Multimeter> );
+    static_assert( std::derived_from< hal::keysight_edu34450a::Multimeter, hal::InstrumentTag> );
 
     //
     // Whatever the linking deployment's first instrument is called. A driver's
@@ -80,11 +80,11 @@ namespace
 using namespace core::literals;
 using namespace core::quantities;
 
-using hal::keysight_edu34450a::EDU34450A;
+using hal::keysight_edu34450a::Multimeter;
 
 TEST( Edu34450A, ExposesBothVoltageAndCurrentPorts)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedVoltage( 5.02_V);
     dmm.setSimulatedCurrent( 0.5_A);
 
@@ -115,8 +115,8 @@ TEST( Edu34450A, TwoMetersAreDistinguishableByInstrumentId)
     }
     else
     {
-        EDU34450A first{  ids[ 0], hal::Simulated{} };
-        EDU34450A second{ ids[ 1], hal::Simulated{} };
+        Multimeter first{  ids[ 0], hal::Simulated{} };
+        Multimeter second{ ids[ 1], hal::Simulated{} };
 
         EXPECT_EQ( first.voltage().instrumentId(),  ids[ 0]);
         EXPECT_EQ( second.voltage().instrumentId(), ids[ 1]);
@@ -125,7 +125,7 @@ TEST( Edu34450A, TwoMetersAreDistinguishableByInstrumentId)
 
 TEST( Edu34450A, AcVoltagePortReadsTheAcSimulatedReading)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedVoltage( 5.0_V);
     dmm.setSimulatedAcVoltage( 230.0_V);
 
@@ -134,7 +134,7 @@ TEST( Edu34450A, AcVoltagePortReadsTheAcSimulatedReading)
 
 TEST( Edu34450A, AcCurrentPortReadsTheAcSimulatedReading)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedCurrent( 0.5_A);
     dmm.setSimulatedAcCurrent( 1.2_A);
 
@@ -143,24 +143,24 @@ TEST( Edu34450A, AcCurrentPortReadsTheAcSimulatedReading)
 
 TEST( Edu34450A, VoltageAfterAcVoltageSwitchesBackToDcMode)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedVoltage( 5.0_V);
     dmm.setSimulatedAcVoltage( 230.0_V);
 
     (void)dmm.acVoltage();
 
     EXPECT_DOUBLE_EQ( dmm.voltage().rawMeasure().value(), 5.0);
-    EXPECT_EQ( dmm.mode(), EDU34450A::Mode::Dc);
+    EXPECT_EQ( dmm.mode(), Multimeter::Mode::Dc);
 }
 
 TEST( Edu34450A, ModeIsSharedAcrossPortHandlesHeldPastAModeSwitch)
 {
-    // Documents the known, accepted sharp edge from EDU34450A's own comment: a
+    // Documents the known, accepted sharp edge from Multimeter's own comment: a
     // port handle obtained before a mode switch still reads whichever mode is
     // current when rawMeasure() is eventually called, not the mode active when
     // the handle was created. It mirrors the instrument, which has one
     // measurement front end and one SCPI FUNCtion setting.
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedVoltage( 5.0_V);
     dmm.setSimulatedAcVoltage( 230.0_V);
 
@@ -172,7 +172,7 @@ TEST( Edu34450A, ModeIsSharedAcrossPortHandlesHeldPastAModeSwitch)
 
 TEST( Edu34450A, ResistancePortReadsTheTwoWireSimulatedReading)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedResistance( 100.0_Ohm);
     dmm.setSimulatedFourWireResistance( 99.5_Ohm);
 
@@ -181,7 +181,7 @@ TEST( Edu34450A, ResistancePortReadsTheTwoWireSimulatedReading)
 
 TEST( Edu34450A, FourWireResistancePortReadsTheFourWireSimulatedReading)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedResistance( 100.0_Ohm);
     dmm.setSimulatedFourWireResistance( 99.5_Ohm);
 
@@ -190,14 +190,14 @@ TEST( Edu34450A, FourWireResistancePortReadsTheFourWireSimulatedReading)
 
 TEST( Edu34450A, ResistanceAfterFourWireResistanceSwitchesBackToTwoWireMode)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedResistance( 100.0_Ohm);
     dmm.setSimulatedFourWireResistance( 99.5_Ohm);
 
     (void)dmm.fourWireResistance();
 
     EXPECT_DOUBLE_EQ( dmm.resistance().rawMeasure().value(), 100.0);
-    EXPECT_EQ( dmm.resistanceMode(), EDU34450A::ResistanceMode::TwoWire);
+    EXPECT_EQ( dmm.resistanceMode(), Multimeter::ResistanceMode::TwoWire);
 }
 
 //
@@ -208,7 +208,7 @@ TEST( Edu34450A, ResistanceAfterFourWireResistanceSwitchesBackToTwoWireMode)
 //
 TEST( Edu34450A, FourWireResistanceRequiresTheSensePathButTwoWireDoesNot)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
 
     static_assert( decltype( dmm.resistance())::SenseUse         == core::SensePath::NotUsed);
     static_assert( decltype( dmm.fourWireResistance())::SenseUse == core::SensePath::Required);
@@ -227,7 +227,7 @@ TEST( Edu34450A, FourWireResistanceRequiresTheSensePathButTwoWireDoesNot)
 //
 TEST( Edu34450A, FrequencyPortReadsRegardlessOfWhichModeTheMeterIsIn)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedFrequency( 50.0_Hz);
 
     EXPECT_DOUBLE_EQ( dmm.frequency().rawMeasure().value(), 50.0);
@@ -239,13 +239,13 @@ TEST( Edu34450A, FrequencyPortReadsRegardlessOfWhichModeTheMeterIsIn)
 
 //
 // A frequency *reading* and the frequency *setting* on an AC port are two
-// different things a dot apart -- see EDU34450A::frequency()'s own comment.
+// different things a dot apart -- see Multimeter::frequency()'s own comment.
 // This asserts they stay that way: setting the hint on an AC voltage port
 // leaves that port a voltage port, and does not touch the counter.
 //
 TEST( Edu34450A, TheFrequencySettingOnAnAcPortIsNotAFrequencyReading)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedAcVoltage( 230.0_V);
     dmm.setSimulatedFrequency( 50.0_Hz);
 
@@ -264,7 +264,7 @@ TEST( Edu34450A, TheFrequencySettingOnAnAcPortIsNotAFrequencyReading)
 //
 TEST( Edu34450A, CapacitancePortReadsRegardlessOfWhichModeTheMeterIsIn)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     dmm.setSimulatedCapacitance( 470.0_uF);
 
     EXPECT_DOUBLE_EQ( dmm.capacitance().rawMeasure().value(), 470.0e-6);
@@ -290,7 +290,7 @@ TEST( Edu34450A, CapacitancePortReadsRegardlessOfWhichModeTheMeterIsIn)
 //
 TEST( Edu34450A, CapacitanceIsATwoWireReadingThatRequiresADeadNode)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
 
     static_assert( decltype( dmm.capacitance())::SenseUse == core::SensePath::NotUsed);
 
@@ -307,18 +307,18 @@ TEST( Edu34450A, CapacitanceIsATwoWireReadingThatRequiresADeadNode)
 //
 TEST( Edu34450A, ResolutionDefaultsToSlowAndIsInstrumentStateNotPortState)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
 
-    EXPECT_EQ( dmm.resolution(), EDU34450A::Resolution::Slow);
+    EXPECT_EQ( dmm.resolution(), Multimeter::Resolution::Slow);
 
-    dmm.setResolution( EDU34450A::Resolution::Fast);
+    dmm.setResolution( Multimeter::Resolution::Fast);
 
-    EXPECT_EQ( dmm.resolution(), EDU34450A::Resolution::Fast);
+    EXPECT_EQ( dmm.resolution(), Multimeter::Resolution::Fast);
 
     // Survives a function change, exactly as the front-panel setting does.
     (void)dmm.acCurrent();
 
-    EXPECT_EQ( dmm.resolution(), EDU34450A::Resolution::Fast);
+    EXPECT_EQ( dmm.resolution(), Multimeter::Resolution::Fast);
 }
 
 //
@@ -331,14 +331,14 @@ TEST( Edu34450A, ResolutionDefaultsToSlowAndIsInstrumentStateNotPortState)
 //
 TEST( Edu34450A, SafeLeavesTheMetersOwnStateAlone)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
     (void)dmm.acVoltage();
-    dmm.setResolution( EDU34450A::Resolution::Fast);
+    dmm.setResolution( Multimeter::Resolution::Fast);
 
     dmm.safe();
 
-    EXPECT_EQ( dmm.mode(),       EDU34450A::Mode::Ac);
-    EXPECT_EQ( dmm.resolution(), EDU34450A::Resolution::Fast);
+    EXPECT_EQ( dmm.mode(),       Multimeter::Mode::Ac);
+    EXPECT_EQ( dmm.resolution(), Multimeter::Resolution::Fast);
 }
 
 //
@@ -348,7 +348,7 @@ TEST( Edu34450A, SafeLeavesTheMetersOwnStateAlone)
 //
 TEST( Edu34450A, CarriesTheAddressItWasDeclaredWith)
 {
-    EDU34450A dmm{ anyId(), hal::Lan( "bench-dmm1") };
+    Multimeter dmm{ anyId(), hal::Lan( "bench-dmm1") };
 
     EXPECT_EQ( to_string( dmm.address()), "Lan bench-dmm1:5025");
 }
@@ -479,12 +479,12 @@ namespace
     //
     // A meter with a fake transport already installed, and the fake still
     // reachable. Returned as a pair because the driver takes ownership of the
-    // transport (see EDU34450A::useTransport) and the test still needs to read
+    // transport (see Multimeter::useTransport) and the test still needs to read
     // what was sent through it.
     //
     struct Bench
     {
-        EDU34450A   Dmm{ anyId(), hal::Simulated{} };
+        Multimeter   Dmm{ anyId(), hal::Simulated{} };
         FakeMeter * Meter{};
     };
 
@@ -526,7 +526,7 @@ namespace
 //
 TEST( Edu34450AWire, AnInjectedTransportMakesTheDriverStopSimulating)
 {
-    EDU34450A dmm{ anyId(), hal::Simulated{} };
+    Multimeter dmm{ anyId(), hal::Simulated{} };
 
     EXPECT_TRUE( dmm.isSimulated());
 
@@ -600,7 +600,7 @@ TEST( Edu34450AWire, ARangeAndTheResolutionGoInSeparateCommands)
 {
     auto bench = attachedMeter();
 
-    bench.Dmm.setResolution( EDU34450A::Resolution::Fast);
+    bench.Dmm.setResolution( Multimeter::Resolution::Fast);
 
     static_cast<void>( bench.Dmm.voltage().range( 10.0_V).rawMeasure());
 
@@ -639,7 +639,7 @@ TEST( Edu34450AWire, AutorangingAtANonDefaultResolutionSetsItSeparately)
 {
     auto bench = attachedMeter();
 
-    bench.Dmm.setResolution( EDU34450A::Resolution::Fast);
+    bench.Dmm.setResolution( Multimeter::Resolution::Fast);
 
     static_cast<void>( bench.Dmm.voltage().rawMeasure());
 
@@ -662,18 +662,18 @@ TEST( Edu34450AWire, EachPortSelectsItsOwnInstrumentFunction)
     struct Expectation
     {
         std::string_view                       Command;
-        std::function<void( EDU34450A &)>      Read;
+        std::function<void( Multimeter &)>      Read;
     };
 
     const Expectation expectations[] = {
-        { "CONF:VOLT:DC", []( EDU34450A & dmm) { static_cast<void>( dmm.voltage().rawMeasure());            } },
-        { "CONF:VOLT:AC", []( EDU34450A & dmm) { static_cast<void>( dmm.acVoltage().rawMeasure());          } },
-        { "CONF:CURR:DC", []( EDU34450A & dmm) { static_cast<void>( dmm.current().rawMeasure());            } },
-        { "CONF:CURR:AC", []( EDU34450A & dmm) { static_cast<void>( dmm.acCurrent().rawMeasure());          } },
-        { "CONF:RES",     []( EDU34450A & dmm) { static_cast<void>( dmm.resistance().rawMeasure());         } },
-        { "CONF:FRES",    []( EDU34450A & dmm) { static_cast<void>( dmm.fourWireResistance().rawMeasure()); } },
-        { "CONF:FREQ",    []( EDU34450A & dmm) { static_cast<void>( dmm.frequency().rawMeasure());          } },
-        { "CONF:CAP",     []( EDU34450A & dmm) { static_cast<void>( dmm.capacitance().rawMeasure());        } },
+        { "CONF:VOLT:DC", []( Multimeter & dmm) { static_cast<void>( dmm.voltage().rawMeasure());            } },
+        { "CONF:VOLT:AC", []( Multimeter & dmm) { static_cast<void>( dmm.acVoltage().rawMeasure());          } },
+        { "CONF:CURR:DC", []( Multimeter & dmm) { static_cast<void>( dmm.current().rawMeasure());            } },
+        { "CONF:CURR:AC", []( Multimeter & dmm) { static_cast<void>( dmm.acCurrent().rawMeasure());          } },
+        { "CONF:RES",     []( Multimeter & dmm) { static_cast<void>( dmm.resistance().rawMeasure());         } },
+        { "CONF:FRES",    []( Multimeter & dmm) { static_cast<void>( dmm.fourWireResistance().rawMeasure()); } },
+        { "CONF:FREQ",    []( Multimeter & dmm) { static_cast<void>( dmm.frequency().rawMeasure());          } },
+        { "CONF:CAP",     []( Multimeter & dmm) { static_cast<void>( dmm.capacitance().rawMeasure());        } },
     };
 
     for( const auto & [ command, read] : expectations)
@@ -700,7 +700,7 @@ TEST( Edu34450AWire, CapacitanceAndFrequencyTakeNoResolutionEvenWithARange)
     {
         auto bench = attachedMeter();
 
-        bench.Dmm.setResolution( EDU34450A::Resolution::Fast);
+        bench.Dmm.setResolution( Multimeter::Resolution::Fast);
         bench.Meter->Reading = "+9.80000000E-04";
 
         static_cast<void>( bench.Dmm.capacitance().range( Capacitance{ 0.001}).rawMeasure());
@@ -710,7 +710,7 @@ TEST( Edu34450AWire, CapacitanceAndFrequencyTakeNoResolutionEvenWithARange)
     {
         auto bench = attachedMeter();
 
-        bench.Dmm.setResolution( EDU34450A::Resolution::Fast);
+        bench.Dmm.setResolution( Multimeter::Resolution::Fast);
         bench.Meter->Reading = "+5.00000000E+01";
 
         static_cast<void>( bench.Dmm.frequency().range( 50.0_Hz).rawMeasure());
@@ -801,7 +801,7 @@ TEST( Edu34450AWire, AnOverloadWhileAutorangingSaysSoRatherThanNamingARange)
 // The error is queued after a first, successful reading rather than before it,
 // and that ordering is itself the point: an error queued before the session
 // opens is drained by the session-opening exchange and belongs to whoever had
-// the meter last (see EDU34450A::session). This one belongs to this command.
+// the meter last (see Multimeter::session). This one belongs to this command.
 TEST( Edu34450AWire, ARefusedConfigurationThrowsNamingTheCommandAndTheInstrumentsWords)
 {
     auto bench = attachedMeter();

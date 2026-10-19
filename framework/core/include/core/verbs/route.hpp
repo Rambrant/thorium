@@ -21,7 +21,7 @@ namespace core
     // matrix-plus-mux route chosen at the call site (a measuring
     // instrument like hal::keysight_dsox1202g::Oscilloscope, which takes an at(...) point), or
     // just an instrument's own fixed channel(s) with nothing left to
-    // choose (hal::keysight_edu36311a::EDU36311A/hal::keysight_ac6834b::Ac6834B -- see their own comments on why a
+    // choose (hal::keysight_edu36311a::DcSource/hal::keysight_ac6834b::AcSource -- see their own comments on why a
     // real power rail is hard-wired rather than routed) -- Connect/
     // Disconnect don't need to know which; that's entirely up to what
     // connectDriver/disconnectDriver does for the concrete config type.
@@ -147,7 +147,7 @@ namespace core
                 // dead is a fact about this rig's instrument set and not about
                 // this overload. A bundled interface that does energise its
                 // lines -- a multi-phase source addressed as one bundle is the
-                // obvious one, and hal::keysight_ac6834b::Ac6834B is already three phases and a
+                // obvious one, and hal::keysight_ac6834b::AcSource is already three phases and a
                 // return -- would otherwise be the one routing call in the
                 // framework that moved a contact live and said nothing.
                 //

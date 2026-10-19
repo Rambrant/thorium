@@ -1,4 +1,4 @@
-# --- hal::keysight_ac6834b::Ac6834B -- Agilent/Keysight 6834B AC Power Source/Analyzer ---
+# --- hal::keysight_ac6834b::AcSource -- Agilent/Keysight 6834B AC Power Source/Analyzer ---
 # One instrument driver, self-contained: its header, its tests, its README,
 # and this file. Nothing outside this directory names any of them -- the tree
 # above discovers this directory and hands framework/hal the path (see the top-level

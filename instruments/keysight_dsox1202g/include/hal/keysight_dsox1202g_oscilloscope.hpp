@@ -67,7 +67,7 @@ namespace hal::keysight_dsox1202g
     // Calling one of the Mode-tagged measurement methods switches the
     // instrument's current measurement mode *and* channel, the same way the
     // front-panel Meas menu switches which measurement is installed before a
-    // reading is taken. Same accepted sharp edge hal::keysight_edu34450a::EDU34450A's
+    // reading is taken. Same accepted sharp edge hal::keysight_edu34450a::Multimeter's
     // AC/DC mode has: a port handle read after a later mode or channel switch
     // reads whichever is current at rawMeasure() time, not whichever was
     // active when the handle was obtained -- harmless for
@@ -229,7 +229,7 @@ namespace hal::keysight_dsox1202g
 
             //
             // Point this driver at a different instrument -- see
-            // hal::keysight_edu34450a::EDU34450A::useAddress() for the whole
+            // hal::keysight_edu34450a::Multimeter::useAddress() for the whole
             // argument, which is identical here: startup only, validates
             // nothing because hal::ReachableOver and hal::sameKind already
             // have, and drops any open session so that nothing goes on
@@ -345,7 +345,7 @@ namespace hal::keysight_dsox1202g
 
             //
             // Nothing to do -- a scope is passive, exactly as
-            // hal::keysight_edu34450a::EDU34450A is; see that class's safe() for why
+            // hal::keysight_edu34450a::Multimeter is; see that class's safe() for why
             // this is written out as an explicit empty body rather than simply
             // left absent.
             //
@@ -725,7 +725,7 @@ namespace hal::keysight_dsox1202g
             // rather than a template: which :MEASure command to send, and what
             // to make of the answer, depend on the measurement and not on the
             // C++ type the number is about to be wrapped in. Same split
-            // hal::keysight_edu34450a::EDU34450A::read() draws, and for the
+            // hal::keysight_edu34450a::Multimeter::read() draws, and for the
             // same reason -- it puts everything that goes on the wire in one
             // file a bench engineer can check against the manual.
             //

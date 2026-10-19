@@ -1,5 +1,5 @@
 //
-// What remains of a file that held hal::keysight_edu36311a::EDU36311A's and hal::keysight_ac6834b::Ac6834B's tests
+// What remains of a file that held hal::keysight_edu36311a::DcSource's and hal::keysight_ac6834b::AcSource's tests
 // together: the one test that genuinely needs both. The rest went to the drivers
 // when they moved out to instruments/ -- see instruments/keysight_edu36311a/tests/ and
 // instruments/keysight_ac6834b/tests/, each of which now carries its own trimmed copy of
@@ -30,7 +30,7 @@ namespace
         hal::ConnectorWiring   connectorWiring;
 
         hal::keysight_edu36311a::RelayOutput3       dcP7{ hal::InstrumentId::DcP7, hal::Simulated{} };
-        hal::keysight_ac6834b::Ac6834B           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
+        hal::keysight_ac6834b::AcSource           acP1{ hal::InstrumentId::AcP1, hal::Simulated{} };
 
         ConnectEngine    connect{    fabric, instrumentWiring, connectorWiring };
         DisconnectEngine disconnect{ fabric, instrumentWiring, connectorWiring };

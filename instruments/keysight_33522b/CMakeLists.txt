@@ -1,4 +1,4 @@
-# --- hal::keysight_33522b::Wfg33522B -- Keysight (Agilent) 33522B waveform generator ---
+# --- hal::keysight_33522b::WaveformGenerator -- Keysight (Agilent) 33522B waveform generator ---
 # One instrument driver, self-contained: its header, its sources, its tests,
 # its README, and this file. Nothing outside this directory names any of them
 # -- the tree above discovers this directory and hands framework/hal the path
