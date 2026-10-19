@@ -13,7 +13,7 @@
 //
 // The config is what a verb receives and the builder is how a script fills
 // it in, so the two live together: adding a setting is a field here, a setter
-// here, a line where DSOX1202G sends it (src/keysight_dsox1202g.cpp)
+// here, a line where DSOX1202G sends it (src/oscilloscope.cpp)
 // and a fragment in its describeConfig (customization.hpp).
 //
 // Part of hal/keysight_dsox1202g.hpp -- include that, not this.
@@ -33,12 +33,12 @@ namespace hal::keysight_dsox1202g
     //
     struct SingleConfig
     {
-        DSOX1202G &                                 Instrument;
+        Oscilloscope &                                 Instrument;
 
         //
         // How long Await will poll for the acquisition to finish before giving
         // up and reporting the capture as not completed. Unset means the
-        // driver's own default (see DSOX1202G::kDefaultCaptureTimeout).
+        // driver's own default (see Oscilloscope::kDefaultCaptureTimeout).
         //
         std::optional<core::quantities::Time>       Timeout{};
 
@@ -57,7 +57,7 @@ namespace hal::keysight_dsox1202g
         public:
             using Config = SingleConfig;
 
-            explicit SingleBuilder( DSOX1202G & instrument) : ConfigBuilder( Config{ instrument }) {}
+            explicit SingleBuilder( Oscilloscope & instrument) : ConfigBuilder( Config{ instrument }) {}
 
             [[nodiscard]]
             auto timeout( const core::quantities::Time value) const

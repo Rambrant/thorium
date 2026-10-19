@@ -36,7 +36,7 @@
 // Three connectors, and the interesting one is hal::Gpib: it is accepted even
 // though a 33522B does not necessarily have it, because a GPIB module is a
 // factory- or user-installable option on this series. That is the difference
-// between this driver and hal::keysight_dsox1202g::DSOX1202G, which rejects
+// between this driver and hal::keysight_dsox1202g::Oscilloscope, which rejects
 // hal::Lan outright -- no option adds a network connector to a 1000 X-Series.
 // A constraint here is a claim about what the model *can* have; whether one
 // particular box does is a question for openTransport.

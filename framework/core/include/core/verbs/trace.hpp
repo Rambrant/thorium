@@ -25,7 +25,7 @@ namespace core
     // Named for the operation and not for an oscilloscope, like every other
     // verb here. A transient recorder, a digitizer and a logger with a memory
     // behind it all hand back the same shape -- readings in a unit, at a known
-    // rate -- and hal::keysight_dsox1202g::DSOX1202G is simply the driver that answers
+    // rate -- and hal::keysight_dsox1202g::Oscilloscope is simply the driver that answers
     // to fetchDriver here.
     //
     // Where it sits in a script is fixed by the pair it follows:
@@ -125,7 +125,7 @@ namespace core
             //
             // "Trace" unless the driver says otherwise, and a driver says
             // otherwise by defining traceQualifier() beside its config type.
-            // hal::keysight_dsox1202g::DSOX1202G does, and has to: a scope holds one
+            // hal::keysight_dsox1202g::Oscilloscope does, and has to: a scope holds one
             // record per channel at once, and one slot for all of them would let
             // a test inject a channel-1 trace and have a channel-2 Fetch take it
             // -- which is exactly the collision core::Port::qualifiedBy exists to

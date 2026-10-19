@@ -17,8 +17,11 @@ instruments/
     keysight_dsox1202g/         # two-channel oscilloscope -- Osc1, talks to real hardware
         CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
         README.md
-        include/hal/keysight_dsox1202g.hpp
-        src/keysight_dsox1202g.cpp   #   the SCPI: setup, arm/await, waveform transfer
+        include/hal/keysight_dsox1202g.hpp   #   the box: Oscilloscope + WaveformGenerator
+        include/hal/keysight_dsox1202g_oscilloscope.hpp          #   face one
+        include/hal/keysight_dsox1202g_waveform_generator.hpp    #   face two
+        src/oscilloscope.cpp         #   the SCPI: setup, arm/await, waveform transfer
+        src/waveform_generator.cpp   #   the SCPI: the :WGEN subsystem
         tests/test_keysight_dsox1202g.cpp
     keysight_edu36311a/         # triple-output DC supply -- DcP5..DcP7, talks to real hardware
         CMakeLists.txt          #   STATIC, not INTERFACE: it has a .cpp
@@ -182,7 +185,7 @@ The rig names the type in full, once, where it declares the instrument:
 
 ```cpp
 // rig/instrument.inc
-INSTRUMENT( BenchScope, keysight_dsox1202g::DSOX1202G, Osc1, Simulated{})
+INSTRUMENT( BenchScope, keysight_dsox1202g::Oscilloscope, Osc1, Simulated{})
 ```
 
 ## How a directory here gets built

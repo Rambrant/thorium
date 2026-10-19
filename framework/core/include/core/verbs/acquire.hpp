@@ -32,7 +32,7 @@ namespace core
     // for an oscilloscope. "Arm a capture, let the event happen, find out
     // whether it landed" is what a transient recorder does, what a digitizer
     // does, what a counter with an armed gate does, and what a DMM in triggered
-    // burst mode does. hal::keysight_dsox1202g::DSOX1202G is simply the driver that answers to
+    // burst mode does. hal::keysight_dsox1202g::Oscilloscope is simply the driver that answers to
     // armDriver/awaitDriver here, exactly as hal::racal1260::Racal1260 was the first to answer
     // to writeDriver/readDriver (see core/verbs/transfer.hpp's own comment on the
     // same choice).

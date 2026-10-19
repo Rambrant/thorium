@@ -223,7 +223,7 @@ namespace hal::racal1260
     //
     // Deliberately named after a model at all, placeholder or not, rather than
     // hal::Rs232Port. That was the retired hal::Dmm/hal::Oscilloscope mistake
-    // (see hal::keysight_edu34450a::EDU34450A and hal::keysight_dsox1202g::DSOX1202G on how it went): a serial driver's
+    // (see hal::keysight_edu34450a::EDU34450A and hal::keysight_dsox1202g::Oscilloscope on how it went): a serial driver's
     // command set, its framing limits and its idea of a timeout are as
     // model-specific as any SCPI dialect, and a generic name promises an
     // interchangeability no real driver has.

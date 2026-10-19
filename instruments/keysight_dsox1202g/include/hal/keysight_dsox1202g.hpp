@@ -31,12 +31,24 @@ THORIUM_REQUIRE_HAL_API( 3);
 // 2-channel InfiniiVision 1000 X-Series scope with the built-in waveform
 // generator.
 //
-// -- Where everything is ----------------------------------------------------
+// -- The two faces of the box ------------------------------------------------
+//
+// One DSOX1202G is two instruments behind one back panel, and this header says
+// so by including exactly two things:
+//
+//   keysight_dsox1202g_oscilloscope.hpp        Oscilloscope: the scope, a sensor
+//   keysight_dsox1202g_waveform_generator.hpp  WaveformGenerator: the built-in
+//                                              generator, a source
 //
 // This header is the driver's one public name -- the rig's instrument table
 // (through the generated include list, see cmake/InstrumentDrivers.cmake), the
 // tests and src/ all include it and nothing else -- and it holds no code of
-// its own. The driver is split by what a reader comes looking for:
+// its own. The two faces are siblings: neither is the "main" one. The
+// generator reaches into the scope for its box and session type, never the
+// other way round.
+//
+// The files in keysight_dsox1202g/ are the scope's parts, which the oscilloscope face
+// pulls in (the generator has none; it is one file):
 //
 //   keysight_dsox1202g/vocabulary.hpp     the enums, kUnmeasurable, ValidChannel
 //   keysight_dsox1202g/trigger.hpp        :TRIGger     config + builder
@@ -44,17 +56,14 @@ THORIUM_REQUIRE_HAL_API( 3);
 //   keysight_dsox1202g/acquisition.hpp    :ACQuire     config + builder
 //   keysight_dsox1202g/channel.hpp        :CHANnel<N>  config + builder
 //   keysight_dsox1202g/single.hpp         :SINGle      config + builder (Arm, Await)
-//   keysight_dsox1202g/waveform.hpp       :WAVeform    config + builder (Fetch)
-//   keysight_dsox1202g/dsox1202g.hpp      the instrument class
-//   keysight_dsox1202g/wgen.hpp           the built-in waveform generator, a second face of the box
+//   keysight_dsox1202g/fetch.hpp          :WAVeform    config + builder (Fetch the record)
 //   keysight_dsox1202g/channel_view.hpp   Channel<N>, and the Ports it hands out
 //   keysight_dsox1202g/customization.hpp  the ADL hooks the verbs and the journal find
 //
 // Config and builder share a file because they change together: a setting is
 // a field on one and a setter on the other, and a reader following one wants
-// the other in view. The order of the includes below is the order the types
-// need each other in -- the instrument needs its builders complete, and
-// Channel<N> and the ADL hooks need the instrument complete.
+// the other in view. The order of the includes inside the oscilloscope face is the
+// order the types need each other in.
 //
 // -- What a Setup call on this instrument boils down to --------------------
 //
@@ -71,7 +80,7 @@ THORIUM_REQUIRE_HAL_API( 3);
 //
 // -- The fluent chains a script builds before handing them to a verb -------
 //
-// Six of them, one per subsystem file above, and all six get their
+// Six of them on the oscilloscope face, one per subsystem file above, and all six get their
 // copy-modify-return shape from hal::ConfigBuilder (see
 // hal/driver/builder.hpp) -- so "how do I set X" reads the same way whether X
 // is sourced, sensed, framed or triggered, and a setter is one line naming the
@@ -82,14 +91,5 @@ THORIUM_REQUIRE_HAL_API( 3);
 // the pairing belongs in the config rather than in the driver.
 //
 
-#include "hal/keysight_dsox1202g/vocabulary.hpp"
-#include "hal/keysight_dsox1202g/trigger.hpp"
-#include "hal/keysight_dsox1202g/timebase.hpp"
-#include "hal/keysight_dsox1202g/acquisition.hpp"
-#include "hal/keysight_dsox1202g/channel.hpp"
-#include "hal/keysight_dsox1202g/single.hpp"
-#include "hal/keysight_dsox1202g/waveform.hpp"
-#include "hal/keysight_dsox1202g/dsox1202g.hpp"
-#include "hal/keysight_dsox1202g/wgen.hpp"
-#include "hal/keysight_dsox1202g/channel_view.hpp"
-#include "hal/keysight_dsox1202g/customization.hpp"
+#include "hal/keysight_dsox1202g_oscilloscope.hpp"
+#include "hal/keysight_dsox1202g_waveform_generator.hpp"

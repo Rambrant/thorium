@@ -11,7 +11,7 @@
 //
 // The config is what a verb receives and the builder is how a script fills
 // it in, so the two live together: adding a setting is a field here, a setter
-// here, a line where DSOX1202G sends it (src/keysight_dsox1202g.cpp)
+// here, a line where DSOX1202G sends it (src/oscilloscope.cpp)
 // and a fragment in its describeConfig (customization.hpp).
 //
 // Part of hal/keysight_dsox1202g.hpp -- include that, not this.
@@ -44,7 +44,7 @@ namespace hal::keysight_dsox1202g
     //
     struct AcquisitionConfig
     {
-        DSOX1202G &                                 Instrument;
+        Oscilloscope &                                 Instrument;
         std::optional<AcquisitionType>              Type{};
 
         //
@@ -63,7 +63,7 @@ namespace hal::keysight_dsox1202g
         public:
             using Config = AcquisitionConfig;
 
-            explicit AcquisitionBuilder( DSOX1202G & instrument) : ConfigBuilder( Config{ instrument }) {}
+            explicit AcquisitionBuilder( Oscilloscope & instrument) : ConfigBuilder( Config{ instrument }) {}
 
             //
             // type(), not mode(): :ACQuire:TYPE is the command, and this

@@ -111,7 +111,7 @@ Being honest about the edges matters more than the table above:
 - **Bench I/O.** Real hardware is absent, mis-addressed or lying. That
   is what the runtime is for — and it is no longer hypothetical for four of the
   nine drivers. `hal::keysight_edu34450a::EDU34450A`,
-  `hal::keysight_dsox1202g::DSOX1202G` and
+  `hal::keysight_dsox1202g::Oscilloscope` and
   `hal::keysight_edu36311a::EDU36311A` open a SCPI session over the address
   their rig row declares, and `hal::keysight_34980a::Chassis` over the address
   it is constructed with — it is a switching mainframe rather than an
@@ -1111,7 +1111,7 @@ will be a number, it will very likely be in tolerance, and it will mean nothing.
 
 **Both verbs are generic.** They live in `core/verbs/acquire.hpp` and are named for the
 operation, not the instrument: a transient recorder, a digitizer or a counter
-with an armed gate is the same shape. `hal::keysight_dsox1202g::DSOX1202G` is simply the first driver
+with an armed gate is the same shape. `hal::keysight_dsox1202g::Oscilloscope` is simply the first driver
 to answer to `armDriver`/`awaitDriver`, exactly as `hal::racal1260::Racal1260` was the first
 to answer to `writeDriver`/`readDriver`.
 
@@ -1190,7 +1190,7 @@ Fetch.inject( "Osc1.Channel2", capturedEarlier);
 
 `Fetch` is generic and lives in `core/verbs/trace.hpp` — a transient recorder, a
 digitizer or a logger with a memory behind it hands back the same shape.
-`hal::keysight_dsox1202g::DSOX1202G` is simply the first driver to answer to `fetchDriver`.
+`hal::keysight_dsox1202g::Oscilloscope` is simply the first driver to answer to `fetchDriver`.
 
 ### Pause for a fixed time
 

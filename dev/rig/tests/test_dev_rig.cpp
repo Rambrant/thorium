@@ -146,15 +146,15 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput1> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput2> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput3> );
-    static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::DSOX1202G> );
+    static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::Oscilloscope> );
     static_assert( hal::SafeableInstrument< hal::keysight_33522b::Wfg33522B> );
     static_assert( hal::SafeableInstrument< hal::keysight_34980a::Chassis> );
     static_assert( hal::RelayHoldingInstrument< hal::keysight_34980a::Chassis> );
     static_assert( hal::CardIdentifyingInstrument< hal::keysight_34980a::Chassis> );
     static_assert( hal::SafeableInstrument< hal::keysight_34980a::InternalDmm> );
     static_assert( ! hal::RelayHoldingInstrument< hal::keysight_34980a::InternalDmm> );
-    static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::WGEN> );
-    static_assert( ! hal::RelayHoldingInstrument< hal::keysight_dsox1202g::WGEN> );
+    static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::WaveformGenerator> );
+    static_assert( ! hal::RelayHoldingInstrument< hal::keysight_dsox1202g::WaveformGenerator> );
 } // namespace
 
 //

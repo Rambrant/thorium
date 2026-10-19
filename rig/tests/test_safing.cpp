@@ -33,7 +33,7 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::RelayOutput3> );
     static_assert( hal::SafeableInstrument< hal::keysight_ac6834b::Ac6834B> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu34450a::EDU34450A> );
-    static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::DSOX1202G> );
+    static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::Oscilloscope> );
     static_assert( hal::SafeableInstrument< hal::racal1260::Racal1260> );
 
     //
@@ -55,7 +55,7 @@ namespace
     static_assert( std::derived_from< hal::keysight_edu36311a::RelayOutput3,  hal::InstrumentTag> );
     static_assert( std::derived_from< hal::keysight_ac6834b::Ac6834B,         hal::InstrumentTag> );
     static_assert( std::derived_from< hal::keysight_edu34450a::EDU34450A,     hal::InstrumentTag> );
-    static_assert( std::derived_from< hal::keysight_dsox1202g::DSOX1202G,     hal::InstrumentTag> );
+    static_assert( std::derived_from< hal::keysight_dsox1202g::Oscilloscope,     hal::InstrumentTag> );
     static_assert( std::derived_from< hal::racal1260::Racal1260,              hal::InstrumentTag> );
 
     //
@@ -233,10 +233,10 @@ TEST_F( SafingFixture, SafeRigDoesNotDisturbPassiveInstrumentState)
     // instruments were told to look at. Nothing about them can energise
     // the DUT, and safing runs after a script has already died, so there
     // is no reason to discard the one piece of state still worth reading
-    // afterwards -- see hal::keysight_dsox1202g::DSOX1202G::safe().
+    // afterwards -- see hal::keysight_dsox1202g::Oscilloscope::safe().
     static_cast<void>( Dmm1.acVoltage());
     static_cast<void>( Osc1.channel<2>());
-    Osc1.setMode( hal::keysight_dsox1202g::DSOX1202G::Mode::Vrms);
+    Osc1.setMode( hal::keysight_dsox1202g::Oscilloscope::Mode::Vrms);
 
     const auto dmmMode     = Dmm1.mode();
     const auto scopeMode   = Osc1.mode();

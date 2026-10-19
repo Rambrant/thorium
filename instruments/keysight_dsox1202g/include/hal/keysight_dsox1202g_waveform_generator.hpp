@@ -20,7 +20,7 @@
 #include "hal/driver/instrument.hpp"
 #include "hal/io/scpi.hpp"
 
-#include "hal/keysight_dsox1202g/dsox1202g.hpp"
+#include "hal/keysight_dsox1202g_oscilloscope.hpp"
 
 //
 // The scope's built-in waveform generator -- the box's other face.
@@ -30,7 +30,7 @@
 
 namespace hal::keysight_dsox1202g
 {
-    class WGEN;
+    class WaveformGenerator;
 
     namespace detail
     {
@@ -38,7 +38,7 @@ namespace hal::keysight_dsox1202g
         // *IDN?, and a refusal unless the box is a DSOX1202G or 1202A -- the
         // check both of this package's faces make on the session they share.
         // With requireGenerator, only the G: the A is the same scope with no
-        // generator in it, and a row naming WGEN on one is a row that can never
+        // generator in it, and a row naming WaveformGenerator on one is a row that can never
         // work.
         //
         auto verifyScope( io::ScpiSession & session, bool requireGenerator = false) -> std::string;
@@ -155,7 +155,7 @@ namespace hal::keysight_dsox1202g
     template<typename Shape>
     struct GeneratorConfig
     {
-        WGEN &                                      Instrument;
+        WaveformGenerator &                         Instrument;
         std::optional<core::quantities::Frequency>  Frequency{};
         std::optional<core::quantities::Voltage>    Amplitude{};
         std::optional<core::quantities::Voltage>    Offset{};
@@ -171,7 +171,7 @@ namespace hal::keysight_dsox1202g
         public:
             using Config = GeneratorConfig<Shape>;
 
-            explicit GeneratorBuilder( WGEN & instrument) :
+            explicit GeneratorBuilder( WaveformGenerator & instrument) :
                 GeneratorBuilder::ConfigBuilder( Config{ instrument })
             {}
 
@@ -259,8 +259,8 @@ namespace hal::keysight_dsox1202g
     // hal::keysight_34980a::InternalDmm: one address, one session, and a row of
     // its own on the box --
     //
-    //     INSTRUMENT( Scope1, keysight_dsox1202g::DSOX1202G, Osc1, Usb( "CN64504143"))
-    //     INSTRUMENT( Scope1, keysight_dsox1202g::WGEN,      Wfg2, Usb( "CN64504143"))
+    //     INSTRUMENT( Scope1, keysight_dsox1202g::Oscilloscope, Osc1, Usb( "CN64504143"))
+    //     INSTRUMENT( Scope1, keysight_dsox1202g::WaveformGenerator,      Wfg2, Usb( "CN64504143"))
     //
     // -- It is a source ------------------------------------------------------
     //
@@ -312,17 +312,17 @@ namespace hal::keysight_dsox1202g
     // are the 1000 X-Series programmer's guide's :WGEN chapter, which applies to
     // G-suffix models only.
     //
-    class WGEN : public InstrumentTag
+    class WaveformGenerator : public InstrumentTag
     {
         public:
             //
             // The scope's own back panel: the generator is inside it.
             //
-            using Buses = DSOX1202G::Buses;
+            using Buses = Oscilloscope::Buses;
 
             template<typename AddressT>
                 requires Buses::allows<AddressT>
-            WGEN( const InstrumentId id, const AddressT address) : mId( id), mConnection( id, address) {}
+            WaveformGenerator( const InstrumentId id, const AddressT address) : mId( id), mConnection( id, address) {}
 
             [[nodiscard]]
             auto id() const -> InstrumentId
@@ -746,7 +746,7 @@ namespace hal::keysight_dsox1202g
     //
     // ADL target for the electrical interlock -- whether the output is on at
     // the moment a contact in its path is about to move. Asked of the
-    // instrument, for the reason WGEN::outputIsOn() gives.
+    // instrument, for the reason WaveformGenerator::outputIsOn() gives.
     //
     template<typename Shape>
     auto isEnergised( const GeneratorConfig<Shape> & config) -> bool

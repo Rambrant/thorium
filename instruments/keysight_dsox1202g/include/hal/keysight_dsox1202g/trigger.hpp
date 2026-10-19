@@ -13,7 +13,7 @@
 //
 // The config is what a verb receives and the builder is how a script fills
 // it in, so the two live together: adding a setting is a field here, a setter
-// here, a line where DSOX1202G sends it (src/keysight_dsox1202g.cpp)
+// here, a line where DSOX1202G sends it (src/oscilloscope.cpp)
 // and a fragment in its describeConfig (customization.hpp).
 //
 // Part of hal/keysight_dsox1202g.hpp -- include that, not this.
@@ -31,7 +31,7 @@ namespace hal::keysight_dsox1202g
     //
     struct TriggerConfig
     {
-        DSOX1202G &                                 Instrument;
+        Oscilloscope &                                 Instrument;
 
         //
         // Which channel the edge trigger watches. A plain unsigned here,
@@ -73,11 +73,11 @@ namespace hal::keysight_dsox1202g
         public:
             using Config = TriggerConfig;
 
-            explicit TriggerBuilder( DSOX1202G & instrument) : ConfigBuilder( Config{ instrument }) {}
+            explicit TriggerBuilder( Oscilloscope & instrument) : ConfigBuilder( Config{ instrument }) {}
 
             //
             // Which channel the trigger watches, checked the same way
-            // DSOX1202G::channel<N>() is -- edgeSource<3>() has no valid
+            // Oscilloscope::channel<N>() is -- edgeSource<3>() has no valid
             // instantiation on a two-channel scope, rather than being a
             // settings-conflict error discovered on the bench.
             //

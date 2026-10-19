@@ -275,7 +275,7 @@ namespace hal::keysight_dsox1202g
     //
     inline constexpr std::string_view kUnmeasurable = "measurement could not be made";
 
-    class DSOX1202G;
+    class Oscilloscope;
 
     //
     // Bounds a channel number to this instrument's real hardware -- a
@@ -293,7 +293,7 @@ namespace hal::keysight_dsox1202g
     concept ValidChannel = ( N >= 1 && N <= 2);
 
     //
-    // Declared here so that DSOX1202G::channel<N>() can name it; defined in
+    // Declared here so that Oscilloscope::channel<N>() can name it; defined in
     // channel_view.hpp, after the instrument, because every one of its
     // members needs the instrument to be a complete type.
     //

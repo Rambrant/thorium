@@ -25,12 +25,12 @@
 #include "hal/keysight_dsox1202g/acquisition.hpp"
 #include "hal/keysight_dsox1202g/channel.hpp"
 #include "hal/keysight_dsox1202g/single.hpp"
-#include "hal/keysight_dsox1202g/waveform.hpp"
+#include "hal/keysight_dsox1202g/fetch.hpp"
 
 //
 // The instrument itself: DSOX1202G, its session, the configure/arm/await/
 // fetch methods the verbs end up in, the simulation hooks and the settings
-// readback. Everything that goes on the wire is in src/keysight_dsox1202g.cpp.
+// readback. Everything that goes on the wire is in src/oscilloscope.cpp.
 //
 // Part of hal/keysight_dsox1202g.hpp -- include that, not this.
 //
@@ -40,7 +40,7 @@ namespace hal::keysight_dsox1202g
     //
     // Keysight InfiniiVision DSOX1202G: this rig's actual scope -- two
     // channels, 2 GSa/s, 70 MHz as shipped and licence-upgradable to 200 --
-    // replacing hal::keysight_dsox1202g::DSOX1202G, which was this bench's scope
+    // replacing hal::keysight_dsox1202g::Oscilloscope, which was this bench's scope
     // when the only thing known about it was the legacy ATE script it had to
     // reproduce.
     //
@@ -77,7 +77,7 @@ namespace hal::keysight_dsox1202g
     //
     // Every command below goes out over a real SCPI session when this driver is
     // constructed with a real address (see isSimulated(), and
-    // src/keysight_dsox1202g.cpp for everything that is actually sent). USBTMC
+    // src/oscilloscope.cpp for everything that is actually sent). USBTMC
     // through whatever VISA the bench has, because that is this instrument's
     // one connector -- hal::io::openTransport routes hal::Usb there (see
     // hal/io/visa_transport.hpp on why VISA rather than libusb).
@@ -103,7 +103,7 @@ namespace hal::keysight_dsox1202g
     //     option, see AcquisitionType.
     //   - The waveform generator is not this class: it is a source, so it is
     //     a second instrument sharing this one's box, hal::keysight_dsox1202g::
-    //     WGEN (wgen.hpp), with its own row, session family and safing.
+    //     WaveformGenerator (keysight_dsox1202g_waveform_generator.hpp), with its own row, session family and safing.
     //   - Duty cycle, overshoot, preshoot -- see Channel's own comment on why
     //     these wait on a core decision, not a driver one.
     //   - The trigger kinds beyond edge (:TRIGger:MODE GLITch / PATTern / TV /
@@ -111,7 +111,7 @@ namespace hal::keysight_dsox1202g
     //     triggers on; the others are a large surface each with its own
     //     parameter set.
     //
-    class DSOX1202G : public InstrumentTag
+    class Oscilloscope : public InstrumentTag
     {
         public:
             static constexpr unsigned channel_count = 2;
@@ -176,7 +176,7 @@ namespace hal::keysight_dsox1202g
 
             template<typename AddressT>
                 requires Buses::allows<AddressT>
-            DSOX1202G( const InstrumentId id, const AddressT address) : mId( id), mConnection( id, address) {}
+            Oscilloscope( const InstrumentId id, const AddressT address) : mId( id), mConnection( id, address) {}
 
             //
             // Where the PC reaches this scope -- and, since this driver grew a
@@ -390,7 +390,7 @@ namespace hal::keysight_dsox1202g
             // chose. Each also records what it sent, which is what the settings
             // readback below answers and what a describeConfig renders.
             //
-            // Defined in src/keysight_dsox1202g.cpp, with the SCPI. That is
+            // Defined in src/oscilloscope.cpp, with the SCPI. That is
             // where every command this driver puts on the wire lives, in the
             // order the instrument sees it.
             //
@@ -645,7 +645,7 @@ namespace hal::keysight_dsox1202g
             }
 
             //
-            // The one rawMeasure() Port<Q, DSOX1202G> actually calls --
+            // The one rawMeasure() Port<Q, Oscilloscope> actually calls --
             // mChannel/mMode are already instrument state by the time this runs
             // (set by whichever Channel<N> builder method produced the Port), so
             // this needs no channel argument of its own.
@@ -828,3 +828,11 @@ namespace hal::keysight_dsox1202g
             bool                                        mCaptureCompletes{ true };
     };
 } // namespace hal::keysight_dsox1202g
+
+//
+// The rest of this face needs the class above complete, so it comes after it:
+// Channel<N> and its Ports, then the ADL hooks the verbs and the journal find.
+// Both include this header back; #pragma once makes that a no-op.
+//
+#include "hal/keysight_dsox1202g/channel_view.hpp"
+#include "hal/keysight_dsox1202g/customization.hpp"

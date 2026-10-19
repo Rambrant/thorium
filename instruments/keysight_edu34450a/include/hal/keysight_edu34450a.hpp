@@ -561,7 +561,7 @@ namespace hal::keysight_edu34450a
             // silently get a resolution the meter chose, and a reader of that
             // script would believe the rig had integrated for ten cycles.
             //
-            // So a setter, in the shape hal::keysight_dsox1202g::DSOX1202G's
+            // So a setter, in the shape hal::keysight_dsox1202g::Oscilloscope's
             // setMode() already uses for the same reason -- one front-panel
             // knob, set before a reading and left where it was put. A script
             // that wants a rail measured properly sets Slow once and reads;

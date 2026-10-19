@@ -1,4 +1,4 @@
-# hal::keysight_dsox1202g::DSOX1202G
+# hal::keysight_dsox1202g::Oscilloscope
 
 Keysight InfiniiVision **DSOX1202G** — two channels, 2 GSa/s, 70 MHz as shipped
 and licence-upgradable to 200. `namespace hal::keysight_dsox1202g`, included as
@@ -107,14 +107,14 @@ only the trigger level does not reset the slope.
 
 The G in DSOX1202G is a built-in function generator, one output (the Gen Out
 BNC), and it is a *source* — so it is not part of the scope's own class, where
-`Apply( Osc1... )` stays a compile error. It is `hal::keysight_dsox1202g::WGEN`,
+`Apply( Osc1... )` stays a compile error. It is `hal::keysight_dsox1202g::WaveformGenerator`,
 a second face of the scope's box in the way the 34980A's internal DMM is (see
 `keysight_34980a/README.md`): a row of its own, sharing the scope's one session
 and preparing it as its own family.
 
 ```cpp
-INSTRUMENT( Scope1, keysight_dsox1202g::DSOX1202G, Osc1, Usb( "CN64504143"))
-INSTRUMENT( Scope1, keysight_dsox1202g::WGEN,      Wfg2, Usb( "CN64504143"))
+INSTRUMENT( Scope1, keysight_dsox1202g::Oscilloscope, Osc1, Usb( "CN64504143"))
+INSTRUMENT( Scope1, keysight_dsox1202g::WaveformGenerator,      Wfg2, Usb( "CN64504143"))
 ```
 
 ```cpp
@@ -299,7 +299,7 @@ starts to matter.
 
 ## On the wire
 
-Everything this driver sends is in `src/keysight_dsox1202g.cpp`, in the order the
+Everything this driver sends is in `src/oscilloscope.cpp`, in the order the
 instrument sees it, checked against the programmer's guide rather than against
 another program's source. Three things about it are worth knowing before reading
 it.
@@ -381,7 +381,7 @@ and refuses to open USB).
 2. **Put it in the rig table**, replacing the `Simulated{}` this row currently
    carries:
    ```cpp
-   INSTRUMENT( BenchScope, keysight_dsox1202g::DSOX1202G, Osc1, Usb( "CN12345678"))
+   INSTRUMENT( BenchScope, keysight_dsox1202g::Oscilloscope, Osc1, Usb( "CN12345678"))
    ```
 3. **Run something that measures through `Osc1`.** The session opens on the first
    command that needs it, drains whatever the last user left in the error queue,
@@ -428,7 +428,7 @@ One row, and nothing else:
 
 ```cpp
 // rig/instrument.inc
-INSTRUMENT( BenchScope, keysight_dsox1202g::DSOX1202G, Osc1, Usb( "MY12345678"))
+INSTRUMENT( BenchScope, keysight_dsox1202g::Oscilloscope, Osc1, Usb( "MY12345678"))
 ```
 
 The namespace qualifier is what generates this driver's `#include`

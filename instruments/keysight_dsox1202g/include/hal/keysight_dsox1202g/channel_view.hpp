@@ -4,8 +4,8 @@
 #include "core/quantities/quantity.hpp"
 
 #include "hal/keysight_dsox1202g/channel.hpp"
-#include "hal/keysight_dsox1202g/dsox1202g.hpp"
-#include "hal/keysight_dsox1202g/waveform.hpp"
+#include "hal/keysight_dsox1202g_oscilloscope.hpp"
+#include "hal/keysight_dsox1202g/fetch.hpp"
 
 //
 // Channel<N>: the view a script names a channel through, for both of the
@@ -14,7 +14,7 @@
 //
 // After the instrument rather than before it, because every member here
 // needs DSOX1202G to be a complete type; vocabulary.hpp declares it early so
-// that DSOX1202G::channel<N>() can name it.
+// that Oscilloscope::channel<N>() can name it.
 //
 // Part of hal/keysight_dsox1202g.hpp -- include that, not this.
 //
@@ -23,7 +23,7 @@ namespace hal::keysight_dsox1202g
 {
     //
     // One of the DSOX1202G's two physical input channels, narrowed to at
-    // compile time via DSOX1202G::channel<N>().
+    // compile time via Oscilloscope::channel<N>().
     //
     // It is the one place a channel number is written in a script, and it
     // serves both things a script does to a channel -- configure it and
@@ -37,11 +37,11 @@ namespace hal::keysight_dsox1202g
     // names a channel and no setting, which can only be a mistake -- is "no
     // matching function" rather than a call that does nothing.
     //
-    // Deliberately a thin, transient view over DSOX1202G&, never itself
+    // Deliberately a thin, transient view over Oscilloscope&, never itself
     // retained by anything returned from it: every measurement method records
     // N onto the real DSOX1202G instance -- via setChannel(), the same way it
     // records which mode via setMode() -- and then hands back a
-    // core::Port<Q, DSOX1202G> bound directly to that real, singular
+    // core::Port<Q, Oscilloscope> bound directly to that real, singular
     // instrument, not to this view.
     //
     // That is load-bearing rather than incidental, and the Infiniium driver's
@@ -68,7 +68,7 @@ namespace hal::keysight_dsox1202g
         public:
             static constexpr unsigned Number = N;
 
-            explicit Channel( DSOX1202G & instrument) : mInstrument( instrument) {}
+            explicit Channel( Oscilloscope & instrument) : mInstrument( instrument) {}
 
             // --- Configuring this channel: hands off to the builder ---
 
@@ -111,14 +111,14 @@ namespace hal::keysight_dsox1202g
             // parameter here, and should get one rather than a comment saying
             // it was thought about.
             //
-            [[nodiscard]] auto vpp()        -> core::Port<core::quantities::Voltage, DSOX1202G>;
-            [[nodiscard]] auto vmax()       -> core::Port<core::quantities::Voltage, DSOX1202G>;
-            [[nodiscard]] auto vmin()       -> core::Port<core::quantities::Voltage, DSOX1202G>;
-            [[nodiscard]] auto vrms()       -> core::Port<core::quantities::Voltage, DSOX1202G>;
-            [[nodiscard]] auto vaverage()   -> core::Port<core::quantities::Voltage, DSOX1202G>;
-            [[nodiscard]] auto vbase()      -> core::Port<core::quantities::Voltage, DSOX1202G>;
-            [[nodiscard]] auto vtop()       -> core::Port<core::quantities::Voltage, DSOX1202G>;
-            [[nodiscard]] auto vamplitude() -> core::Port<core::quantities::Voltage, DSOX1202G>;
+            [[nodiscard]] auto vpp()        -> core::Port<core::quantities::Voltage, Oscilloscope>;
+            [[nodiscard]] auto vmax()       -> core::Port<core::quantities::Voltage, Oscilloscope>;
+            [[nodiscard]] auto vmin()       -> core::Port<core::quantities::Voltage, Oscilloscope>;
+            [[nodiscard]] auto vrms()       -> core::Port<core::quantities::Voltage, Oscilloscope>;
+            [[nodiscard]] auto vaverage()   -> core::Port<core::quantities::Voltage, Oscilloscope>;
+            [[nodiscard]] auto vbase()      -> core::Port<core::quantities::Voltage, Oscilloscope>;
+            [[nodiscard]] auto vtop()       -> core::Port<core::quantities::Voltage, Oscilloscope>;
+            [[nodiscard]] auto vamplitude() -> core::Port<core::quantities::Voltage, Oscilloscope>;
 
             //
             // The timing family. frequency()/period()/positiveWidth()/
@@ -139,12 +139,12 @@ namespace hal::keysight_dsox1202g
             // criterion over a bare double), not a driver one, and inventing
             // an answer here would put it in the wrong file.
             //
-            [[nodiscard]] auto frequency()      -> core::Port<core::quantities::Frequency, DSOX1202G>;
-            [[nodiscard]] auto period()         -> core::Port<core::quantities::Time, DSOX1202G>;
-            [[nodiscard]] auto riseTime()       -> core::Port<core::quantities::Time, DSOX1202G>;
-            [[nodiscard]] auto fallTime()       -> core::Port<core::quantities::Time, DSOX1202G>;
-            [[nodiscard]] auto positiveWidth()  -> core::Port<core::quantities::Time, DSOX1202G>;
-            [[nodiscard]] auto negativeWidth()  -> core::Port<core::quantities::Time, DSOX1202G>;
+            [[nodiscard]] auto frequency()      -> core::Port<core::quantities::Frequency, Oscilloscope>;
+            [[nodiscard]] auto period()         -> core::Port<core::quantities::Time, Oscilloscope>;
+            [[nodiscard]] auto riseTime()       -> core::Port<core::quantities::Time, Oscilloscope>;
+            [[nodiscard]] auto fallTime()       -> core::Port<core::quantities::Time, Oscilloscope>;
+            [[nodiscard]] auto positiveWidth()  -> core::Port<core::quantities::Time, Oscilloscope>;
+            [[nodiscard]] auto negativeWidth()  -> core::Port<core::quantities::Time, Oscilloscope>;
 
             //
             // The whole captured record off this channel, for Fetch -- see
@@ -166,7 +166,7 @@ namespace hal::keysight_dsox1202g
             [[nodiscard]] auto waveform() const -> WaveformBuilder;
 
         private:
-            DSOX1202G & mInstrument;
+            Oscilloscope & mInstrument;
     };
 
     //
@@ -256,11 +256,11 @@ namespace hal::keysight_dsox1202g
 #define THORIUM_DSOX1202G_PORT( method, quantity, mode)                                          \
     template<unsigned N>                                                                         \
         requires ValidChannel<N>                                                                 \
-    auto Channel<N>::method() -> core::Port<core::quantities::quantity, DSOX1202G>               \
+    auto Channel<N>::method() -> core::Port<core::quantities::quantity, Oscilloscope>               \
     {                                                                                            \
         mInstrument.setChannel( N);                                                              \
-        mInstrument.setMode( DSOX1202G::Mode::mode);                                             \
-        return core::Port<core::quantities::quantity, DSOX1202G>{ mInstrument }.qualifiedBy( #mode); \
+        mInstrument.setMode( Oscilloscope::Mode::mode);                                             \
+        return core::Port<core::quantities::quantity, Oscilloscope>{ mInstrument }.qualifiedBy( #mode); \
     }
 
     THORIUM_DSOX1202G_PORT( vpp,           Voltage,   Vpp)
@@ -292,21 +292,21 @@ namespace hal::keysight_dsox1202g
     //
     template<unsigned N>
         requires ValidChannel<N>
-    auto Channel<N>::riseTime() -> core::Port<core::quantities::Time, DSOX1202G>
+    auto Channel<N>::riseTime() -> core::Port<core::quantities::Time, Oscilloscope>
     {
         mInstrument.setChannel( N);
-        mInstrument.setMode( DSOX1202G::Mode::RiseTime);
-        return core::Port<core::quantities::Time, DSOX1202G>{ mInstrument }
+        mInstrument.setMode( Oscilloscope::Mode::RiseTime);
+        return core::Port<core::quantities::Time, Oscilloscope>{ mInstrument }
                    .qualifiedBy( "RiseTime").lowThreshold( 0.1).highThreshold( 0.9);
     }
 
     template<unsigned N>
         requires ValidChannel<N>
-    auto Channel<N>::fallTime() -> core::Port<core::quantities::Time, DSOX1202G>
+    auto Channel<N>::fallTime() -> core::Port<core::quantities::Time, Oscilloscope>
     {
         mInstrument.setChannel( N);
-        mInstrument.setMode( DSOX1202G::Mode::FallTime);
-        return core::Port<core::quantities::Time, DSOX1202G>{ mInstrument }
+        mInstrument.setMode( Oscilloscope::Mode::FallTime);
+        return core::Port<core::quantities::Time, Oscilloscope>{ mInstrument }
                    .qualifiedBy( "FallTime").lowThreshold( 0.1).highThreshold( 0.9);
     }
 } // namespace hal::keysight_dsox1202g

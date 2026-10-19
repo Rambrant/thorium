@@ -6,7 +6,7 @@
 //
 // Everything the scope's waveform generator puts on the wire -- the :WGEN
 // subsystem, from the 1000 X-Series programmer's guide. See the header's
-// comment on WGEN for the order and for what is not yet confirmed.
+// comment on WaveformGenerator for the order and for what is not yet confirmed.
 //
 
 namespace hal::keysight_dsox1202g
@@ -20,7 +20,7 @@ namespace hal::keysight_dsox1202g
         }
     } // namespace
 
-    auto WGEN::session() -> io::ScpiSession &
+    auto WaveformGenerator::session() -> io::ScpiSession &
     {
         return mConnection.session( "keysight_dsox1202g.wgen", []( io::ScpiSession & opened)
         {
@@ -30,7 +30,7 @@ namespace hal::keysight_dsox1202g
         });
     }
 
-    auto WGEN::identity() -> std::string
+    auto WaveformGenerator::identity() -> std::string
     {
         return session().identify();
     }

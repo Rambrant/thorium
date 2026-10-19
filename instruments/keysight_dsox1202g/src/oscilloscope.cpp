@@ -1,5 +1,5 @@
 //
-// hal::keysight_dsox1202g::DSOX1202G's real I/O: what this scope is actually
+// hal::keysight_dsox1202g::Oscilloscope's real I/O: what this scope is actually
 // told, and what its answers mean.
 //
 // The second .cpp in instruments/, after the EDU34450A's, and it exists for the
@@ -88,24 +88,24 @@ namespace hal::keysight_dsox1202g
         };
 
         [[nodiscard]]
-        constexpr auto commandFor( const DSOX1202G::Mode mode) -> MeasurementCommand
+        constexpr auto commandFor( const Oscilloscope::Mode mode) -> MeasurementCommand
         {
             switch( mode)
             {
-                case DSOX1202G::Mode::Vpp:           return { "VPP",        false, "peak-to-peak voltage" };
-                case DSOX1202G::Mode::Vmax:          return { "VMAX",       false, "maximum voltage"      };
-                case DSOX1202G::Mode::Vmin:          return { "VMIN",       false, "minimum voltage"      };
-                case DSOX1202G::Mode::Vrms:          return { "VRMS",       false, "RMS voltage"          };
-                case DSOX1202G::Mode::Vaverage:      return { "VAVerage",   false, "average voltage"      };
-                case DSOX1202G::Mode::Vbase:         return { "VBASe",      false, "base voltage"         };
-                case DSOX1202G::Mode::Vtop:          return { "VTOP",       false, "top voltage"          };
-                case DSOX1202G::Mode::Vamplitude:    return { "VAMPlitude", false, "amplitude"            };
-                case DSOX1202G::Mode::Frequency:     return { "FREQuency",  false, "frequency"            };
-                case DSOX1202G::Mode::Period:        return { "PERiod",     false, "period"               };
-                case DSOX1202G::Mode::RiseTime:      return { "RISetime",   true,  "rise time"            };
-                case DSOX1202G::Mode::FallTime:      return { "FALLtime",   true,  "fall time"            };
-                case DSOX1202G::Mode::PositiveWidth: return { "PWIDth",     false, "positive pulse width" };
-                case DSOX1202G::Mode::NegativeWidth: return { "NWIDth",     false, "negative pulse width" };
+                case Oscilloscope::Mode::Vpp:           return { "VPP",        false, "peak-to-peak voltage" };
+                case Oscilloscope::Mode::Vmax:          return { "VMAX",       false, "maximum voltage"      };
+                case Oscilloscope::Mode::Vmin:          return { "VMIN",       false, "minimum voltage"      };
+                case Oscilloscope::Mode::Vrms:          return { "VRMS",       false, "RMS voltage"          };
+                case Oscilloscope::Mode::Vaverage:      return { "VAVerage",   false, "average voltage"      };
+                case Oscilloscope::Mode::Vbase:         return { "VBASe",      false, "base voltage"         };
+                case Oscilloscope::Mode::Vtop:          return { "VTOP",       false, "top voltage"          };
+                case Oscilloscope::Mode::Vamplitude:    return { "VAMPlitude", false, "amplitude"            };
+                case Oscilloscope::Mode::Frequency:     return { "FREQuency",  false, "frequency"            };
+                case Oscilloscope::Mode::Period:        return { "PERiod",     false, "period"               };
+                case Oscilloscope::Mode::RiseTime:      return { "RISetime",   true,  "rise time"            };
+                case Oscilloscope::Mode::FallTime:      return { "FALLtime",   true,  "fall time"            };
+                case Oscilloscope::Mode::PositiveWidth: return { "PWIDth",     false, "positive pulse width" };
+                case Oscilloscope::Mode::NegativeWidth: return { "NWIDth",     false, "negative pulse width" };
             }
 
             //
@@ -442,7 +442,7 @@ namespace hal::keysight_dsox1202g
         }
     } // namespace
 
-    auto DSOX1202G::session() -> io::ScpiSession &
+    auto Oscilloscope::session() -> io::ScpiSession &
     {
         //
         // The box's session (see hal::BoxConnection), opened on first use by
@@ -460,7 +460,7 @@ namespace hal::keysight_dsox1202g
         });
     }
 
-    auto DSOX1202G::verifyIdentity( io::ScpiSession & opened) -> std::string
+    auto Oscilloscope::verifyIdentity( io::ScpiSession & opened) -> std::string
     {
         return detail::verifyScope( opened);
     }
@@ -498,13 +498,13 @@ namespace hal::keysight_dsox1202g
             throw io::ScpiFault( opened.description(), "*IDN?",
                 io::ScpiError{ 0,
                     "\"" + identity + "\" has no built-in waveform generator -- only the G-suffix"
-                    " model has one, so a row naming keysight_dsox1202g::WGEN needs a DSOX1202G" });
+                    " model has one, so a row naming keysight_dsox1202g::WaveformGenerator needs a DSOX1202G" });
         }
 
         return identity;
     }
 
-    auto DSOX1202G::identity() -> std::string
+    auto Oscilloscope::identity() -> std::string
     {
         //
         // session() has already asked and already checked the answer, so this
@@ -516,7 +516,7 @@ namespace hal::keysight_dsox1202g
         return session().identify();
     }
 
-    auto DSOX1202G::safe() -> void
+    auto Oscilloscope::safe() -> void
     {
         //
         // The armed flag is cleared for the reason the header gives: it is a
@@ -563,7 +563,7 @@ namespace hal::keysight_dsox1202g
         }
     }
 
-    auto DSOX1202G::configureTrigger( const TriggerConfig & config) -> void
+    auto Oscilloscope::configureTrigger( const TriggerConfig & config) -> void
     {
         if( config.EdgeSource) { mTriggerSource   = config.EdgeSource; }
         if( config.Slope)      { mTriggerSlope    = config.Slope;      }
@@ -647,7 +647,7 @@ namespace hal::keysight_dsox1202g
         scpi.checked( ":RUN");
     }
 
-    auto DSOX1202G::configureTimebase( const TimebaseConfig & config) -> void
+    auto Oscilloscope::configureTimebase( const TimebaseConfig & config) -> void
     {
         if( config.TimePerDivision) { mTimePerDivision   = config.TimePerDivision; }
         if( config.Position)        { mTimebasePosition  = config.Position;        }
@@ -684,7 +684,7 @@ namespace hal::keysight_dsox1202g
         }
     }
 
-    auto DSOX1202G::configureAcquisition( const AcquisitionConfig & config) -> void
+    auto Oscilloscope::configureAcquisition( const AcquisitionConfig & config) -> void
     {
         if( config.Type)         { mAcquisitionType = config.Type;         }
         if( config.AverageCount) { mAverageCount    = config.AverageCount; }
@@ -712,7 +712,7 @@ namespace hal::keysight_dsox1202g
         }
     }
 
-    auto DSOX1202G::configureChannel( const ChannelConfig & config) -> void
+    auto Oscilloscope::configureChannel( const ChannelConfig & config) -> void
     {
         auto & data = atChannel( config.Channel);
 
@@ -771,7 +771,7 @@ namespace hal::keysight_dsox1202g
         }
     }
 
-    auto DSOX1202G::armSingle( const SingleConfig & config) -> void
+    auto Oscilloscope::armSingle( const SingleConfig & config) -> void
     {
         mCompleted = false;
 
@@ -856,7 +856,7 @@ namespace hal::keysight_dsox1202g
         }
     }
 
-    auto DSOX1202G::awaitAcquisition( const SingleConfig & config) -> bool
+    auto Oscilloscope::awaitAcquisition( const SingleConfig & config) -> bool
     {
         if( !mArmed)
         {
@@ -932,7 +932,7 @@ namespace hal::keysight_dsox1202g
         }
     }
 
-    auto DSOX1202G::fetchWaveform( const WaveformConfig & config) -> core::Waveform
+    auto Oscilloscope::fetchWaveform( const WaveformConfig & config) -> core::Waveform
     {
         if( isSimulated())
         {
@@ -1014,7 +1014,7 @@ namespace hal::keysight_dsox1202g
             values };
     }
 
-    auto DSOX1202G::readMeasurement( const Mode mode, const unsigned channel,
+    auto Oscilloscope::readMeasurement( const Mode mode, const unsigned channel,
                                      const std::optional<double> lowThreshold,
                                      const std::optional<double> highThreshold) -> double
     {

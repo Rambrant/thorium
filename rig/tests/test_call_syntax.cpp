@@ -17,7 +17,7 @@
 // side: DcP7 is fixed-wired (hal::keysight_edu36311a::EDU36311A::dc() takes no point at all --
 // see that header's own comment; DcP7 specifically has a real isolation
 // relay -- hal::keysight_edu36311a::RelayOutput3 -- unlike DcP5/DcP6, which have none at all),
-// Osc1 is routed (hal::keysight_dsox1202g::DSOX1202G's Port takes at(...) on every Measure()) --
+// Osc1 is routed (hal::keysight_dsox1202g::Oscilloscope's Port takes at(...) on every Measure()) --
 // both physically reach the same VPC pin (Output5V), but only Osc1's path
 // touches the mux; DcP7's connect() closes just its own fixed channel.
 //
@@ -65,7 +65,7 @@ namespace
         hal::TapWiring         tapWiring;
 
         hal::keysight_edu36311a::RelayOutput3  dcP7{ hal::InstrumentId::DcP7, hal::Simulated{} };
-        hal::keysight_dsox1202g::DSOX1202G osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
+        hal::keysight_dsox1202g::Oscilloscope osc1{ hal::InstrumentId::Osc1, hal::Simulated{} };
         hal::keysight_edu34450a::EDU34450A  dmm1{ hal::InstrumentId::Dmm1, hal::Simulated{} };
 
         ApplyEngine      apply{};

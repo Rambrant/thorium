@@ -1,4 +1,4 @@
-# --- hal::keysight_dsox1202g::DSOX1202G -- Keysight InfiniiVision DSOX1202G two-channel oscilloscope ---
+# --- hal::keysight_dsox1202g::Oscilloscope -- Keysight InfiniiVision DSOX1202G two-channel oscilloscope ---
 # One instrument driver, self-contained: its header, its tests, its README,
 # and this file. Nothing outside this directory names any of them -- the tree
 # above discovers this directory and hands framework/hal the path (see the top-level
@@ -17,8 +17,8 @@
 # own comment, and instruments/keysight_edu34450a, which drew the same line
 # first.
 add_library(hal_keysight_dsox1202g STATIC
-    src/keysight_dsox1202g.cpp
-    src/wgen.cpp
+    src/oscilloscope.cpp
+    src/waveform_generator.cpp
 )
 
 # include/hal/keysight_dsox1202g.hpp, not include/keysight_dsox1202g.hpp: this driver keeps its

@@ -27,7 +27,7 @@ namespace core
     // table ("required edge not found", "waveform is clipped high", "top and
     // base are equal", ...). A DMM reporting overrange is the same shape. So
     // this lives in core rather than in one driver: the situation is generic
-    // even though only hal::keysight_dsox1202g::DSOX1202G answers for it today.
+    // even though only hal::keysight_dsox1202g::Oscilloscope answers for it today.
     //
     // Carrying the *reason* rather than a bare "invalid" flag is the whole
     // point. "Rise time unmeasurable" sends an engineer to the scope; "rise
@@ -142,7 +142,7 @@ namespace core
     // Generic over InstrumentT: this header has no idea what a real
     // instrument looks like, only that it has a templated rawMeasure<Q>()
     // (with or without a MeasureSetup argument, dispatched at compile time)
-    // and an id() -- hal::keysight_edu34450a::EDU34450A/hal::keysight_dsox1202g::DSOX1202G/etc (see hal/driver/instrument.hpp,
+    // and an id() -- hal::keysight_edu34450a::EDU34450A/hal::keysight_dsox1202g::Oscilloscope/etc (see hal/driver/instrument.hpp,
     // hal/keysight_edu34450a.hpp, hal/keysight_dsox1202g.hpp) are simply concrete instrument types
     // that happen to satisfy this shape, not something this type depends on.
     //

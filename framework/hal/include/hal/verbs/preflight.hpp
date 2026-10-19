@@ -201,7 +201,7 @@ namespace hal
     // daily.
     //
     //     Dmm1  keysight_edu34450a::EDU34450A  Lan dev-dmm-3:5025  --address    Keysight Technologies,EDU34450A,MY60012345,01.00-01.00
-    //     Osc1  keysight_dsox1202g::DSOX1202G  Usb CN59176621      pool 2 of 3  KEYSIGHT TECHNOLOGIES,DSO-X 1202G,CN59176621,01.20
+    //     Osc1  keysight_dsox1202g::Oscilloscope  Usb CN59176621      pool 2 of 3  KEYSIGHT TECHNOLOGIES,DSO-X 1202G,CN59176621,01.20
     //     AcP1  keysight_ac6834b::Ac6834B      Gpib 0::5           table        no session -- answers from its own hooks
     //
     // The address column is hal::to_string( address), which already exists and

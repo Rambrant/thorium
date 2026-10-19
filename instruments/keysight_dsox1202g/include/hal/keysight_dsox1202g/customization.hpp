@@ -8,7 +8,7 @@
 
 #include "hal/driver/describe.hpp"
 
-#include "hal/keysight_dsox1202g/dsox1202g.hpp"
+#include "hal/keysight_dsox1202g_oscilloscope.hpp"
 
 //
 // The free functions the verbs find by ADL -- setupDriver, armDriver,
@@ -39,7 +39,7 @@ namespace hal::keysight_dsox1202g
     // the one claim here that a datasheet could be read as contradicting: the
     // G in DSOX1202G is a built-in 20 MHz waveform generator, which genuinely
     // is an output that energises things. It is modelled -- but as a separate
-    // face of the box, hal::keysight_dsox1202g::WGEN (wgen.hpp), which has the
+    // face of the box, hal::keysight_dsox1202g::WaveformGenerator (keysight_dsox1202g_waveform_generator.hpp), which has the
     // applyDriver and removeDriver and the safing this class does not; so this
     // remains true of the scope itself.
     //
@@ -267,8 +267,8 @@ namespace hal::keysight_dsox1202g
         return core::SourceDescription{
             std::string( to_string( config.Instrument.id())),
             describeSettings( {
-                "single.timeout=" + core::describeValue( config.Timeout.value_or( DSOX1202G::kDefaultCaptureTimeout)),
-                "single.armTimeout=" + core::describeValue( config.ArmTimeout.value_or( DSOX1202G::kDefaultArmTimeout))
+                "single.timeout=" + core::describeValue( config.Timeout.value_or( Oscilloscope::kDefaultCaptureTimeout)),
+                "single.armTimeout=" + core::describeValue( config.ArmTimeout.value_or( Oscilloscope::kDefaultArmTimeout))
             })
         };
     }

@@ -92,7 +92,7 @@ namespace hal
 
     //
     // Empty marker base -- every concrete instrument driver (hal::keysight_edu34450a::EDU34450A,
-    // hal::keysight_dsox1202g::DSOX1202G, hal::keysight_edu36311a::EDU36311A<Isolation>, hal::keysight_ac6834b::Ac6834B) inherits it
+    // hal::keysight_dsox1202g::Oscilloscope, hal::keysight_edu36311a::EDU36311A<Isolation>, hal::keysight_ac6834b::Ac6834B) inherits it
     // publicly, and nothing else does. hal::safeRig() (hal/src/verbs/safing.cpp)
     // is the only reason this exists: it reflects over the global namespace
     // for every InstrumentTag-derived variable (hal/topology/active_instruments.hpp

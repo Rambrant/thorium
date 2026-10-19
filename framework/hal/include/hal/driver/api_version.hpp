@@ -87,7 +87,7 @@
 //        or 2 compiles here unchanged and stays simulated. A driver that opens
 //        a session needs a hal that has one, so
 //        hal::keysight_edu34450a::EDU34450A and
-//        hal::keysight_dsox1202g::DSOX1202G ask for 3.
+//        hal::keysight_dsox1202g::Oscilloscope ask for 3.
 //
 //        The scope is the one that moved: it asked for 2 while it answered
 //        from its own simulation hooks, and for 3 the day it opened a session.

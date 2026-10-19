@@ -277,8 +277,8 @@
 //
 // -- And Osc1 says it too, for the same reason -----------------------------
 //
-// hal::keysight_dsox1202g::DSOX1202G opens a session (see
-// instruments/keysight_dsox1202g/src/keysight_dsox1202g.cpp for everything it
+// hal::keysight_dsox1202g::Oscilloscope opens a session (see
+// instruments/keysight_dsox1202g/src/oscilloscope.cpp for everything it
 // sends), so this column is an instruction for that row too, and the rule above
 // applies unchanged.
 //
@@ -335,11 +335,12 @@
 //
 INSTRUMENTS
     INSTRUMENT( BenchDmm,   keysight_edu34450a::EDU34450A,     Dmm1, Simulated{})        // TODO(bench): Lan( "<host>") or Usb( "<serial>") once a meter answers -- this driver connects
-    INSTRUMENT( BenchScope, keysight_dsox1202g::DSOX1202G,     Osc1, Simulated{})        // TODO(bench): Usb( "<serial>") off the scope's own *IDN? -- this driver connects
+    INSTRUMENT( BenchScope, keysight_dsox1202g::Oscilloscope,     Osc1, Simulated{})        // TODO(bench): Usb( "<serial>") off the scope's own *IDN? -- this driver connects
     INSTRUMENT( BenchPsu,   keysight_edu36311a::DirectOutput1, DcP5, Simulated{})        // 6 V / 5 A, hard-wired: no relay in this rack carries 5 A. A spare -- nothing on this DUT wants 6 V
     INSTRUMENT( BenchPsu,   keysight_edu36311a::RelayOutput2,  DcP6, Simulated{})        // 30 V / 1 A -> dut::BackupSupply,  isolation relay on Spst1/6
     INSTRUMENT( BenchPsu,   keysight_edu36311a::RelayOutput3,  DcP7, Simulated{})        // 30 V / 1 A -> dut::BatterySupply, isolation relay on Spst1/7
     INSTRUMENT( AcSource,   keysight_ac6834b::Ac6834B,         AcP1, Gpib( 0, 5))        // simulated: kept for the Transient group, see this file's own comment
     INSTRUMENT( BenchWfg,   keysight_33522b::Wfg33522B,        Wfg1, Simulated{})        // TODO(bench): Lan( "<host>"), Usb( "<serial>") or Gpib( ...) -- this driver connects
+    INSTRUMENT( Scope1,  keysight_dsox1202g::WaveformGenerator,          Wfg2, Simulated{})   // the scope's built-in generator -- see above
     INSTRUMENT( DutConsole, racal1260::Racal1260,              Ser1, Serial( "/dev/ttyUSB0"))
 END_INSTRUMENTS

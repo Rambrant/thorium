@@ -13,7 +13,7 @@
 //
 // The config is what a verb receives and the builder is how a script fills
 // it in, so the two live together: adding a setting is a field here, a setter
-// here, a line where DSOX1202G sends it (src/keysight_dsox1202g.cpp)
+// here, a line where DSOX1202G sends it (src/oscilloscope.cpp)
 // and a fragment in its describeConfig (customization.hpp).
 //
 // Part of hal/keysight_dsox1202g.hpp -- include that, not this.
@@ -27,7 +27,7 @@ namespace hal::keysight_dsox1202g
     //
     struct TimebaseConfig
     {
-        DSOX1202G &                                 Instrument;
+        Oscilloscope &                                 Instrument;
 
         //
         // :TIMebase:SCALe, seconds per division -- the number written on the
@@ -51,7 +51,7 @@ namespace hal::keysight_dsox1202g
         public:
             using Config = TimebaseConfig;
 
-            explicit TimebaseBuilder( DSOX1202G & instrument) : ConfigBuilder( Config{ instrument }) {}
+            explicit TimebaseBuilder( Oscilloscope & instrument) : ConfigBuilder( Config{ instrument }) {}
 
             [[nodiscard]]
             auto timePerDivision( const core::quantities::Time value) const

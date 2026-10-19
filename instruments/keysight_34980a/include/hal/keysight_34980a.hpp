@@ -720,7 +720,7 @@ namespace hal::keysight_34980a
             // through the fabric's driver.
             //
             // Deliberately not called from a destructor, and this is the same
-            // argument hal::keysight_dsox1202g::DSOX1202G's safe() makes about
+            // argument hal::keysight_dsox1202g::Oscilloscope's safe() makes about
             // opening sessions during cleanup, one step further: a chassis
             // going out of scope is not evidence that the rig should be torn
             // down, and a driver that opened every relay on the way out would

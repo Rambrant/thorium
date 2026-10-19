@@ -144,7 +144,7 @@ call site -- moving a driver out changed its build location and nothing else.
 | Driver | Directory |
 |---|---|
 | `hal::keysight_edu34450a::EDU34450A` | `instruments/keysight_edu34450a/` |
-| `hal::keysight_dsox1202g::DSOX1202G` | `instruments/keysight_dsox1202g/` |
+| `hal::keysight_dsox1202g::Oscilloscope` | `instruments/keysight_dsox1202g/` |
 | `hal::keysight_edu36311a::EDU36311A` | `instruments/keysight_edu36311a/` |
 | `hal::keysight_ac6834b::Ac6834B` | `instruments/keysight_ac6834b/` |
 | `hal::racal1260::Racal1260` | `instruments/racal1260/` |
@@ -335,7 +335,7 @@ picks:
   scheme is inherently tied to its exact model, so naming the class after the
   model documents that non-portability rather than hiding it -- the same
   reasoning that named `hal::keysight_edu34450a::EDU34450A` (Dmm1's concrete
-  type) and `hal::keysight_dsox1202g::DSOX1202G` (Osc1's) after their real
+  type) and `hal::keysight_dsox1202g::Oscilloscope` (Osc1's) after their real
   models, once each was known, retiring the old generic
   `hal::Dmm`/`hal::Oscilloscope` placeholders that stood in for "roughly any
   DMM/scope" before that.
@@ -446,7 +446,7 @@ unconditionally, which is what driver tests construct with.
 | Driver | Reachable over |
 |---|---|
 | `hal::keysight_edu34450a::EDU34450A` | `Lan`, `Usb` |
-| `hal::keysight_dsox1202g::DSOX1202G` | `Usb` |
+| `hal::keysight_dsox1202g::Oscilloscope` | `Usb` |
 | `hal::keysight_edu36311a::EDU36311A` | `Lan`, `Usb` |
 | `hal::keysight_ac6834b::Ac6834B` | `Gpib`, `Serial` |
 | `hal::racal1260::Racal1260` | `Serial`, `Gpib` |
@@ -458,7 +458,7 @@ USBTMC port and no GPIB option -- so the two boxes on this bench that *can* be
 reached over GPIB are both ones with no transport to use it: the Ac6834B and the
 Racal1260.
 
-`hal::keysight_dsox1202g::DSOX1202G` is LAN and USB, and has an entry here for
+`hal::keysight_dsox1202g::Oscilloscope` is LAN and USB, and has an entry here for
 the history rather than the list: it was USB alone, on the programmer's guide's
 word that the two-channel 1000 X-Series has no LAN interface, until the unit on
 the dev desk turned out to have a LAN port. The list follows the hardware in
@@ -491,7 +491,7 @@ path is not.
 ### What still has no address
 
 Four drivers read their address now -- `hal::keysight_edu34450a::EDU34450A`
-over LAN or USB, `hal::keysight_dsox1202g::DSOX1202G` over USB,
+over LAN or USB, `hal::keysight_dsox1202g::Oscilloscope` over USB,
 `hal::keysight_edu36311a::EDU36311A` over either, and
 `hal::keysight_34980a::Chassis` over any of its three (see the next section).
 The other four still carry theirs the way `hal::keysight_edu36311a::EDU36311A` carried

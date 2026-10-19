@@ -31,7 +31,7 @@
 //
 // Three, because this driver opens a real session and so needs hal/io/ -- the
 // same number hal::keysight_edu34450a::EDU34450A and
-// hal::keysight_dsox1202g::DSOX1202G ask for.
+// hal::keysight_dsox1202g::Oscilloscope ask for.
 //
 THORIUM_REQUIRE_HAL_API( 3);
 

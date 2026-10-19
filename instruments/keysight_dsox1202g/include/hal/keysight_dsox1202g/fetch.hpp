@@ -11,7 +11,7 @@
 //
 // The config is what a verb receives and the builder is how a script fills
 // it in, so the two live together: adding a setting is a field here, a setter
-// here, a line where DSOX1202G sends it (src/keysight_dsox1202g.cpp)
+// here, a line where DSOX1202G sends it (src/oscilloscope.cpp)
 // and a fragment in its describeConfig (customization.hpp).
 //
 // Part of hal/keysight_dsox1202g.hpp -- include that, not this.
@@ -40,7 +40,7 @@ namespace hal::keysight_dsox1202g
     //
     struct WaveformConfig
     {
-        DSOX1202G &  Instrument;
+        Oscilloscope &  Instrument;
 
         //
         // Not optional, for ChannelConfig::Channel's reason: a transfer with
@@ -55,7 +55,7 @@ namespace hal::keysight_dsox1202g
         public:
             using Config = WaveformConfig;
 
-            WaveformBuilder( DSOX1202G & instrument, const unsigned channel) :
+            WaveformBuilder( Oscilloscope & instrument, const unsigned channel) :
                 ConfigBuilder( Config{ instrument, channel })
             {}
 

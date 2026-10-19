@@ -1,5 +1,5 @@
 //
-// hal::keysight_dsox1202g::DSOX1202G's own tests.
+// hal::keysight_dsox1202g::Oscilloscope's own tests.
 //
 // Written against the scope on the bench rather than ported wholesale from
 // instruments/keysight_dsox1202g/tests, and the differences between the two
@@ -33,18 +33,18 @@
 // Two connectors, LAN and USB. The programmer's guide says the two-channel
 // 1000 X-Series has no LAN interface, and this list once followed it; the
 // DSOX1202G on the dev desk has a LAN port, and the list follows the hardware
-// (see DSOX1202G::Buses). GPIB and serial are still sentences about connectors
+// (see Oscilloscope::Buses). GPIB and serial are still sentences about connectors
 // this box does not have, and still do not compile -- which is the job
 // hal::ReachableOver exists to do, checked here in the direction that refuses.
 //
 namespace
 {
-    static_assert(   std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Usb> );
-    static_assert(   std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Lan> );
-    static_assert(   std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Simulated> );
-    static_assert( ! std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Gpib> );
-    static_assert( ! std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId, hal::Serial> );
-    static_assert( ! std::constructible_from< hal::keysight_dsox1202g::DSOX1202G, hal::InstrumentId> );
+    static_assert(   std::constructible_from< hal::keysight_dsox1202g::Oscilloscope, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< hal::keysight_dsox1202g::Oscilloscope, hal::InstrumentId, hal::Lan> );
+    static_assert(   std::constructible_from< hal::keysight_dsox1202g::Oscilloscope, hal::InstrumentId, hal::Simulated> );
+    static_assert( ! std::constructible_from< hal::keysight_dsox1202g::Oscilloscope, hal::InstrumentId, hal::Gpib> );
+    static_assert( ! std::constructible_from< hal::keysight_dsox1202g::Oscilloscope, hal::InstrumentId, hal::Serial> );
+    static_assert( ! std::constructible_from< hal::keysight_dsox1202g::Oscilloscope, hal::InstrumentId> );
 } // namespace
 
 using namespace core::literals;
@@ -64,7 +64,7 @@ namespace
     // of a two-channel instrument.
     //
     template<unsigned N>
-    concept CanChannel = requires( hal::keysight_dsox1202g::DSOX1202G & osc) { osc.template channel<N>(); };
+    concept CanChannel = requires( hal::keysight_dsox1202g::Oscilloscope & osc) { osc.template channel<N>(); };
 
     static_assert(  CanChannel<1> );
     static_assert(  CanChannel<2> );
@@ -86,7 +86,7 @@ namespace
 
 TEST( Dsox1202G, VppPortReturnsSimulatedReading)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
 
     auto port = osc1.channel<1>().vpp();
@@ -103,7 +103,7 @@ TEST( Dsox1202G, PortOutlivesTheTemporaryChannelViewThatCreatedIt)
     // -- Port must bind to the real, long-lived instrument, not to that
     // temporary, or this reads garbage (or crashes) instead of 3.3.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
 
     auto port = osc1.channel<1>().vpp();  // the channel view temporary is gone after this line
@@ -113,7 +113,7 @@ TEST( Dsox1202G, PortOutlivesTheTemporaryChannelViewThatCreatedIt)
 
 TEST( Dsox1202G, ExposesTheWholeAmplitudeFamily)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
     osc1.setSimulatedVmax( 1, 1.8_V);
     osc1.setSimulatedVmin( 1, -0.4_V);
@@ -146,7 +146,7 @@ namespace
 
 TEST( Dsox1202G, ChannelsAreIndependentlyAddressedSimulatedData)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
     osc1.setSimulatedVpp( 2, 5.0_V);
 
@@ -156,7 +156,7 @@ TEST( Dsox1202G, ChannelsAreIndependentlyAddressedSimulatedData)
 
 TEST( Dsox1202G, ExposesTheTimingFamily)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedFrequency( 2, 1_kHz);
     osc1.setSimulatedPeriod( 2, 1_ms);
     osc1.setSimulatedRiseTime( 2, Time{ 12e-9});
@@ -172,7 +172,7 @@ TEST( Dsox1202G, ExposesTheTimingFamily)
 
 TEST( Dsox1202G, ExposesPulseWidths)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedPositiveWidth( 2, 20_us);
     osc1.setSimulatedNegativeWidth( 2, 30_us);
 
@@ -190,7 +190,7 @@ TEST( Dsox1202G, RiseTimeDefaultsToTenNinetyThresholds)
     // is also what this instrument measures by default (:MEASure:DEFine
     // THResholds STANdard).
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto port = osc1.channel<1>().riseTime();
 
@@ -202,7 +202,7 @@ TEST( Dsox1202G, RiseTimeDefaultsToTenNinetyThresholds)
 
 TEST( Dsox1202G, RiseTimeThresholdsAreOverridable)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto port = osc1.channel<1>().riseTime().lowThreshold( 0.2).highThreshold( 0.8);
 
@@ -212,9 +212,9 @@ TEST( Dsox1202G, RiseTimeThresholdsAreOverridable)
 
 TEST( Dsox1202G, DefaultsToVppMode)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
-    EXPECT_EQ( osc1.mode(), hal::keysight_dsox1202g::DSOX1202G::Mode::Vpp);
+    EXPECT_EQ( osc1.mode(), hal::keysight_dsox1202g::Oscilloscope::Mode::Vpp);
     EXPECT_EQ( osc1.channelNumber(), 1u);
 }
 
@@ -227,7 +227,7 @@ TEST( Dsox1202G, ChannelIsSharedAcrossPortHandlesHeldPastAChannelSwitch)
     // for Measure( port, at( ...))'s read-immediately-and-discard usage, and
     // the price of Port never referencing a temporary channel view.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedVpp( 1, 3.3_V);
     osc1.setSimulatedVpp( 2, 5.0_V);
 
@@ -246,7 +246,7 @@ TEST( Dsox1202G, ChannelIsSharedAcrossPortHandlesHeldPastAChannelSwitch)
 
 TEST( Dsox1202G, TriggerSetupRecordsEveryFieldItWasGiven)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     setupDriver( osc1.trigger()
                      .edgeSource<2>()
@@ -278,7 +278,7 @@ TEST( Dsox1202G, EitherEdgeIsATriggerSlopeThisInstrumentActuallyHas)
     // "either-edge triggering is an InfiniiVision feature". This is an
     // InfiniiVision.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     setupDriver( osc1.trigger().slope( hal::keysight_dsox1202g::TriggerSlope::Either).config());
 
@@ -292,7 +292,7 @@ TEST( Dsox1202G, ASetupLeavesFieldsItDidNotNameAlone)
     // naming only the level must not reset the slope to a default this file
     // chose. Two Setups, and the first one's slope has to survive the second.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     setupDriver( osc1.trigger().slope( hal::keysight_dsox1202g::TriggerSlope::Rising).config());
     setupDriver( osc1.trigger().level( 2.5_V).config());
@@ -304,7 +304,7 @@ TEST( Dsox1202G, ASetupLeavesFieldsItDidNotNameAlone)
 
 TEST( Dsox1202G, TimebaseAndAcquisitionAreSeparateSubsystems)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     setupDriver( osc1.timebase()
                      .timePerDivision( 10_ms)
@@ -331,7 +331,7 @@ TEST( Dsox1202G, AveragingSelectsTheTypeAndCarriesItsCount)
     // inherited it -- exactly the kind of carried-over state a reproducible
     // test must not depend on.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     setupDriver( osc1.acquisition().averagedOver( 16).config());
 
@@ -361,7 +361,7 @@ namespace
 
 TEST( Dsox1202G, ChannelSetupAppliesToTheNamedChannelOnly)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     setupDriver( osc1.channel<2>()
                      .coupling( hal::keysight_dsox1202g::Coupling::Dc)
@@ -394,7 +394,7 @@ namespace
     // the instrument and the number would dangle here.
     //
     static_assert( std::constructible_from< hal::keysight_dsox1202g::ChannelBuilder,
-                                            hal::keysight_dsox1202g::DSOX1202G &, unsigned> );
+                                            hal::keysight_dsox1202g::Oscilloscope &, unsigned> );
 
     //
     // The trigger source is bounded the same way channel<N>() is.
@@ -446,7 +446,7 @@ namespace
 
 TEST( Dsox1202G, ChannelBuilderOutlivesTheTemporaryChannelViewThatCreatedIt)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto builder = osc1.channel<2>().voltsPerDivision( 50_mV);   // view is gone after this line
 
@@ -464,7 +464,7 @@ TEST( Dsox1202G, ChannelBuilderOutlivesTheTemporaryChannelViewThatCreatedIt)
 
 TEST( Dsox1202G, ArmingLeavesTheScopeArmedAndTheCaptureCompletes)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     EXPECT_FALSE( osc1.isArmed());
 
@@ -478,7 +478,7 @@ TEST( Dsox1202G, ArmingLeavesTheScopeArmedAndTheCaptureCompletes)
 
 TEST( Dsox1202G, ACaptureThatNeverTriggersReportsNotCompleted)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedCaptureCompletes( false);
 
     armDriver( osc1.single().config());
@@ -495,7 +495,7 @@ TEST( Dsox1202G, AwaitingWithoutArmingReportsNotCompleted)
     // this is the check that catches it -- so it answers false rather than
     // throwing and abandoning the rest of the run.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     EXPECT_FALSE( awaitDriver( osc1.single().config()));
 }
@@ -508,7 +508,7 @@ TEST( Dsox1202G, ArmingClearsAnyPreviousCompletion)
     // set again by :SINGle -- so an Await that ran before the new arm took
     // effect would read the old stopped state as this capture's.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     armDriver( osc1.single().config());
     EXPECT_TRUE( awaitDriver( osc1.single().config()));
@@ -523,9 +523,9 @@ TEST( Dsox1202G, SafingDisarmsAPendingCaptureAndLeavesSettingsAlone)
     //
     // A scope left armed after a script died is waiting for an event that is no
     // longer coming, and the next script's Await would be answered by it.
-    // Settings are deliberately NOT reset -- see DSOX1202G::safe().
+    // Settings are deliberately NOT reset -- see Oscilloscope::safe().
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     setupDriver( osc1.timebase().timePerDivision( 10_ms).config());
     armDriver( osc1.single().config());
@@ -557,8 +557,8 @@ TEST( Dsox1202G, AnUnmeasurableReadingThrowsWithTheOnlyReasonThisScopeGives)
     // driver that guessed between "no edge" and "clipped" would be putting
     // words in the instrument's mouth.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
-    osc1.setSimulatedUnmeasurable( 2, hal::keysight_dsox1202g::DSOX1202G::Mode::RiseTime);
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
+    osc1.setSimulatedUnmeasurable( 2, hal::keysight_dsox1202g::Oscilloscope::Mode::RiseTime);
 
     auto port = osc1.channel<2>().riseTime();
 
@@ -581,10 +581,10 @@ TEST( Dsox1202G, AnUnmeasurableReadingIsPerMeasurementNotPerChannel)
     // broken" flag could express neither -- and that is still true on an
     // instrument that will not say which of the two it is looking at.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedVmax( 2, 4.8_V);
     osc1.setSimulatedRiseTime( 2, Time{ 12e-9});
-    osc1.setSimulatedUnmeasurable( 2, hal::keysight_dsox1202g::DSOX1202G::Mode::RiseTime);
+    osc1.setSimulatedUnmeasurable( 2, hal::keysight_dsox1202g::Oscilloscope::Mode::RiseTime);
 
     EXPECT_DOUBLE_EQ( osc1.channel<2>().vmax().rawMeasure().value(), 4.8);
     EXPECT_THROW( (void)osc1.channel<2>().riseTime().rawMeasure(), core::UnmeasurableReading);
@@ -592,13 +592,13 @@ TEST( Dsox1202G, AnUnmeasurableReadingIsPerMeasurementNotPerChannel)
 
 TEST( Dsox1202G, AnUnmeasurableReadingCanBeCleared)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedVmin( 1, -0.4_V);
-    osc1.setSimulatedUnmeasurable( 1, hal::keysight_dsox1202g::DSOX1202G::Mode::Vmin);
+    osc1.setSimulatedUnmeasurable( 1, hal::keysight_dsox1202g::Oscilloscope::Mode::Vmin);
 
     EXPECT_THROW( (void)osc1.channel<1>().vmin().rawMeasure(), core::UnmeasurableReading);
 
-    osc1.clearSimulatedUnmeasurable( 1, hal::keysight_dsox1202g::DSOX1202G::Mode::Vmin);
+    osc1.clearSimulatedUnmeasurable( 1, hal::keysight_dsox1202g::Oscilloscope::Mode::Vmin);
 
     EXPECT_DOUBLE_EQ( osc1.channel<1>().vmin().rawMeasure().value(), -0.4);
 }
@@ -613,7 +613,7 @@ TEST( Dsox1202G, ExposesTheBaselineFamilyTheTransientCalculationNeeds)
     // assembled by hand out of a screen median and a manually subtracted
     // vertical offset.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
     osc1.setSimulatedVbase( 2, 5.0_V);
     osc1.setSimulatedVtop( 2, 5.1_V);
     osc1.setSimulatedVmin( 2, 4.62_V);
@@ -638,7 +638,7 @@ TEST( Dsox1202G, ExposesTheBaselineFamilyTheTransientCalculationNeeds)
 
 TEST( Dsox1202G, DescribesOnlyTheSettingsASetupNamed)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto described = describeConfig(
         osc1.trigger().edgeSource<2>().slope( hal::keysight_dsox1202g::TriggerSlope::Falling).config());
@@ -649,7 +649,7 @@ TEST( Dsox1202G, DescribesOnlyTheSettingsASetupNamed)
 
 TEST( Dsox1202G, ChannelSettingsAreDescribedAgainstTheirOwnChannel)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto described = describeConfig(
         osc1.channel<2>().coupling( hal::keysight_dsox1202g::Coupling::Dc).voltsPerDivision( 100_mV).config());
@@ -663,7 +663,7 @@ TEST( Dsox1202G, AProbeRatioIsDescribedTheWayAProbeIsLabelled)
     // "10x", not "10.000000" -- see describeAttenuation on why this driver
     // renders its own fragment rather than reaching for one of hal's.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto tenToOne     = describeConfig( osc1.channel<1>().probeAttenuation( 10.0).config());
     const auto twentyToOne   = describeConfig( osc1.channel<1>().probeAttenuation( 20.0).config());
@@ -691,7 +691,7 @@ TEST( Dsox1202G, AnAveragingCountIsDescribedOnlyWhenAveragingIsWhatWasSelected)
     // not using, which is worse than no number: a reader diagnosing a noisy
     // capture would spend time on it.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto averaged  = describeConfig( osc1.acquisition().averagedOver( 16).config());
     const auto highRes   = describeConfig(
@@ -708,7 +708,7 @@ TEST( Dsox1202G, ACaptureAlwaysDescribesTheTimeoutsItWillUse)
     // so: a timeout is the number that decides how a failing capture behaves,
     // so a report of a run that timed out has to say what it was waiting for.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto defaulted = describeConfig( osc1.single().config());
     const auto named     = describeConfig( osc1.single().timeout( 2_s).config());
@@ -724,7 +724,7 @@ TEST( Dsox1202G, ACaptureAlwaysDescribesTheTimeoutsItWillUse)
 
 TEST( Dsox1202G, HandsBackTheCapturedRecordOffTheNamedChannel)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto trace = core::Waveform{
         core::quantityKindOf<core::quantities::Voltage>(),
@@ -743,7 +743,7 @@ TEST( Dsox1202G, AnsweringAChannelNothingCapturedGivesAnEmptyTrace)
     // false rather than throwing: a script reading out a record it never
     // captured has not crashed, and the check it feeds is where that surfaces.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     EXPECT_TRUE( fetchDriver( osc1.channel<2>().waveform().config()).empty());
 }
@@ -756,7 +756,7 @@ TEST( Dsox1202G, FilesEachChannelsTraceUnderItsOwnSessionKey)
     // Infiniium's four and changes nothing about the argument: one slot for two
     // records is already one too few.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     EXPECT_EQ( traceQualifier( osc1.channel<1>().waveform().config()), "Channel1");
     EXPECT_EQ( traceQualifier( osc1.channel<2>().waveform().config()), "Channel2");
@@ -769,7 +769,7 @@ TEST( Dsox1202G, WaveformBuilderCarriesItsChannelByValue)
     // instrument's selected channel -- so the sharp edge they carry (a handle
     // taken before a later switch reads the later channel) does not exist here.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     osc1.setSimulatedTrace( 1, core::Waveform{
         core::quantityKindOf<core::quantities::Voltage>(),
@@ -786,7 +786,7 @@ TEST( Dsox1202G, WaveformBuilderCarriesItsChannelByValue)
 
 TEST( Dsox1202G, ATraceIsDescribedByWhichChannelItCameOff)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     const auto described = describeConfig( osc1.channel<2>().waveform().config());
 
@@ -811,7 +811,7 @@ TEST( Dsox1202G, ATraceIsDescribedByWhichChannelItCameOff)
 //
 // What this cannot test, and no test here could: that the *scope* accepts these
 // strings. That is what the programmer's guide was read for (see
-// src/keysight_dsox1202g.cpp for the document and the derivation) and what a
+// src/oscilloscope.cpp for the document and the derivation) and what a
 // bring-up run on the desk confirms. These tests prove the driver sends what
 // its author intended, not that its author was right about the instrument.
 //
@@ -960,12 +960,12 @@ namespace
     //
     // A scope with a fake transport already installed, and the fake still
     // reachable. A pair because the driver takes ownership of the transport
-    // (see DSOX1202G::useTransport) and the test still needs to read what went
+    // (see Oscilloscope::useTransport) and the test still needs to read what went
     // through it.
     //
     struct Attached
     {
-        hal::keysight_dsox1202g::DSOX1202G Scope{ anyId(), hal::Simulated{} };
+        hal::keysight_dsox1202g::Oscilloscope Scope{ anyId(), hal::Simulated{} };
         FakeScope *                        Wire{ nullptr };
     };
 
@@ -976,7 +976,7 @@ namespace
         // Simulated{} for the address, because there is genuinely no bench, plus
         // a fake transport, because the question under test is what would have
         // been sent to one. The injected transport is what wins -- see
-        // DSOX1202G::isSimulated().
+        // Oscilloscope::isSimulated().
         //
         auto result    = std::make_unique<Attached>();
         auto transport = std::make_unique<FakeScope>();
@@ -1012,7 +1012,7 @@ namespace
 
 TEST( Dsox1202G, AnInjectedTransportIsWhatMakesADriverAttached)
 {
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     EXPECT_TRUE( osc1.isSimulated());
 
@@ -1491,7 +1491,7 @@ TEST( Dsox1202G, SafingNeverOpensASessionOfItsOwn)
     // only way a test without a bench can: it must not throw, and there must be
     // nothing to talk to afterwards either.
     //
-    hal::keysight_dsox1202g::DSOX1202G osc1{ anyId(), hal::Simulated{} };
+    hal::keysight_dsox1202g::Oscilloscope osc1{ anyId(), hal::Simulated{} };
 
     armDriver( osc1.single().config());
 
@@ -1530,13 +1530,13 @@ TEST( Dsox1202G, AnArmThatCouldNotBeSentLeavesTheScopeUnarmed)
 namespace
 {
     namespace gen = hal::keysight_dsox1202g;
-    using gen::WGEN;
+    using gen::WaveformGenerator;
     using gen::Termination;
 
-    static_assert(   std::constructible_from< WGEN, hal::InstrumentId, hal::Usb> );
-    static_assert(   std::constructible_from< WGEN, hal::InstrumentId, hal::Lan> );
-    static_assert( ! std::constructible_from< WGEN, hal::InstrumentId, hal::Gpib> );
-    static_assert( ! std::constructible_from< WGEN, hal::InstrumentId, hal::Serial> );
+    static_assert(   std::constructible_from< WaveformGenerator, hal::InstrumentId, hal::Usb> );
+    static_assert(   std::constructible_from< WaveformGenerator, hal::InstrumentId, hal::Lan> );
+    static_assert( ! std::constructible_from< WaveformGenerator, hal::InstrumentId, hal::Gpib> );
+    static_assert( ! std::constructible_from< WaveformGenerator, hal::InstrumentId, hal::Serial> );
 
     //
     // Each shape offers only its own settings.
@@ -1559,7 +1559,7 @@ namespace
 
     struct Generator
     {
-        WGEN        Unit{ anyId(), hal::Simulated{} };
+        WaveformGenerator        Unit{ anyId(), hal::Simulated{} };
         FakeScope * Wire{ nullptr };
     };
 
@@ -1731,7 +1731,7 @@ TEST( Dsox1202GWgen, ADsox1202AHasNoGeneratorAndIsRefused)
 TEST( Dsox1202GWgen, SafeSwitchesOffThenRestoresFactoryStateOnAnOpenSessionOnly)
 {
     // No session anywhere: nothing to send down, and no attempt to open one.
-    WGEN idle{ anyId(), hal::Lan( "wgen-never-opened.invalid") };
+    WaveformGenerator idle{ anyId(), hal::Lan( "wgen-never-opened.invalid") };
 
     EXPECT_NO_THROW( idle.safe());
 
@@ -1751,8 +1751,8 @@ TEST( Dsox1202GWgen, SafeSwitchesOffThenRestoresFactoryStateOnAnOpenSessionOnly)
 
 TEST( Dsox1202GWgen, TheGeneratorSharesTheScopesSessionAndPreparesItForItself)
 {
-    hal::keysight_dsox1202g::DSOX1202G scope{ anyId(), hal::Lan( "wgen-shares-scope.invalid") };
-    WGEN                               unit{ anyId(), hal::Lan( "wgen-shares-scope.invalid") };
+    hal::keysight_dsox1202g::Oscilloscope scope{ anyId(), hal::Lan( "wgen-shares-scope.invalid") };
+    WaveformGenerator                               unit{ anyId(), hal::Lan( "wgen-shares-scope.invalid") };
 
     auto  fake = std::make_unique<FakeScope>();
     auto *wire = fake.get();
@@ -1769,7 +1769,7 @@ TEST( Dsox1202GWgen, TheGeneratorSharesTheScopesSessionAndPreparesItForItself)
 
 TEST( Dsox1202GWgen, ASimulatedGeneratorRemembersAndSendsNothing)
 {
-    WGEN unit{ anyId(), hal::Simulated{} };
+    WaveformGenerator unit{ anyId(), hal::Simulated{} };
 
     applyDriver( unit.sine().frequency( 2_kHz).amplitude( 1_V).offset( 0.1_V).into( Termination::Ohms50).config());
 

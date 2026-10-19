@@ -106,7 +106,7 @@ the EDU34450A has no command for. See
 
 `Osc1` is the other row whose model has changed, and it changed further than the
 meter did. It was a four-channel Infiniium DSO8064A reconstructed
-from a legacy ATE script; it is now the `hal::keysight_dsox1202g::DSOX1202G`
+from a legacy ATE script; it is now the `hal::keysight_dsox1202g::Oscilloscope`
 actually on the bench, which has two channels, 1 MOhm inputs and no LAN
 connector — so the row's address column could not stay `Lan("bench-osc1")` even
 in principle, and does not compile if it tries. See
