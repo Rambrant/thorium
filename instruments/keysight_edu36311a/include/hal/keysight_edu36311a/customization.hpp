@@ -55,6 +55,60 @@ namespace hal::keysight_edu36311a
     }
 
     //
+    // What one output was programmed to, as setpoint readbacks (VOLTage?,
+    // CURRent?) rather than measurements: measuredVoltage() answers what the
+    // source says it is producing, which is the right question for a check and
+    // the wrong one for a restore. Re-applying a measured 23.98 V would program
+    // the rig to a value nobody asked for, and would do it again, a little
+    // further off, on every pass.
+    //
+    // CurrentLimit is optional because "never programmed" is a state the
+    // instrument distinguishes and a restore has to preserve: std::nullopt means
+    // leave that setting alone, which is what it means everywhere else in
+    // DcConfig. Voltage is not optional, because the driver's own readback is
+    // not -- an output voltage is always some value.
+    //
+    struct DcSnapshot
+    {
+        core::quantities::Voltage                Voltage{};
+        std::optional<core::quantities::Current> CurrentLimit{};
+    };
+
+    //
+    // ADL targets for hal::SourceSnapshot (hal/verbs/snapshot.hpp), which holds
+    // the value and decides *whether* to put it back; these two say what there
+    // is to hold and how to program it again, which only code alongside
+    // DcConfig can.
+    //
+    // restoreDriver returns the builder rather than applying it, so the caller
+    // can Connect and then Apply the same object -- chained through a named
+    // local because a DcConfig holds a reference to its instrument: the builder
+    // is copy-constructible, which the ternary needs, and not copy-assignable,
+    // which `builder = builder.currentLimit( ...)` would need.
+    //
+    template<typename Output, typename Isolation>
+    auto snapshotDriver( const DcSource<Output, Isolation> & source) -> DcSnapshot
+    {
+        return DcSnapshot{ source.outputVoltage(), source.currentLimit() };
+    }
+
+    template<typename Output, typename Isolation>
+    auto portDriver( DcSource<Output, Isolation> & source)
+    {
+        return source.dc();
+    }
+
+    template<typename Output, typename Isolation>
+    auto restoreDriver( DcSource<Output, Isolation> & source, const DcSnapshot & snapshot)
+    {
+        const auto voltage = source.dc().voltage( snapshot.Voltage);
+
+        return snapshot.CurrentLimit
+                   ? voltage.currentLimit( *snapshot.CurrentLimit)
+                   : voltage;
+    }
+
+    //
     // ADL target for the electrical interlock -- see core/verbs/interlock.hpp
     // on the isEnergised customization point, and
     // core::ConnectEngine/DisconnectEngine for the two callers. Answers

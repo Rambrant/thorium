@@ -31,6 +31,7 @@
 #include "hal/verbs/route.hpp"
 #include "hal/verbs/acquire.hpp"
 #include "hal/verbs/trace.hpp"
+#include "hal/verbs/snapshot.hpp"
 //
 // The verdict verbs, unqualified -- so a script writes Verify( ...) next to
 // Measure( ...), rather than core::Verify( ...) next to a bare Measure. Fail

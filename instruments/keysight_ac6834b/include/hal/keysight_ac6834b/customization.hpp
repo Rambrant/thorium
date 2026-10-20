@@ -59,6 +59,126 @@ namespace hal::keysight_ac6834b
     }
 
     //
+    // What the source was programmed to, as setpoint readbacks (VOLTage?,
+    // FREQuency?, CURRent?, VOLTage:RANGe?) rather than measurements --
+    // measuredVoltage() is the right question for a check and the wrong one for
+    // a restore: re-applying a measured 114.7 V would program the rig to a value
+    // nobody asked for, and do it again, a little further off, on every pass.
+    //
+    // Optionals throughout, because "never programmed" is a state the
+    // instrument distinguishes and a restore has to preserve: std::nullopt means
+    // leave that setting alone, which is what it means everywhere else in
+    // AcConfig. Range is normally exactly this case.
+    //
+    struct AcSnapshot
+    {
+        PerPhaseValues<core::quantities::Voltage>                PhaseVoltage{};
+        std::optional<core::quantities::Frequency>               Frequency{};
+        std::optional<PerPhaseValues<core::quantities::Current>> CurrentLimit{};
+        std::optional<PerPhaseValues<core::quantities::Voltage>> Range{};
+    };
+
+    namespace detail
+    {
+        //
+        // One optional readback per phase, folded into one optional triple:
+        // present only if all three phases are. The builder's per-phase setters
+        // take all three or none, so a setting programmed on some phases and not
+        // others is not something a restore could put back by halves -- and it
+        // is not a state this instrument can be left in anyway (INSTrument:COUPle
+        // broadcasts, see AcBuilder).
+        //
+        template<typename QuantityT, typename ReadbackT>
+        [[nodiscard]]
+        auto foldPerPhase( ReadbackT && readback) -> std::optional<PerPhaseValues<QuantityT>>
+        {
+            PerPhaseValues<QuantityT> values{};
+
+            for( const auto phase : phases)
+            {
+                const auto value = readback( phase);
+
+                if( ! value.has_value())
+                {
+                    return std::nullopt;
+                }
+
+                values[ indexOf( phase)] = *value;
+            }
+
+            return values;
+        }
+    } // namespace detail
+
+    //
+    // ADL targets for hal::SourceSnapshot (hal/verbs/snapshot.hpp), which holds
+    // the value and decides *whether* to put it back; these two say what there
+    // is to hold and how to program it again. See hal::keysight_edu36311a's pair
+    // for why restoreDriver returns the builder instead of applying it.
+    //
+    inline auto snapshotDriver( const AcSource & source) -> AcSnapshot
+    {
+        using namespace core::quantities;
+
+        AcSnapshot snapshot{};
+
+        for( const auto phase : phases)
+        {
+            snapshot.PhaseVoltage[ indexOf( phase)] = source.phaseVoltage( phase);
+        }
+
+        snapshot.Frequency    = source.frequency();
+        snapshot.CurrentLimit = detail::foldPerPhase<Current>(
+                                    [ & ]( const Phase phase) { return source.currentLimit( phase); });
+        snapshot.Range        = detail::foldPerPhase<Voltage>(
+                                    [ & ]( const Phase phase) { return source.range( phase); });
+
+        return snapshot;
+    }
+
+    inline auto portDriver( AcSource & source)
+    {
+        return source.ac();
+    }
+
+    //
+    // Chained through named locals for the same copy-constructible-but-not-
+    // assignable reason as the DC pair. Each stage is skipped where the snapshot
+    // found nothing programmed, so a setting nobody touched is left alone
+    // rather than given a value invented here.
+    //
+    // The range readback is already resolved to what the instrument selected
+    // (150 V or 300 V, never the raw value someone passed), and rangeFor maps
+    // each of those to itself -- so it round-trips through the setter rather
+    // than being re-resolved into the other range.
+    //
+    inline auto restoreDriver( AcSource & source, const AcSnapshot & snapshot)
+    {
+        const auto voltages = source.ac().phaseVoltage(
+                                  phaseA( snapshot.PhaseVoltage[ indexOf( Phase::A)]),
+                                  phaseB( snapshot.PhaseVoltage[ indexOf( Phase::B)]),
+                                  phaseC( snapshot.PhaseVoltage[ indexOf( Phase::C)]));
+
+        const auto withFrequency = snapshot.Frequency
+                                       ? voltages.frequency( *snapshot.Frequency)
+                                       : voltages;
+
+        const auto withCurrentLimit = snapshot.CurrentLimit
+                                          ? withFrequency.currentLimit(
+                                                phaseA( ( *snapshot.CurrentLimit)[ indexOf( Phase::A)]),
+                                                phaseB( ( *snapshot.CurrentLimit)[ indexOf( Phase::B)]),
+                                                phaseC( ( *snapshot.CurrentLimit)[ indexOf( Phase::C)]))
+                                          : withFrequency;
+
+        return snapshot.Range
+                   ? withCurrentLimit.range(
+                         phaseA( ( *snapshot.Range)[ indexOf( Phase::A)]),
+                         phaseB( ( *snapshot.Range)[ indexOf( Phase::B)]),
+                         phaseC( ( *snapshot.Range)[ indexOf( Phase::C)]))
+                   : withCurrentLimit;
+    }
+
+    //
     // ADL target for the electrical interlock -- see hal::keysight_edu36311a::DcSource's own
     // isEnergised for the contract, which is identical, and core/verbs/interlock.hpp
     // for why every config with an applyDriver must have one.
