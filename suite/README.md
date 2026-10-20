@@ -87,6 +87,12 @@ and nothing else. Which framework header supplies `Verify` and which supplies
 carry; before this split the two scripts here had already drifted to different
 answers. Note that `tests/` does *not* use the prelude -- see below.
 
+Most of that list is not this suite's: the rig's globals, the verbs, `Verify`/
+`Fail` and the criteria vocabulary come from the framework's
+`framework/runner/include/runner/prelude.hpp`, shared by every deployment. This
+`prelude.hpp` adds only the two things that name this deployment -- its
+`scripts.hpp` and its DUT's `adapter.inc`.
+
 `scripts/` holds the scripts' definitions, one `.cpp` per script -- not built
 via a `CMakeLists.txt` of its own (this directory has none, deliberately), but
 discovered by `framework/runner/CMakeLists.txt`.

@@ -46,6 +46,11 @@ target_link_libraries(scripts PUBLIC hal_rig core)
 
 target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
 
+# runner/prelude.hpp: the part of every deployment's script prelude that names
+# no deployment. Only script translation units include it, and those all compile
+# as part of this target, so it needs no install interface.
+target_include_directories(scripts PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
 # --- Criteria/tolerance variants ---
 # Points core/criteria/active_criteria.hpp at the one file it reads.
 #
