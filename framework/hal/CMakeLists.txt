@@ -404,7 +404,7 @@ install(TARGETS hal_rig
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-if(BUILD_TESTING_LAYERS)
+if(BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS)
     # Linked against hal, not hal_rig -- and that is the whole point of what is
     # left in this directory. The drivers took their own tests to
     # instruments/*/tests/, and the ones that needed this rig rather than a

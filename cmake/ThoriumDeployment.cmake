@@ -350,6 +350,29 @@ macro(thorium_deployment)
 
     # --- Testing setup (GoogleTest, fetched once, shared by every layer) ---
     option(BUILD_TESTING_LAYERS "Build unit tests for each layer" ON)
+
+    # Whose tests. The framework's own -- core, hal, the console, the launcher and
+    # every instrument driver's -- are the framework's to run: they test the
+    # framework at the version it was tagged, and a DUT repository that pins that
+    # version has nothing to learn from running them again against its own rig.
+    # What it does want is its own: rig/tests, dut/tests, the suite's tests and the
+    # acceptance tests, which are about *its* rig, DUT and scripts and are
+    # governed by BUILD_TESTING_LAYERS alone.
+    #
+    # So the default follows who is building: ON when the framework is the project
+    # being configured (this repo, its bench and dev/ deployments), OFF when it was
+    # brought in by someone else's. Either can be overridden, and one cannot
+    # silently stand in for the other -- a framework change is not verified by a
+    # deployment's tests, nor a deployment's by the framework's.
+    if(CMAKE_SOURCE_DIR STREQUAL THORIUM_ROOT)
+        set(_thorium_framework_tests_default ON)
+    else()
+        set(_thorium_framework_tests_default OFF)
+    endif()
+
+    option(THORIUM_FRAMEWORK_TESTS
+        "Build the framework's own unit tests (core, hal, webui, launcher, instrument drivers) alongside the deployment's"
+        ${_thorium_framework_tests_default})
     if(BUILD_TESTING_LAYERS)
         enable_testing()
         include(${THORIUM_ROOT}/cmake/FetchGTest.cmake)

@@ -60,7 +60,7 @@ install(TARGETS hal_keysight_dsox1202g
 )
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-if(BUILD_TESTING_LAYERS)
+if(BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS)
     # Linked against this driver alone -- which transitively means hal and core
     # and nothing else. No hal_rig, no rig data, no other driver, and in
     # particular not the Infiniium driver this one replaces on the bench: the

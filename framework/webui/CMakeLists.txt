@@ -94,7 +94,7 @@ endif()
 # so there is nothing to point at by hand the way THORIUM_UI_TEST_BINARY once
 # had to be -- it also means run_scripts must actually exist by the time the
 # test runs, hence add_dependencies below rather than trusting build order.
-if(BUILD_TESTING_LAYERS)
+if(BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS)
     add_layer_tests(webui_protocol webui_protocol ${CMAKE_CURRENT_SOURCE_DIR}/tests)
     target_compile_definitions(webui_protocol_tests PRIVATE
         THORIUM_WEBUI_TEST_BINARY="$<TARGET_FILE:run_scripts>"

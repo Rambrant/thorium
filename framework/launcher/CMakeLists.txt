@@ -61,7 +61,7 @@ endif()
 # --- Tests -------------------------------------------------------------
 # What each one catches is in README.md's "Testing". Built with the rest of
 # the build's tests, under BUILD_TESTING_LAYERS; none of them needs GoogleTest.
-if(NOT BUILD_TESTING_LAYERS OR NOT UNIX)
+if(NOT (BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS) OR NOT UNIX)
     return()
 endif()
 

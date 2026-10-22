@@ -61,7 +61,7 @@ install(TARGETS hal_keysight_33522b
 )
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-if(BUILD_TESTING_LAYERS)
+if(BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS)
     # Linked against this driver alone -- which transitively means hal and core
     # and nothing else. No hal_rig, no rig data, no other driver. That is worth
     # more than it looks: it is the build refusing to let this driver's tests

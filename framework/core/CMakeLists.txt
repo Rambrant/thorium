@@ -228,7 +228,7 @@ install(TARGETS core
 )
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-if(BUILD_TESTING_LAYERS)
+if(BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS)
     add_layer_tests(core core ${CMAKE_CURRENT_SOURCE_DIR}/tests)
 
     # --- Fixture catalog, for tests/catalog/test_run_hooks.cpp ---
