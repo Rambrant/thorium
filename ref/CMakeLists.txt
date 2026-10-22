@@ -30,7 +30,7 @@ include(FetchContent)
 # THORIUM_REPOSITORY is a variable so a mirror can be swapped in without editing
 # this file (-DTHORIUM_REPOSITORY=...). Replace the default with where the
 # framework actually lives.
-set(THORIUM_REPOSITORY "https://example.invalid/thorium.git" CACHE STRING "Where the framework is fetched from")
+set(THORIUM_REPOSITORY "https://github.com/Rambrant/thorium.git" CACHE STRING "Where the framework is fetched from")
 
 FetchContent_Declare(thorium
     GIT_REPOSITORY ${THORIUM_REPOSITORY}
