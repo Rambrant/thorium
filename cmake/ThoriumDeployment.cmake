@@ -39,7 +39,7 @@ get_filename_component(THORIUM_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 # PROJECT_VERSION: a DUT repo's project() is its own, and a log reporting the
 # DUT repo's version as the framework's would be wrong in exactly the way the
 # traceability header exists to prevent.
-set(THORIUM_VERSION "0.1.0")
+set(THORIUM_VERSION "0.1.2")
 
 macro(thorium_deployment)
     set(CMAKE_CXX_STANDARD 26)
