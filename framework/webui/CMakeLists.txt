@@ -62,8 +62,8 @@ add_custom_command(
             -DEMBED_ROOT=${CMAKE_CURRENT_SOURCE_DIR}/static
             "-DEMBED_INPUTS=${WEBUI_STATIC_FILES}"
             -DEMBED_OUTPUT=${WEBUI_STATIC_CPP}
-            -P ${CMAKE_SOURCE_DIR}/cmake/EmbedFiles.cmake
-    DEPENDS ${WEBUI_STATIC_FILES} ${CMAKE_SOURCE_DIR}/cmake/EmbedFiles.cmake
+            -P ${THORIUM_ROOT}/cmake/EmbedFiles.cmake
+    DEPENDS ${WEBUI_STATIC_FILES} ${THORIUM_ROOT}/cmake/EmbedFiles.cmake
     COMMENT "Embedding the console page"
     VERBATIM
 )
@@ -152,6 +152,6 @@ if(BUILD_TESTING_LAYERS)
                 "-DTHORIUM_CHROME=${THORIUM_CHROME}"
                 -DJS_TEST_PAGE=${CMAKE_CURRENT_SOURCE_DIR}/tests/js/run.html
                 -DJS_TEST_PROFILE_DIR=${CMAKE_CURRENT_BINARY_DIR}/js-tests-profile
-                -P ${CMAKE_SOURCE_DIR}/cmake/RunJsTests.cmake
+                -P ${THORIUM_ROOT}/cmake/RunJsTests.cmake
     )
 endif()

@@ -122,6 +122,7 @@ add_library(core STATIC
         # Nothing in core links against it; it is here so that the three test
         # targets that need it (core tests, the rig tests, the suite tests) all have it.
         include/core/testing/capturing_sink.hpp    # header-only
+        include/core/testing/verdict.hpp           # header-only; verdictOf( script) for a script's own test
 )
 
 target_include_directories(core PUBLIC
@@ -200,7 +201,7 @@ message(STATUS "DUT: ${THORIUM_DUT_NAME} on rig: ${THORIUM_RIG_NAME}")
 # for itself). Empty
 # when core is configured standalone, which journal.cpp reports as "unknown".
 target_compile_definitions(core PRIVATE
-        THORIUM_FRAMEWORK_VERSION="${PROJECT_VERSION}"
+        THORIUM_FRAMEWORK_VERSION="${THORIUM_VERSION}"
         THORIUM_CRITERIA_VARIANT_NAMES="${THORIUM_CRITERIA_VARIANT_NAMES}"
         THORIUM_DEFAULT_CRITERIA_VARIANT="${THORIUM_CRITERIA_VARIANT}"
         THORIUM_MASTER_CRITERIA_VARIANT="${THORIUM_CRITERIA_MASTER}"
@@ -258,7 +259,7 @@ if(BUILD_TESTING_LAYERS)
     # reaches exactly the one translation unit that opts in by redefining them,
     # and no other core test acquires a catalog it never asked for.
     target_compile_definitions(core_tests PRIVATE
-        THORIUM_TEST_CATALOG_FIXTURE="${CMAKE_SOURCE_DIR}/framework/runner/tests/fixtures/hooked_catalog.inc"
-        THORIUM_TEST_SCRIPTS_FIXTURE="${CMAKE_SOURCE_DIR}/framework/runner/tests/fixtures/hooked_scripts.hpp"
+        THORIUM_TEST_CATALOG_FIXTURE="${THORIUM_ROOT}/framework/runner/tests/fixtures/hooked_catalog.inc"
+        THORIUM_TEST_SCRIPTS_FIXTURE="${THORIUM_ROOT}/framework/runner/tests/fixtures/hooked_scripts.hpp"
     )
 endif()

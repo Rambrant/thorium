@@ -13,7 +13,7 @@
 // never a collision -- but it is why a test here injects by quantity and not
 // by function name.
 //
-#include "suite/tests/verdict.hpp"
+#include "core/testing/verdict.hpp"
 
 #include "core/quantities/quantity.hpp"
 #include "hal/topology/active_instruments.hpp"

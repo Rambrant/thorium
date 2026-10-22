@@ -1,13 +1,11 @@
 #include "dev/suite/scripts.hpp"
 
 //
-// suite/tests/verdict.hpp, reached repo-root-relative rather than copied: what
-// it wraps is core::Journal's begin/endTest bracket, which is framework
-// behaviour and identical for every deployment. Its home under the bench
-// suite's tests/ is now slightly wrong -- it belongs somewhere both suites can
-// claim -- and moving it is a separate change from adding this deployment.
+// core/testing/verdict.hpp: what it wraps is core::Journal's begin/endTest
+// bracket, which is framework behaviour and identical for every deployment, so
+// it lives with the framework's other test support rather than in either suite.
 //
-#include "suite/tests/verdict.hpp"
+#include "core/testing/verdict.hpp"
 
 //
 // dmmSelfCheck, with its reading injected -- the dev deployment's analogue of

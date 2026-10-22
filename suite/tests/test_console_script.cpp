@@ -1,5 +1,5 @@
 #include "suite/scripts.hpp"
-#include "verdict.hpp"
+#include "core/testing/verdict.hpp"
 
 //
 // Not suite/prelude.hpp: these tests are not scripts. They call one and inject

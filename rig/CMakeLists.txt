@@ -28,5 +28,5 @@ if(BUILD_TESTING_LAYERS)
     # hal_rig, deliberately (see framework/hal/CMakeLists.txt), and a test naming
     # this repo's own rig by path is stating a fact about this directory rather
     # than reaching for a generic mechanism.
-    target_include_directories(rig_tests PRIVATE ${CMAKE_SOURCE_DIR})
+    target_include_directories(rig_tests PRIVATE ${THORIUM_DEPLOYMENT_ROOT})
 endif()

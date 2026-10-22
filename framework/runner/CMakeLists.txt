@@ -44,7 +44,7 @@ add_library(scripts STATIC
 # which run_scripts links below.
 target_link_libraries(scripts PUBLIC hal_rig core)
 
-target_include_directories(scripts PUBLIC ${CMAKE_SOURCE_DIR})
+target_include_directories(scripts PUBLIC ${THORIUM_DEPLOYMENT_ROOT})
 
 # runner/prelude.hpp: the part of every deployment's script prelude that names
 # no deployment. Only script translation units include it, and those all compile
@@ -138,7 +138,7 @@ install(CODE "set(THORIUM_KNOWN_CRITERIA_VARIANTS \"${THORIUM_KNOWN_CRITERIA_VAR
 install(CODE "set(THORIUM_CRITERIA_VARIANT \"${THORIUM_CRITERIA_VARIANT}\")")
 install(CODE "set(THORIUM_CRITERIA_MASTER \"${THORIUM_CRITERIA_MASTER}\")")
 install(CODE "set(THORIUM_MANIFEST_OUTPUT \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/manifest.json\")")
-install(SCRIPT "${CMAKE_SOURCE_DIR}/cmake/GenerateManifest.cmake")
+install(SCRIPT "${THORIUM_ROOT}/cmake/GenerateManifest.cmake")
 
 if(BUILD_TESTING_LAYERS)
     # These test the deployment's scripts/*.cpp and criteria_*.inc -- suite
@@ -287,5 +287,5 @@ if(BUILD_TESTING_LAYERS)
     # THORIUM_CRITERIA_VARIANT_TABLES compile definition above.
     # test_fuse_register_script.cpp / test_supply_rail_script.cpp also rely on
     # this to reach the suite's scripts.hpp by a plain quoted #include.
-    target_include_directories(scripts_tests PRIVATE ${CMAKE_SOURCE_DIR})
+    target_include_directories(scripts_tests PRIVATE ${THORIUM_DEPLOYMENT_ROOT})
 endif()

@@ -108,9 +108,9 @@ REFERENCE = re.compile(
 # comment above on why these are listed rather than detected.
 #
 ALLOWED = {
-    ( 'CMakeLists.txt', 'ThoriumConfig.cmake/ThoriumConfigVersion.cmake'):
+    ( 'cmake/ThoriumDeployment.cmake', 'ThoriumConfig.cmake/ThoriumConfigVersion.cmake'):
         'prose naming two files at once, not a path',
-    ( 'CMakeLists.txt', 'cmake/ThoriumConfig.cmake'):
+    ( 'cmake/ThoriumDeployment.cmake', 'cmake/ThoriumConfig.cmake'):
         'the real name is cmake/ThoriumConfig.cmake.in; the .in is on the line and this is its prefix',
     ( 'README.md', 'suite/scripts/thermal_ramp_script.cpp'):
         'section 3 recipe -- the file the reader is being told to create',

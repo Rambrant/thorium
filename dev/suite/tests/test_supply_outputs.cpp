@@ -17,7 +17,7 @@
 // three times -- low setpoint, high setpoint, after Remove -- so it is
 // injected as a sequence in that order.
 //
-#include "suite/tests/verdict.hpp"
+#include "core/testing/verdict.hpp"
 
 #include "core/quantities/quantity.hpp"
 #include "core/session/bench.hpp"

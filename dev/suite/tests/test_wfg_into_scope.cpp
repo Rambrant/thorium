@@ -15,7 +15,7 @@
 // Keys are the scope's -- Osc1.<measurement>.<quantity>, no channel -- so a key
 // read more than once in a script is injected as a sequence in read order.
 //
-#include "suite/tests/verdict.hpp"
+#include "core/testing/verdict.hpp"
 
 #include "core/quantities/quantity.hpp"
 #include "core/session/bench.hpp"

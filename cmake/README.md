@@ -1,14 +1,15 @@
 # cmake/ — the build's own moving parts
 
-Six files, each solving one problem the build would otherwise solve badly
+Seven files, each solving one problem the build would otherwise solve badly
 inline. Nothing here is generic CMake boilerplate: each exists because a
 hand-written alternative had a failure mode worth avoiding, and that reasoning
 is the useful part of the file.
 
 | File | Kind | Runs at | Entry point |
 |---|---|---|---|
+| `ThoriumDeployment.cmake` | module, `include()`d | configure | `thorium_deployment()` |
 | `CriteriaVariants.cmake` | module, `include()`d | configure | `thorium_generate_criteria_variants()` |
-| `InstrumentDrivers.cmake` | module, `include()`d | configure | `thorium_generate_instrument_drivers()` |
+| `InstrumentDrivers.cmake` | module, `include()`d | configure | `thorium_instrument_namespaces()`, `thorium_generate_instrument_drivers()` |
 | `FetchGTest.cmake` | module, `include()`d | configure | `add_layer_tests()` |
 | `FetchHttplib.cmake` | module, `include()`d | configure | inclusion defines `httplib::httplib` |
 | `GenerateManifest.cmake` | script, `install(SCRIPT)` | **install** | the whole file |
@@ -16,7 +17,7 @@ is the useful part of the file.
 | `RunJsTests.cmake` | script, `add_test(... -P)` | **test** | the whole file |
 | `ThoriumConfig.cmake.in` | template, `configure_package_config_file()` | configure → install | `find_package(Thorium)` |
 
-The distinction in the *Kind* column matters. Four are modules included into a
+The distinction in the *Kind* column matters. Five are modules included into a
 project's scope, so their macros and functions are callable from a
 `CMakeLists.txt`. One is a standalone script executed in a fresh interpreter at
 install time, with no access to project variables except what the surrounding
@@ -35,6 +36,58 @@ a different compiler. It is gone along with that directory; see
 [`framework/webui/README.md`](../framework/webui/README.md)'s "History"
 for why, and `FetchHttplib.cmake` below for what a dependency with none of
 wxWidgets' cross-compiler problem looks like instead.
+
+---
+
+## `ThoriumDeployment.cmake` — the framework's front door for a deployment
+
+`thorium_deployment()` is everything the top-level `CMakeLists.txt` used to do
+after `project()`: the GCC 16 requirement and flags, the rig/DUT/suite
+directories, the criteria variants, which instrument drivers to build, the
+framework's own subdirectories, then the runner. The top-level file is now
+`project()`, `include()` and that one call, so this repo's own bench and `dev/`
+are a deployment like any other and a DUT repository can do the same:
+
+```cmake
+cmake_minimum_required(VERSION 3.30)
+project(DeviceX LANGUAGES CXX)
+include(<path to a pinned Thorium>/cmake/ThoriumDeployment.cmake)
+thorium_deployment()
+```
+
+with `rig/`, `dut/`, `suite/` (and optionally `acceptance/`) beside it. A
+pinned framework is whatever `FetchContent` (or a submodule) put at a tag: the
+framework and its drivers share one version, so a DUT upgrades them together
+when it chooses and not when another DUT does. Proved by building `dev/`'s
+deployment from a directory outside this repo this way, with only the
+cache variables a preset would set (`THORIUM_KNOWN_CRITERIA_VARIANTS`,
+`THORIUM_ACCEPTANCE_TESTS`, `THORIUM_DUT_NAME`).
+
+**Two roots.** `THORIUM_ROOT` is the framework, found from this file's own
+location; `THORIUM_DEPLOYMENT_ROOT` is the repository configuring it. The
+second is where `rig/`, `dut/` and `suite/` default to, whose git revision is
+the content revision in the logs, and what deployment code's root-relative
+`#include "rig/wiring.inc"` resolves against. Every use of `CMAKE_SOURCE_DIR`
+that used to be both has been given one meaning or the other. They are the
+same directory when this repo builds its own deployments.
+
+**A macro, not a function**, because what it sets has to reach the
+`add_subdirectory()` calls it makes and the caller after it returns.
+
+**`THORIUM_VERSION` is the framework's**, not `PROJECT_VERSION`: a DUT repo's
+`project()` is its own, and a log naming the DUT repo's version as the
+framework's would be wrong in exactly the way the traceability header exists to
+prevent.
+
+**Which drivers get built is read off `rig/instrument.inc`**, by
+`thorium_instrument_namespaces()`; see the next section. `THORIUM_INSTRUMENT_PACKAGES`
+replaces that with an explicit list, and `THORIUM_EXTRA_INSTRUMENT_DIRS` adds
+driver directories from outside the framework — a DUT's own driver, or one it
+vendors at a version of its own.
+
+**Not yet separated:** the framework's own unit tests (`core_tests`,
+`hal_tests`, the drivers' tests) are still built along with a deployment's. A
+DUT repo wants only its own.
 
 ---
 
@@ -147,6 +200,10 @@ like. The package check goes through `THORIUM_INSTRUMENT_DIRS`, the directory
 list the rig supplied, rather than deriving a target name from the namespace:
 a driver package names its own target, and this must not start guessing it
 back.
+
+`thorium_instrument_namespaces()` is the same reading of the table without the
+generation: `thorium_deployment()` calls it first, to build only the packages the
+rig names, and the generator calls it again for the `#include`s.
 
 `instrument.inc` is a `CMAKE_CONFIGURE_DEPENDS` of `framework/hal/`, so editing
 a row regenerates the list on the next build. Written only when the content

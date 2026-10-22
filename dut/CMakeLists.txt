@@ -9,5 +9,5 @@ if(BUILD_TESTING_LAYERS)
     # test_adapter.cpp reaches dut/adapter.inc by a plain quoted #include,
     # repo-root-relative -- test_wiring_coverage.cpp reaches rig/wiring.inc
     # the same way, alongside it.
-    target_include_directories(dut_tests PRIVATE ${CMAKE_SOURCE_DIR})
+    target_include_directories(dut_tests PRIVATE ${THORIUM_DEPLOYMENT_ROOT})
 endif()

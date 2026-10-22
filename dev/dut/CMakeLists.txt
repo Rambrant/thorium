@@ -10,5 +10,5 @@
 # files need is hal::Adapter and the wiring machinery, not an instrument global.
 if(BUILD_TESTING_LAYERS)
     add_layer_tests(dut hal ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-    target_include_directories(dut_tests PRIVATE ${CMAKE_SOURCE_DIR})
+    target_include_directories(dut_tests PRIVATE ${THORIUM_DEPLOYMENT_ROOT})
 endif()

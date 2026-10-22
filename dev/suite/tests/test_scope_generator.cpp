@@ -10,7 +10,7 @@
 // order, and the verdict each reading earns -- not the generator's limits,
 // which WGEN::applyGenerator checks and a detached Apply never reaches.
 //
-#include "suite/tests/verdict.hpp"
+#include "core/testing/verdict.hpp"
 
 #include "core/quantities/quantity.hpp"
 #include "core/session/bench.hpp"

@@ -17,7 +17,7 @@
 // scripts against the same channel spaces the fabric will route with -- and a
 // wrong number in either model fails here as well as on the box.
 //
-#include "suite/tests/verdict.hpp"
+#include "core/testing/verdict.hpp"
 
 #include "hal/fabric/switch_device.hpp"
 #include "hal/io/transport.hpp"

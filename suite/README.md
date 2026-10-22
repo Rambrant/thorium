@@ -110,7 +110,7 @@ and the quantity types and none of the criteria or adapter tables -- which
 is also what lets the `scripts_tests` target build without the criteria
 compile definitions, those being `PRIVATE` to the `scripts` library.
 
-They reach a script's verdict through `verdict.hpp`'s `verdictOf( script)`,
+They reach a script's verdict through `core/testing/verdict.hpp`'s `verdictOf( script)`,
 which does what the runner does around a script -- open a journal test bracket,
 run it, close the bracket and take the answer -- since a script no longer
 returns one. Two things follow that are worth knowing when writing one of these:
@@ -150,7 +150,6 @@ suite/
         transient_bracket.cpp        # the Transient group's SETUP/TEARDOWN pair
         capacitance_bracket.cpp      # the Capacitance group's SETUP/TEARDOWN pair
     tests/
-        verdict.hpp                  # verdictOf( script) -- a script returns no verdict to assert on
         test_fuse_register_script.cpp
         test_supply_rail_script.cpp
         test_console_script.cpp

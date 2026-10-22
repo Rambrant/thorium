@@ -1,5 +1,5 @@
 #include "suite/scripts.hpp"
-#include "verdict.hpp"
+#include "core/testing/verdict.hpp"
 
 //
 // Not suite/prelude.hpp -- see suite/tests/test_supply_rail_script.cpp's own

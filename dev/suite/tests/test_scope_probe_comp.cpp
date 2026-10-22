@@ -14,7 +14,7 @@
 // script reads more than once -- Osc1.Vpp.Voltage, four times in the
 // acquisition script -- is injected as a sequence in the order it is read.
 //
-#include "suite/tests/verdict.hpp"
+#include "core/testing/verdict.hpp"
 
 #include "core/quantities/quantity.hpp"
 #include "core/quantities/waveform.hpp"

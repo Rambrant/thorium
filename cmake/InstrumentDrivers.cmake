@@ -59,21 +59,15 @@ function(_thorium_write_drivers_if_changed path content)
 endfunction()
 
 #
-# instrumentTable: the rig's instrument.inc (THORIUM_INSTRUMENT_TABLE)
-# instrumentDirs:  the driver package directories (THORIUM_INSTRUMENT_DIRS)
-# outputDir:       where to write the generated header
+# Which driver namespaces a rig's instrument table names, in the order it first
+# names them, with duplicates removed -- the type column's qualifier on each
+# INSTRUMENT row (see the convention above). Factored out of
+# thorium_generate_instrument_drivers() because two things need the same answer
+# at different times: the top level asks it before any driver is configured, to
+# work out which packages the rig needs at all, and the generator asks it again
+# to write the #include list. One reading of the table, one set of diagnostics.
 #
-# Sets THORIUM_INSTRUMENT_DRIVERS in the caller's scope, holding the absolute
-# path of the generated file.
-#
-function(thorium_generate_instrument_drivers instrumentTable instrumentDirs outputDir)
-    #
-    # Only lines that actually invoke the macro. The REGEX pass is a coarse
-    # filter -- it also catches the file's own prose, which mentions
-    # INSTRUMENT(box, type, id, address, ...) more than once -- so each candidate is
-    # stripped and re-checked below, where a comment line starts with // and
-    # falls out.
-    #
+function(thorium_instrument_namespaces instrumentTable outNamespaces)
     file(STRINGS "${instrumentTable}" candidateLines REGEX "INSTRUMENT\\(")
 
     set(namespaces "")
@@ -120,6 +114,27 @@ function(thorium_generate_instrument_drivers instrumentTable instrumentDirs outp
     # share one driver and so one #include; the table's own order is what
     # decides where that include lands.
     list(REMOVE_DUPLICATES namespaces)
+
+    set(${outNamespaces} "${namespaces}" PARENT_SCOPE)
+endfunction()
+
+#
+# instrumentTable: the rig's instrument.inc (THORIUM_INSTRUMENT_TABLE)
+# instrumentDirs:  the driver package directories (THORIUM_INSTRUMENT_DIRS)
+# outputDir:       where to write the generated header
+#
+# Sets THORIUM_INSTRUMENT_DRIVERS in the caller's scope, holding the absolute
+# path of the generated file.
+#
+function(thorium_generate_instrument_drivers instrumentTable instrumentDirs outputDir)
+    #
+    # Only lines that actually invoke the macro. The REGEX pass is a coarse
+    # filter -- it also catches the file's own prose, which mentions
+    # INSTRUMENT(box, type, id, address, ...) more than once -- so each candidate is
+    # stripped and re-checked below, where a comment line starts with // and
+    # falls out.
+    #
+    thorium_instrument_namespaces("${instrumentTable}" namespaces)
 
     set(includes "")
 

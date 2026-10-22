@@ -17,5 +17,5 @@ if(BUILD_TESTING_LAYERS)
     # repo-root-relative #include, the way rig/tests/test_wiring_uniqueness.cpp
     # reaches the bench's. THORIUM_WIRING_TABLE is PRIVATE to hal_rig and
     # deliberately not the route in -- see framework/hal/CMakeLists.txt.
-    target_include_directories(rig_tests PRIVATE ${CMAKE_SOURCE_DIR})
+    target_include_directories(rig_tests PRIVATE ${THORIUM_DEPLOYMENT_ROOT})
 endif()
