@@ -252,6 +252,12 @@ if(BUILD_TESTING_LAYERS AND THORIUM_ACCEPTANCE_TESTS)
     add_executable(acceptance_tests ${THORIUM_ACCEPTANCE_SOURCES})
     target_link_libraries(acceptance_tests PRIVATE GTest::gtest_main)
 
+    # runner/testing/acceptance.hpp -- the harness these tests are written with,
+    # shared with the framework's own acceptance target below. It travels with
+    # the framework, so a DUT repository's acceptance tests get the version that
+    # matches the run_scripts they drive.
+    target_include_directories(acceptance_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
     # THORIUM_RUN_SCRIPTS_EXE: a $<TARGET_FILE:...> generator expression rather
     # than a constructed path, so this keeps working under any generator or
     # build layout.
@@ -276,6 +282,49 @@ if(BUILD_TESTING_LAYERS AND THORIUM_ACCEPTANCE_TESTS)
     # `ctest -L acceptance` / `ctest -LE acceptance` -- since these are the only
     # tests here that shell out and touch the filesystem.
     gtest_discover_tests(acceptance_tests PROPERTIES LABELS acceptance)
+endif()
+
+# --- The runner's own black-box tests ---
+# What a deployment's acceptance tests (above) cannot be: tests of the runner
+# itself, which name no suite, DUT or rig, so they belong to the framework and
+# travel with it. They drive run_scripts_hooked -- main.cpp over the fixture
+# catalog -- and need nothing from the deployment but the rig data hal_rig is
+# built against, which the fixture does not read. Gated with the framework's
+# other tests (THORIUM_FRAMEWORK_TESTS), so this repository's builds run them and
+# a DUT repository's do not; it keeps its own, above.
+#
+# Not a deployment's job to repeat, and not the framework's to inherit from
+# whichever deployment is being built: before this target the hook-ordering
+# scenarios lived in the bench's acceptance tests, so the runner's own coverage
+# went with the bench.
+# One more condition than the framework's other tests, and it is a fact about the
+# rig rather than about who is building: run_scripts_hooked is linked against the
+# deployment's hal_rig, and an ordinary run preflights that rig's instruments
+# before any hook announces itself. A rig of Simulated{} rows passes that; a rig
+# pointed at real hardware (dev/, the desk bench) fails it with "no free
+# instrument" on a machine with nothing plugged in. hal is rig-keyed -- one rig
+# per build directory -- so the runner cannot be linked against a second, simulated
+# one beside it; a deployment that is not simulated sets THORIUM_RUNNER_ACCEPTANCE
+# OFF, and the framework's own simulated reference deployment is what runs these.
+option(THORIUM_RUNNER_ACCEPTANCE
+    "Build the framework's own black-box tests of the runner; needs a rig made of Simulated{} instruments" ON)
+
+if(BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS AND THORIUM_RUNNER_ACCEPTANCE)
+    file(GLOB THORIUM_RUNNER_ACCEPTANCE_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/acceptance/*.cpp")
+
+    add_executable(runner_acceptance_tests ${THORIUM_RUNNER_ACCEPTANCE_SOURCES})
+    target_link_libraries(runner_acceptance_tests PRIVATE GTest::gtest_main)
+    target_include_directories(runner_acceptance_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+    target_compile_definitions(runner_acceptance_tests PRIVATE
+        THORIUM_RUN_SCRIPTS_HOOKED_EXE="$<TARGET_FILE:run_scripts_hooked>"
+        THORIUM_ACCEPTANCE_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/runner_acceptance"
+    )
+
+    add_dependencies(runner_acceptance_tests run_scripts_hooked)
+
+    gtest_discover_tests(runner_acceptance_tests PROPERTIES LABELS acceptance)
 endif()
 
 if(BUILD_TESTING_LAYERS)

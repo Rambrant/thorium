@@ -40,11 +40,28 @@ below are not defined, because they are `PRIVATE` to `acceptance_tests`. That
 helper's own comment states the rule: sources under a `tests/` tree that belong
 to another target must live outside every path handed to it.
 
-What is *not* here is the hook-ordering fixture these tests drive as their
-second runner (`run_scripts_hooked`, over a catalog that announces its own
-`RUN_SETUP`/`SETUP` and can be made to fail on demand). That fixture names no
-instrument and no DUT point, and what it tests is the runner's own ordering, so
-it is framework: `framework/runner/tests/fixtures/`.
+What is *not* here is what does not name this deployment, and there are two
+pieces of it, both framework and both in `framework/runner/`:
+
+- **The harness** these tests are written with -- the subprocess, quoting,
+  artifact and log-reading machinery and the `Acceptance` fixture -- is
+  `include/runner/testing/acceptance.hpp`. A deployment's acceptance tests
+  include it, so a repository that pins a framework version writes its own against
+  exactly the harness that version's tests use.
+- **The runner's own black-box tests**, the hook-ordering scenarios
+  (`tests/acceptance/test_runner_hooks.cpp`), which drive `run_scripts_hooked`:
+  the same `main.cpp` over a catalog that announces its own `RUN_SETUP`/`SETUP`
+  and can be made to fail on demand. They name no instrument and no DUT point, so
+  they travel with the framework and do not depend on this deployment existing.
+  What stays here is the pair that are about this rig's power cycle
+  (`AcceptanceHooks.TheShippedHooks...`, `AFailedPowerUp...`).
+
+The other generic scenarios in this file -- arguments, selection, log files,
+repeat, recording, skeleton, inject -- are runner behaviour too, but they run
+against this deployment's suite and assert on its names. Moving them needs a
+framework-owned simulated deployment to run against, which is not here yet; see
+`THORIUM_RUNNER_ACCEPTANCE` in `framework/runner/CMakeLists.txt` for why the
+ones already moved cannot use `dev/`.
 
 ## Build
 
