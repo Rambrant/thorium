@@ -146,7 +146,7 @@ ALLOWED = {
         'the dsl/ layer is commented-out scaffolding -- delete the directory or write the file',
     ( 'dsl/CMakeLists.txt', 'tests/test_test_case.cpp'):
         'the dsl/ layer is commented-out scaffolding -- delete the directory or write the file',
-    ( 'dut/criteria_production.inc', 'scripts/include/scripts/fuse_register_criteria.hpp'):
+    ( 'ref/dut/criteria_production.inc', 'scripts/include/scripts/fuse_register_criteria.hpp'):
         'names scaffolding that has never existed in this repo -- repoint or drop the sentence',
 }
 

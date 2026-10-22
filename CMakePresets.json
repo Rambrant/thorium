@@ -99,6 +99,7 @@
       "name": "dev-deployment",
       "hidden": true,
       "cacheVariables": {
+        "THORIUM_DEPLOYMENT_ROOT": "${sourceDir}",
         "THORIUM_RIG_DIR": "${sourceDir}/dev/rig",
         "THORIUM_DUT_DIR": "${sourceDir}/dev/dut",
         "THORIUM_SUITE_DIR": "${sourceDir}/dev/suite",

@@ -283,13 +283,13 @@ that cannot be recovered from the code.
 | [`instruments/racal1260`](instruments/racal1260/README.md) | RS232 port — `Ser1`, routed to a DUT interface through the matrix |
 | [`instruments/keysight_34980a`](instruments/keysight_34980a/README.md) | Switch/measure **mainframe** — an instrument row that measures nothing; the first switch-device driver, safed after every source, and where this rack's switching is heading |
 
-**This deployment's content**
+**The reference deployment** ([`ref/`](ref/README.md)) -- a complete, simulated rig, DUT and suite, laid out the way a DUT repository lays out its own
 
 | | |
 |---|---|
-| [`rig`](rig/README.md) | This bench's instruments, their wiring, the four tables a rig supplies, and the integration tests that need more than one instrument |
-| [`dut`](dut/README.md) | This device's test points and criteria variants |
-| [`suite`](suite/README.md) | Test scripts, the catalog, and the setup/teardown hooks |
+| [`ref/rig`](ref/rig/README.md) | This bench's instruments, their wiring, the four tables a rig supplies, and the integration tests that need more than one instrument |
+| [`ref/dut`](ref/dut/README.md) | This device's test points and criteria variants |
+| [`ref/suite`](ref/suite/README.md) | Test scripts, the catalog, and the setup/teardown hooks |
 
 `framework/core`, `framework/runner`, `tools/` and `dsl/` have no README of their own — their
 rationale lives in the header and `CMakeLists.txt` comments, and for `framework/core`

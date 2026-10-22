@@ -100,7 +100,8 @@ macro(thorium_deployment)
     # revision, and which the scripts' root-relative #includes ("rig/wiring.inc")
     # resolve against. They are the same directory when this repo builds its own dev/
     # deployment, and different ones when a DUT repo has fetched the framework.
-    set(THORIUM_DEPLOYMENT_ROOT "${CMAKE_SOURCE_DIR}")
+    set(THORIUM_DEPLOYMENT_ROOT "${CMAKE_SOURCE_DIR}" CACHE PATH
+        "The repository root the deployment's rig/, dut/, suite/ and its root-relative #includes resolve against")
 
     # GNUInstallDirs: standard, override-able CMAKE_INSTALL_{BINDIR,LIBDIR,
     # INCLUDEDIR} for everything installed below (framework/core, framework/hal,
@@ -299,7 +300,7 @@ macro(thorium_deployment)
 
     set(THORIUM_CONTENT_REVISION "unknown")
 
-    if(GIT_FOUND AND EXISTS "${THORIUM_DEPLOYMENT_ROOT}/.git")
+    if(GIT_FOUND)
         execute_process(
             COMMAND "${GIT_EXECUTABLE}" describe --always --dirty --tags
             WORKING_DIRECTORY "${THORIUM_DEPLOYMENT_ROOT}"
