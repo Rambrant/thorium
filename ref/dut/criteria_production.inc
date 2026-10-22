@@ -79,7 +79,7 @@ END_CRITERIA
 // not, and there is no temperature or service life at which a charged one
 // becomes measurable.
 //
-// TODO(bench): 1000 uF nominal is Device X's stated input capacitance and the
+// TODO(bench): 1000 uF nominal is the reference DUT's stated input capacitance and the
 // +/-20% band is the ordinary tolerance an aluminium electrolytic is sold at.
 // Neither has been read off a schematic or a part number -- check both before
 // this is used for anything, exactly as the rail tolerances above want checking.

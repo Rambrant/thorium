@@ -34,7 +34,7 @@ TEST( DutProfile, PointsCarryTheNameAndDescriptionFromTheSpec)
 
 TEST( DutProfile, GroupDescriptionComesFromTheAdapterTable)
 {
-    EXPECT_EQ( dut::Description, "Device X on standard adapter");
+    EXPECT_EQ( dut::Description, "Reference DUT on standard adapter");
 }
 
 //

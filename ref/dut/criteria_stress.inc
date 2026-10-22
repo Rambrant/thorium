@@ -72,7 +72,7 @@ END_CRITERIA
 // FS_Transient_Captured gets above.
 //
 // PLACEHOLDER -- the -33%/+5% band below is the shape of the curve, taken from
-// what an aluminium electrolytic does rather than from Device X's own part.
+// what an aluminium electrolytic does rather than from any particular device's part.
 // Replace with the capacitor's own temperature characteristic.
 //
 CRITERIA( FS_BulkCap_1, "DUT input bulk capacitance on the 24Vdc battery rail (stress, PLACEHOLDER)")

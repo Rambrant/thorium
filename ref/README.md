@@ -38,8 +38,8 @@ Each directory has its own README: [`rig/`](rig/README.md),
 [`dut/`](dut/README.md), [`suite/`](suite/README.md),
 [`acceptance/`](acceptance/README.md).
 
-**It is still named Device X.** This deployment began as that device's bench, and
-`THORIUM_DUT_NAME` still defaults to `DeviceX`, as do a few strings its
-acceptance tests assert. When Device X moves to a repository of its own, that
-repository starts as a copy of this directory and this one is renamed to
-something neutral.
+**It is not any real device.** It began as Device X's bench, and Device X now has a
+repository of its own ([thorium_device_x](https://github.com/Rambrant/thorium_device_x)),
+which started as a copy of this directory and pins the framework at a tag. This
+one is the framework's fixture: its DUT is called `ReferenceDut`, its numbers are
+invented, and nothing in it should be read as Device X's.

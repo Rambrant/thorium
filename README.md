@@ -1962,7 +1962,7 @@ cmake --preset macos-debug -DTHORIUM_CRITERIA_VARIANT=stress
 | `THORIUM_KNOWN_CRITERIA_VARIANTS` | `production stress aged` | which tolerance tables are compiled in. Each needs a matching `dut/criteria_<name>.inc`, checked at *configure* time |
 | `THORIUM_CRITERIA_VARIANT` | `production` | which of them applies when `--criteria=` is not given. A typo fails the *configure* step |
 | `THORIUM_CRITERIA_MASTER` | `production` | which of them is the master: the table `CRIT_FROM_MASTER` borrows from and the merged criteria are generated from. Any variant will do, provided it spells every criterion out with `CRIT` (checked at *configure* time) |
-| `THORIUM_DUT_NAME` | `DeviceX` | DUT name in both logs |
+| `THORIUM_DUT_NAME` | `unknown` (`ReferenceDut` for `ref/`) | DUT name in both logs; a deployment sets its own before `thorium_deployment()` |
 | `THORIUM_RIG_NAME` | `thorium-rig-1` | bench name in the machine log |
 | `THORIUM_SUITE_VERSION`, `THORIUM_DUT_VERSION`, `THORIUM_RIG_VERSION` | `git describe --always --dirty` | content revision in both logs |
 | `BUILD_TESTING_LAYERS` | `ON` | build each layer's tests |

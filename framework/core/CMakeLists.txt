@@ -181,12 +181,17 @@ target_include_directories(core PUBLIC
 # This form makes the repository the source of the default (edit it, reconfigure,
 # done) while still letting a caller override per build:
 #
-#     cmake -B <build-dir> -DTHORIUM_DUT_NAME=DeviceY
+#     cmake -B <build-dir> -DTHORIUM_DUT_NAME=Other
 #
 # -D creates a real cache entry, which `DEFINED` sees, so an explicit override
 # still wins and still persists across reconfigures.
+# "unknown" and not a name: the framework serves many DUTs and none of them is the
+# default. A deployment sets its own *before* calling thorium_deployment(), in
+# the same `if(NOT DEFINED ...)` form (see ref/CMakeLists.txt), so that an
+# explicit -D still wins; one that forgets gets a log that says it does not know
+# which DUT it tested, rather than a plausible wrong one.
 if(NOT DEFINED THORIUM_DUT_NAME)
-    set(THORIUM_DUT_NAME "DeviceX")
+    set(THORIUM_DUT_NAME "unknown")
 endif()
 
 if(NOT DEFINED THORIUM_RIG_NAME)

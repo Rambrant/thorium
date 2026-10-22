@@ -272,6 +272,9 @@ if(BUILD_TESTING_LAYERS AND THORIUM_ACCEPTANCE_TESTS)
         THORIUM_RUN_SCRIPTS_EXE="$<TARGET_FILE:run_scripts>"
         THORIUM_RUN_SCRIPTS_HOOKED_EXE="$<TARGET_FILE:run_scripts_hooked>"
         THORIUM_ACCEPTANCE_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/acceptance"
+        # The name the logs print for this deployment's DUT, so the tests that
+        # assert on it follow whatever the deployment is called.
+        THORIUM_DUT_NAME="${THORIUM_DUT_NAME}"
     )
 
     # Nothing links either runner, so without this the acceptance binary could

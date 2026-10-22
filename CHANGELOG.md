@@ -13,6 +13,16 @@ Newest first.
   (additive; `OLDEST_SUPPORTED` stays 1). Provided by `keysight_edu36311a` and
   `keysight_ac6834b`.
 
+### Changed (breaking)
+- **`THORIUM_DUT_NAME` has no default name.** It used to be `DeviceX`; unset, it is now
+  `unknown`. A DUT repo sets its own before `thorium_deployment()`, in the
+  `if(NOT DEFINED THORIUM_DUT_NAME)` form `ref/CMakeLists.txt` shows. (A repo that
+  relied on the old default and does nothing will print `unknown` in its logs.)
+- The reference deployment in `ref/` is no longer Device X: its DUT is `ReferenceDut`
+  and its adapter description "Reference DUT on standard adapter". Device X lives in
+  [thorium_device_x](https://github.com/Rambrant/thorium_device_x). The acceptance
+  tests take the DUT name from the build (`THORIUM_DUT_NAME`) instead of spelling it.
+
 ### Changed
 - `ThoriumConfigVersion.cmake` is `SameMinorVersion` while the major version is 0.
 - `project(Thorium)` carries no version; `THORIUM_VERSION` in

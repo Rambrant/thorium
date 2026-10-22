@@ -72,7 +72,7 @@ END_CRITERIA
 // life changes that.
 //
 // PLACEHOLDER -- the -20% floor is the ordinary end-of-life convention rather
-// than Device X's own derating. Replace with the capacitor's stated endurance
+// than any particular device's derating. Replace with the capacitor's stated endurance
 // figures.
 //
 CRITERIA( FS_BulkCap_1, "DUT input bulk capacitance on the 24Vdc battery rail (aged equipment)")

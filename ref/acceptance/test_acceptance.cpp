@@ -111,6 +111,16 @@ using namespace thorium_acceptance;
 namespace
 {
     //
+    // What the logs call this deployment's DUT -- the build's THORIUM_DUT_NAME,
+    // handed in by framework/runner/CMakeLists.txt, so nothing here names a
+    // particular device.
+    //
+    constexpr std::string_view kDutName = THORIUM_DUT_NAME;
+} // namespace
+
+namespace
+{
+    //
     // One fixture alias per concern, so each group of scenarios gets its own
     // ctest suite name to filter on (`ctest -R AcceptanceMachineLog`) and its
     // own artifact directories.
@@ -421,7 +431,7 @@ TEST_F( AcceptanceCriteria, BothLogsRecordTheVariantThatWasApplied)
 
     // The run's own identity, which a server uses to group results -- see
     // core::SarifSink::automationDetails.
-    EXPECT_TRUE( containsText( sarif, machineLog, R"("id": "thorium/DeviceX/stress/)"));
+    EXPECT_TRUE( containsText( sarif, machineLog, "\"id\": \"thorium/" + std::string( kDutName) + "/stress/"));
 
     EXPECT_TRUE( containsText( rtf, readFile( rtf), "stress"));
 }
@@ -478,7 +488,7 @@ TEST_F( AcceptanceHumanLog, ConsoleCarriesTheHeaderTestNamesAndVerdicts)
     // under it are the report's fixed schedule -- serial, operator, criteria,
     // criteria master, framework, content revision, UTC instant, command line.
     //
-    EXPECT_TRUE( containsText( outPath(), mOut, "DeviceX -- "));
+    EXPECT_TRUE( containsText( outPath(), mOut, std::string( kDutName) + " -- "));
     EXPECT_TRUE( containsText( outPath(), mOut, "DUT serial        SN-000123"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Operator          acceptance"));
     EXPECT_TRUE( containsText( outPath(), mOut, "Criteria"));
@@ -587,7 +597,7 @@ TEST_F( AcceptanceMachineLog, SarifCarriesThisRunsTraceabilityFacts)
     EXPECT_TRUE( containsText( sarif, log, R"("commandLine")"));
 
     // What makes two runs comparable: same DUT, same tolerance table.
-    EXPECT_TRUE( containsText( sarif, log, R"("id": "thorium/DeviceX/)"));
+    EXPECT_TRUE( containsText( sarif, log, "\"id\": \"thorium/" + std::string( kDutName) + "/"));
 }
 
 TEST_F( AcceptanceMachineLog, SarifCarriesEveryVerbAndKeysCriteriaByGroupAndId)

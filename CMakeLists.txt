@@ -24,4 +24,10 @@ include(cmake/ThoriumDeployment.cmake)
 set(THORIUM_DEPLOYMENT_ROOT "${CMAKE_SOURCE_DIR}/ref" CACHE PATH
     "The repository root the deployment's rig/, dut/, suite/ and its root-relative #includes resolve against")
 
+# The DUT's name, as the logs print it. A plain default rather than a cache entry,
+# for the reason framework/core/CMakeLists.txt gives; the dev presets set theirs.
+if(NOT DEFINED THORIUM_DUT_NAME)
+    set(THORIUM_DUT_NAME "ReferenceDut")
+endif()
+
 thorium_deployment()

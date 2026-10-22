@@ -41,4 +41,12 @@ FetchContent_Declare(thorium
 FetchContent_MakeAvailable(thorium)
 
 include(${thorium_SOURCE_DIR}/cmake/ThoriumDeployment.cmake)
+
+# What the logs call this DUT. A plain default, set only when nobody has said
+# otherwise, so that -DTHORIUM_DUT_NAME=... on a configure still wins; without it
+# the framework reports "unknown". Name your own.
+if(NOT DEFINED THORIUM_DUT_NAME)
+    set(THORIUM_DUT_NAME "ReferenceDut")
+endif()
+
 thorium_deployment()

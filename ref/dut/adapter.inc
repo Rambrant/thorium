@@ -1,7 +1,7 @@
 // ReSharper disable once CppMissingIncludeGuard
 
 //
-// Device X on its standard adapter. Each named point maps to where it lands
+// The reference DUT on its standard adapter. Each named point maps to where it lands
 // on the VPC90 connector array -- and to nothing else. A point is a pinout
 // name; what is measured there is chosen at the Measure() call site by which
 // instrument port is pointed at it, so the same pin can be read for voltage,
@@ -31,7 +31,7 @@
 // The DUT's name for the logs is THORIUM_DUT_NAME, set in
 // framework/core/CMakeLists.txt -- not this file.
 //
-ADAPTER( "Device X on standard adapter")
+ADAPTER( "Reference DUT on standard adapter")
     POINT( Output5V,        A, 1, 3, "5Vdc supply port")
     POINT( Output3V3,       A, 1, 6, "3.3Vdc supply port")
     POINT( ClkProbe,        A, 1, 2, "Config clock probe")

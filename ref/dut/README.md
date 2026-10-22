@@ -1,7 +1,7 @@
 # dut/ -- DUT-specific data, and nothing else
 
 This directory holds *only* data specific to the actual device under test --
-Device X on its standard adapter -- expressed as flat, macro-driven `.inc`
+The reference DUT on its standard adapter -- expressed as flat, macro-driven `.inc`
 files with no C++ logic of their own. There is deliberately no library here
 (no `add_library(dut ...)`): the mechanisms that make sense of this data
 (`core::AdapterPointTag`, `core::MeasureEngine`, the `CRITERIA`/`ADAPTER`
@@ -95,8 +95,8 @@ because an aluminium electrolytic genuinely loses capacitance when it is cold
 and when it is old, and asymmetrically -- the floor moves a long way and the
 ceiling barely moves. It is the one place in these tables where the shape of the
 widening is a datasheet curve rather than a number picked to be wider than the
-last one. The numbers themselves are still Device X's, which is to say still
-invented; the shape is not.
+last one. The numbers themselves are still invented -- they are no real device's -- and
+the shape is not.
 
 Each `.inc` file is deliberately bare: just `CRITERIA( ... ) ... END_CRITERIA`
 blocks, nothing else. No `#pragma once`, no `#include`s, no namespace, and
