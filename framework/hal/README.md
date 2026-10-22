@@ -867,7 +867,8 @@ them** — the numbers are a promise this directory makes, and nothing derives o
 verifies them.
 
 The log is in `api_version.hpp` itself; the short version is that 2 added
-`hal::ConfigBuilder` and 3 added `hal/io/`. Both were additive, so
+`hal::ConfigBuilder`, 3 added `hal/io/`, and 6 added `hal::SourceSnapshot` with the three
+ADL hooks a source driver provides for it. Both were additive, so
 `OLDEST_SUPPORTED` is still 1 and a driver written against either earlier
 number compiles here unchanged -- and stays simulated, which is exactly what an
 additive transport layer should mean for a driver that does not use it.

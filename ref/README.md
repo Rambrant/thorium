@@ -31,8 +31,8 @@ switching fabric, DUT points, several criteria variants, run and group hooks.
 `CMakeLists.txt` and `CMakePresets.json` here are not part of this repository's
 own build -- its top level builds this directory's contents directly -- but the
 ones a repository copied from this directory would use. Pointed at this checkout
-with `-DFETCHCONTENT_SOURCE_DIR_THORIUM=$PWD`, `cmake -S ref -B build/ref` builds
-them as such, which is how the consumer path is exercised without a download.
+with `-DFETCHCONTENT_SOURCE_DIR_THORIUM=..`, `cd ref && cmake --preset macos-debug`
+builds them as such, which is how the consumer path is exercised without a download.
 
 Each directory has its own README: [`rig/`](rig/README.md),
 [`dut/`](dut/README.md), [`suite/`](suite/README.md),

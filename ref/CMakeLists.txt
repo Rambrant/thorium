@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.30)
 # start as a copy of this directory, and so that the path it takes can be run for
 # real: configure it against the checkout it sits in with
 #
-#     cmake -S ref -B build/ref -DFETCHCONTENT_SOURCE_DIR_THORIUM=$PWD
+#     cd ref && cmake --preset macos-debug -DFETCHCONTENT_SOURCE_DIR_THORIUM=..
 #
 # which is what a fetched tag looks like to the build, minus the download.
 project(Reference LANGUAGES CXX)

@@ -6,7 +6,10 @@ cmake_minimum_required(VERSION 3.30)
 # not a special case. Which deployment is a preset's business (cmake
 # --list-presets): the default is this repo's bench in rig/, dut/ and suite/, and
 # dev/ is the desk bench.
-project(Thorium LANGUAGES CXX VERSION 0.1.0)
+# No VERSION here: the framework's one version is THORIUM_VERSION in
+# cmake/ThoriumDeployment.cmake, so there is a single place to bump for a
+# release (see RELEASING.md).
+project(Thorium LANGUAGES CXX)
 
 include(cmake/ThoriumDeployment.cmake)
 

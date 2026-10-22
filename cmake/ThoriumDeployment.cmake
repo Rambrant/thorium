@@ -697,10 +697,19 @@ macro(thorium_deployment)
         ${CMAKE_CURRENT_BINARY_DIR}/ThoriumConfig.cmake
         INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Thorium
     )
+    # Semantic versioning says anything may change before 1.0, so a 0.y release is
+    # only compatible with its own 0.y line; from 1.0 on, a major version is. See
+    # RELEASING.md for what counts as breaking.
+    if(THORIUM_VERSION VERSION_LESS 1.0)
+        set(_thorium_version_compatibility SameMinorVersion)
+    else()
+        set(_thorium_version_compatibility SameMajorVersion)
+    endif()
+
     write_basic_package_version_file(
         ${CMAKE_CURRENT_BINARY_DIR}/ThoriumConfigVersion.cmake
         VERSION ${THORIUM_VERSION}
-        COMPATIBILITY SameMajorVersion
+        COMPATIBILITY ${_thorium_version_compatibility}
     )
     install(FILES
         ${CMAKE_CURRENT_BINARY_DIR}/ThoriumConfig.cmake

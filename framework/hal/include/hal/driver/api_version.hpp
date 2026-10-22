@@ -120,6 +120,18 @@
 //        and nothing asks for 5, for the reason 4 gives: its one reader is a
 //        rig's wiring.inc.
 //
+//     6  Adds hal::SourceSnapshot (hal/verbs/snapshot.hpp) and the three ADL hooks
+//        it reads from a driver's own namespace -- snapshotDriver(), restoreDriver()
+//        and portDriver() -- beside applyDriver()/removeDriver(). Purely
+//        additive, so OLDEST_SUPPORTED stays at 1: a source driver without them
+//        is unchanged, it simply cannot be handed to SourceSnapshot. **Nothing asks
+//        for 6**, for the reason 4 gives in reverse: the hooks are written by the
+//        driver and called by hal, so a driver providing them uses nothing new
+//        from hal. The number moves because these hooks are part of what a driver
+//        can now be asked for -- a driver that wants its source restorable after a
+//        script takes it down should ask for 6, so that a hal predating them
+//        refuses it instead of silently ignoring the hooks.
+//
 // A driver asks for the oldest version that has everything it uses, written as
 // a literal -- never the macro itself, which would assert that this hal is
 // compatible with this hal and pass everywhere. For most new drivers that is
@@ -130,7 +142,7 @@
 // a hal that would have served the driver perfectly, which is the nuisance the
 // two-number scheme exists to avoid.
 //
-#define THORIUM_HAL_API_VERSION           5
+#define THORIUM_HAL_API_VERSION           6
 #define THORIUM_HAL_API_OLDEST_SUPPORTED  1
 
 namespace hal

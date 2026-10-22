@@ -73,7 +73,7 @@ pinned framework is whatever `FetchContent` (or a submodule) put at a tag: the
 framework and its drivers share one version, so a DUT upgrades them together
 when it chooses and not when another DUT does. Proved end to end: a repository holding a copy of `ref/` and a
 `FetchContent` of a tag builds every target, and its 262 tests pass; the same
-file, pointed at a checkout with `-DFETCHCONTENT_SOURCE_DIR_THORIUM=<path>`, is how
+file, pointed at a checkout with `-DFETCHCONTENT_SOURCE_DIR_THORIUM=<path>` (from `ref/`: `cmake --preset macos-debug -DFETCHCONTENT_SOURCE_DIR_THORIUM=..`), is how
 this repository exercises that path without a download.
 
 **Two roots.** `THORIUM_ROOT` is the framework, found from this file's own
@@ -358,7 +358,7 @@ prose out of `suite/test_catalog.inc` rather than arbitrary input.
 
 A template, expanded by `configure_package_config_file()` and installed to
 `${CMAKE_INSTALL_LIBDIR}/cmake/Thorium` alongside a generated
-`ThoriumConfigVersion.cmake` (`SameMajorVersion` compatibility). Together with
+`ThoriumConfigVersion.cmake` (`SameMinorVersion` compatibility while the major version is 0, `SameMajorVersion` from 1.0 -- see `RELEASING.md`). Together with
 `ThoriumTargets.cmake` — which `core`, `hal`, `hal_rig` and every instrument
 driver populate through their own `install(TARGETS ... EXPORT ThoriumTargets)`
 calls — this is what makes `find_package(Thorium)` work.
