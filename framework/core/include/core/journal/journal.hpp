@@ -139,6 +139,17 @@ namespace core
     {
         std::string FrameworkName;
         std::string FrameworkVersion;
+
+        //
+        // Which commit of the framework this binary was built from -- a tag
+        // name, tag-N-gHASH past one, or "-dirty" for local edits ("unknown"
+        // where it could not be derived). Separate from FrameworkVersion, which
+        // is a clean semantic version (SARIF carries it as one) and says only
+        // which release line: a deployment pins its framework at a tag of its
+        // own, so two logs claiming 0.1.0 can still be different builds of it.
+        // Empty when a caller built the RunInfo by hand, and then not reported.
+        //
+        std::string FrameworkRevision;
         std::string CriteriaVariant;
 
         //

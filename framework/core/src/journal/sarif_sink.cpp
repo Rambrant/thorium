@@ -584,6 +584,7 @@ namespace core
 
         property(         out, kI4, "frameworkName",    mRunInfo.FrameworkName,    first);
         property(         out, kI4, "frameworkVersion", mRunInfo.FrameworkVersion, first);
+        property(         out, kI4, "frameworkRevision", mRunInfo.FrameworkRevision, first);
         property(         out, kI4, "criteriaVariant",  mRunInfo.CriteriaVariant,  first);
 
         //

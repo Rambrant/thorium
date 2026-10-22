@@ -450,6 +450,7 @@ namespace
         core::RunInfo info;
         info.FrameworkName    = "Thorium";
         info.FrameworkVersion = "0.1.0";
+        info.FrameworkRevision = "v0.1.0-3-g2cf453b";
         info.CriteriaVariant  = "stress";
         info.CriteriaMaster   = "production";
         info.DutName          = "DeviceX";
@@ -488,7 +489,7 @@ TEST( CoreReport, HeaderCarriesTheFullTraceabilityBag)
     EXPECT_TRUE( containsText( lines, "SN-000123"));
     EXPECT_TRUE( containsText( lines, "thomas"));
     EXPECT_TRUE( containsText( lines, "stress"));
-    EXPECT_TRUE( containsText( lines, "Thorium 0.1.0"));
+    EXPECT_TRUE( containsText( lines, "Thorium 0.1.0 (v0.1.0-3-g2cf453b)"));
     EXPECT_TRUE( containsText( lines, "7e4ff59"));
     EXPECT_TRUE( containsText( lines, "2026-08-01T09:14:02.371Z"));
     EXPECT_TRUE( containsText( lines, "run_scripts --select=SupplyRail"));

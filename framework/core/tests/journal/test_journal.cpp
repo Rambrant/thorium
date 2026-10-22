@@ -539,6 +539,7 @@ TEST( CoreJournalRunInfo, DefaultsCarryWhatTheBuildKnowsAboutItself)
     // rig cache variables -- non-empty here is the assertion that the compile
     // definitions actually reached this translation unit.
     EXPECT_FALSE( info.FrameworkVersion.empty());
+    EXPECT_FALSE( info.FrameworkRevision.empty());
     EXPECT_FALSE( info.CriteriaVariant.empty());
     EXPECT_FALSE( info.DutName.empty());
     EXPECT_FALSE( info.RigName.empty());

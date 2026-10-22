@@ -51,17 +51,30 @@ are a deployment like any other and a DUT repository can do the same:
 ```cmake
 cmake_minimum_required(VERSION 3.30)
 project(DeviceX LANGUAGES CXX)
-include(<path to a pinned Thorium>/cmake/ThoriumDeployment.cmake)
+
+include(FetchContent)
+FetchContent_Declare(thorium
+    GIT_REPOSITORY <where the framework lives>
+    GIT_TAG        v0.1.1
+    SOURCE_SUBDIR  no-such-directory   # download only; do not add_subdirectory it
+)
+FetchContent_MakeAvailable(thorium)
+
+include(${thorium_SOURCE_DIR}/cmake/ThoriumDeployment.cmake)
 thorium_deployment()
 ```
+
+(`ref/CMakeLists.txt` is exactly this, and `ref/CMakePresets.json` carries the
+GCC 16 compiler stanzas a DUT repo needs in its own presets -- presets are read
+before anything is fetched, so the framework cannot supply them.)
 
 with `rig/`, `dut/`, `suite/` (and optionally `acceptance/`) beside it. A
 pinned framework is whatever `FetchContent` (or a submodule) put at a tag: the
 framework and its drivers share one version, so a DUT upgrades them together
-when it chooses and not when another DUT does. Proved by building `dev/`'s
-deployment from a directory outside this repo this way, with only the
-cache variables a preset would set (`THORIUM_KNOWN_CRITERIA_VARIANTS`,
-`THORIUM_ACCEPTANCE_TESTS`, `THORIUM_DUT_NAME`).
+when it chooses and not when another DUT does. Proved end to end: a repository holding a copy of `ref/` and a
+`FetchContent` of a tag builds every target, and its 262 tests pass; the same
+file, pointed at a checkout with `-DFETCHCONTENT_SOURCE_DIR_THORIUM=<path>`, is how
+this repository exercises that path without a download.
 
 **Two roots.** `THORIUM_ROOT` is the framework, found from this file's own
 location; `THORIUM_DEPLOYMENT_ROOT` is the repository configuring it. The
@@ -70,6 +83,14 @@ the content revision in the logs, and what deployment code's root-relative
 `#include "rig/wiring.inc"` resolves against. Every use of `CMAKE_SOURCE_DIR`
 that used to be both has been given one meaning or the other. They are the
 same directory when this repo builds its own deployments.
+
+**Which framework a log came from.** `THORIUM_VERSION` is the release line and
+stays a clean semantic version (SARIF carries it as one); `THORIUM_FRAMEWORK_REVISION`
+is `git describe` run in `THORIUM_ROOT` -- the tag itself when a deployment pins
+one, `tag-N-gHASH` past it, `-dirty` for local edits, `unknown` for a tarball with
+no `.git` unless the caller sets it. Both reach `core` as compile definitions
+and are in the report header, the machine log and the SARIF properties, so a log
+says which commit of the framework it was built from and not only `0.1.0`.
 
 **A macro, not a function**, because what it sets has to reach the
 `add_subdirectory()` calls it makes and the caller after it returns.

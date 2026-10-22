@@ -298,6 +298,38 @@ macro(thorium_deployment)
     # framework/core/src/journal/journal.cpp makes for the rest of the header.
     find_package(Git QUIET)
 
+    # The framework's own revision, the other half of what a log has to say now that a
+    # deployment pins a copy of the framework at a tag of its own: THORIUM_VERSION
+    # says which release line (and is what the package is versioned by), this says
+    # which commit of it was actually built -- the tag when it is one, tag-N-gHASH
+    # past one, and "-dirty" for a framework checkout with local edits. Same
+    # derivation as the content revision above and for the same reasons, run in the
+    # framework's own directory: a FetchContent clone is a git repository, so a
+    # pinned tag reports as itself. Overridable like the others, for a framework
+    # that arrived as a tarball with no .git (a plain variable, recomputed on every
+    # configure for the reason given below).
+    set(THORIUM_FRAMEWORK_REVISION_DEFAULT "unknown")
+
+    if(GIT_FOUND)
+        execute_process(
+            COMMAND "${GIT_EXECUTABLE}" describe --always --dirty --tags
+            WORKING_DIRECTORY "${THORIUM_ROOT}"
+            OUTPUT_VARIABLE _thorium_framework_describe
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+
+        if(_thorium_framework_describe)
+            set(THORIUM_FRAMEWORK_REVISION_DEFAULT "${_thorium_framework_describe}")
+        endif()
+    endif()
+
+    if(NOT DEFINED THORIUM_FRAMEWORK_REVISION)
+        set(THORIUM_FRAMEWORK_REVISION "${THORIUM_FRAMEWORK_REVISION_DEFAULT}")
+    endif()
+
+    message(STATUS "Framework revision: ${THORIUM_FRAMEWORK_REVISION}")
+
     set(THORIUM_CONTENT_REVISION "unknown")
 
     if(GIT_FOUND)

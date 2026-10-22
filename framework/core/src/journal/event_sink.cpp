@@ -197,6 +197,7 @@ namespace core
         line.openObject( "info")
             .nested( "frameworkName",    info.FrameworkName)
             .nested( "frameworkVersion", info.FrameworkVersion)
+            .nested( "frameworkRevision", info.FrameworkRevision)
             .nested( "criteriaVariant",  info.CriteriaVariant)
             .nested( "criteriaMaster",   info.CriteriaMaster)
             .nested( "dutName",          info.DutName)

@@ -1,0 +1,233 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "macos",
+      "hidden": true,
+      "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "/opt/homebrew/bin/gcc-16",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/bin/g++-16"
+      }
+    },
+    {
+      "name": "windows",
+      "hidden": true,
+      "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "C:/mingw64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/mingw64/bin/g++.exe"
+      }
+    },
+    {
+      "name": "linux",
+      "hidden": true,
+      "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "gcc-16",
+        "CMAKE_CXX_COMPILER": "g++-16"
+      }
+    },
+    {
+      "name": "debug",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "macos-debug",
+      "inherits": [
+        "debug",
+        "macos"
+      ]
+    },
+    {
+      "name": "macos-release",
+      "inherits": [
+        "release",
+        "macos"
+      ]
+    },
+    {
+      "name": "windows-debug",
+      "inherits": [
+        "debug",
+        "windows"
+      ]
+    },
+    {
+      "name": "windows-release",
+      "inherits": [
+        "release",
+        "windows"
+      ]
+    },
+    {
+      "name": "linux-debug",
+      "inherits": [
+        "debug",
+        "linux"
+      ]
+    },
+    {
+      "name": "linux-release",
+      "inherits": [
+        "release",
+        "linux"
+      ]
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "macos-build",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "windows-build",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "linux-build",
+      "hidden": true,
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "macos-debug",
+      "inherits": "macos-build",
+      "configurePreset": "macos-debug"
+    },
+    {
+      "name": "macos-release",
+      "inherits": "macos-build",
+      "configurePreset": "macos-release"
+    },
+    {
+      "name": "windows-debug",
+      "inherits": "windows-build",
+      "configurePreset": "windows-debug"
+    },
+    {
+      "name": "windows-release",
+      "inherits": "windows-build",
+      "configurePreset": "windows-release"
+    },
+    {
+      "name": "linux-debug",
+      "inherits": "linux-build",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "linux-release",
+      "inherits": "linux-build",
+      "configurePreset": "linux-release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test-defaults",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "macos-test",
+      "hidden": true,
+      "inherits": "test-defaults",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "windows-test",
+      "hidden": true,
+      "inherits": "test-defaults",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "linux-test",
+      "hidden": true,
+      "inherits": "test-defaults",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "macos-debug",
+      "inherits": "macos-test",
+      "configurePreset": "macos-debug"
+    },
+    {
+      "name": "macos-release",
+      "inherits": "macos-test",
+      "configurePreset": "macos-release"
+    },
+    {
+      "name": "windows-debug",
+      "inherits": "windows-test",
+      "configurePreset": "windows-debug"
+    },
+    {
+      "name": "windows-release",
+      "inherits": "windows-test",
+      "configurePreset": "windows-release"
+    },
+    {
+      "name": "linux-debug",
+      "inherits": "linux-test",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "linux-release",
+      "inherits": "linux-test",
+      "configurePreset": "linux-release"
+    }
+  ]
+}

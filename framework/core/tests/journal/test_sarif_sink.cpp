@@ -107,6 +107,7 @@ namespace
                 core::RunInfo info;
                 info.FrameworkName    = "Thorium";
                 info.FrameworkVersion = "0.1.0";
+                info.FrameworkRevision = "v0.1.0-3-g2cf453b";
                 info.CriteriaVariant  = "stress";
                 info.CriteriaMaster   = "production";
                 info.DutName          = "DeviceX";
@@ -245,6 +246,7 @@ TEST_F( SarifSinkTest, TraceabilityBagCarriesEveryRunInfoField)
     // tool.driver + invocation: where a generic SARIF consumer looks.
     EXPECT_TRUE( contains( text, "\"name\": \"Thorium\""));
     EXPECT_TRUE( contains( text, "\"version\": \"0.1.0\""));
+    EXPECT_TRUE( contains( text, "\"frameworkRevision\": \"v0.1.0-3-g2cf453b\""));
     EXPECT_TRUE( contains( text, "\"startTimeUtc\": \"2026-07-30T09:14:02.371Z\""));
     EXPECT_TRUE( contains( text, "run_scripts --select=SupplyRail"));
     EXPECT_TRUE( contains( text, "\"machine\": \"rig-console\""));

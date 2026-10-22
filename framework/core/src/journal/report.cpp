@@ -332,7 +332,8 @@ namespace core
         //
         append( lines, { metadataLine( "Criteria master", info.CriteriaMaster) });
         append( lines, { benchLine( info.BenchAttached) });
-        append( lines, { metadataLine( "Framework",  info.FrameworkName + " " + info.FrameworkVersion) });
+        append( lines, { metadataLine( "Framework",  info.FrameworkName + " " + info.FrameworkVersion
+                                                     + ( info.FrameworkRevision.empty() ? std::string{} : " (" + info.FrameworkRevision + ")")) });
         append( lines, versionLines( info));
         append( lines, { metadataLine( "Started (UTC)", info.StartedUtc) });
         append( lines, { metadataLine( "Command line",  info.CommandLine) });

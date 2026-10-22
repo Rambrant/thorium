@@ -25,6 +25,10 @@
     #define THORIUM_FRAMEWORK_VERSION "unknown"
 #endif
 
+#ifndef THORIUM_FRAMEWORK_REVISION
+    #define THORIUM_FRAMEWORK_REVISION "unknown"
+#endif
+
 #ifndef THORIUM_DUT_NAME
     #define THORIUM_DUT_NAME "unknown"
 #endif
@@ -169,6 +173,7 @@ namespace core
         return RunInfo{
             .FrameworkName    = "Thorium",
             .FrameworkVersion = THORIUM_FRAMEWORK_VERSION,
+            .FrameworkRevision = THORIUM_FRAMEWORK_REVISION,
 
             //
             // Read from the runtime selection rather than baked in at build
