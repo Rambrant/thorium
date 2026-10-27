@@ -55,7 +55,7 @@ project(DeviceX LANGUAGES CXX)
 include(FetchContent)
 FetchContent_Declare(thorium
     GIT_REPOSITORY <where the framework lives>
-    GIT_TAG        v0.1.1
+    GIT_TAG        v0.1.2
     SOURCE_SUBDIR  no-such-directory   # download only; do not add_subdirectory it
 )
 FetchContent_MakeAvailable(thorium)
@@ -75,6 +75,61 @@ when it chooses and not when another DUT does. Proved end to end: a repository h
 `FetchContent` of a tag builds every target, and its 262 tests pass; the same
 file, pointed at a checkout with `-DFETCHCONTENT_SOURCE_DIR_THORIUM=<path>` (from `ref/`: `cmake --preset macos-debug -DFETCHCONTENT_SOURCE_DIR_THORIUM=..`), is how
 this repository exercises that path without a download.
+
+**Where the framework is fetched from.** The only thing a DUT build downloads is
+the framework itself (GoogleTest and httplib are vendored in `third_party/`), and
+`ref/CMakeLists.txt` takes its location from the cache variable
+`THORIUM_REPOSITORY`. The tag stays pinned in the DUT repo's `GIT_TAG`; only the
+*place* it is read from changes, so the same repository builds in both worlds
+without an edit.
+
+*Connected machine (the normal case).* Nothing to do: the default URL is used and
+`FetchContent` clones the tag.
+
+```sh
+cmake --preset macos-debug
+```
+
+*Air-gapped rig computer.* Point `THORIUM_REPOSITORY` at a git repository on local
+disk or on a share the rig can reach. `GIT_REPOSITORY` accepts a path, and CMake
+still clones from it and checks out `GIT_TAG`, so the pin is still enforced: if
+the tag is not in the copied repository the configure step fails rather than
+building something else.
+
+1. On a machine with network access, make a mirror, which carries every tag and
+   branch, and put it on the transfer medium:
+
+   ```sh
+   git clone --mirror https://github.com/Rambrant/thorium.git thorium.git
+   ```
+
+2. Carry `thorium.git/` to the rig computer (USB stick, internal share).
+3. Configure the DUT repository against it:
+
+   ```sh
+   cmake --preset linux-release -DTHORIUM_REPOSITORY=/opt/thorium.git
+   ```
+
+   The variable is a cache entry, so it is remembered in that build directory.
+   Put it in a CMake user preset (`CMakeUserPresets.json`, not committed) if the
+   rig always builds this way.
+
+To move to a new release, run `git remote update` in the connected copy, carry it
+over again, and change `GIT_TAG` in the DUT repository. Check that a tag made it
+with `git -C /opt/thorium.git tag -l v0.1.2`.
+
+Notes:
+
+- A normal clone works as well as a mirror (`-DTHORIUM_REPOSITORY=/path/to/thorium`,
+  not the `.git` inside it), provided it has the tags: `git fetch --tags` first.
+- `GIT_SHALLOW ON` is harmless here: git ignores `--depth` for a plain local path
+  and says so in the output.
+- A repository copied by a different user can trip git's `dubious ownership` check.
+  `chown` the copy, or `git config --global --add safe.directory /opt/thorium.git`.
+- This is not the same as `-DFETCHCONTENT_SOURCE_DIR_THORIUM=<path>`, which skips
+  the git step and builds whatever is in that directory, tag or not. That is the
+  right tool for working on the framework alongside a DUT; `THORIUM_REPOSITORY` is
+  the right tool for building a pinned release without a network.
 
 **Two roots.** `THORIUM_ROOT` is the framework, found from this file's own
 location; `THORIUM_DEPLOYMENT_ROOT` is the repository configuring it. The

@@ -34,7 +34,7 @@ set(THORIUM_REPOSITORY "https://github.com/Rambrant/thorium.git" CACHE STRING "W
 
 FetchContent_Declare(thorium
     GIT_REPOSITORY ${THORIUM_REPOSITORY}
-    GIT_TAG        v0.1.1
+    GIT_TAG        v0.1.2
     GIT_SHALLOW    ON
     SOURCE_SUBDIR  no-such-directory
 )
