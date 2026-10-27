@@ -131,3 +131,43 @@ GROUP( ScopeGenerator, "The scope's built-in waveform generator, checked by the 
     TEST( WgenTermination,     wgenTermination,     "Told 50 Ohm it doubles into the scope; told high-Z it does not")
     TEST( WgenOutputOff,       wgenOutputOff,       "Remove turns the output off -- the scope sees only its own noise")
 END_GROUP
+
+//
+// The PicoScope, Osc2, watching the 33522B: generator CH1 to Pico A and CH2 to B
+// on BNC cables, 1:1. Runs whole -- nothing is reconnected, and each test turns
+// off what it turned on. See dev/suite/scripts/pico_into_wfg.cpp.
+//
+GROUP( PicoIntoWfg, "The PicoScope's driver against the bench generator -- 33522B CH1 cabled to Pico A, CH2 to B")
+    TEST( PicoSineChA,             picoSineChA,             "Channel A: a 1 kHz, 2 Vpp sine's level, frequency, centre and RMS")
+    TEST( PicoSineChB,             picoSineChB,             "Channel B: a 1 kHz, 2 Vpp sine's level, frequency, centre and RMS")
+    TEST( PicoFrequencySteps,      picoFrequencySteps,      "A sine at 100 Hz, 1 kHz, 10 kHz and 1 MHz, the timebase following")
+    TEST( PicoAmplitudeAndOffset,  picoAmplitudeAndOffset,  "4 Vpp on a +1 V offset peaks at +3 V and troughs at -1 V")
+    TEST( PicoRanges,              picoRanges,              "The same 2 Vpp sine on the 2 V, 5 V and 10 V ranges reads the same")
+    TEST( PicoResolutions,         picoResolutions,         "The same sine at 8, 12 and 14 bits")
+    TEST( PicoSquareDutyCycle,     picoSquareDutyCycle,     "A 25% square: top, base and both widths")
+    TEST( PicoRampAndTriangle,     picoRampAndTriangle,     "A rising sawtooth and a triangle, by their edge times")
+    TEST( PicoDcLevels,            picoDcLevels,            "DC at +1.5 V and -2 V")
+    TEST( PicoCoupling,            picoCoupling,            "2 Vpp on +1 V averages 1 V DC coupled and 0 V AC coupled")
+    TEST( PicoBandwidthLimit,      picoBandwidthLimit,      "The 20 MHz bandwidth limit leaves a 1 kHz sine alone")
+    TEST( PicoTriggerSlopes,       picoTriggerSlopes,       "Normal sweep fires on a rising and on a falling edge")
+    TEST( PicoCapture,             picoCapture,             "A single-shot capture, then both channels' traces fetched and checked")
+    TEST( PicoChannelsIndependent, picoChannelsIndependent, "A 1 kHz sine on channel A and a 5 kHz square on channel B at once")
+    TEST( PicoOutputOff,           picoOutputOff,           "Remove turns the generator off -- the Pico sees only its own noise")
+END_GROUP
+
+//
+// The PicoScope's own function generator, Wfg3, measured by the scope it is built
+// into: Gen cabled to channel A on a BNC cable. Runs whole -- nothing is
+// reconnected, and each test turns off what it turned on. Both faces of box
+// Pico1 at once, on the one open unit. See dev/suite/scripts/pico_generator.cpp.
+//
+GROUP( PicoGenerator, "The PicoScope's built-in function generator, checked by the scope it is built into -- Gen cabled to channel A")
+    TEST( PgenSine,              pgenSine,              "A 1 kHz, 2 Vpp sine's level, frequency, centre and RMS")
+    TEST( PgenFrequencySteps,    pgenFrequencySteps,    "A sine at 100 Hz, 1 kHz, 10 kHz and 1 MHz")
+    TEST( PgenSquare,            pgenSquare,            "A 50% square: top, base and both widths")
+    TEST( PgenRamps,             pgenRamps,             "A rising and a falling sawtooth and a triangle, by their edge times")
+    TEST( PgenAmplitudeAndOffset, pgenAmplitudeAndOffset, "2 Vpp on a +0.5 V offset peaks at +1.5 V and troughs at -0.5 V")
+    TEST( PgenDcLevels,          pgenDcLevels,          "DC at +1.5 V and -1.5 V")
+    TEST( PgenNoise,             pgenNoise,             "1 Vpp of noise: an RMS in band and a mean of zero")
+    TEST( PgenOutputOff,         pgenOutputOff,         "Remove silences the output -- the scope sees only its own noise")
+END_GROUP

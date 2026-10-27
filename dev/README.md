@@ -30,11 +30,13 @@ ctest --test-dir build/dev
 dev/
     rig/     one EDU34450A (pooled), one EDU36311A's three outputs, one
              DSOX1202G, one 33522B, one 34980A (not yet in the fabric),
-             no wiring
+             one PicoScope 5244D (Osc2, and its generator Wfg3), no wiring
     dut/     an adapter with no points, one criteria table per instrument
     suite/   the meter's sanity check, each of its functions, each of the
              supply's outputs, the scope against its probe-comp output, and
-             the generator as the scope measures it, and the switch unit
+             the generator as the scope measures it, the PicoScope as the
+             33522B drives it (PicoIntoWfg), the PicoScope's own generator as
+             the PicoScope measures it (PicoGenerator), and the switch unit
 ```
 
 Every file is the ordinary form of its table with the rows a desk bench has. One of them has no counterpart on the

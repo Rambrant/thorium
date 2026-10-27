@@ -168,8 +168,13 @@ CRITERIA( DEV_Wfg_1, "The waveform generator, measured by the scope on the other
     CRIT( DEV_Wfg_FastEdge,     LT( 20.0_us),                       "The sawtooth's reset is an edge, not a ramp")
     CRIT( DEV_Wfg_Dc1V5,        EQ( 1.5_V).epsilon( 0.06_V),        "A +1.5 V DC level reads +1.5 V")
     CRIT( DEV_Wfg_DcMinus2V,    EQ( -2.0_V).epsilon( 0.08_V),       "A -2 V DC level reads -2 V")
+    CRIT( DEV_Wfg_DcMinus1V5,   EQ( -1.5_V).epsilon( 0.06_V),       "A -1.5 V DC level reads -1.5 V")
     CRIT( DEV_Wfg_NoiseRms,     IN( 0.08_V, 0.30_V),                "1 Vpp of Gaussian noise is about a sixth of that RMS")
     CRIT( DEV_Wfg_OpenCircuit,  EQ( 2.0_V).epsilon( 0.10_V),        "1 Vpp told to expect 50 Ohm doubles into the scope's open circuit")
+    CRIT( DEV_Wfg_Pk1V5,        EQ( 1.5_V).epsilon( 0.10_V),        "2 Vpp on a +0.5 V offset peaks at +1.5 V")
+    CRIT( DEV_Wfg_PkMinus0V5,   EQ( -0.5_V).epsilon( 0.10_V),       "2 Vpp on a +0.5 V offset troughs at -0.5 V")
+    CRIT( DEV_Wfg_Mean0V5,      EQ( 0.5_V).epsilon( 0.05_V),        "2 Vpp on a +0.5 V offset averages +0.5 V")
+    CRIT( DEV_Wfg_Width500us,   EQ( 500.0_us).epsilon( 8.0_us),     "A 50% square at 1 kHz is 500 us high and 500 us low")
     CRIT( DEV_Wfg_Off,          LT( 0.10_V),                        "A removed output is gone -- nothing but the scope's own noise")
 END_CRITERIA
 

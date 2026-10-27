@@ -125,7 +125,9 @@ namespace hal
     {
         auto & held = link();
 
-        held.Session = std::make_unique<io::ScpiSession>( std::move( transport));
+        held.Native.reset();
+        held.NativeType = nullptr;
+        held.Session    = std::make_unique<io::ScpiSession>( std::move( transport));
         held.PreparedBy.clear();
     }
 
@@ -149,6 +151,8 @@ namespace hal
         if( auto * const held = heldLink())
         {
             held->Session.reset();
+            held->Native.reset();
+            held->NativeType = nullptr;
             held->PreparedBy.clear();
         }
     }

@@ -151,6 +151,22 @@
 // check says if the unit is an A. Wfg1 is the 33522B; this is the other
 // generator on the desk.
 //
+//
+// Osc2 is the PicoScope 5244D on the desk, box Pico1: a USB oscilloscope with no front panel,
+// driven through Pico's own ps5000a library (see hal::pico_5244d::Oscilloscope). The row's
+// serial is empty, which means "the first PicoScope found" -- right while there is one on the
+// desk; --address Osc2=usb:<serial> or THORIUM_ADDRESS_Osc2 names a particular unit, and
+// --address Osc2=sim runs without it. The library is found on the usual paths, or at
+// THORIUM_PS5000A_LIBRARY (PicoScope 7's app bundle holds one, see the driver's README).
+// Its scripts are driven by Wfg1 -- generator channel 1 cabled to the Pico's A, 2 to B -- see
+// dev/suite/scripts/pico_into_wfg.cpp.
+//
+// Wfg3 is the Pico's own generator, the other face of box Pico1 -- the same arrangement as the
+// DSOX1202G's Wfg2 on Scope1: one USB address, one open unit shared by both rows (see
+// hal::pico_5244d::WaveformGenerator and hal/pico_5244d/unit.hpp), a source safed with the
+// others. One output, the Gen BNC, 20 MHz and +/-2 V; the scope reads it back with Gen cabled to
+// its channel A -- see dev/suite/scripts/pico_generator.cpp.
+//
 INSTRUMENTS
     INSTRUMENT( DeskDmm, keysight_edu34450a::Multimeter,        Dmm1, Usb( "CN65510018"))   // fixes the row's kind; the shelf in pools.inc is what an attached run actually opens
     INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput1,     DcP5, Usb( "CN65100272"))   // 6 V / 5 A
@@ -161,4 +177,6 @@ INSTRUMENTS
     INSTRUMENT( Swu1,    keysight_34980a::SwitchUnit,           Swu1, Usb( "MY53154781"))   //
     INSTRUMENT( Swu1,    keysight_34980a::Multimeter,           Dmm2, Usb( "MY53154781"))   // the same box's internal DMM -- see above
     INSTRUMENT( Scope1,  keysight_dsox1202g::WaveformGenerator, Wfg2, Usb( "CN64504143"))   // the scope's built-in generator -- see above
+    INSTRUMENT( Pico1,   pico_5244d::Oscilloscope,              Osc2, Usb( ""))             // first PicoScope found -- see above
+    INSTRUMENT( Pico1,   pico_5244d::WaveformGenerator,         Wfg3, Usb( ""))             // the Pico's built-in generator -- see above
 END_INSTRUMENTS

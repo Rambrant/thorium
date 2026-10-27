@@ -7,6 +7,21 @@ Newest first.
 ## Unreleased
 
 ### Added
+- `instruments/pico_5244d`: a driver for the Pico Technology PicoScope 5244D. No SCPI --
+  it drives Pico's `ps5000a` library, loaded at runtime (nothing to install to build),
+  and computes every `Measure` on the host from a block capture. Tested against a fake
+  library; **not yet run against a unit** -- see its README.
+- `pico_5244d::WaveformGenerator`: the 5244D's built-in function generator as a second
+  face of the scope's box, laid out as the DSOX1202G's is -- a row of its own, sharing
+  the one open unit.
+- `THORIUM_HAL_API_VERSION` 7: `hal::BoxConnection::native<T>()` / `openNative<T>()` /
+  `installNative<T>()`, one shared object per box beside the SCPI session, for a unit
+  driven through a vendor library instead of SCPI (additive; `OLDEST_SUPPORTED` stays 1).
+  Provided for and used by `pico_5244d`.
+- `dev/`: the PicoScope as `Osc2` and its generator as `Wfg3`, both on box `Pico1` (first
+  unit found); a `PicoIntoWfg` group of 15 scripts that drive the scope from the 33522B --
+  ranges, offset, resolution, coupling, triggers, capture -- and a `PicoGenerator` group
+  of 8 that check the Pico's own generator with the Pico's own scope.
 - `RELEASING.md` and this file.
 - `THORIUM_HAL_API_VERSION` 6: `hal::SourceSnapshot` and the `snapshotDriver` /
   `restoreDriver` / `portDriver` ADL hooks a source driver provides for it

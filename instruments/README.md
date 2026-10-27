@@ -48,6 +48,15 @@ instruments/
         include/hal/keysight_34980a_switch_unit.hpp, ..._multimeter.hpp   #   the two faces
         src/switch_unit.cpp, src/multimeter.cpp   #   the SCPI: ROUT:CLOS/OPEN, slot inspection; MEASure
         tests/test_keysight_34980a.cpp
+    pico_5244d/                 # PicoScope 5244D -- Osc2 and its generator Wfg3, one box: ps5000a library loaded at runtime, measurements computed on the host
+        CMakeLists.txt          #   STATIC, not INTERFACE: it has .cpp files
+        README.md
+        include/hal/pico_5244d.hpp   #   the box: Oscilloscope + WaveformGenerator
+        include/hal/pico_5244d_oscilloscope.hpp          #   face one
+        include/hal/pico_5244d_waveform_generator.hpp    #   face two
+        include/hal/pico_5244d/   #   the parts: vocabulary, builders, library, unit (what the faces share)
+        src/library.cpp, src/unit.cpp, src/oscilloscope.cpp, src/waveform_generator.cpp
+        tests/test_pico_5244d.cpp, tests/test_measurements.cpp
     keysight_ac6834b/           # three-phase AC source
     racal1260/                  # matrix-routed RS232 port
 ```
@@ -363,6 +372,16 @@ for themselves. `address()`, `isSimulated()`, `useTransport()`, `useAddress()` a
 `closeSession()` all hand straight to it, and `safe()` asks it for
 `openSession()` -- the session if any face of the box opened one, never opening
 one itself.
+
+**A unit with no SCPI holds a `BoxConnection` too.** `pico_5244d` is driven through a
+vendor library -- a function table and a handle -- and its two faces still have to
+share the one open unit, because the SDK refuses a second `OpenUnit`. So the box's
+link carries, beside the session, one *native* object of the driver's own type
+(`native<T>()`, `openNative<T>()` for safing, `installNative<T>()` for tests), with
+the session's rules: shared per box and address, made lazily by whichever face speaks
+first, never made by safing, released by `closeSession()` from either face. What a
+face configured on it stays the face's own (see `hal/pico_5244d/unit.hpp`). A box
+holds a session or a native object, not both.
 
 **The session opens lazily, and it has to.** A rig's instruments are globals
 constructed before `main()`, so a constructor that opened a socket would make

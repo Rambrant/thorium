@@ -5,6 +5,7 @@
 #include "hal/keysight_edu34450a.hpp"
 #include "hal/keysight_edu36311a.hpp"
 #include "hal/keysight_dsox1202g.hpp"
+#include "hal/pico_5244d.hpp"
 #include "hal/keysight_33522b.hpp"
 #include "hal/keysight_34980a.hpp"
 #include "hal/fabric/switch_device.hpp"
@@ -63,10 +64,12 @@ namespace
     // Another INSTRUMENT() row fails here, which is the intent: it is not
     // forbidden, it is a change to what this deployment is, and it should be a
     // deliberate edit to this line rather than a silent widening. This line has
-    // been that edit five times: the supply's outputs, the scope, the
-    // generator, the switch unit, and the switch unit's own meter.
+    // been that edit seven times: the supply's outputs, the scope, the
+    // generator, the switch unit, the switch unit's own meter, a second
+    // scope, the PicoScope, on a USB box of its own, and that box's other
+    // face, its generator.
     //
-    static_assert( core::meta::values<hal::InstrumentId>.size() == 9);
+    static_assert( core::meta::values<hal::InstrumentId>.size() == 11);
     static_assert( core::meta::values<hal::InstrumentId>[0] == hal::InstrumentId::Dmm1);
     static_assert( core::meta::values<hal::InstrumentId>[1] == hal::InstrumentId::DcP5);
     static_assert( core::meta::values<hal::InstrumentId>[2] == hal::InstrumentId::DcP6);
@@ -76,6 +79,8 @@ namespace
     static_assert( core::meta::values<hal::InstrumentId>[6] == hal::InstrumentId::Swu1);
     static_assert( core::meta::values<hal::InstrumentId>[7] == hal::InstrumentId::Dmm2);
     static_assert( core::meta::values<hal::InstrumentId>[8] == hal::InstrumentId::Wfg2);
+    static_assert( core::meta::values<hal::InstrumentId>[9] == hal::InstrumentId::Osc2);
+    static_assert( core::meta::values<hal::InstrumentId>[10] == hal::InstrumentId::Wfg3);
 
     //
     // -- The switch unit's five cards ------------------------------------------
@@ -131,6 +136,8 @@ namespace
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Swu1));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Dmm2));
     static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Wfg2));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Osc2));
+    static_assert( ! hal::isTapWiredInstrument( hal::InstrumentId::Wfg3));
 
     //
     // -- Each driver still owes the framework what every driver owes ----------
@@ -147,6 +154,8 @@ namespace
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput2> );
     static_assert( hal::SafeableInstrument< hal::keysight_edu36311a::DirectOutput3> );
     static_assert( hal::SafeableInstrument< hal::keysight_dsox1202g::Oscilloscope> );
+    static_assert( hal::SafeableInstrument< hal::pico_5244d::Oscilloscope> );
+    static_assert( hal::SafeableInstrument< hal::pico_5244d::WaveformGenerator> );
     static_assert( hal::SafeableInstrument< hal::keysight_33522b::WaveformGenerator> );
     static_assert( hal::SafeableInstrument< hal::keysight_34980a::SwitchUnit> );
     static_assert( hal::RelayHoldingInstrument< hal::keysight_34980a::SwitchUnit> );
@@ -231,7 +240,7 @@ TEST( DevRig, ThePooledRowIsNotBoundFromTheInstrumentTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 9u);
+    ASSERT_EQ( bindings.size(), 11u);
     EXPECT_EQ( bindings[ 0].Id,     hal::InstrumentId::Dmm1);
     EXPECT_EQ( bindings[ 0].Source, hal::AddressSource::Pool);
 }
@@ -246,7 +255,7 @@ TEST( DevRig, TheSupplysThreeOutputsBindToOneBoxFromTheTable)
 {
     const auto bindings = hal::bindAddresses( hal::AddressPlan{});
 
-    ASSERT_EQ( bindings.size(), 9u);
+    ASSERT_EQ( bindings.size(), 11u);
     EXPECT_TRUE( hal::poolFor( "Psu1").empty());
 
     for( std::size_t row = 1; row <= 3; ++row)
@@ -410,9 +419,14 @@ TEST( DevRig, EachInstrumentIsAFaceOfTheBoxItIsOn)
     EXPECT_EQ( hal::boxOf( hal::InstrumentId::Swu1), "Swu1");
     EXPECT_EQ( hal::boxOf( hal::InstrumentId::Dmm2), "Swu1");
     EXPECT_EQ( hal::boxOf( hal::InstrumentId::Wfg2), "Scope1");
+    EXPECT_EQ( hal::boxOf( hal::InstrumentId::Osc2), "Pico1");
+    EXPECT_EQ( hal::boxOf( hal::InstrumentId::Wfg3), "Pico1");
 
     EXPECT_EQ( hal::instrumentsIn( "Scope1"),
                ( std::vector{ hal::InstrumentId::Osc1, hal::InstrumentId::Wfg2 }));
+
+    EXPECT_EQ( hal::instrumentsIn( "Pico1"),
+               ( std::vector{ hal::InstrumentId::Osc2, hal::InstrumentId::Wfg3 }));
 
     EXPECT_EQ( hal::instrumentsIn( "Swu1"),
                ( std::vector{ hal::InstrumentId::Swu1, hal::InstrumentId::Dmm2 }));
@@ -421,7 +435,7 @@ TEST( DevRig, EachInstrumentIsAFaceOfTheBoxItIsOn)
                ( std::vector{ hal::InstrumentId::DcP5, hal::InstrumentId::DcP6, hal::InstrumentId::DcP7 }));
 
     EXPECT_EQ( hal::instrumentBoxNames(),
-               ( std::vector<std::string_view>{ "DeskDmm", "Psu1", "Scope1", "Wfg1", "Swu1" }));
+               ( std::vector<std::string_view>{ "DeskDmm", "Psu1", "Scope1", "Wfg1", "Swu1", "Pico1" }));
 }
 
 namespace
@@ -443,6 +457,8 @@ namespace
         hal::Address Swu1Address = Swu1.address();
         hal::Address Dmm2Address = Dmm2.address();
         hal::Address Wfg2Address = Wfg2.address();
+        hal::Address Osc2Address = Osc2.address();
+        hal::Address Wfg3Address = Wfg3.address();
 
         ~RestoreAddresses()
         {
@@ -455,6 +471,8 @@ namespace
             Swu1.useAddress( Swu1Address);
             Dmm2.useAddress( Dmm2Address);
             Wfg2.useAddress( Wfg2Address);
+            Osc2.useAddress( Osc2Address);
+            Wfg3.useAddress( Wfg3Address);
         }
     };
 

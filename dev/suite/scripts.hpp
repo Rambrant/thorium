@@ -72,3 +72,30 @@ auto wgenPulseWidth() -> void;
 auto wgenDcLevels() -> void;
 auto wgenTermination() -> void;
 auto wgenOutputOff() -> void;
+
+// PicoIntoWfg -- dev/suite/scripts/pico_into_wfg.cpp
+auto picoSineChA() -> void;
+auto picoSineChB() -> void;
+auto picoFrequencySteps() -> void;
+auto picoAmplitudeAndOffset() -> void;
+auto picoRanges() -> void;
+auto picoResolutions() -> void;
+auto picoSquareDutyCycle() -> void;
+auto picoRampAndTriangle() -> void;
+auto picoDcLevels() -> void;
+auto picoCoupling() -> void;
+auto picoBandwidthLimit() -> void;
+auto picoTriggerSlopes() -> void;
+auto picoCapture() -> void;
+auto picoChannelsIndependent() -> void;
+auto picoOutputOff() -> void;
+
+// PicoGenerator -- dev/suite/scripts/pico_generator.cpp
+auto pgenSine() -> void;
+auto pgenFrequencySteps() -> void;
+auto pgenSquare() -> void;
+auto pgenRamps() -> void;
+auto pgenAmplitudeAndOffset() -> void;
+auto pgenDcLevels() -> void;
+auto pgenNoise() -> void;
+auto pgenOutputOff() -> void;

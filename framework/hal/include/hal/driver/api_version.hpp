@@ -132,6 +132,15 @@
 //        script takes it down should ask for 6, so that a hal predating them
 //        refuses it instead of silently ignoring the hooks.
 //
+//     7  Adds a native slot to hal::BoxConnection (hal/driver/box_connection.hpp):
+//        native<T>(), openNative<T>() and installNative<T>(), one shared object per
+//        box and address beside the SCPI session, with the session's rules -- lazy,
+//        shared by every face, found without being made by safing, released by
+//        close(). It is how a unit with no SCPI, driven through a vendor library,
+//        gets the multi-face arrangement SCPI units have. Purely additive, so
+//        OLDEST_SUPPORTED stays at 1. hal::pico_5244d asks for 7: it is the one
+//        driver that uses it.
+//
 // A driver asks for the oldest version that has everything it uses, written as
 // a literal -- never the macro itself, which would assert that this hal is
 // compatible with this hal and pass everywhere. For most new drivers that is
@@ -142,7 +151,7 @@
 // a hal that would have served the driver perfectly, which is the nuisance the
 // two-number scheme exists to avoid.
 //
-#define THORIUM_HAL_API_VERSION           6
+#define THORIUM_HAL_API_VERSION           7
 #define THORIUM_HAL_API_OLDEST_SUPPORTED  1
 
 namespace hal

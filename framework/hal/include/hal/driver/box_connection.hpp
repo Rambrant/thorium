@@ -3,7 +3,9 @@
 #include <concepts>
 #include <memory>
 #include <string>
+#include <stdexcept>
 #include <string_view>
+#include <typeinfo>
 #include <utility>
 #include <vector>
 
@@ -67,6 +69,23 @@
 //   never opened by safing      openSession() is what a safe() uses: the
 //                               session if some face opened it, else nothing.
 //
+// -- A box that is not SCPI ---------------------------------------------------
+//
+// Everything above is about an io::ScpiSession, and a unit with no SCPI -- one
+// driven through the vendor's own library, a handle and a function table -- is
+// still one physical unit behind one connection, with faces that must share it
+// (hal::pico_5244d: the scope and its generator). So the link also holds one
+// *native* object of a type the driver chooses, shared, lazily made, found by
+// safing without being made, and released by close(), with exactly the rules
+// above:
+//
+//     auto & unit = mConnection.native<MyUnit>( []{ return std::make_shared<MyUnit>(); });
+//     auto * open = mConnection.openNative<MyUnit>();     // safing
+//
+// A box holds a session or a native object, not both; asking for the other
+// kind of a box that holds one is a std::logic_error, because it means two
+// families disagree about what the unit is.
+//
 namespace hal
 {
     namespace detail
@@ -79,6 +98,14 @@ namespace hal
         {
             std::unique_ptr<io::ScpiSession>  Session;
             std::vector<std::string>          PreparedBy;
+
+            //
+            // A native driver's one shared object, type-erased, and the type it
+            // was made as -- checked on every access, so two families that
+            // disagree about it fail loudly instead of reinterpreting memory.
+            //
+            std::shared_ptr<void>             Native;
+            const std::type_info *            NativeType{ nullptr };
         };
 
         //
@@ -145,7 +172,7 @@ namespace hal
             {
                 const auto * held = heldLink();
 
-                return held && held->Session;
+                return held && ( held->Session || held->Native);
             }
 
             //
@@ -178,6 +205,11 @@ namespace hal
             {
                 auto & held = link();
 
+                if( held.Native)
+                {
+                    throw std::logic_error( "BoxConnection: box " + std::string( box()) + " holds a native object, not an SCPI session");
+                }
+
                 if( !held.Session)
                 {
                     held.Session = std::make_unique<io::ScpiSession>( io::openTransport( mAddress));
@@ -191,6 +223,69 @@ namespace hal
                 }
 
                 return *held.Session;
+            }
+
+            //
+            // The box's native object, made by `make` on first use by any face
+            // (a callable returning std::shared_ptr<T>) and the same object
+            // for every face after. Not made in a constructor, for the reason
+            // session() is not opened in one.
+            //
+            template<typename T, std::invocable<> Make>
+            auto native( Make && make) -> T &
+            {
+                auto & held = link();
+
+                if( held.Session)
+                {
+                    throw std::logic_error( "BoxConnection: box " + std::string( box()) + " holds an SCPI session, not a native object");
+                }
+
+                if( !held.Native)
+                {
+                    held.Native     = std::forward<Make>( make)();
+                    held.NativeType = &typeid( T);
+                }
+                else if( *held.NativeType != typeid( T))
+                {
+                    throw std::logic_error( "BoxConnection: box " + std::string( box()) + " holds a different native type");
+                }
+
+                return *static_cast<T *>( held.Native.get());
+            }
+
+            //
+            // The same object if some face has made it, or null -- never making
+            // one. What a native driver's safe() uses.
+            //
+            template<typename T>
+            [[nodiscard]]
+            auto openNative() -> T *
+            {
+                auto * const held = heldLink();
+
+                if( !held || !held->Native)
+                {
+                    return nullptr;
+                }
+
+                return *held->NativeType == typeid( T) ? static_cast<T *>( held->Native.get()) : nullptr;
+            }
+
+            //
+            // Put this object on the box in place of whatever it holds --
+            // what a native driver's test seam does, as useTransport() does for
+            // an SCPI one. Prepared families are forgotten.
+            //
+            template<typename T>
+            auto installNative( std::shared_ptr<T> object) -> void
+            {
+                auto & held = link();
+
+                held.Session.reset();
+                held.Native     = std::move( object);
+                held.NativeType = &typeid( T);
+                held.PreparedBy.clear();
             }
 
             //

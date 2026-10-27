@@ -287,3 +287,104 @@ TEST( BoxConnection, AMoveHandsTheHoldOver)
     EXPECT_TRUE( moved.hasSession());
     EXPECT_TRUE( box.Second.hasSession());
 }
+
+//
+// -- A native object ---------------------------------------------------------
+//
+// The box of a unit with no SCPI: the same sharing rules, an object of the
+// driver's own type in place of the session.
+//
+namespace
+{
+    struct Unit
+    {
+        int Opened{ 0 };
+    };
+
+    struct Other
+    {
+    };
+
+    auto makeUnit() -> std::shared_ptr<Unit>
+    {
+        return std::make_shared<Unit>();
+    }
+} // namespace
+
+TEST( BoxConnection, FacesOfOneBoxShareOneNativeObjectMadeOnce)
+{
+    hal::BoxConnection first{ anyId(), hal::Lan( "native-share.invalid") };
+    hal::BoxConnection second{ anyId(), hal::Lan( "native-share.invalid") };
+
+    int made = 0;
+
+    auto & one = first.native<Unit>( [ & ] { ++made; return makeUnit(); });
+    auto & two = second.native<Unit>( [ & ] { ++made; return makeUnit(); });
+
+    EXPECT_EQ( &one, &two);
+    EXPECT_EQ( made, 1);
+    EXPECT_TRUE( second.hasSession());
+}
+
+TEST( BoxConnection, SafingFindsANativeObjectASiblingMadeAndNeverMakesOne)
+{
+    hal::BoxConnection first{ anyId(), hal::Lan( "native-safe.invalid") };
+    hal::BoxConnection second{ anyId(), hal::Lan( "native-safe.invalid") };
+
+    EXPECT_EQ( second.openNative<Unit>(), nullptr);
+    EXPECT_FALSE( second.hasSession());
+
+    auto & made = first.native<Unit>( makeUnit);
+
+    EXPECT_EQ( second.openNative<Unit>(), &made);
+}
+
+TEST( BoxConnection, ClosingFromAFaceThatNeverSpokeReleasesTheNativeObject)
+{
+    hal::BoxConnection first{ anyId(), hal::Lan( "native-close.invalid") };
+    hal::BoxConnection second{ anyId(), hal::Lan( "native-close.invalid") };
+
+    std::weak_ptr<Unit> watch;
+
+    first.native<Unit>( [ & ] { auto unit = makeUnit(); watch = unit; return unit; });
+
+    ASSERT_FALSE( watch.expired());
+
+    second.close();
+
+    EXPECT_TRUE( watch.expired());
+    EXPECT_EQ( first.openNative<Unit>(), nullptr);
+}
+
+TEST( BoxConnection, ANativeObjectOfAnotherTypeIsRefused)
+{
+    hal::BoxConnection face{ anyId(), hal::Lan( "native-type.invalid") };
+
+    face.native<Unit>( makeUnit);
+
+    EXPECT_THROW( face.native<Other>( [] { return std::make_shared<Other>(); }), std::logic_error);
+    EXPECT_EQ( face.openNative<Other>(), nullptr);
+}
+
+TEST( BoxConnection, InstalledNativeObjectIsWhatEveryFaceUses)
+{
+    hal::BoxConnection first{ anyId(), hal::Lan( "native-install.invalid") };
+    hal::BoxConnection second{ anyId(), hal::Lan( "native-install.invalid") };
+
+    auto installed = makeUnit();
+
+    first.installNative( installed);
+
+    EXPECT_EQ( &second.native<Unit>( []() -> std::shared_ptr<Unit> { throw std::logic_error( "made"); }), installed.get());
+}
+
+TEST( BoxConnection, ASessionAndANativeObjectDoNotShareABox)
+{
+    TwoFaces box{ "native-vs-session.invalid" };
+
+    int prepared = 0;
+
+    box.Second.session( "family", Counted{ &prepared });
+
+    EXPECT_THROW( box.Second.native<Unit>( makeUnit), std::logic_error);
+}
