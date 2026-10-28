@@ -11,7 +11,7 @@ namespace hal::pico_5244d::detail
     {
         check( "SetSigGenBuiltInV2",
                unit.Api->setSigGen( unit.Handle, waveform.OffsetMicrovolts, waveform.PeakToPeakMicrovolts,
-                                    waveform.WaveType, waveform.Hertz));
+                                    waveform.WaveType, waveform.Operation, waveform.Hertz));
     }
 
     //
@@ -21,7 +21,7 @@ namespace hal::pico_5244d::detail
     //
     auto silence( Unit & unit) -> void
     {
-        program( unit, GeneratorProgram{ 8, 0.0, 0, 0 });
+        program( unit, GeneratorProgram{ 8, 0, 0.0, 0, 0 });
     }
 } // namespace hal::pico_5244d::detail
 

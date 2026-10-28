@@ -63,6 +63,7 @@ namespace hal::pico_5244d
         static constexpr std::int32_t     Function = 2;
         static constexpr std::string_view Name     = "triangle";
         static constexpr double           MaxHertz = 20.0e6;
+        static constexpr double           FrequencyFactor = 2.0;
     };
 
     //
@@ -74,6 +75,7 @@ namespace hal::pico_5244d
         static constexpr std::int32_t     Function = 3;
         static constexpr std::string_view Name     = "rampUp";
         static constexpr double           MaxHertz = 20.0e6;
+        static constexpr double           FrequencyFactor = 2.0;
     };
 
     struct RampDown
@@ -81,11 +83,17 @@ namespace hal::pico_5244d
         static constexpr std::int32_t     Function = 4;
         static constexpr std::string_view Name     = "rampDown";
         static constexpr double           MaxHertz = 20.0e6;
+        static constexpr double           FrequencyFactor = 2.0;
     };
 
     struct Noise
     {
-        static constexpr std::int32_t     Function = 9;
+        // Not wave type 9: on the 5000 series noise is an "extra operation"
+        // (PS5000A_WHITENOISE) on top of an ordinary wave type, and the SDK
+        // refuses WHITE_NOISE as a wave type with status 46.
+        static constexpr std::int32_t     Function = 0;
+        static constexpr std::int32_t     Operation = 1;
+        static constexpr double           NominalHertz = 1000.0;
         static constexpr std::string_view Name     = "noise";
     };
 
@@ -159,6 +167,7 @@ namespace hal::pico_5244d
         struct GeneratorProgram
         {
             std::int32_t  WaveType{ 0 };
+            std::int32_t  Operation{ 0 };
             double        Hertz{ 0.0 };
             std::int32_t  OffsetMicrovolts{ 0 };
             std::uint32_t PeakToPeakMicrovolts{ 0 };
@@ -315,11 +324,24 @@ namespace hal::pico_5244d
                 detail::GeneratorProgram flat;
 
                 flat.WaveType         = Shape::Function;
+
+                if constexpr( requires { Shape::Operation; })
+                {
+                    flat.Operation = Shape::Operation;
+                    flat.Hertz     = Shape::NominalHertz;
+                }
                 flat.OffsetMicrovolts = detail::microvolts( offset.value());
 
                 if constexpr( Periodic<Shape>)
                 {
                     flat.Hertz = frequency->value();
+
+                    // The 5000D plays a triangle or ramp at half the frequency
+                    // asked for (two phase-accumulator engines), so ask twice.
+                    if constexpr( requires { Shape::FrequencyFactor; })
+                    {
+                        flat.Hertz *= Shape::FrequencyFactor;
+                    }
                 }
 
                 if constexpr( Amplifiable<Shape>)

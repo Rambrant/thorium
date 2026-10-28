@@ -292,9 +292,11 @@ namespace
             }
 
             auto setSigGen( const std::int16_t, const std::int32_t offset, const std::uint32_t peakToPeak,
-                            const std::int32_t waveType, const double hertz) -> Status override
+                            const std::int32_t waveType, const std::int32_t operation,
+                            const double hertz) -> Status override
             {
-                Calls.push_back( "siggen(type" + std::to_string( waveType) + "," + std::to_string( hertz) + "Hz,off"
+                Calls.push_back( "siggen(type" + std::to_string( waveType) + ( operation != 0 ? "+op" + std::to_string( operation) : "")
+                                 + "," + std::to_string( hertz) + "Hz,off"
                                  + std::to_string( offset) + "uV,pp" + std::to_string( peakToPeak) + "uV)");
                 return SigGenStatus;
             }
@@ -860,7 +862,22 @@ TEST( Pico5244dGenerator, EachShapeIsItsOwnWaveType)
     EXPECT_EQ( type( bench.Fake->last( "siggen(")), "siggen(type4");
 
     applyDriver( bench.Gen.noise().amplitude( 1_V).config());
-    EXPECT_EQ( type( bench.Fake->last( "siggen(")), "siggen(type9");
+    EXPECT_EQ( type( bench.Fake->last( "siggen(")), "siggen(type0+op1");
+}
+
+// The 5000D plays triangle and ramps at half the frequency it is given.
+TEST( Pico5244dGenerator, TriangleAndRampsAskTwiceTheFrequency)
+{
+    TwoFaceBench bench;
+
+    applyDriver( bench.Gen.triangle().frequency( 1_kHz).amplitude( 1_V).config());
+    EXPECT_NE( bench.Fake->last( "siggen(").find( ",2000Hz,"), std::string::npos);
+
+    applyDriver( bench.Gen.rampUp().frequency( 1_kHz).amplitude( 1_V).config());
+    EXPECT_NE( bench.Fake->last( "siggen(").find( ",2000Hz,"), std::string::npos);
+
+    applyDriver( bench.Gen.sine().frequency( 1_kHz).amplitude( 1_V).config());
+    EXPECT_NE( bench.Fake->last( "siggen(").find( ",1000Hz,"), std::string::npos);
 }
 
 TEST( Pico5244dGenerator, DcIsTheOffsetAndNothingElse)

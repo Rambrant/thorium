@@ -154,7 +154,7 @@ namespace hal::pico_5244d
             //
             virtual auto setSigGen( std::int16_t handle, std::int32_t offsetMicrovolts,
                                     std::uint32_t peakToPeakMicrovolts, std::int32_t waveType,
-                                    double hertz)                                                 -> Status = 0;
+                                    std::int32_t operation, double hertz)                                               -> Status = 0;
     };
 
     //

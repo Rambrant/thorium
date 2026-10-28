@@ -470,10 +470,10 @@ namespace hal::pico_5244d
                 //
                 auto setSigGen( const std::int16_t handle, const std::int32_t offsetMicrovolts,
                                 const std::uint32_t peakToPeakMicrovolts, const std::int32_t waveType,
-                                const double hertz) -> Status override
+                                const std::int32_t operation, const double hertz) -> Status override
                 {
                     return mApi.SetSigGenBuiltInV2( handle, offsetMicrovolts, peakToPeakMicrovolts, waveType,
-                                                    hertz, hertz, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0);
+                                                    hertz, hertz, 0.0, 0.0, 0, operation, 0, 0, 0, 0, 0);
                 }
 
             private:
