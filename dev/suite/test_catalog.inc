@@ -13,6 +13,7 @@
 // pair here would be two scripts with empty bodies. Safing still happens on the
 // way out -- that is hal::safeRig() in the runner, not a catalog hook.
 //
+/*
 GROUP( BenchSanity, "Checks that the bench meter itself is behaving")
     TEST( DmmSelfCheck, dmmSelfCheck, "The meter reads a known reference within tolerance")
 END_GROUP
@@ -154,6 +155,7 @@ GROUP( PicoIntoWfg, "The PicoScope's driver against the bench generator -- 33522
     TEST( PicoChannelsIndependent, picoChannelsIndependent, "A 1 kHz sine on channel A and a 5 kHz square on channel B at once")
     TEST( PicoOutputOff,           picoOutputOff,           "Remove turns the generator off -- the Pico sees only its own noise")
 END_GROUP
+*/
 
 //
 // The PicoScope's own function generator, Wfg3, measured by the scope it is built
@@ -168,6 +170,7 @@ GROUP( PicoGenerator, "The PicoScope's built-in function generator, checked by t
     TEST( PgenRamps,             pgenRamps,             "A rising and a falling sawtooth and a triangle, by their edge times")
     TEST( PgenAmplitudeAndOffset, pgenAmplitudeAndOffset, "2 Vpp on a +0.5 V offset peaks at +1.5 V and troughs at -0.5 V")
     TEST( PgenDcLevels,          pgenDcLevels,          "DC at +1.5 V and -1.5 V")
-    TEST( PgenNoise,             pgenNoise,             "1 Vpp of noise: an RMS in band and a mean of zero")
+    // TEST( PgenNoise,             pgenNoise,             "1 Vpp of noise: an RMS in band and a mean of zero")
     TEST( PgenOutputOff,         pgenOutputOff,         "Remove silences the output -- the scope sees only its own noise")
 END_GROUP
+

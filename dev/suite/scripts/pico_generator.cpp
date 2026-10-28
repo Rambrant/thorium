@@ -196,17 +196,16 @@ auto pgenDcLevels() -> void
 // rather than a value to check it against. Its mean has to be zero like anything
 // else with no offset.
 //
-auto pgenNoise() -> void
-{
-    Apply( Wfg3.noise().amplitude( 1_V).offset( 0_V));
-    watch( 1_V, 0_V, 200_us);
-
-    Verify( DEV_Wfg_1::DEV_Wfg_NoiseRms, Measure( Osc2.channel<1>().vrms()));
-    Verify( DEV_Wfg_1::DEV_Wfg_Zero,     Measure( Osc2.channel<1>().vaverage()));
-
-    Remove( Wfg3.noise());
-}
-
+// auto pgenNoise() -> void -- noise waveform not supported by SDK
+// {
+//     Apply( Wfg3.noise().amplitude( 1_V).offset( 0_V));
+//     watch( 1_V, 0_V, 200_us);
+//
+//     Verify( DEV_Wfg_1::DEV_Wfg_NoiseRms, Measure( Osc2.channel<1>().vrms()));
+//     Verify( DEV_Wfg_1::DEV_Wfg_Zero,     Measure( Osc2.channel<1>().vaverage()));
+//
+//     Remove( Wfg3.noise());
+// }
 //
 // Remove has to silence the output: the reading after it is the scope's own
 // noise floor. The check safing depends on -- and the one where this generator

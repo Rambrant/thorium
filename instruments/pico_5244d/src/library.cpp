@@ -193,7 +193,7 @@ namespace hal::pico_5244d
             return reinterpret_cast<void *>( ::GetProcAddress( library, name));
         }
 
-        constexpr std::array kCandidates{ "ps5000a.dll" };
+        constexpr std::array kCandidates{ "ps5000a.dll", "C:\\Program Files\\PicoTechnology\\SDK\\bin\\ps5000a.dll", "C:\\Program Files (x86)\\PicoTechnology\\SDK\\bin\\ps5000a.dll", "C:\\Program Files\\Pico Technology\\PicoScope 7 T&M Stable\\ps5000a.dll" };
 #else
         using LibraryHandle = void *;
 

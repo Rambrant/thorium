@@ -35,7 +35,7 @@ Install the PicoSDK or PicoScope, or set THORIUM_PS5000A_LIBRARY to the full pat
 
 `THORIUM_PS5000A_LIBRARY` is the escape hatch, and on macOS the usual answer —
 PicoScope 7 keeps its libraries inside its application bundle. The Windows DLL
-(`ps5000a.dll`) needs its dependencies (`picoipp.dll` and friends) findable, which
+(`ps5000a.dll`, or `C:\\Program Files\\PicoTechnology\\SDK\\bin\\ps5000a.dll`, or `C:\\Program Files (x86)\\PicoTechnology\\SDK\\bin\\ps5000a.dll`) needs its dependencies (`picoipp.dll` and friends) findable, which
 installing the PicoSDK or PicoScope does.
 
 **Every `Measure` is computed here.** There is no `:MEASure`. A block capture is
@@ -233,3 +233,5 @@ tests/test_pico_5244d.cpp                    both faces against a fake Ps5000a
 
 * *PicoScope 5000 Series (A API) Programmer's Guide* — Pico Technology.
 * `picosdk-python-wrappers`, `ps5000a.py` — the argument types and enumerations.
+
+
