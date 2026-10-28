@@ -34,6 +34,12 @@ ones a repository copied from this directory would use. Pointed at this checkout
 with `-DFETCHCONTENT_SOURCE_DIR_THORIUM=..`, `cd ref && cmake --preset macos-debug`
 builds them as such, which is how the consumer path is exercised without a download.
 
+A repository started from this directory builds against a pinned framework tag, and on
+a machine with no network the framework is read from a local mirror instead
+(`-DTHORIUM_REPOSITORY=<path>`). The developer-and-tester view of that, step by step, is
+in [thorium_device_x's README](https://github.com/Rambrant/thorium_device_x#building-on-an-air-gapped-rig-computer);
+the mechanism is in [`cmake/README.md`](../cmake/README.md).
+
 Each directory has its own README: [`rig/`](rig/README.md),
 [`dut/`](dut/README.md), [`suite/`](suite/README.md),
 [`acceptance/`](acceptance/README.md).
