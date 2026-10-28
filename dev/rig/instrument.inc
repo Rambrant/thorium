@@ -177,6 +177,6 @@ INSTRUMENTS
     INSTRUMENT( Swu1,    keysight_34980a::SwitchUnit,           Swu1, Usb( "MY53154781"))   //
     INSTRUMENT( Swu1,    keysight_34980a::Multimeter,           Dmm2, Usb( "MY53154781"))   // the same box's internal DMM -- see above
     INSTRUMENT( Scope1,  keysight_dsox1202g::WaveformGenerator, Wfg2, Usb( "CN64504143"))   // the scope's built-in generator -- see above
-    INSTRUMENT( Pico1,   pico_5244d::Oscilloscope,              Osc2, Usb( ""))             // first PicoScope found -- see above
-    INSTRUMENT( Pico1,   pico_5244d::WaveformGenerator,         Wfg3, Usb( ""))             // the Pico's built-in generator -- see above
+    INSTRUMENT( Pico1,   pico_5244d::Oscilloscope,              Osc2, Usb( "JZ246/0077"))   // first PicoScope found -- see above
+    INSTRUMENT( Pico1,   pico_5244d::WaveformGenerator,         Wfg3, Usb( "JZ246/0077"))   // the Pico's built-in generator -- see above
 END_INSTRUMENTS
