@@ -161,6 +161,13 @@ this generator has no duty cycle, no symmetry, no pulse and no load setting, so 
 setters do not exist: `sine`, `square` (50 %), `triangle`, `rampUp`, `rampDown`,
 `noise`, `dc`.
 
+Two shapes are not what the SDK's wave-type list suggests, both found on the bench:
+noise is an "extra operation" on a sine, not wave type 9 (status 46), and the built-in
+generator plays `triangle`, `rampUp` and `rampDown` at half the requested frequency. So
+those three are drawn by the driver -- one period filling the arbitrary-waveform buffer --
+and played through `ps5000aSetSigGenArbitrary` at a phase step from
+`ps5000aSigGenFrequencyToPhase`.
+
 It differs from the DSOX1202G's generator where the instrument does:
 
 | | DSOX1202G `WaveformGenerator` | `pico_5244d::WaveformGenerator` |

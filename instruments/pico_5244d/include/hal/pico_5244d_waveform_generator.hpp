@@ -20,6 +20,8 @@
 #include "hal/driver/describe.hpp"
 #include "hal/driver/instrument.hpp"
 
+#include <vector>
+
 #include "hal/pico_5244d_oscilloscope.hpp"
 
 //
@@ -62,8 +64,8 @@ namespace hal::pico_5244d
     {
         static constexpr std::int32_t     Function = 2;
         static constexpr std::string_view Name     = "triangle";
+        static constexpr std::int32_t     Drawn    = 1;
         static constexpr double           MaxHertz = 20.0e6;
-        static constexpr double           FrequencyFactor = 2.0;
     };
 
     //
@@ -74,16 +76,16 @@ namespace hal::pico_5244d
     {
         static constexpr std::int32_t     Function = 3;
         static constexpr std::string_view Name     = "rampUp";
+        static constexpr std::int32_t     Drawn    = 2;
         static constexpr double           MaxHertz = 20.0e6;
-        static constexpr double           FrequencyFactor = 2.0;
     };
 
     struct RampDown
     {
         static constexpr std::int32_t     Function = 4;
         static constexpr std::string_view Name     = "rampDown";
+        static constexpr std::int32_t     Drawn    = 3;
         static constexpr double           MaxHertz = 20.0e6;
-        static constexpr double           FrequencyFactor = 2.0;
     };
 
     struct Noise
@@ -168,12 +170,23 @@ namespace hal::pico_5244d
         {
             std::int32_t  WaveType{ 0 };
             std::int32_t  Operation{ 0 };
+            std::int32_t  Drawn{ 0 };
             double        Hertz{ 0.0 };
             std::int32_t  OffsetMicrovolts{ 0 };
             std::uint32_t PeakToPeakMicrovolts{ 0 };
         };
 
         auto program( Unit & unit, const GeneratorProgram & waveform) -> void;
+
+        //
+        // One period of a shape the built-in generator plays at the wrong
+        // frequency (Drawn: 1 triangle, 2 ramp up, 3 ramp down), as DAC samples
+        // from low to high inclusive. A triangle starts at its low point; a
+        // ramp's first and last samples are its extremes.
+        //
+        [[nodiscard]]
+        auto drawPeriod( std::int32_t drawn, std::int16_t low, std::int16_t high, std::size_t count)
+            -> std::vector<std::int16_t>;
 
         // Zero volts, zero amplitude: the generator's off.
         auto silence( Unit & unit) -> void;
@@ -325,6 +338,11 @@ namespace hal::pico_5244d
 
                 flat.WaveType         = Shape::Function;
 
+                if constexpr( requires { Shape::Drawn; })
+                {
+                    flat.Drawn = Shape::Drawn;
+                }
+
                 if constexpr( requires { Shape::Operation; })
                 {
                     flat.Operation = Shape::Operation;
@@ -336,12 +354,7 @@ namespace hal::pico_5244d
                 {
                     flat.Hertz = frequency->value();
 
-                    // The 5000D plays a triangle or ramp at half the frequency
-                    // asked for (two phase-accumulator engines), so ask twice.
-                    if constexpr( requires { Shape::FrequencyFactor; })
-                    {
-                        flat.Hertz *= Shape::FrequencyFactor;
-                    }
+
                 }
 
                 if constexpr( Amplifiable<Shape>)

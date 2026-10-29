@@ -154,7 +154,31 @@ namespace hal::pico_5244d
             //
             virtual auto setSigGen( std::int16_t handle, std::int32_t offsetMicrovolts,
                                     std::uint32_t peakToPeakMicrovolts, std::int32_t waveType,
-                                    std::int32_t operation, double hertz)                                               -> Status = 0;
+                                    std::int32_t operation, double hertz)                                 -> Status = 0;
+
+            //
+            // The arbitrary waveform generator, which is how a triangle and the
+            // two ramps are made: the built-in generator plays those at half
+            // the frequency asked for, so the driver draws one period itself.
+            //
+            struct ArbitraryLimits
+            {
+                std::int16_t  MinValue{ 0 };
+                std::int16_t  MaxValue{ 0 };
+                std::uint32_t MinSize{ 0 };
+                std::uint32_t MaxSize{ 0 };
+            };
+
+            virtual auto arbitraryLimits( std::int16_t handle, ArbitraryLimits & limits)      -> Status = 0;
+
+            // The phase step that plays a buffer of this many samples at this frequency.
+            virtual auto frequencyToPhase( std::int16_t handle, double hertz, std::uint32_t samples,
+                                           std::uint32_t & phase)                             -> Status = 0;
+
+            // One period, played continuously from now on at a constant phase step.
+            virtual auto setSigGenArbitrary( std::int16_t handle, std::int32_t offsetMicrovolts,
+                                             std::uint32_t peakToPeakMicrovolts, std::uint32_t phase,
+                                             std::int16_t * samples, std::int32_t count)      -> Status = 0;
     };
 
     //

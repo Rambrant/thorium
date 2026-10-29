@@ -178,6 +178,30 @@ namespace hal::pico_5244d
                                                               double, double, double, double, std::int32_t,
                                                               std::int32_t, std::uint32_t, std::uint32_t,
                                                               std::int32_t, std::int32_t, std::int16_t);
+
+            // ps5000aSigGenArbitraryMinMaxValues( int16_t handle, int16_t * minValue, int16_t * maxValue,
+            //                                     uint32_t * minSize, uint32_t * maxSize)
+            Status ( THORIUM_PICO_CALL * SigGenArbitraryMinMaxValues)( std::int16_t, std::int16_t *, std::int16_t *,
+                                                                       std::uint32_t *, std::uint32_t *);
+
+            // ps5000aSigGenFrequencyToPhase( int16_t handle, double frequency, PS5000A_INDEX_MODE indexMode,
+            //                                uint32_t bufferLength, uint32_t * phase)
+            Status ( THORIUM_PICO_CALL * SigGenFrequencyToPhase)( std::int16_t, double, std::int32_t,
+                                                                  std::uint32_t, std::uint32_t *);
+
+            // ps5000aSetSigGenArbitrary( int16_t handle, int32_t offsetVoltage, uint32_t pkToPk,
+            //     uint32_t startDeltaPhase, uint32_t stopDeltaPhase, uint32_t deltaPhaseIncrement,
+            //     uint32_t dwellCount, int16_t * arbitraryWaveform, int32_t arbitraryWaveformSize,
+            //     PS5000A_SWEEP_TYPE sweepType, PS5000A_EXTRA_OPERATIONS operation,
+            //     PS5000A_INDEX_MODE indexMode, uint32_t shots, uint32_t sweeps,
+            //     PS5000A_SIGGEN_TRIG_TYPE triggerType, PS5000A_SIGGEN_TRIG_SOURCE triggerSource,
+            //     int16_t extInThreshold)
+            Status ( THORIUM_PICO_CALL * SetSigGenArbitrary)( std::int16_t, std::int32_t, std::uint32_t,
+                                                              std::uint32_t, std::uint32_t, std::uint32_t,
+                                                              std::uint32_t, std::int16_t *, std::int32_t,
+                                                              std::int32_t, std::int32_t, std::int32_t,
+                                                              std::uint32_t, std::uint32_t, std::int32_t,
+                                                              std::int32_t, std::int16_t);
         };
 
 #ifdef _WIN32
@@ -185,7 +209,17 @@ namespace hal::pico_5244d
 
         auto loadLibraryNamed( const char * name) -> LibraryHandle
         {
-            return ::LoadLibraryA( name);
+            //
+            // A candidate that exists but cannot load (a missing dependency, the
+            // wrong bitness) would otherwise put up a system error box; this
+            // loader tries several and moves on, so none should show.
+            //
+            const UINT previous = ::SetErrorMode( SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
+            const LibraryHandle library = ::LoadLibraryA( name);
+
+            ::SetErrorMode( previous);
+
+            return library;
         }
 
         auto symbolIn( const LibraryHandle library, const char * name) -> void *
@@ -268,7 +302,10 @@ namespace hal::pico_5244d
                 && bind( api.IsReady,           "ps5000aIsReady")
                 && bind( api.Stop,              "ps5000aStop")
                 && bind( api.GetValues,         "ps5000aGetValues")
-                && bind( api.SetSigGenBuiltInV2, "ps5000aSetSigGenBuiltInV2");
+                && bind( api.SetSigGenBuiltInV2, "ps5000aSetSigGenBuiltInV2")
+                && bind( api.SigGenArbitraryMinMaxValues, "ps5000aSigGenArbitraryMinMaxValues")
+                && bind( api.SigGenFrequencyToPhase, "ps5000aSigGenFrequencyToPhase")
+                && bind( api.SetSigGenArbitrary, "ps5000aSetSigGenArbitrary");
 
             if( !complete)
             {
@@ -474,6 +511,32 @@ namespace hal::pico_5244d
                 {
                     return mApi.SetSigGenBuiltInV2( handle, offsetMicrovolts, peakToPeakMicrovolts, waveType,
                                                     hertz, hertz, 0.0, 0.0, 0, operation, 0, 0, 0, 0, 0);
+                }
+
+                auto arbitraryLimits( const std::int16_t handle, ArbitraryLimits & limits) -> Status override
+                {
+                    return mApi.SigGenArbitraryMinMaxValues( handle, &limits.MinValue, &limits.MaxValue,
+                                                             &limits.MinSize, &limits.MaxSize);
+                }
+
+                // Single index mode: the buffer is played start to end, once per period.
+                auto frequencyToPhase( const std::int16_t handle, const double hertz, const std::uint32_t samples,
+                                       std::uint32_t & phase) -> Status override
+                {
+                    return mApi.SigGenFrequencyToPhase( handle, hertz, 0, samples, &phase);
+                }
+
+                //
+                // Same stance as setSigGen: one phase step (no sweep), no shots
+                // or sweeps, no trigger source, so it plays from now until
+                // changed. Index mode zero is single.
+                //
+                auto setSigGenArbitrary( const std::int16_t handle, const std::int32_t offsetMicrovolts,
+                                         const std::uint32_t peakToPeakMicrovolts, const std::uint32_t phase,
+                                         std::int16_t * samples, const std::int32_t count) -> Status override
+                {
+                    return mApi.SetSigGenArbitrary( handle, offsetMicrovolts, peakToPeakMicrovolts, phase, phase,
+                                                    0, 0, samples, count, 0, 0, 0, 0, 0, 0, 0, 0);
                 }
 
             private:

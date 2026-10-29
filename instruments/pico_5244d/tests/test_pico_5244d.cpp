@@ -301,6 +301,30 @@ namespace
                 return SigGenStatus;
             }
 
+            auto arbitraryLimits( const std::int16_t, ArbitraryLimits & limits) -> Status override
+            {
+                limits = { -32768, 32767, 10, 1000};
+                return 0;
+            }
+
+            auto frequencyToPhase( const std::int16_t, const double hertz, const std::uint32_t samples,
+                                   std::uint32_t & phase) -> Status override
+            {
+                Calls.push_back( "phase(" + std::to_string( hertz) + "Hz," + std::to_string( samples) + ")");
+                phase = 7;
+                return 0;
+            }
+
+            auto setSigGenArbitrary( const std::int16_t, const std::int32_t offset, const std::uint32_t peakToPeak,
+                                     const std::uint32_t phase, std::int16_t * samples,
+                                     const std::int32_t count) -> Status override
+            {
+                Calls.push_back( "arb(phase" + std::to_string( phase) + ",n" + std::to_string( count) + ",first"
+                                 + std::to_string( samples[ 0]) + ",mid" + std::to_string( samples[ count / 2])
+                                 + ",off" + std::to_string( offset) + "uV,pp" + std::to_string( peakToPeak) + "uV)");
+                return SigGenStatus;
+            }
+
             Status                     SigGenStatus{ 0 };
 
         private:
@@ -852,32 +876,40 @@ TEST( Pico5244dGenerator, EachShapeIsItsOwnWaveType)
     applyDriver( bench.Gen.square().frequency( 1_kHz).amplitude( 1_V).config());
     EXPECT_EQ( type( bench.Fake->last( "siggen(")), "siggen(type1");
 
-    applyDriver( bench.Gen.triangle().frequency( 1_kHz).amplitude( 1_V).config());
-    EXPECT_EQ( type( bench.Fake->last( "siggen(")), "siggen(type2");
-
-    applyDriver( bench.Gen.rampUp().frequency( 1_kHz).amplitude( 1_V).config());
-    EXPECT_EQ( type( bench.Fake->last( "siggen(")), "siggen(type3");
-
-    applyDriver( bench.Gen.rampDown().frequency( 1_kHz).amplitude( 1_V).config());
-    EXPECT_EQ( type( bench.Fake->last( "siggen(")), "siggen(type4");
-
     applyDriver( bench.Gen.noise().amplitude( 1_V).config());
     EXPECT_EQ( type( bench.Fake->last( "siggen(")), "siggen(type0+op1");
 }
 
-// The 5000D plays triangle and ramps at half the frequency it is given.
-TEST( Pico5244dGenerator, TriangleAndRampsAskTwiceTheFrequency)
+// The built-in generator plays triangle and ramps at half the frequency, so
+// those are drawn and sent to the arbitrary generator instead.
+TEST( Pico5244dGenerator, TriangleAndRampsAreDrawnAndSentAsAnArbitraryWaveform)
 {
     TwoFaceBench bench;
 
-    applyDriver( bench.Gen.triangle().frequency( 1_kHz).amplitude( 1_V).config());
-    EXPECT_NE( bench.Fake->last( "siggen(").find( ",2000Hz,"), std::string::npos);
+    applyDriver( bench.Gen.triangle().frequency( 1_kHz).amplitude( 1_V).offset( 0.25_V).config());
+    EXPECT_EQ( bench.Fake->count( "siggen("), 0);
+    EXPECT_NE( bench.Fake->last( "phase(").find( "1000"), std::string::npos);
+    EXPECT_EQ( bench.Fake->last( "arb("), "arb(phase7,n1000,first-32768,mid32767,off250000uV,pp1000000uV)");
 
     applyDriver( bench.Gen.rampUp().frequency( 1_kHz).amplitude( 1_V).config());
-    EXPECT_NE( bench.Fake->last( "siggen(").find( ",2000Hz,"), std::string::npos);
+    EXPECT_NE( bench.Fake->last( "arb(").find( ",first-32768,"), std::string::npos);
+}
 
-    applyDriver( bench.Gen.sine().frequency( 1_kHz).amplitude( 1_V).config());
-    EXPECT_NE( bench.Fake->last( "siggen(").find( ",1000Hz,"), std::string::npos);
+TEST( Pico5244dGenerator, DrawnPeriodsHitTheirExtremes)
+{
+    const auto up = hal::pico_5244d::detail::drawPeriod( 2, -100, 100, 11);
+    EXPECT_EQ( up.front(), -100);
+    EXPECT_EQ( up.back(), 100);
+    EXPECT_EQ( up[ 5], 0);
+
+    const auto down = hal::pico_5244d::detail::drawPeriod( 3, -100, 100, 11);
+    EXPECT_EQ( down.front(), 100);
+    EXPECT_EQ( down.back(), -100);
+
+    const auto tri = hal::pico_5244d::detail::drawPeriod( 1, -100, 100, 10);
+    EXPECT_EQ( tri.front(), -100);
+    EXPECT_EQ( tri[ 5], 100);
+    EXPECT_EQ( tri[ 2], -20);
 }
 
 TEST( Pico5244dGenerator, DcIsTheOffsetAndNothingElse)
