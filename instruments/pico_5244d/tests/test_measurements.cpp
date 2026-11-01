@@ -159,6 +159,31 @@ TEST( Pico5244dMeasure, RiseAndFallTimesAreInterpolatedBetweenThresholds)
     EXPECT_NEAR( *m::fallTime( v, kDt, 0.1, 0.9), 0.8 * 11 * kDt, 0.05 * kDt);
 }
 
+// A ramp has no plateau to be a top or a base: its levels are its extremes,
+// not whichever histogram bin noise made fullest.
+TEST( Pico5244dMeasure, RampAndTriangleEdgesAreMeasuredAgainstTheirExtremes)
+{
+    // 1000 samples a period, so a 1 ms ramp: 10 % to 90 % is 0.8 of it.
+    std::vector<double> up;
+    std::vector<double> tri;
+
+    for( int c = 0; c < 3; ++c)
+    {
+        for( int i = 0; i < 1000; ++i)
+        {
+            const double t     = i / 999.0;
+            const double noise = 0.004 * std::sin( 12.9898 * i + 78.233 * c);   // a few LSB, deterministic
+
+            up.push_back( 2.0 * t - 1.0 + noise);
+            tri.push_back( ( i < 500 ? 4.0 * i / 1000.0 - 1.0 : 3.0 - 4.0 * i / 1000.0) + noise);
+        }
+    }
+
+    EXPECT_NEAR( *m::riseTime( up, kDt, 0.1, 0.9), 0.8 * 999 * kDt, 0.02 * 999 * kDt);
+    EXPECT_NEAR( *m::riseTime( tri, kDt, 0.1, 0.9), 0.8 * 500 * kDt, 0.02 * 500 * kDt);
+    EXPECT_NEAR( *m::fallTime( tri, kDt, 0.1, 0.9), 0.8 * 500 * kDt, 0.02 * 500 * kDt);
+}
+
 TEST( Pico5244dMeasure, ThresholdsAreTheScriptsToChoose)
 {
     const auto v = square( 5, 200, 100, 10);

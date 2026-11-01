@@ -18,6 +18,11 @@ namespace hal::pico_5244d::measure
         // is itself small -- where the bins are empty, not wrong.
         constexpr std::size_t kBins = 256;
 
+        // How many times fuller than an even spread a histogram bin must be to
+        // be a level (a square's plateau is hundreds; a sine's peak, ~20; a
+        // ramp's noise-favoured bin, 1 to 3).
+        constexpr double kPlateau = 5.0;
+
         // Half the width of the band around the 50 % level that a signal must
         // leave before a new crossing counts, as a fraction of the amplitude.
         constexpr double kHysteresis = 0.1;
@@ -237,22 +242,39 @@ namespace hal::pico_5244d::measure
         // and its samples' mean rather than its centre: the bin is only how the
         // level was found, and the mean is not quantised to it.
         //
-        const auto fullest = [ & ]( const std::size_t from, const std::size_t to)
+        //
+        // But only a bin that is a plateau counts. A ramp or a triangle spends
+        // equal time at every level, so its histogram is flat and the fullest
+        // bin is whichever one noise favours -- which would shrink the
+        // amplitude, and with it every edge time measured against it. A flat
+        // half has no level of its own: its extreme is the level.
+        //
+        const auto fullest = [ & ]( const std::size_t from, const std::size_t to, const double extreme)
         {
-            std::size_t best = from;
+            std::size_t best  = from;
+            std::size_t total = 0;
 
             for( std::size_t bin = from; bin < to; ++bin)
             {
+                total += count[ bin];
+
                 if( count[ bin] > count[ best])
                 {
                     best = bin;
                 }
             }
 
+            const double uniform = static_cast<double>( total) / static_cast<double>( to - from);
+
+            if( static_cast<double>( count[ best]) < kPlateau * uniform)
+            {
+                return extreme;
+            }
+
             return sum[ best] / static_cast<double>( count[ best]);
         };
 
-        return Levels{ fullest( 0, kBins / 2), fullest( kBins / 2, kBins) };
+        return Levels{ fullest( 0, kBins / 2, least), fullest( kBins / 2, kBins, most) };
     }
 
     auto vbase( const std::span<const double> samples) -> Result
