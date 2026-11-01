@@ -179,6 +179,9 @@ namespace hal::pico_5244d
             virtual auto setSigGenArbitrary( std::int16_t handle, std::int32_t offsetMicrovolts,
                                              std::uint32_t peakToPeakMicrovolts, std::uint32_t phase,
                                              std::int16_t * samples, std::int32_t count)      -> Status = 0;
+                                             
+            // Controls the software trigger for the signal generator
+            virtual auto sigGenSoftwareControl( std::int16_t handle, std::int16_t state)      -> Status = 0;
     };
 
     //

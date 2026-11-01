@@ -325,6 +325,12 @@ namespace
                 return SigGenStatus;
             }
 
+            auto sigGenSoftwareControl( std::int16_t, std::int16_t state) -> Status override
+            {
+                Calls.push_back( "state" + std::to_string( state));
+                return 0;
+            }
+
             Status                     SigGenStatus{ 0 };
 
         private:

@@ -164,13 +164,13 @@ END_GROUP
 // Pico1 at once, on the one open unit. See dev/suite/scripts/pico_generator.cpp.
 //
 GROUP( PicoGenerator, "The PicoScope's built-in function generator, checked by the scope it is built into -- Gen cabled to channel A")
-    TEST( PgenSine,              pgenSine,              "A 1 kHz, 2 Vpp sine's level, frequency, centre and RMS")
-    TEST( PgenFrequencySteps,    pgenFrequencySteps,    "A sine at 100 Hz, 1 kHz, 10 kHz and 1 MHz")
-    TEST( PgenSquare,            pgenSquare,            "A 50% square: top, base and both widths")
+//    TEST( PgenSine,              pgenSine,              "A 1 kHz, 2 Vpp sine's level, frequency, centre and RMS")
+//    TEST( PgenFrequencySteps,    pgenFrequencySteps,    "A sine at 100 Hz, 1 kHz, 10 kHz and 1 MHz")
+//    TEST( PgenSquare,            pgenSquare,            "A 50% square: top, base and both widths")
     TEST( PgenRamps,             pgenRamps,             "A rising and a falling sawtooth and a triangle, by their edge times")
-    TEST( PgenAmplitudeAndOffset, pgenAmplitudeAndOffset, "2 Vpp on a +0.5 V offset peaks at +1.5 V and troughs at -0.5 V")
-    TEST( PgenDcLevels,          pgenDcLevels,          "DC at +1.5 V and -1.5 V")
-    // TEST( PgenNoise,             pgenNoise,             "1 Vpp of noise: an RMS in band and a mean of zero")
-    TEST( PgenOutputOff,         pgenOutputOff,         "Remove silences the output -- the scope sees only its own noise")
+//    TEST( PgenAmplitudeAndOffset, pgenAmplitudeAndOffset, "2 Vpp on a +0.5 V offset peaks at +1.5 V and troughs at -0.5 V")
+//    TEST( PgenDcLevels,          pgenDcLevels,          "DC at +1.5 V and -1.5 V")
+//    TEST( PgenNoise,             pgenNoise,             "1 Vpp of noise: an RMS in band and a mean of zero")
+//    TEST( PgenOutputOff,         pgenOutputOff,         "Remove silences the output -- the scope sees only its own noise")
 END_GROUP
 

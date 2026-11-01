@@ -202,6 +202,8 @@ namespace hal::pico_5244d
                                                               std::int32_t, std::int32_t, std::int32_t,
                                                               std::uint32_t, std::uint32_t, std::int32_t,
                                                               std::int32_t, std::int16_t);
+
+            Status ( THORIUM_PICO_CALL * SigGenSoftwareControl)( std::int16_t, std::int32_t);
         };
 
 #ifdef _WIN32
@@ -305,7 +307,8 @@ namespace hal::pico_5244d
                 && bind( api.SetSigGenBuiltInV2, "ps5000aSetSigGenBuiltInV2")
                 && bind( api.SigGenArbitraryMinMaxValues, "ps5000aSigGenArbitraryMinMaxValues")
                 && bind( api.SigGenFrequencyToPhase, "ps5000aSigGenFrequencyToPhase")
-                && bind( api.SetSigGenArbitrary, "ps5000aSetSigGenArbitrary");
+                && bind( api.SetSigGenArbitrary, "ps5000aSetSigGenArbitrary")
+                && bind( api.SigGenSoftwareControl, "ps5000aSigGenSoftwareControl");
 
             if( !complete)
             {
@@ -523,7 +526,12 @@ namespace hal::pico_5244d
                 auto frequencyToPhase( const std::int16_t handle, const double hertz, const std::uint32_t samples,
                                        std::uint32_t & phase) -> Status override
                 {
-                    return mApi.SigGenFrequencyToPhase( handle, hertz, 0, samples, &phase);
+                    return mApi.SigGenFrequencyToPhase( 
+                        handle, 
+                        hertz, 
+                        0,          // 0 = PS5000A_SINGLE index mode
+                        samples, 
+                        & phase);
                 }
 
                 //
@@ -535,13 +543,40 @@ namespace hal::pico_5244d
                                          const std::uint32_t peakToPeakMicrovolts, const std::uint32_t phase,
                                          std::int16_t * samples, const std::int32_t count) -> Status override
                 {
-                    return mApi.SetSigGenArbitrary( handle, offsetMicrovolts, peakToPeakMicrovolts, phase, phase,
-                                                    0, 0, samples, count, 0, 0, 0, 0, 0, 0, 0, 0);
+                    return mApi.SetSigGenArbitrary( 
+                        handle, 
+                        offsetMicrovolts, 
+                        peakToPeakMicrovolts, 
+                        phase,          // startDeltaPhase
+                        phase,          // stopDeltaPhase 
+                        0,              // deltaPhaseIncrement = 0
+                        0,              // dwellCount = 0
+                        samples, 
+                        count, 
+                        0,              // sweepType: 0 = PS5000A_UP
+                        0,              // operation: 0 = PS5000A_ES_OFF
+                        0,              // indexMode: 0 = PS5000A_SINGLE (CRITICAL FIX)
+                        0xFFFFFFFF,     // shots: 0xFFFFFFFF = Continuous Triggered Run
+                        0,              // sweeps = 0
+                        0,              // triggerType: 0 = PS5000A_SIGGEN_RISING
+                        4,              // triggerSource: 4 = PS5000A_SIGGEN_SOFT_TRIG
+                        0);             // extInThreshold = 0
+                }
+
+                auto sigGenSoftwareControl( std::int16_t handle, std::int16_t state) -> Status override
+                {
+                    // Call the native PicoSDK driver function
+                    return mApi.SigGenSoftwareControl(
+                        handle,
+                        state
+                    );
                 }
 
             private:
                 Entry mApi;
         };
+
+
     } // namespace
 
     auto ps5000aLibraryPath() -> std::string
