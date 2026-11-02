@@ -73,7 +73,7 @@ auto wgenDcLevels() -> void;
 auto wgenTermination() -> void;
 auto wgenOutputOff() -> void;
 
-// PicoIntoWfg -- dev/suite/scripts/pico_into_wfg.cpp
+// WfgIntoPico -- dev/suite/scripts/wfg_into_pico.cpp
 auto picoSineChA() -> void;
 auto picoSineChB() -> void;
 auto picoFrequencySteps() -> void;

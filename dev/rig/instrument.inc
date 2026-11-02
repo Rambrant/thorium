@@ -185,7 +185,7 @@ INSTRUMENTS
     INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput2,     DcP6, Simulated{})   // 30 V / 1 A
     INSTRUMENT( Psu1,    keysight_edu36311a::DirectOutput3,     DcP7, Simulated{})   // 30 V / 1 A
     INSTRUMENT( Scope1,  keysight_dsox1202g::Oscilloscope,      Osc1, Simulated{})   //
-    INSTRUMENT( Wfg1,    keysight_33522b::WaveformGenerator,    Wfg1, Simulated{})   //
+    INSTRUMENT( Wfg1,    keysight_33522b::WaveformGenerator,    Wfg1, Usb( "MY52803613"))
     INSTRUMENT( Swu1,    keysight_34980a::SwitchUnit,           Swu1, Simulated{})   //
     INSTRUMENT( Swu1,    keysight_34980a::Multimeter,           Dmm2, Simulated{})   // the same box's internal DMM -- see above
     INSTRUMENT( Scope1,  keysight_dsox1202g::WaveformGenerator, Wfg2, Simulated{})   // the scope's built-in generator -- see above

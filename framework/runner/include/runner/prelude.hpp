@@ -40,9 +40,12 @@
 // core/criteria/verify.hpp).
 //
 #include "core/verbs/verify.hpp"
+#include "core/verbs/delay.hpp"
 
 using core::Verify;
 using core::Fail;
+using core::Delay;
+
 //
 // The tolerances -- every variant merged into the one table a script names
 // (FS_Supply_1::FS_Supply_5V0, ...) -- and with them the unqualified predicate
