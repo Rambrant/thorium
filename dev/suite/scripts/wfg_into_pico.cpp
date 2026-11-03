@@ -65,12 +65,12 @@ namespace
     // timeout.
     //
     template<unsigned N>
-    auto watch( const Voltage range, const Voltage centre, const Time timePerDiv, const Voltage triggerLevel) -> void
+    auto watch( const pico::Coupling coupling, const Voltage range, const Voltage centre, const Time timePerDiv, const Voltage triggerLevel) -> void
     {
         Setup( Osc2.acquisition().resolution( pico::Resolution::Bits8));
 
         Setup( Osc2.channel<N>()
-                   .coupling( pico::Coupling::Dc)
+                   .coupling( coupling)
                    .probeAttenuation( 1.0)
                    .range( range)
                    .verticalOffset( centre)
@@ -96,7 +96,7 @@ namespace
     auto sineOn() -> void
     {
         Apply( Wfg1.channel<N>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
-        watch<N>( 2_V, 0_V, 200_us, 0_V);
+        watch<N>( pico::Coupling::Dc, 2_V, 0_V, 500_us, 0_V);
 
         Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V,    Measure( Osc2.channel<N>().vpp()));
         Verify( DEV_Wfg_1::DEV_Wfg_Freq1kHz, Measure( Osc2.channel<N>().frequency()));
@@ -121,7 +121,7 @@ auto picoFrequencySteps() -> void
     const auto check = []( const Frequency nominal, const Time perDiv, const auto & criterion)
     {
         Apply( Wfg1.channel<1>().sine().frequency( nominal).amplitude( 2_V).offset( 0_V).into( kOpen));
-        watch<1>( 2_V, 0_V, perDiv, 0_V);
+        watch<1>( pico::Coupling::Dc, 2_V, 0_V, perDiv, 0_V);
         Verify( criterion, Measure( Osc2.channel<1>().frequency()));
     };
 
@@ -143,7 +143,7 @@ auto picoFrequencySteps() -> void
 auto picoAmplitudeAndOffset() -> void
 {
     Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 4_V).offset( 1_V).into( kOpen));
-    watch<1>( 2.5_V, 1_V, 200_us, 1_V);
+    watch<1>( pico::Coupling::Dc, 2.5_V, 1_V, 200_us, 1_V);
 
     Verify( DEV_Wfg_1::DEV_Wfg_OffsetMax,  Measure( Osc2.channel<1>().vmax()));
     Verify( DEV_Wfg_1::DEV_Wfg_OffsetMin,  Measure( Osc2.channel<1>().vmin()));
@@ -165,7 +165,7 @@ auto picoRanges() -> void
 
     for( const auto range : { 2_V, 5_V, 10_V })
     {
-        watch<1>( range, 0_V, 200_us, 0_V);
+        watch<1>( pico::Coupling::Dc, range, 0_V, 200_us, 0_V);
         Setup( Osc2.acquisition().resolution( pico::Resolution::Bits12));
 
         Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V, Measure( Osc2.channel<1>().vpp()));
@@ -189,7 +189,7 @@ auto picoResolutions() -> void
 
     for( const auto bits : { pico::Resolution::Bits8, pico::Resolution::Bits12, pico::Resolution::Bits14 })
     {
-        watch<1>( 2_V, 0_V, 200_us, 0_V);
+        watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
         Setup( Osc2.acquisition().resolution( bits));
 
         Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V,    Measure( Osc2.channel<1>().vpp()));
@@ -208,7 +208,7 @@ auto picoResolutions() -> void
 auto picoSquareDutyCycle() -> void
 {
     Apply( Wfg1.channel<1>().square().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).dutyCycle( 25_pct).into( kOpen));
-    watch<1>( 2_V, 0_V, 200_us, 0_V);
+    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
 
     Verify( DEV_Wfg_1::DEV_Wfg_Top1V,       Measure( Osc2.channel<1>().vtop()));
     Verify( DEV_Wfg_1::DEV_Wfg_BaseMinus1V, Measure( Osc2.channel<1>().vbase()));
@@ -226,7 +226,7 @@ auto picoSquareDutyCycle() -> void
 auto picoRampAndTriangle() -> void
 {
     Apply( Wfg1.channel<1>().ramp().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).symmetry( 100_pct).into( kOpen));
-    watch<1>( 2_V, 0_V, 200_us, 0_V);
+    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
 
     Verify( DEV_Wfg_1::DEV_Wfg_RampEdge, Measure( Osc2.channel<1>().riseTime()));
     Verify( DEV_Wfg_1::DEV_Wfg_FastEdge, Measure( Osc2.channel<1>().fallTime()));
@@ -248,11 +248,11 @@ auto picoRampAndTriangle() -> void
 auto picoDcLevels() -> void
 {
     Apply( Wfg1.channel<1>().dc().offset( 1.5_V).into( kOpen));
-    watch<1>( 2_V, 0_V, 200_us, 0_V);
+    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
     Verify( DEV_Wfg_1::DEV_Wfg_Dc1V5, Measure( Osc2.channel<1>().vaverage()));
 
     Apply( Wfg1.channel<1>().dc().offset( -2_V).into( kOpen));
-    watch<1>( 2.5_V, 0_V, 200_us, 0_V);
+    watch<1>( pico::Coupling::Dc, 2.5_V, 0_V, 200_us, 0_V);
     Verify( DEV_Wfg_1::DEV_Wfg_DcMinus2V, Measure( Osc2.channel<1>().vaverage()));
 
     Remove( Wfg1.channel<1>().dc());
@@ -266,11 +266,11 @@ auto picoCoupling() -> void
 {
     Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 1_V).into( kOpen));
 
-    watch<1>( 2.5_V, 1_V, 200_us, 1_V);
+    watch<1>( pico::Coupling::Dc, 2.5_V, 1_V, 200_us, 1_V);
     Verify( DEV_Wfg_1::DEV_Wfg_OffsetMean, Measure( Osc2.channel<1>().vaverage()));
 
-    Setup( Osc2.channel<1>().coupling( pico::Coupling::Ac).verticalOffset( 0_V));
-    Setup( Osc2.trigger().level( 0_V));
+    watch<1>( pico::Coupling::Ac, 2.5_V, 0_V, 200_us, 0_V);
+    Delay( 500_ms); // Let AC coupling settle
     Verify( DEV_Wfg_1::DEV_Wfg_Zero, Measure( Osc2.channel<1>().vaverage()));
 
     Setup( Osc2.channel<1>().coupling( pico::Coupling::Dc));
@@ -285,7 +285,7 @@ auto picoCoupling() -> void
 auto picoBandwidthLimit() -> void
 {
     Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
-    watch<1>( 2_V, 0_V, 200_us, 0_V);
+    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
 
     Setup( Osc2.channel<1>().bandwidth( pico::Bandwidth::Limited));
     Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V, Measure( Osc2.channel<1>().vpp()));
@@ -303,7 +303,7 @@ auto picoBandwidthLimit() -> void
 auto picoTriggerSlopes() -> void
 {
     Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
-    watch<1>( 2_V, 0_V, 200_us, 0_V);
+    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
 
     for( const auto slope : { pico::TriggerSlope::Rising, pico::TriggerSlope::Falling })
     {
@@ -334,8 +334,8 @@ auto picoCapture() -> void
     Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
     Apply( Wfg1.channel<2>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
 
-    watch<2>( 2_V, 0_V, 200_us, 0_V);
-    watch<1>( 2_V, 0_V, 200_us, 0_V);
+    watch<2>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
+    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
 
     Setup( Osc2.trigger()
                .edgeSource<1>()
@@ -377,8 +377,8 @@ auto picoChannelsIndependent() -> void
     Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
     Apply( Wfg1.channel<2>().square().frequency( 5_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
 
-    watch<2>( 2_V, 0_V, 200_us, 0_V);
-    watch<1>( 2_V, 0_V, 200_us, 0_V);
+    watch<2>( pico::Coupling::Dc, 2_V, 0_V, 500_us, 0_V);
+    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 500_us, 0_V);
 
     Verify( DEV_Wfg_1::DEV_Wfg_Freq1kHz, Measure( Osc2.channel<1>().frequency()));
     Verify( DEV_Wfg_1::DEV_Wfg_Freq5kHz, Measure( Osc2.channel<2>().frequency()));
@@ -395,7 +395,7 @@ auto picoChannelsIndependent() -> void
 auto picoOutputOff() -> void
 {
     Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
-    watch<1>( 2_V, 0_V, 200_us, 0_V);
+    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
 
     Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V, Measure( Osc2.channel<1>().vpp()));
 
