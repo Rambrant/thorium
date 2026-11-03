@@ -1,8 +1,7 @@
 #include "../prelude.hpp"
-#include <iostream>
 
 //
-// The PicoScope 5244D, Osc2, watching the 33522B, Wfg1 -- the PicoIntoWfg group
+// The PicoScope 5244D, Osc2, watching the 33522B, Wfg1 -- the WfgIntoPico group
 // of dev/suite/test_catalog.inc.
 //
 // The mirror of WfgIntoScope (wfg_into_scope.cpp), with the instruments' roles
@@ -22,15 +21,16 @@
 // that reads its own generator correctly could still be wrong about both.
 //
 // What differs from the DSOX1202G scripts, and why. A PicoScope has no
-// divisions, so the vertical setting is range() -- the largest voltage the
-// signal reaches, from which the driver picks the smallest +/-10 mV..20 V range
-// that holds it -- and the offset is the level at the centre of that range.
-// There is no trigger coupling and no acquisition type; there is a resolution,
-// which on this instrument trades sample rate for bits (see picoResolutions).
-// Every measurement is computed on the host from one captured record, so a
-// reading is only as good as the capture: a trace that touches the range limit
-// is clipped, and the driver refuses to measure it rather than report a
-// flattened peak. The ranges below therefore leave headroom.
+// divisions, so the vertical setting is range() -- how far the signal reaches
+// from the centre, from which the driver picks the smallest +/-10 mV..20 V
+// range that holds it -- and the offset is the level at the centre of that
+// range. There is no trigger coupling and no acquisition type; there is a
+// resolution, which on this instrument trades sample rate for bits (see
+// picoResolutions). Every measurement is computed on the host from one
+// captured record, so a reading is only as good as the capture: a trace that
+// touches the range limit is clipped, and the driver refuses to measure it
+// rather than report a flattened peak. The ranges below therefore leave
+// headroom.
 //
 // Every waveform is told .into( Termination::HighImpedance): the Pico's input
 // is 1 MOhm, as the DSOX1202G's is, and the generator quotes amplitude against
@@ -38,9 +38,11 @@
 // WfgIntoScope is held to -- what a generator told 2 Vpp must show does not
 // depend on what is looking.
 //
-// Every script Removes what it Applied, and safing turns the outputs off after
-// the run regardless. Readings key as Osc2.<measurement>.<quantity>, no
-// channel, and are injected in read order by
+// Every script starts from watch(), which sets every Pico setting a script here
+// changes, so no script puts the Pico back on its way out. The generator is
+// different: every script Removes what it Applied, and safing turns the outputs
+// off after the run regardless. Readings key as Osc2.<measurement>.<quantity>,
+// no channel, and are injected in read order by
 // dev/suite/tests/test_pico_into_wfg.cpp.
 //
 
@@ -56,34 +58,40 @@ namespace
     constexpr auto kOpen = wfg::Termination::HighImpedance;
 
     //
-    // Reset the scope to a known state between tests to avoid state pollution.
+    // The stimulus most scripts use: a sine on generator channel N, 1 kHz and
+    // 2 Vpp on 0 V unless told otherwise.
     //
-    auto resetScope() -> void
+    template<unsigned N>
+    auto referenceSine( const Frequency frequency = 1_kHz, const Voltage amplitude = 2_V, const Voltage offset = 0_V)
     {
-        Setup( Osc2.channel<1>().coupling( pico::Coupling::Dc).range( 2_V).verticalOffset( 0_V));
-        Setup( Osc2.channel<2>().coupling( pico::Coupling::Dc).range( 2_V).verticalOffset( 0_V));
-        Setup( Osc2.timebase().timePerDivision( 200_us).reference( pico::TimebaseReference::Center));
-        Setup( Osc2.trigger().edgeSource<1>().slope( pico::TriggerSlope::Rising).level( 0_V).sweep( pico::TriggerSweep::Auto));
-        Setup( Osc2.acquisition().resolution( pico::Resolution::Bits8));
+        return Wfg1.channel<N>().sine().frequency( frequency).amplitude( amplitude).offset( offset).into( kOpen);
     }
 
     //
     // Pico channel N set to watch a generator: 1:1 (a BNC cable, not a probe),
-    // DC coupled, 8-bit, the whole bandwidth. range is the largest voltage the
-    // signal reaches, centre the level at the middle of it, timePerDiv chosen
-    // by the caller -- usually two periods across the ten divisions.
+    // DC coupled, the whole bandwidth. range is how far the signal reaches from
+    // centre, the level at the middle of the range; timePerDiv is usually two
+    // periods across the ten divisions. The defaults are the 2 Vpp, 1 kHz
+    // reference sine with 2x headroom.
     //
-    // Auto sweep, so a DC level -- which has no edge to trigger on -- still
+    // The trigger sits at the centre on channel N's rising edge, with Auto
+    // sweep, so a DC level -- which has no edge to trigger on -- still
     // captures, and a missing signal fails on its reading rather than on a
     // timeout.
     //
+    // The resolution is set here too, so a script that wants 12 or 14 bits asks
+    // for them in one change rather than through 8 bits on the way.
+    //
     template<unsigned N>
-    auto watch( const pico::Coupling coupling, const Voltage range, const Voltage centre, const Time timePerDiv, const Voltage triggerLevel) -> void
+    auto watch( const Voltage          range      = 2_V,
+                const Voltage          centre     = 0_V,
+                const Time             timePerDiv = 200_us,
+                const pico::Resolution bits       = pico::Resolution::Bits8) -> void
     {
-        Setup( Osc2.acquisition().resolution( pico::Resolution::Bits8));
+        Setup( Osc2.acquisition().resolution( bits));
 
         Setup( Osc2.channel<N>()
-                   .coupling( coupling)
+                   .coupling( pico::Coupling::Dc)
                    .probeAttenuation( 1.0)
                    .range( range)
                    .verticalOffset( centre)
@@ -97,8 +105,18 @@ namespace
         Setup( Osc2.trigger()
                    .edgeSource<N>()
                    .slope( pico::TriggerSlope::Rising)
-                   .level( triggerLevel)
+                   .level( centre)
                    .sweep( pico::TriggerSweep::Auto));
+    }
+
+    //
+    // Both channels on the defaults, channel A last so that it is the trigger
+    // source.
+    //
+    auto watchBoth() -> void
+    {
+        watch<2>();
+        watch<1>();
     }
 
     //
@@ -108,8 +126,8 @@ namespace
     template<unsigned N>
     auto sineOn() -> void
     {
-        Apply( Wfg1.channel<N>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
-        watch<N>( pico::Coupling::Dc, 2_V, 0_V, 500_us, 0_V);
+        Apply( referenceSine<N>());
+        watch<N>();
 
         Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V,    Measure( Osc2.channel<N>().vpp()));
         Verify( DEV_Wfg_1::DEV_Wfg_Freq1kHz, Measure( Osc2.channel<N>().frequency()));
@@ -131,20 +149,11 @@ auto picoSineChB() -> void { sineOn<2>(); }
 //
 auto picoFrequencySteps() -> void
 {
-    resetScope();
-    
     const auto check = []( const Frequency nominal, const Time perDiv, const auto & criterion)
     {
-        Apply( Wfg1.channel<1>().sine().frequency( nominal).amplitude( 2_V).offset( 0_V).into( kOpen));
-        watch<1>( pico::Coupling::Dc, 2_V, 0_V, perDiv, 0_V);
-
-        const auto freq = Measure( Osc2.channel<1>().frequency());
-
-        if( std::isnan( freq.value())) 
-        {
-            std::cout << "DEBUG: frequency=" << nominal.value() << " timePerDiv=" << perDiv.value() << std::endl;
-        }
-        Verify( criterion, freq);
+        Apply( referenceSine<1>( nominal));
+        watch<1>( 2_V, 0_V, perDiv);
+        Verify( criterion, Measure( Osc2.channel<1>().frequency()));
     };
 
     check( 100_Hz,  2_ms,   DEV_Wfg_1::DEV_Wfg_Freq100Hz);
@@ -157,16 +166,17 @@ auto picoFrequencySteps() -> void
 
 //
 // Amplitude and offset at once, and on purpose: 4 Vpp on +1 V peaks at +3 V and
-// troughs at -1 V. The range is 2 V about a centre of +1 V -- which is where the
-// driver's sign convention for the SDK's analogue offset is checked, because the
-// SDK adds its offset to the input where this driver's offset is the level shown
-// at the centre. Got backwards, the trace lands against a rail and is clipped.
+// troughs at -1 V, +/-2 V about a centre of +1 V. Asked as 2.5 V for headroom,
+// which the driver rounds up to its +/-5 V range. The centre is where the
+// driver's sign convention for the SDK's analogue offset is checked, because
+// the SDK adds its offset to the input where this driver's offset is the level
+// shown at the centre. Got backwards, the trace lands against a rail and is
+// clipped.
 //
 auto picoAmplitudeAndOffset() -> void
 {
-    resetScope();
-    Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 4_V).offset( 1_V).into( kOpen));
-    watch<1>( pico::Coupling::Dc, 2.5_V, 1_V, 200_us, 1_V);
+    Apply( referenceSine<1>( 1_kHz, 4_V, 1_V));
+    watch<1>( 2.5_V, 1_V);
 
     Verify( DEV_Wfg_1::DEV_Wfg_OffsetMax,  Measure( Osc2.channel<1>().vmax()));
     Verify( DEV_Wfg_1::DEV_Wfg_OffsetMin,  Measure( Osc2.channel<1>().vmin()));
@@ -176,27 +186,22 @@ auto picoAmplitudeAndOffset() -> void
 }
 
 //
-// The same 2 Vpp sine on the +/-2 V, +/-5 V and +/-10 V ranges, 12-bit so the coarser ranges
-// still resolve it: the reading has to be the same whichever range the driver
-// picked, which is the range table and the count-to-volts scaling checked at
-// three points. 8 bits on a +/-10 V range is 78 mV a step, which would be a
-// test of the converter rather than of the driver.
+// The same 2 Vpp sine on the +/-2 V, +/-5 V and +/-10 V ranges, 12-bit so the
+// coarser ranges still resolve it: the reading has to be the same whichever
+// range the driver picked, which is the range table and the count-to-volts
+// scaling checked at three points. 8 bits on a +/-10 V range is 78 mV a step,
+// which would be a test of the converter rather than of the driver.
 //
 auto picoRanges() -> void
 {
-    resetScope();
-    Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
+    Apply( referenceSine<1>());
 
     for( const auto range : { 2_V, 5_V, 10_V })
     {
-        Setup( Osc2.acquisition().resolution( pico::Resolution::Bits12));
-        Setup( Osc2.channel<1>().range( range));
-        watch<1>( pico::Coupling::Dc, range, 0_V, 200_us, 0_V);
+        watch<1>( range, 0_V, 200_us, pico::Resolution::Bits12);
 
         Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V, Measure( Osc2.channel<1>().vpp()));
     }
-
-    Setup( Osc2.acquisition().resolution( pico::Resolution::Bits8));
 
     Remove( Wfg1.channel<1>().sine());
 }
@@ -210,19 +215,15 @@ auto picoRanges() -> void
 //
 auto picoResolutions() -> void
 {
-    resetScope();
-    Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
+    Apply( referenceSine<1>());
 
     for( const auto bits : { pico::Resolution::Bits8, pico::Resolution::Bits12, pico::Resolution::Bits14 })
     {
-        Setup( Osc2.acquisition().resolution( bits));
-        watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
+        watch<1>( 2_V, 0_V, 200_us, bits);
 
         Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V,    Measure( Osc2.channel<1>().vpp()));
         Verify( DEV_Wfg_1::DEV_Wfg_Freq1kHz, Measure( Osc2.channel<1>().frequency()));
     }
-
-    Setup( Osc2.acquisition().resolution( pico::Resolution::Bits8));
 
     Remove( Wfg1.channel<1>().sine());
 }
@@ -233,9 +234,8 @@ auto picoResolutions() -> void
 //
 auto picoSquareDutyCycle() -> void
 {
-    resetScope();
     Apply( Wfg1.channel<1>().square().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).dutyCycle( 25_pct).into( kOpen));
-    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
+    watch<1>();
 
     Verify( DEV_Wfg_1::DEV_Wfg_Top1V,       Measure( Osc2.channel<1>().vtop()));
     Verify( DEV_Wfg_1::DEV_Wfg_BaseMinus1V, Measure( Osc2.channel<1>().vbase()));
@@ -248,13 +248,12 @@ auto picoSquareDutyCycle() -> void
 //
 // Edge times, which are computed between the 10% and 90% levels of the record's
 // own histogram: a 100% ramp is a rising sawtooth, 0.8 ms up and an edge back
-// down, and a triangle is 0.4 ms each way.
+// down, and a triangle is 0.4 ms each way. One watch() serves both shapes.
 //
 auto picoRampAndTriangle() -> void
 {
-    resetScope();
     Apply( Wfg1.channel<1>().ramp().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).symmetry( 100_pct).into( kOpen));
-    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
+    watch<1>();
 
     Verify( DEV_Wfg_1::DEV_Wfg_RampEdge, Measure( Osc2.channel<1>().riseTime()));
     Verify( DEV_Wfg_1::DEV_Wfg_FastEdge, Measure( Osc2.channel<1>().fallTime()));
@@ -275,13 +274,12 @@ auto picoRampAndTriangle() -> void
 //
 auto picoDcLevels() -> void
 {
-    resetScope();
     Apply( Wfg1.channel<1>().dc().offset( 1.5_V).into( kOpen));
-    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
+    watch<1>();
     Verify( DEV_Wfg_1::DEV_Wfg_Dc1V5, Measure( Osc2.channel<1>().vaverage()));
 
     Apply( Wfg1.channel<1>().dc().offset( -2_V).into( kOpen));
-    watch<1>( pico::Coupling::Dc, 2.5_V, 0_V, 200_us, 0_V);
+    watch<1>( 2.5_V);
     Verify( DEV_Wfg_1::DEV_Wfg_DcMinus2V, Measure( Osc2.channel<1>().vaverage()));
 
     Remove( Wfg1.channel<1>().dc());
@@ -289,14 +287,15 @@ auto picoDcLevels() -> void
 
 //
 // AC coupling takes the offset out: 2 Vpp on +1 V averages 1 V on DC coupling
-// and zero on AC, the same record read two ways.
+// and zero on AC, the same signal read two ways. On AC the centre and the
+// trigger move to 0 V with it.
 //
+/*
 auto picoCoupling() -> void
 {
-    resetScope();
-    Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 1_V).into( kOpen));
+    Apply( referenceSine<1>( 1_kHz, 2_V, 1_V));
 
-    watch<1>( pico::Coupling::Dc, 2.5_V, 1_V, 200_us, 1_V);
+    watch<1>( 2.5_V, 1_V);
     Verify( DEV_Wfg_1::DEV_Wfg_OffsetMean, Measure( Osc2.channel<1>().vaverage()));
 
     // AC coupling: the PicoScope 5244D uses a high-pass filter. With a 1 V DC
@@ -306,15 +305,38 @@ auto picoCoupling() -> void
     
     Voltage average;
 
-    for( int i = 0; i < 10; i++) 
+    for( int i = 0; i < 3; i++) 
     {
         Delay( 1000_ms); // Let AC coupling settle (10 seconds total)
         average = Measure( Osc2.channel<1>().vaverage());
     }
     
     Verify( DEV_Wfg_1::DEV_Wfg_Zero, average);
+//    Verify( DEV_Wfg_1::DEV_Wfg_Zero, Measure( Osc2.channel<1>().vaverage()));
 
     Setup( Osc2.channel<1>().coupling( pico::Coupling::Dc));
+
+    Remove( Wfg1.channel<1>().sine());
+}
+*/
+auto picoCoupling() -> void
+{
+    Apply( referenceSine<1>( 1_kHz, 2_V, 1_V));
+
+    watch<1>( 2.5_V, 1_V);
+    Verify( DEV_Wfg_1::DEV_Wfg_OffsetMean, Measure( Osc2.channel<1>().vaverage()));
+
+    Setup( Osc2.channel<1>().coupling( pico::Coupling::Ac).verticalOffset( 0_V));
+    Setup( Osc2.trigger().level( 0_V));
+
+    //
+    // The first record after a coupling change holds the coupling capacitor
+    // charging, not the settled signal, so it is captured and thrown away.
+    // (A workaround: the driver should do this itself.)
+    //
+    static_cast<void>( Measure( Osc2.channel<1>().vaverage()));
+
+    Verify( DEV_Wfg_1::DEV_Wfg_Zero, Measure( Osc2.channel<1>().vaverage()));
 
     Remove( Wfg1.channel<1>().sine());
 }
@@ -325,14 +347,11 @@ auto picoCoupling() -> void
 //
 auto picoBandwidthLimit() -> void
 {
-    resetScope();
-    Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
-    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
+    Apply( referenceSine<1>());
+    watch<1>();
 
     Setup( Osc2.channel<1>().bandwidth( pico::Bandwidth::Limited));
     Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V, Measure( Osc2.channel<1>().vpp()));
-
-    Setup( Osc2.channel<1>().bandwidth( pico::Bandwidth::Full));
 
     Remove( Wfg1.channel<1>().sine());
 }
@@ -341,22 +360,16 @@ auto picoBandwidthLimit() -> void
 // The trigger, which on Normal sweep only fires on a real edge: a rising and a
 // falling slope through zero both have to arrive and both have to give the
 // frequency. Auto would capture either way and say nothing about the trigger.
+// watch() has already put it on channel A at 0 V.
 //
 auto picoTriggerSlopes() -> void
 {
-    resetScope();
-    Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
+    Apply( referenceSine<1>());
+    watch<1>();
 
-    for( const auto slope : { pico::TriggerSlope::Rising, pico::TriggerSlope::Falling })
+    for( const auto slope : { pico::TriggerSlope::Falling, pico::TriggerSlope::Rising })
     {
-        Setup( Osc2.trigger()
-                   .edgeSource<1>()
-                   .slope( slope)
-                   .level( 0_V)
-                   .sweep( pico::TriggerSweep::Normal));
-
-        watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
-        Setup( Osc2.trigger().sweep( pico::TriggerSweep::Normal));
+        Setup( Osc2.trigger().slope( slope).sweep( pico::TriggerSweep::Normal));
 
         Verify( DEV_Wfg_1::DEV_Wfg_Freq1kHz, Measure( Osc2.channel<1>().frequency()));
     }
@@ -368,7 +381,8 @@ auto picoTriggerSlopes() -> void
 // A single-shot capture, then both traces. Arm on this instrument waits for the
 // pre-trigger fill (there is no armed flag to read), Await for the trigger, and
 // the trace is the record the readings above are computed from -- so its extremes
-// have to be the sine's peaks, +/-1 V.
+// have to be the sine's peaks, +/-1 V. Normal sweep, so the capture waits for a
+// real rising edge on channel A.
 //
 // Checked before anything is fetched, and the fetch skipped if it failed, for
 // the reason scopeCapture() gives: a trace fetched after a capture that never
@@ -376,18 +390,11 @@ auto picoTriggerSlopes() -> void
 //
 auto picoCapture() -> void
 {
-    resetScope();
-    Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
-    Apply( Wfg1.channel<2>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
+    Apply( referenceSine<1>());
+    Apply( referenceSine<2>());
 
-    watch<2>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
-    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
-
-    Setup( Osc2.trigger()
-               .edgeSource<1>()
-               .slope( pico::TriggerSlope::Rising)
-               .level( 0_V)
-               .sweep( pico::TriggerSweep::Normal));
+    watchBoth();
+    Setup( Osc2.trigger().sweep( pico::TriggerSweep::Normal));
 
     Arm( Osc2.single().timeout( 2_s));
 
@@ -397,7 +404,7 @@ auto picoCapture() -> void
 
     if( captured)
     {
-        for( const auto & trace : { Fetch( Osc2.channel<1>().waveform()), Fetch( Osc2.channel<2>().waveform()) })
+        const auto check = []( const core::Waveform & trace)
         {
             Verify( DEV_Osc_1::DEV_Osc_HasSamples, !trace.empty());
 
@@ -406,7 +413,10 @@ auto picoCapture() -> void
                 Verify( DEV_Wfg_1::DEV_Wfg_Top1V,       trace.maximum<Voltage>());
                 Verify( DEV_Wfg_1::DEV_Wfg_BaseMinus1V, trace.minimum<Voltage>());
             }
-        }
+        };
+
+        check( Fetch( Osc2.channel<1>().waveform()));
+        check( Fetch( Osc2.channel<2>().waveform()));
     }
 
     Remove( Wfg1.channel<1>().sine());
@@ -420,12 +430,10 @@ auto picoCapture() -> void
 //
 auto picoChannelsIndependent() -> void
 {
-    resetScope();
-    Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
+    Apply( referenceSine<1>());
     Apply( Wfg1.channel<2>().square().frequency( 5_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
 
-    watch<2>( pico::Coupling::Dc, 2_V, 0_V, 500_us, 0_V);
-    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 500_us, 0_V);
+    watchBoth();
 
     Verify( DEV_Wfg_1::DEV_Wfg_Freq1kHz, Measure( Osc2.channel<1>().frequency()));
     Verify( DEV_Wfg_1::DEV_Wfg_Freq5kHz, Measure( Osc2.channel<2>().frequency()));
@@ -441,9 +449,8 @@ auto picoChannelsIndependent() -> void
 //
 auto picoOutputOff() -> void
 {
-    resetScope();
-    Apply( Wfg1.channel<1>().sine().frequency( 1_kHz).amplitude( 2_V).offset( 0_V).into( kOpen));
-    watch<1>( pico::Coupling::Dc, 2_V, 0_V, 200_us, 0_V);
+    Apply( referenceSine<1>());
+    watch<1>();
 
     Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V, Measure( Osc2.channel<1>().vpp()));
 
