@@ -305,22 +305,30 @@ namespace hal::pico_5244d::measure
         const auto   found     = crossings( samples, interval, level->Base + amplitude / 2.0,
                                             amplitude * kHysteresis);
 
+        //
+        // A period from the edges of one direction, whichever the record holds
+        // more of. Hysteresis makes an edge at either end of the record
+        // invisible -- the signal has to clear the band before the crossing
+        // counts -- so a record of exactly two periods triggered on a rising
+        // edge at its centre holds only one countable rising edge, at the
+        // centre, while its two falling edges sit safely half a period in.
+        //
         std::vector<double> rising;
+        std::vector<double> falling;
 
         for( const auto & crossing : found)
         {
-            if( crossing.Rising)
-            {
-                rising.push_back( crossing.Time);
-            }
+            ( crossing.Rising ? rising : falling).push_back( crossing.Time);
         }
 
-        if( rising.size() < 2)
+        const auto & edges = rising.size() >= falling.size() ? rising : falling;
+
+        if( edges.size() < 2)
         {
-            return std::unexpected( "fewer than two rising edges in the record");
+            return std::unexpected( "fewer than two edges of either direction in the record");
         }
 
-        return ( rising.back() - rising.front()) / static_cast<double>( rising.size() - 1);
+        return ( edges.back() - edges.front()) / static_cast<double>( edges.size() - 1);
     }
 
     auto frequency( const std::span<const double> samples, const double interval) -> Result

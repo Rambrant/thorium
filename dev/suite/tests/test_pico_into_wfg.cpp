@@ -133,10 +133,10 @@ TEST_F( PicoIntoWfgFixture, OffsetAndAmplitudeMustBothBeRight)
 //
 TEST_F( PicoIntoWfgFixture, EveryRangeReadsTheSameSine)
 {
-    Measure.inject( "Osc2.Vpp.Voltage", { 2.01_V, 2.02_V, 2.00_V });
+    Measure.inject( "Osc2.Vrms.Voltage", { 0.709_V, 0.710_V, 0.712_V });
     EXPECT_TRUE( verdictOf( picoRanges));
 
-    Measure.inject( "Osc2.Vpp.Voltage", { 2.01_V, 2.02_V, 2.60_V });
+    Measure.inject( "Osc2.Vrms.Voltage", { 0.709_V, 0.710_V, 0.920_V });
     EXPECT_FALSE( verdictOf( picoRanges));
 }
 
@@ -207,10 +207,26 @@ TEST_F( PicoIntoWfgFixture, TheBandwidthLimitLeavesAKilohertzSineAlone)
 
 TEST_F( PicoIntoWfgFixture, BothTriggerSlopesGiveTheFrequency)
 {
+    Await.inject(   "Osc2.Acquisition",         { true, true });
     Measure.inject( "Osc2.Frequency.Frequency", { 1000.1_Hz, 999.9_Hz });
     EXPECT_TRUE( verdictOf( picoTriggerSlopes));
 
+    Await.inject(   "Osc2.Acquisition",         { true, true });
     Measure.inject( "Osc2.Frequency.Frequency", { 1000.1_Hz, 499.9_Hz });
+    EXPECT_FALSE( verdictOf( picoTriggerSlopes));
+}
+
+//
+// A slope the trigger never fires on fails on the capture, and its frequency is
+// not read: a Measure with no capture held would run the unit free and report a
+// healthy sine whatever the trigger did. One frequency is injected, as a
+// sequence, so a script that measured the second slope anyway would run past
+// its end and throw rather than pass.
+//
+TEST_F( PicoIntoWfgFixture, ASlopeThatNeverTriggersFailsAndIsNotMeasured)
+{
+    Await.inject(   "Osc2.Acquisition",         { true, false });
+    Measure.inject( "Osc2.Frequency.Frequency", std::vector{ 1000.1_Hz });
     EXPECT_FALSE( verdictOf( picoTriggerSlopes));
 }
 

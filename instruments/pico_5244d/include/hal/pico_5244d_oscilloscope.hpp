@@ -312,6 +312,10 @@ namespace hal::pico_5244d
             auto pushChannel( Unit & unit, unsigned channel) -> void;
             auto pushAllChannels( Unit & unit) -> void;
 
+            // Make a change to AC coupling take effect and wait for the coupling
+            // capacitor to charge, before the capture that follows it.
+            auto settleCoupling( Unit & unit, const Plan & plan) -> void;
+
             // Put the unit in the resolution this face was told, if it is not;
             // true if that changed it (and so the channels need pushing again).
             [[nodiscard]] auto applyResolution( Unit & unit) -> bool;
@@ -346,6 +350,9 @@ namespace hal::pico_5244d
             // Which open of the unit this face's setup was last applied to.
             std::uint64_t                   mAppliedTo{ 0 };
             std::array<std::optional<Scaling>, channel_count> mApplied{};
+
+            // A channel has been switched to AC coupling since the last capture.
+            bool                            mCouplingChanged{ false };
 
             std::shared_ptr<Pending>        mPending;
             std::shared_ptr<const Capture>  mHeld;

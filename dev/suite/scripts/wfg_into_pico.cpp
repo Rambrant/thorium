@@ -186,7 +186,7 @@ auto picoAmplitudeAndOffset() -> void
 }
 
 //
-// The same 2 Vpp sine on the +/-2 V, +/-5 V and +/-10 V ranges, 12-bit so the
+// The same 2 Vrms sine on the +/-2 V, +/-5 V and +/-10 V ranges, 12-bit so the
 // coarser ranges still resolve it: the reading has to be the same whichever
 // range the driver picked, which is the range table and the count-to-volts
 // scaling checked at three points. 8 bits on a +/-10 V range is 78 mV a step,
@@ -195,14 +195,14 @@ auto picoAmplitudeAndOffset() -> void
 auto picoRanges() -> void
 {
     Apply( referenceSine<1>());
-
+ 
     for( const auto range : { 2_V, 5_V, 10_V })
     {
         watch<1>( range, 0_V, 200_us, pico::Resolution::Bits12);
-
-        Verify( DEV_Wfg_1::DEV_Wfg_Vpp2V, Measure( Osc2.channel<1>().vpp()));
+ 
+        Verify( DEV_Wfg_1::DEV_Wfg_SineRms, Measure( Osc2.channel<1>().vrms()));
     }
-
+ 
     Remove( Wfg1.channel<1>().sine());
 }
 
@@ -290,7 +290,7 @@ auto picoDcLevels() -> void
 // and zero on AC, the same signal read two ways. On AC the centre and the
 // trigger move to 0 V with it.
 //
-/*
+
 auto picoCoupling() -> void
 {
     Apply( referenceSine<1>( 1_kHz, 2_V, 1_V));
@@ -298,43 +298,8 @@ auto picoCoupling() -> void
     watch<1>( 2.5_V, 1_V);
     Verify( DEV_Wfg_1::DEV_Wfg_OffsetMean, Measure( Osc2.channel<1>().vaverage()));
 
-    // AC coupling: the PicoScope 5244D uses a high-pass filter. With a 1 V DC
-    // offset at 1 kHz, the capacitor needs time to discharge. Switch to AC
-    // coupling once, then wait for the filter to settle with periodic captures.
-    Setup( Osc2.channel<1>().coupling( pico::Coupling::Ac));
-    
-    Voltage average;
-
-    for( int i = 0; i < 3; i++) 
-    {
-        Delay( 1000_ms); // Let AC coupling settle (10 seconds total)
-        average = Measure( Osc2.channel<1>().vaverage());
-    }
-    
-    Verify( DEV_Wfg_1::DEV_Wfg_Zero, average);
-//    Verify( DEV_Wfg_1::DEV_Wfg_Zero, Measure( Osc2.channel<1>().vaverage()));
-
-    Setup( Osc2.channel<1>().coupling( pico::Coupling::Dc));
-
-    Remove( Wfg1.channel<1>().sine());
-}
-*/
-auto picoCoupling() -> void
-{
-    Apply( referenceSine<1>( 1_kHz, 2_V, 1_V));
-
-    watch<1>( 2.5_V, 1_V);
-    Verify( DEV_Wfg_1::DEV_Wfg_OffsetMean, Measure( Osc2.channel<1>().vaverage()));
-
-    Setup( Osc2.channel<1>().coupling( pico::Coupling::Ac).verticalOffset( 0_V));
+    Setup( Osc2.channel<1>().coupling( pico::Coupling::Ac).range( 2_V).verticalOffset( 0_V));
     Setup( Osc2.trigger().level( 0_V));
-
-    //
-    // The first record after a coupling change holds the coupling capacitor
-    // charging, not the settled signal, so it is captured and thrown away.
-    // (A workaround: the driver should do this itself.)
-    //
-    static_cast<void>( Measure( Osc2.channel<1>().vaverage()));
 
     Verify( DEV_Wfg_1::DEV_Wfg_Zero, Measure( Osc2.channel<1>().vaverage()));
 
@@ -362,16 +327,37 @@ auto picoBandwidthLimit() -> void
 // frequency. Auto would capture either way and say nothing about the trigger.
 // watch() has already put it on channel A at 0 V.
 //
+// Each slope is captured through Arm and Await, not by Measure alone, because
+// a Measure with no capture held runs the unit free: the trigger is switched
+// off and the record starts wherever the signal happens to be. That is right
+// for a reading that is the same whichever piece of a repeating signal it is
+// taken from -- Vpp, RMS, average, frequency -- and it is why the other scripts
+// here can Measure directly. It says nothing about the trigger, though, and is
+// the wrong tool whenever the record has to be tied to an event: a one-off
+// edge, a stimulus the script causes between Arm and Await, a time measured
+// from the trigger, or samples compared one by one. A completed single capture
+// is held, so the Measure after Await reads the triggered record, and the next
+// Setup lets it go.
+//
 auto picoTriggerSlopes() -> void
 {
     Apply( referenceSine<1>());
     watch<1>();
 
-    for( const auto slope : { pico::TriggerSlope::Falling, pico::TriggerSlope::Rising })
+    for( const auto slope : { pico::TriggerSlope::Rising, pico::TriggerSlope::Falling })
     {
         Setup( Osc2.trigger().slope( slope).sweep( pico::TriggerSweep::Normal));
 
-        Verify( DEV_Wfg_1::DEV_Wfg_Freq1kHz, Measure( Osc2.channel<1>().frequency()));
+        Arm( Osc2.single().timeout( 2_s));
+
+        const auto captured = Await( Osc2.single());
+
+        Verify( DEV_Osc_1::DEV_Osc_Captured, captured);
+
+        if( captured)
+        {
+            Verify( DEV_Wfg_1::DEV_Wfg_Freq1kHz, Measure( Osc2.channel<1>().frequency()));
+        }
     }
 
     Remove( Wfg1.channel<1>().sine());

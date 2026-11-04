@@ -125,7 +125,28 @@ TEST( Pico5244dMeasure, OneEdgeIsNotAPeriod)
     v.insert( v.end(), 50, 3.3);
 
     ASSERT_FALSE( m::period( v, kDt));
-    EXPECT_EQ( m::period( v, kDt).error(), "fewer than two rising edges in the record");
+    EXPECT_EQ( m::period( v, kDt).error(), "fewer than two edges of either direction in the record");
+}
+
+//
+// Two periods of a sine with a rising zero crossing at the start, the centre
+// and the end -- what a rising trigger at the centre of a two-period window
+// gives. The end crossings never clear the hysteresis band, so the period has
+// to come from the two falling edges.
+//
+TEST( Pico5244dMeasure, TwoPeriodsWithRisingEdgesAtTheEnds)
+{
+    constexpr int kPerPeriod = 100;
+
+    std::vector<double> v;
+
+    for( int i = 0; i <= 2 * kPerPeriod; ++i)
+    {
+        v.push_back( std::sin( 2.0 * std::numbers::pi * i / kPerPeriod));
+    }
+
+    ASSERT_TRUE( m::period( v, kDt));
+    EXPECT_NEAR( *m::period( v, kDt), kPerPeriod * kDt, kDt);
 }
 
 TEST( Pico5244dMeasure, NoiseOnAnEdgeIsNotExtraEdges)

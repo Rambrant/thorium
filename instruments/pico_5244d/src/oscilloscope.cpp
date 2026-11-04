@@ -21,6 +21,16 @@ namespace hal::pico_5244d
 
         constexpr auto kPollInterval = std::chrono::milliseconds( 1);
 
+        //
+        // How long the AC coupling's high-pass takes to settle after a switch
+        // from DC. Measured on the rig with 2 Vpp on +1 V: the first record
+        // after the switch averaged 679 mV, and 4 s later 13 mV.
+        //
+        constexpr auto kAcCouplingSettle = std::chrono::seconds( 4);
+
+        // Long enough for any block the settling capture can be.
+        constexpr auto kSettleCaptureTimeout = std::chrono::seconds( 1);
+
         // Margin on top of the pre-trigger fill before Arm calls the unit ready.
         constexpr auto kArmMargin = std::chrono::milliseconds( 5);
 
@@ -302,6 +312,39 @@ namespace hal::pico_5244d
         }
     }
 
+    //
+    // The unit applies a SetChannel when the next block starts, not when it is
+    // called: a capture a second after the switch to AC still read the
+    // capacitor charging from scratch. So the switch is made real with one
+    // untriggered block of the planned shape, whose data is never read, and
+    // then the capacitor is given its time. Nothing is buffered for this block:
+    // the SDK copies samples out only on GetValues.
+    //
+    auto Oscilloscope::settleCoupling( Unit & open, const Plan & plan) -> void
+    {
+        check( "SetSimpleTrigger", open.Api->setSimpleTrigger( open.Handle, false, 0, 0, kDirectionRising, 0, 0));
+
+        std::int32_t indisposed = 0;
+
+        check( "RunBlock", open.Api->runBlock( open.Handle, 0, plan.samples(), plan.Timebase, indisposed));
+
+        const auto deadline = Clock::now() + kSettleCaptureTimeout;
+
+        for( bool ready = false; !ready && Clock::now() < deadline; )
+        {
+            check( "IsReady", open.Api->isReady( open.Handle, ready));
+
+            if( !ready)
+            {
+                std::this_thread::sleep_for( kPollInterval);
+            }
+        }
+
+        static_cast<void>( open.Api->stop( open.Handle));
+
+        std::this_thread::sleep_for( kAcCouplingSettle);
+    }
+
     auto Oscilloscope::pushAllChannels( Unit & open) -> void
     {
         for( unsigned channel = 1; channel <= channel_count; ++channel)
@@ -323,6 +366,15 @@ namespace hal::pico_5244d
         if( config.Range && !( config.Range->value() > 0.0))
         {
             throw SettingOutOfRange( "channel " + std::to_string( config.Channel), "range", "must be positive");
+        }
+
+        //
+        // Only a switch *to* AC needs settling: on DC the input is direct, and
+        // AC to AC changes nothing behind the capacitor.
+        //
+        if( config.InputCoupling == Coupling::Ac && state.InputCoupling.value_or( Coupling::Dc) != Coupling::Ac)
+        {
+            mCouplingChanged = true;
         }
 
         if( config.InputCoupling)    { state.InputCoupling    = config.InputCoupling;    }
@@ -595,6 +647,13 @@ namespace hal::pico_5244d
         auto pending = std::make_shared<Pending>();
 
         pending->Shape = planCapture( open);
+
+        if( mCouplingChanged)
+        {
+            settleCoupling( open, pending->Shape);
+
+            mCouplingChanged = false;
+        }
 
         std::optional<unsigned> first;
 
