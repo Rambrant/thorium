@@ -26,7 +26,74 @@ namespace launcher::platform
     namespace
     {
         constexpr int   kHighestInheritedFd = 1024;
+
+        // How long a run in flight is given to end by itself once the launcher
+        // has gone: run_scripts takes SIGTERM as "stop after the current test",
+        // then runs its teardown hooks and safes the rig, and killing it part
+        // way through that leaves a rig energised with nobody watching. The
+        // bound is for a run that never reaches a boundary -- then the promise
+        // that nothing outlives the launcher wins.
+        constexpr auto  kRunSeconds = 60;
+        constexpr long  kPollNanoseconds = 100'000'000;
+
+        // The grace when the group cannot be watched (see endGroup).
         constexpr auto  kGraceSeconds = 2;
+
+        auto pause( timespec duration) -> void
+        {
+            while ( nanosleep( &duration, &duration) != 0 && errno == EINTR)
+            {
+            }
+        }
+
+        //
+        // Ends everything in the watchdog's group and never returns: SIGTERM,
+        // then SIGKILL once the group is empty or kRunSeconds have passed --
+        // normally the former, well inside a second, with nothing left for the
+        // SIGKILL to find.
+        //
+        // "Is the group empty" is kill( -group, 0), which POSIX has and which
+        // needs no list of processes -- but the watchdog leads the group, and
+        // would be counted. So the work is handed to a fork that leaves for a
+        // session of its own (setsid, which a group leader may not call and its
+        // child may), and the watchdog exits: what is left in the group is
+        // exactly what the launcher spawned into it.
+        //
+        [[noreturn]]
+        auto endGroup() -> void
+        {
+            const auto  group = getpgrp();
+            const auto  reaper = fork();
+
+            if ( reaper > 0)
+            {
+                _exit( 0);
+            }
+
+            if ( reaper == 0 && setsid() != -1)
+            {
+                kill( -group, SIGTERM);
+
+                for ( long waited = 0; waited < kRunSeconds * 1'000'000'000L && kill( -group, 0) == 0;
+                      waited += kPollNanoseconds)
+                {
+                    pause( timespec{ 0, kPollNanoseconds });
+                }
+
+                kill( -group, SIGKILL);
+                _exit( 0);
+            }
+
+            // No fork, or no session: still in the group, so it cannot be seen
+            // to empty. A fixed grace instead, as short as it has to be for the
+            // SIGKILL to be certain.
+            kill( 0, SIGTERM);
+            pause( timespec{ kGraceSeconds, 0 });
+
+            // Takes this process with it -- it is the last thing left to do.
+            kill( 0, SIGKILL);
+            _exit( 0);
+        }
 
         //
         // Runs in the forked child and never returns. Only async-signal-safe
@@ -39,8 +106,8 @@ namespace launcher::platform
         {
             setpgid( 0, 0);
 
-            // The watchdog signals its own group, which includes itself --
-            // SIGTERM must not stop it before the SIGKILL that follows. SIGINT
+            // SIGTERM must not stop it: endGroup's fallback signals its own
+            // group, which includes itself, before the SIGKILL that follows. SIGINT
             // and SIGHUP too: a Ctrl-C in the terminal the launcher was
             // started from goes to the terminal's foreground group, which
             // the launcher is in and this is not, but ignoring them costs
@@ -51,8 +118,8 @@ namespace launcher::platform
 
             // Drop every descriptor inherited from the launcher except the
             // lifeline -- above all the single-instance lock, which would
-            // otherwise stay held for the grace period after the launcher
-            // exited.
+            // otherwise stay held for as long as a run takes to end after the
+            // launcher exited.
             for ( int fd = 3; fd < kHighestInheritedFd; ++fd)
             {
                 if ( fd != lifeline)
@@ -71,16 +138,7 @@ namespace launcher::platform
                 }
             }
 
-            kill( 0, SIGTERM);
-
-            timespec  grace{ kGraceSeconds, 0 };
-            while ( nanosleep( &grace, &grace) != 0 && errno == EINTR)
-            {
-            }
-
-            // Takes the watchdog with it -- it is the last thing left to do.
-            kill( 0, SIGKILL);
-            _exit( 0);
+            endGroup();
         }
 
         auto toArgv( const std::vector<std::string> & argv) -> std::vector<char *>

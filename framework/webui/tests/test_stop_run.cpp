@@ -646,6 +646,19 @@ TEST_F( ServerStopRun, TheConsoleDyingEndsTheRunItStartedAndTheLogsAreWritten)
 
 TEST_F( ServerStopRun, EmergencyKillsTheRunAndSafesTheRigWithoutWaitingForTheTest)
 {
+    //
+    // What "safed" must say depends on the bench this deployment describes:
+    // --safe reaches for the instruments, so on a simulated rig it succeeds and
+    // on one whose instruments are not attached to this machine it rightly does
+    // not. The server has to relay whichever it is, so ask the same binary first.
+    //
+    auto probe = spawn( { kHooked, "--safe"});
+    std::vector<std::string> ignored;
+    readLines( probe, ignored, []( const std::string &) { return false; }, std::chrono::seconds( 30));
+    const auto probed = reap( probe, std::chrono::seconds( 30));
+    ASSERT_TRUE( probed.has_value()) << "--safe did not finish";
+    const bool rigCanBeSafed = WIFEXITED( *probed) && WEXITSTATUS( *probed) == 0;
+
     startServerAndRun();
 
     httplib::Client client( "127.0.0.1", Port);
@@ -653,7 +666,7 @@ TEST_F( ServerStopRun, EmergencyKillsTheRunAndSafesTheRigWithoutWaitingForTheTes
     const auto reply   = client.Post( "/api/emergency", "", "application/json");
 
     ASSERT_TRUE( reply);
-    EXPECT_EQ( reply->body, R"({"killed":true,"safed":true})");
+    EXPECT_EQ( reply->body, rigCanBeSafed ? R"({"killed":true,"safed":true})" : R"({"killed":true,"safed":false})");
     EXPECT_LT( Clock::now() - started, std::chrono::milliseconds( 1000)) << "it did not wait out the 1.5 s script";
     EXPECT_FALSE( running());
 

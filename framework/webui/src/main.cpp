@@ -197,9 +197,19 @@ auto main( int argc, char ** argv) -> int
     // what has already shipped.
     server.Post( "/safe", [ &suite]( const httplib::Request &, httplib::Response & res)
     {
+        //
+        // ok means the rig was safed, not that something was started: a
+        // run_scripts that could not be executed still "starts" (the fork
+        // works and the exec fails), and one that could not reach an
+        // instrument exits non-zero. Either is a rig that may still be
+        // energised, and the page must not be told otherwise -- the same test
+        // /api/emergency makes below.
+        //
         const auto  result = webui::runBlocking( webui::buildSafeCommand( suite));
-        res.status = result.Started ? 200 : 500;
-        res.set_content( result.Started ? R"({"ok":true})" : R"({"ok":false})", "application/json");
+        const auto  ok     = result.Started && result.ExitCode == 0;
+
+        res.status = ok ? 200 : 500;
+        res.set_content( ok ? R"({"ok":true})" : R"({"ok":false})", "application/json");
     });
 
     //

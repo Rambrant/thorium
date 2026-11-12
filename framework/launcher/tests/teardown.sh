@@ -14,7 +14,9 @@
 # a few seconds, against a throwaway $HOME so it cannot collide with a
 # console that is really running. The "server" is stand_in_server.py -- the
 # launcher needs something that answers /api/status, and this test is about
-# the process group, not about thorium_webui.
+# the process group, not about thorium_webui. It also starts a child that
+# takes four seconds to wind down after SIGTERM, as a run that is safing its
+# rig does, which the watchdog has to wait for rather than kill.
 #
 # A clean exit (the operator closing the window) is not driven from here: it
 # needs a real console page holding /api/presence open. What it does to the
@@ -64,7 +66,7 @@ listening && skip "port $PORT is already in use"
 HOME=$TEST_HOME "$LAUNCHER" \
     --server="$PYTHON" \
     --browser-arg=--use-mock-keychain \
-    --server-arg="$STAND_IN" --server-arg="$PORT" \
+    --server-arg="$STAND_IN" --server-arg="$PORT" --server-arg="$TEST_HOME/wound-down" \
     --port="$PORT" >"$TEST_HOME/launcher.log" 2>&1 &
 LAUNCHER_PID=$!
 
@@ -123,14 +125,17 @@ echo "second instance opened a window and exited"
 kill -9 "$LAUNCHER_PID"
 LAUNCHER_PID=""
 
-# Two seconds of SIGTERM grace, then SIGKILL -- allow a little over that.
-for _ in $(seq 1 40); do [ "$(members "$GROUP")" = 0 ] && break; sleep 0.1; done
+# SIGTERM, then as long as the slowest member takes to wind down -- four
+# seconds here -- and no SIGKILL before that. Allow a little over it.
+for _ in $(seq 1 100); do [ "$(members "$GROUP")" = 0 ] && break; sleep 0.1; done
 
 LEFT=$(members "$GROUP")
 [ "$LEFT" = 0 ] || fail "$LEFT processes of the console survived the launcher: $(ps -A -o pid=,pgid=,comm= | awk -v g="$GROUP" '$2 == g')"
 listening && fail "the server is still answering on port $PORT"
 GROUP=""
-echo "kill -9 of the launcher took everything it started with it"
+[ -f "$TEST_HOME/wound-down" ] \
+    || fail "the run in flight was killed before it had wound down"
+echo "kill -9 of the launcher took everything it started with it, once the run had wound down"
 
 cleanup
 exit 0

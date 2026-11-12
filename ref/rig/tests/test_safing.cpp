@@ -13,8 +13,12 @@
 #include <gtest/gtest.h>
 
 #include <concepts>
+#include <deque>
+#include <memory>
 #include <optional>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 
 using namespace core::literals;
 
@@ -316,4 +320,95 @@ TEST( Safing, DirectWiredSupplySafesTheSameWayARelayIsolatedOneDoes)
 
     EXPECT_FALSE( dcP5.isEnabled());
     EXPECT_DOUBLE_EQ( dcP5.outputVoltage().value(), 0.0);
+}
+
+namespace
+{
+    //
+    // A supply that opens normally and then throws on the first command of its
+    // safing -- and throws something that is not a hal::io::TransportError,
+    // which is the one kind a driver's own safe() swallows. A stand-in for
+    // every way a safe() can throw that its author did not think of.
+    //
+    class SupplyThatThrowsWhenSafed final : public hal::io::ITransport
+    {
+        public:
+
+            auto send( const std::string_view command) -> void override
+            {
+                if( command.starts_with( "OUTP"))
+                {
+                    throw std::logic_error( "this supply throws when it is safed");
+                }
+
+                if( command == "*IDN?")
+                {
+                    mReplies.emplace_back( "Keysight Technologies,EDU36311A,CN00000001,1.0.2-1.0.1");
+                }
+                else if( command.ends_with( '?'))
+                {
+                    mReplies.emplace_back( "+0,\"No error\"");
+                }
+            }
+
+            [[nodiscard]]
+            auto receive() -> std::string override
+            {
+                auto reply = mReplies.front();
+                mReplies.pop_front();
+
+                return reply;
+            }
+
+            [[nodiscard]]
+            auto description() const -> std::string override
+            {
+                return "a supply that throws when it is safed";
+            }
+
+        private:
+
+            std::deque<std::string> mReplies;
+    };
+} // namespace
+
+//
+// One instrument's safe() throwing costs that instrument and nothing else.
+// It used to cost everything after it -- the instruments declared later, the
+// relay pass and the fabric -- and, from ~RigSafingGuard, the process.
+//
+// DcP5 is handed the throwing supply and is declared before AcP1 (see
+// rig/instrument.inc), so AcP1 going off and the fabric opening are both
+// things that happen after the throw.
+//
+TEST_F( SafingFixture, OneInstrumentThrowingDoesNotStopTheRestOfThePass)
+{
+    energiseEverything();
+
+    DcP5.useTransport( std::make_unique<SupplyThatThrowsWhenSafed>());
+    static_cast<void>( DcP5.identity());   // opens the session safe() will go down
+
+    std::vector<std::string> failures;
+
+    EXPECT_NO_THROW( failures = hal::safeRig());
+
+    DcP5.closeSession();
+
+    ASSERT_FALSE( failures.empty());
+    EXPECT_NE( failures.front().find( "DcP"), std::string::npos) << failures.front();
+    EXPECT_NE( failures.front().find( "throws when it is safed"), std::string::npos) << failures.front();
+
+    EXPECT_FALSE( AcP1.isEnabled());
+    EXPECT_FALSE( hal::fabric.isClosed( someElement));
+    EXPECT_FALSE( hal::fabric.isClosed( otherElement));
+}
+
+//
+// And an ordinary pass has nothing to report.
+//
+TEST_F( SafingFixture, ACleanPassReportsNoFailures)
+{
+    energiseEverything();
+
+    EXPECT_TRUE( hal::safeRig().empty());
 }

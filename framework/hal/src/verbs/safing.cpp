@@ -4,7 +4,10 @@
 #include "hal/driver/instrument.hpp"
 
 #include <concepts>
+#include <exception>
 #include <meta>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/session/bench.hpp"
@@ -21,6 +24,56 @@ namespace hal
 
         template<std::meta::info Scope>
         constexpr auto members = std::define_static_array( membersOfInfo( Scope));
+
+        //
+        // One step of the safing pass, fenced off from every other step.
+        //
+        // A step that throws must cost that step and nothing else. Without the
+        // fence, one instrument's safe() throwing -- a ScpiFault from a driver
+        // that checks what it sends, a logic_error, anything but the transport
+        // errors the drivers already swallow -- abandoned every instrument
+        // after it, the whole relay pass and the fabric: the rig stayed
+        // energised behind the one box that complained. And from
+        // ~RigSafingGuard, which is where a run's own safing happens, the
+        // escape was std::terminate.
+        //
+        // noexcept, so that is a property of the function rather than of what
+        // is in it: recording the failure allocates, and a failure to record
+        // one must not become the escape this exists to prevent.
+        //
+        template<typename StepT>
+        auto fenced( std::vector<std::string> & failures, const std::string_view what, StepT && step) noexcept -> void
+        {
+            const auto record = [ &]( const char * const why) noexcept
+            {
+                try
+                {
+                    failures.push_back( std::string( what) + ": " + why);
+
+                    core::journal().post( core::JournalRecord{
+                        .Method  = core::Verb::Note,
+                        .Subject = "safing",
+                        .Detail  = failures.back()
+                    });
+                }
+                catch( ...)
+                {
+                }
+            };
+
+            try
+            {
+                step();
+            }
+            catch( const std::exception & failure)
+            {
+                record( failure.what());
+            }
+            catch( ...)
+            {
+                record( "threw something that is not a std::exception");
+            }
+        }
     } // namespace detail
 
     //
@@ -53,8 +106,10 @@ namespace hal
     // hal::keysight_edu34450a::Multimeter::safe() for why every driver must have one rather than
     // only the sources that need a real body.
     //
-    auto safeRig() -> void
+    auto safeRig() -> std::vector<std::string>
     {
+        std::vector<std::string> failures;
+
         //
         // Posted before the work, not after -- the opposite of every other verb
         // (see core::ApplyEngine on why those log after their driver call), and
@@ -70,12 +125,18 @@ namespace hal
         // kind of context a tool reconstructing a run needs and a person
         // checking a rail does not.
         //
-        core::journal().post( core::JournalRecord{
-            .Method  = core::Verb::Safe,
-            .Subject = "rig",
-            .Detail  = core::bench().isAttached()
-                           ? "all instrument outputs off and zeroed, all relays opened"
-                           : core::kDetachedDetail
+        // Fenced like every step below: a sink that cannot take the event is
+        // not a reason to leave the rig as it is.
+        //
+        detail::fenced( failures, "recording the safing pass", []
+        {
+            core::journal().post( core::JournalRecord{
+                .Method  = core::Verb::Safe,
+                .Subject = "rig",
+                .Detail  = core::bench().isAttached()
+                               ? "all instrument outputs off and zeroed, all relays opened"
+                               : core::kDetachedDetail
+            });
         });
 
         //
@@ -97,7 +158,7 @@ namespace hal
         //
         if( !core::bench().isAttached())
         {
-            return;
+            return failures;
         }
 
         //
@@ -121,6 +182,9 @@ namespace hal
         // "outputs, then relays" with one more kind of relay in it (see
         // hal::RelayHoldingInstrument).
         //
+        // Each call is fenced (see detail::fenced): an instrument whose safe()
+        // throws is named in the answer and the pass carries on to the next.
+        //
         template for( constexpr auto member : detail::members<^^::>)
         {
             if constexpr( std::meta::is_variable( member))
@@ -133,7 +197,10 @@ namespace hal
                         "every InstrumentTag-derived instrument needs a safe() member --"
                         " see hal::SafeableInstrument in hal/driver/instrument.hpp");
 
-                    [: member :].safe();
+                    detail::fenced( failures, std::meta::identifier_of( member), []
+                    {
+                        [: member :].safe();
+                    });
                 }
             }
         }
@@ -153,7 +220,10 @@ namespace hal
 
                 if constexpr( std::derived_from<InstrumentT, InstrumentTag> && RelayHoldingInstrument<InstrumentT>)
                 {
-                    [: member :].safeRelays();
+                    detail::fenced( failures, std::meta::identifier_of( member), []
+                    {
+                        [: member :].safeRelays();
+                    });
                 }
             }
         }
@@ -168,6 +238,11 @@ namespace hal
         // some crashed script never released, which is exactly the
         // outcome safing exists to prevent.
         //
-        fabric.openAll();
+        detail::fenced( failures, "switching fabric", []
+        {
+            fabric.openAll();
+        });
+
+        return failures;
     }
 } // namespace hal

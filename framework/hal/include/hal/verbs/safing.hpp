@@ -1,11 +1,17 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 namespace hal
 {
     //
     // Drop this rig to a known idle state: every source's output off and
     // its setpoint zeroed, then every relay in the switching fabric
-    // opened. Takes no arguments, reads no state, returns nothing to check.
+    // opened. Takes no arguments and reads no state. What it returns is the
+    // steps that could not be carried out, one line each and empty when there
+    // were none -- an answer a caller may ignore, as the guard below does, and
+    // which run_scripts --safe turns into its exit status.
     //
     // The contract is the unusual part, so it's worth stating plainly:
     // safeRig() is called when nobody knows what the rig was doing. Not at
@@ -31,6 +37,19 @@ namespace hal
     //     of the implementation's structure rather than being maintained
     //     as a list; see hal/src/verbs/safing.cpp.
     //
+    //   * It does not throw, and one step failing does not stop the rest.
+    //     An instrument whose safe() throws is named in the answer and
+    //     every other instrument, the relay pass and the fabric are still
+    //     done. It is called from a destructor, where the alternative is
+    //     std::terminate with the outputs on.
+    //
+    //   * It reaches an instrument only down a session that is already
+    //     open (see hal::SafeableInstrument). Inside a run that is every
+    //     instrument the run spoke to. A fresh process has none, so
+    //     --safe opens them first, with hal::contactForSafing() in
+    //     hal/verbs/preflight.hpp -- without that this function sends
+    //     nothing at all and still returns an empty answer.
+    //
     // What this is NOT is the rig's safety guarantee. It cannot be: any
     // mechanism that depends on software on this machine still running is
     // defeated by the failures that matter -- SIGKILL, a kernel panic, a
@@ -52,13 +71,14 @@ namespace hal
     // --safe (see framework/runner/src/main.cpp), which calls this and exits. A fresh
     // process is the right thing rather than a compromise: real
     // instruments are addressed over LAN/GPIB, so a newly started process
-    // can command them to idle perfectly well, and it does so with a clean
+    // can command them to idle perfectly well once it has opened a session
+    // to each (hal::contactForSafing()), and it does so with a clean
     // heap rather than the damaged one that just crashed. This is also why
     // safing must not depend on any state the previous process
     // accumulated -- in the case that matters most, none of it exists any
     // more.
     //
-    auto safeRig() -> void;
+    auto safeRig() -> std::vector<std::string>;
 
     //
     // RAII counterpart to safeRig(), for the *normal* ways a suite run
@@ -82,9 +102,12 @@ namespace hal
     // than once, which is exactly as harmless as calling it once; see
     // safeRig()'s own comment on idempotency above.
     //
+    // The answer is dropped here: every failed step has already been posted
+    // to the journal as a Note, which is where a run's own log wants it.
+    //
     class RigSafingGuard
     {
     public:
-        ~RigSafingGuard() { safeRig(); }
+        ~RigSafingGuard() { static_cast<void>( safeRig()); }
     };
 } // namespace hal

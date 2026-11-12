@@ -80,6 +80,34 @@ function watchEvents() {
   currentSource.onerror = () => { currentSource.close(); currentSource = null; runFinished(); };
 }
 
+// A page opened or reloaded while a run is going: join it.
+//
+// Without this the page comes up idle beside a live run -- Run answers "a run
+// is already active", and Stop and Emergency stop, which only a running page
+// offers, are not there for the one person who can see the rig. The stream
+// replays a run from its first line to whoever opens it (see /api/events), so
+// joining is the same watchEvents() a page that started the run does. What
+// this page cannot know is how many tests the run was asked for, so the
+// progress line counts up with no total.
+//
+// Called once the catalog tree is built (main.js), because the stream's
+// verdicts land on its rows.
+export async function attachToRun() {
+  if (state.running) return;
+  let status = null;
+  try {
+    status = await (await fetch('/api/status')).json();
+  } catch (e) { return; }
+  if (!status || !status.running || state.running) return;
+  clearRaw();
+  clearResults();
+  clearVerdicts();
+  state.run = newRun(null);
+  setRunning(true);
+  setStatus('A run is in progress...');
+  watchEvents();
+}
+
 async function startRun() {
   const readings = readingsSettings();
   if (readings.error) {
@@ -105,11 +133,19 @@ async function startRun() {
 
   setRunning(true);
   setStatus('Starting run...');
-  const response = await fetch('/api/run', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
+  let response = null;
+  try {
+    response = await fetch('/api/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+  } catch (e) {
+    // The server did not answer, so nothing was started.
+    setRunning(false);
+    setStatus('Could not reach the console server -- no run was started.', 'fail');
+    return;
+  }
   if (response.status === 409) {
     setRunning(false);
     setStatus('A run is already active.', 'fail');
@@ -121,8 +157,12 @@ async function startRun() {
 
 $('safe').addEventListener('click', async () => {
   setStatus('Safing the rig...');
-  const response = await fetch('/safe', { method: 'POST' });
-  const body = await response.json();
+  // Anything but a reply saying ok is a rig nobody has confirmed idle: a
+  // server that did not answer, or one that answered with something else.
+  let body = { ok: false };
+  try {
+    body = await (await fetch('/safe', { method: 'POST' })).json();
+  } catch (e) { /* ok stays false */ }
   if (body.ok) setStatus('Rig safed: all outputs off, all relays open.');
   else setStatus('SAFING FAILED -- do not approach the fixture', 'fail');
 });

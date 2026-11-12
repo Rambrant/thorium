@@ -89,8 +89,9 @@ namespace webui
         //
         // --safe alone. No --events: the mode writes no log and posts its Safe
         // event into a journal with no sinks (see main.cpp), so there would be
-        // nothing on the stream to read. The window reports the exit code,
-        // which for this mode is always 0.
+        // nothing on the stream to read. The exit code is the answer: 0 is a
+        // rig that was reached and safed, anything else is one that may still
+        // be energised, with the reason on stderr.
         //
         return { suite.Binary.string(), "--safe" };
     }

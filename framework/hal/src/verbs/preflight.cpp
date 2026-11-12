@@ -880,4 +880,92 @@ namespace hal
             }
         }
     }
+
+    auto contactForSafing( std::vector<Binding> & bindings) -> std::vector<std::string>
+    {
+        std::vector<std::string> failures;
+
+        if( !core::bench().isAttached())
+        {
+            return failures;
+        }
+
+        std::vector<Claim>     claimed;
+        std::vector<Contacted> contacted;
+
+        template for( constexpr auto member : members<^^::>)
+        {
+            if constexpr( std::meta::is_variable( member))
+            {
+                using InstrumentT = [: std::meta::type_of( member) :];
+
+                if constexpr( std::derived_from<InstrumentT, InstrumentTag> && ContactableInstrument<InstrumentT>)
+                {
+                    auto & instrument = [: member :];
+                    auto & binding    = bindingFor( bindings, instrument.id());
+
+                    if( !std::holds_alternative<Simulated>( binding.Value))
+                    {
+                        try
+                        {
+                            const auto earlier = std::ranges::find( contacted, binding.Box, &Contacted::Box);
+
+                            if( earlier != contacted.end())
+                            {
+                                //
+                                // A later face of a box already reached: the
+                                // unit its first face took, as in
+                                // contactInstruments().
+                                //
+                                if( binding.Source == AddressSource::Pool)
+                                {
+                                    instrument.useAddress( earlier->Value);
+
+                                    binding.Value = earlier->Value;
+                                }
+
+                                binding.Identity = instrument.identity();
+                            }
+                            else
+                            {
+                                if( binding.Source == AddressSource::Pool)
+                                {
+                                    acquireFromPool( instrument, binding, claimed);
+                                }
+                                else
+                                {
+                                    binding.Identity = instrument.identity();
+                                }
+
+                                contacted.push_back( Contacted{
+                                    binding.Box, binding.Value, std::string( serialOf( binding.Identity)),
+                                    binding.PoolPosition });
+                            }
+                        }
+                        catch( const std::exception & failure)
+                        {
+                            failures.push_back(
+                                std::string( to_string( binding.Id)) + " at " + to_string( binding.Value)
+                                + " could not be reached, so it was not safed: " + failure.what());
+
+                            //
+                            // Whatever half-opened: safe() must find either a
+                            // working session or none, never the one that just
+                            // failed.
+                            //
+                            try
+                            {
+                                instrument.closeSession();
+                            }
+                            catch( const std::exception &)
+                            {
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return failures;
+    }
 } // namespace hal

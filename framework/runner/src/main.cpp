@@ -1661,6 +1661,115 @@ namespace
 
         return 0;
     }
+    //
+    // Where each instrument is to be found for this invocation: the site, the
+    // --address flags, then the environment.
+    //
+    // The flags go in first and the environment is appended after them, which
+    // is what makes a flag typed now beat an export a bench PC's profile set
+    // months ago: hal::bindAddresses() takes the first override it finds for
+    // a row, so the higher claim has to be the earlier entry.
+    //
+    // One function because two modes need the same answer: a run, and --safe,
+    // which has to reach the instruments the run it is cleaning up after was
+    // pointed at. A bad address is reported here and comes back empty.
+    //
+    auto addressPlanOf( const Options & options) -> std::optional<hal::AddressPlan>
+    {
+        hal::AddressPlan plan;
+
+        try
+        {
+            plan.Site = options.Site.empty() ? hal::environmentSite() : std::string_view( options.Site);
+
+            for ( const auto text : options.Addresses )
+            {
+                if ( const auto face = hal::parseFaceSimulation( text) )
+                    plan.SimulatedFaces.push_back( *face);
+                else
+                    plan.Overrides.push_back( hal::parseOverride( text));
+            }
+
+            for ( auto & fromEnvironment : hal::environmentOverrides() )
+                plan.Overrides.push_back( std::move( fromEnvironment));
+        }
+        catch ( const std::exception & failure )
+        {
+            std::cerr << "Bad address: " << failure.what() << '\n';
+
+            return std::nullopt;
+        }
+
+        return plan;
+    }
+
+    //
+    // --safe: open a session to every instrument, safe the rig, say whether
+    // that worked.
+    //
+    // The opening is the part that is easy to leave out and was: a driver's
+    // safe() goes only down a session that is already open, and this process
+    // has just started, so hal::safeRig() on its own sends nothing to anything
+    // -- and used to be followed by "Rig safed" and exit 0 regardless. See
+    // hal::contactForSafing() on why that pass is best effort.
+    //
+    // The exit status is the answer. 0 means every instrument was reached and
+    // every step of the pass was carried out; 1 means the rig may still be
+    // energised, with a line on stderr for each thing that was not done. A
+    // console that invoked this after a crashed run has exactly one useful
+    // thing to do with a non-zero exit, which is to not tell the operator the
+    // rig is safe.
+    //
+    // No logs, and no journal sinks: this mode reports nothing (see the mode
+    // list above), so the Safe event hal::safeRig() posts has nowhere to go and
+    // is discarded. That is correct rather than a gap -- this process is
+    // cleaning up after a *different* run, and the log it would append to
+    // belongs to that dead run, not to this one.
+    //
+    auto safeOnly( const Options & options) -> int
+    {
+        std::vector<std::string> failures;
+
+        if ( const auto plan = addressPlanOf( options) )
+        {
+            try
+            {
+                auto bindings = hal::bindAddresses( *plan);
+
+                failures = hal::contactForSafing( bindings);
+            }
+            catch ( const std::exception & failure )
+            {
+                failures.push_back( std::string( "the instruments' addresses could not be bound: ") + failure.what());
+            }
+        }
+        else
+        {
+            failures.push_back( "a bad address (above) left the instruments' addresses unbound");
+        }
+
+        //
+        // Whatever the above came to. Instruments that were reached are safed
+        // even when others were not, and an address that could not be bound
+        // still leaves the rows whose table address is good.
+        //
+        for ( auto & failure : hal::safeRig() )
+            failures.push_back( std::move( failure));
+
+        if ( failures.empty())
+        {
+            std::cout << "Rig safed: all outputs off, all relays open.\n";
+
+            return 0;
+        }
+
+        std::cerr << "Rig NOT fully safed -- it may still be energised:\n";
+
+        for ( const auto & failure : failures )
+            std::cerr << "  " << failure << '\n';
+
+        return 1;
+    }
 } // namespace
 
 int main( int argc, char ** argv)
@@ -1703,22 +1812,9 @@ int main( int argc, char ** argv)
     //
     // Checked before --list-tests, and before any script runs -- see this
     // file's own comment on why --safe is exclusive with the other modes.
-    // Always exits 0: safing is unconditional and has nothing to report a
-    // failure about, and a console invoking this after a child crash has
-    // no useful way to act on a non-zero exit here anyway.
-    //
-    // No logs, and no journal sinks: this mode reports nothing (see the mode
-    // list above), so the Safe event hal::safeRig() posts has nowhere to go and
-    // is discarded. That is correct rather than a gap -- this process is
-    // cleaning up after a *different* run, and the log it would append to
-    // belongs to that dead run, not to this one.
     //
     if ( options.SafeOnly)
-    {
-        hal::safeRig();
-        std::cout << "Rig safed: all outputs off, all relays open.\n";
-        return 0;
-    }
+        return safeOnly( options);
 
     if ( options.ListOnly)
     {
@@ -1779,40 +1875,18 @@ int main( int argc, char ** argv)
     // down. The failure goes to stderr and exits non-zero, exactly as
     // openLogs() does further below.
     //
-    // The flags go in first and the environment is appended after them, which
-    // is what makes a flag typed now beat an export a bench PC's profile set
-    // months ago: hal::bindAddresses() takes the first override it finds for
-    // a row, so the higher claim has to be the earlier entry.
+    // Which address wins for a row is addressPlanOf()'s business, above.
     //
-    hal::AddressPlan plan;
+    const auto plan = addressPlanOf( options);
 
-    try
-    {
-        plan.Site = options.Site.empty() ? hal::environmentSite() : std::string_view( options.Site);
-
-        for ( const auto text : options.Addresses )
-        {
-            if ( const auto face = hal::parseFaceSimulation( text) )
-                plan.SimulatedFaces.push_back( *face);
-            else
-                plan.Overrides.push_back( hal::parseOverride( text));
-        }
-
-        for ( auto & fromEnvironment : hal::environmentOverrides() )
-            plan.Overrides.push_back( std::move( fromEnvironment));
-    }
-    catch ( const std::exception & failure )
-    {
-        std::cerr << "Bad address: " << failure.what() << '\n';
-
+    if ( !plan)
         return 1;
-    }
 
     std::vector<hal::Binding> bindings;
 
     try
     {
-        bindings = hal::bindAddresses( plan);
+        bindings = hal::bindAddresses( *plan);
 
         hal::contactInstruments( bindings);
     }
@@ -1878,9 +1952,9 @@ int main( int argc, char ** argv)
 
     {
         // Guard's scope wraps the run and nothing else -- --list-tests and
-        // --safe above have already returned, and neither one touches an
-        // instrument or the fabric, so there is nothing for this run to
-        // safe on their behalf.
+        // --safe above have already returned. The first touches no
+        // instrument and the second has done its own safing, so there is
+        // nothing for this run to safe on their behalf.
         //
         // Inside journal().begin()/end() rather than outside, so the Safe event
         // this guard's destructor produces (see hal/src/verbs/safing.cpp) lands in

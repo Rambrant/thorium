@@ -191,6 +191,33 @@ namespace hal
     auto contactInstruments( std::vector<Binding> & bindings) -> void;
 
     //
+    // contactInstruments() for a process that is about to safe the rig and do
+    // nothing else -- run_scripts --safe.
+    //
+    // A driver's safe() goes only down a session that is already open (see
+    // hal::SafeableInstrument), which is right inside a run and means a fresh
+    // process safes nothing: it has no session to anything. This opens them,
+    // so the hal::safeRig() that follows has somewhere to send.
+    //
+    // Best effort where contactInstruments() is strict, because the two are
+    // asked opposite questions. A run that cannot reach one instrument should
+    // not start; a safing pass that cannot reach one must still reach the
+    // others. So nothing here throws: an instrument that does not answer, or
+    // answers as the wrong model, is one line in the answer, and the rest are
+    // still opened. The identity and one-unit-per-box checks a run makes are
+    // not repeated -- they decide whether a run may start, not whether an
+    // output may be turned off.
+    //
+    // One thing it cannot know: which unit of a POOL the dead run had taken.
+    // It acquires the first candidate that answers, as a run would, and that
+    // is the same unit only when nobody else has taken or released one since.
+    //
+    // Nothing for a detached bench, as with contactInstruments().
+    //
+    [[nodiscard]]
+    auto contactForSafing( std::vector<Binding> & bindings) -> std::vector<std::string>;
+
+    //
     // The banner: one line per instrument, column-aligned, in the order the
     // reflection finds them.
     //

@@ -4,14 +4,15 @@
 // pulls in wires its own buttons as it loads -- modules run after the
 // document is parsed, so every element they look up is already there -- and
 // what is left for this one is asking the server for what the page shows
-// first. run.js is imported only for the Run and Safe buttons it wires.
+// first. run.js wires the Run and Safe buttons as it loads, and is asked
+// here to join a run that is already going.
 
 import { setStatus } from './dom.js';
 import { buildTree, showCatalogError } from './catalog.js';
 import { parseTestList } from './model/catalog.js';
 import { applyCriteria } from './header.js';
 import { probeSavableLogs } from './logs.js';
-import './run.js';
+import { attachToRun } from './run.js';
 
 probeSavableLogs();
 
@@ -28,4 +29,7 @@ fetch('/api/tests')
   .catch(() => {
     showCatalogError('Could not ask run_scripts for its catalog.');
     setStatus('Could not run --list-tests', 'fail');
-  });
+  })
+  // After the tree, with or without one: a run in flight needs its Stop and
+  // Emergency stop on this page whatever became of the catalog.
+  .then(attachToRun);

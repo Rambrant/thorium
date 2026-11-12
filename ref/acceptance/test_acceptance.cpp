@@ -187,9 +187,11 @@ TEST_F( AcceptanceCatalog, DescribeCriteriaNamesTheVariantsAndWritesNoLog)
 
 //
 // What the rig console re-invokes after an abnormal child exit (see
-// framework/runner/src/main.cpp and hal/verbs/safing.hpp). Exits 0 unconditionally, and writes no
-// log: this process is cleaning up after a *different* run, and the log it
-// would append to belongs to that dead run.
+// framework/runner/src/main.cpp and hal/verbs/safing.hpp). Writes no log: this process is
+// cleaning up after a *different* run, and the log it would append to belongs
+// to that dead run. Exits 0 here because every instrument this deployment's
+// table can open a session to is Simulated{}, so there is nothing to fail to
+// reach -- the two scenarios after it are what the status means on a bench.
 //
 TEST_F( AcceptanceSafing, SafeExitsCleanlyAndWritesNoLog)
 {
@@ -197,6 +199,35 @@ TEST_F( AcceptanceSafing, SafeExitsCleanlyAndWritesNoLog)
 
     EXPECT_TRUE( containsText( outPath(), mOut, "Rig safed"));
     EXPECT_FALSE( std::filesystem::exists( mDir / "logs"));
+}
+
+//
+// The exit status is the answer, and "Rig safed" is not printed about a rig
+// that was not. The supply is pointed at a loopback port nothing listens on,
+// which is an instrument that is switched off as far as this process can
+// tell: --safe used to print "Rig safed" and exit 0 for it, having sent
+// nothing to anything.
+//
+TEST_F( AcceptanceSafing, AnInstrumentThatCannotBeReachedFailsTheSafing)
+{
+    EXPECT_EQ( run( { "--safe", "--address=BenchPsu=lan:127.0.0.1:1" }), 1);
+
+    EXPECT_FALSE( containsText( outPath(), mOut, "Rig safed"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "NOT fully safed"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "DcP5"));
+    EXPECT_FALSE( std::filesystem::exists( mDir / "logs"));
+}
+
+//
+// A mistyped address is the same answer rather than a usage error that safes
+// nothing and says nothing about the rig.
+//
+TEST_F( AcceptanceSafing, ABadAddressFailsTheSafing)
+{
+    EXPECT_EQ( run( { "--safe", "--address=NoSuchBox=lan:127.0.0.1" }), 1);
+
+    EXPECT_FALSE( containsText( outPath(), mOut, "Rig safed"));
+    EXPECT_TRUE( containsText( errPath(), mErr, "NOT fully safed"));
 }
 
 // ---------------------------------------------------------------------------

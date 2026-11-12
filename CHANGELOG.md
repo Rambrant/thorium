@@ -28,7 +28,31 @@ Newest first.
   (additive; `OLDEST_SUPPORTED` stays 1). Provided by `keysight_edu36311a` and
   `keysight_ac6834b`.
 
+### Fixed
+- **`run_scripts --safe` now reaches the instruments.** A driver's `safe()` goes only
+  down a session that is already open, and a fresh process has none, so `--safe` sent
+  nothing and still printed "Rig safed" and exited 0. It now binds addresses (`--address`,
+  `--site` and the environment apply) and opens a session to each instrument first
+  (`hal::contactForSafing()`).
+- `hal::safeRig()` no longer stops at the first instrument whose `safe()` throws: every
+  other instrument, the relay pass and the fabric are still done, and it cannot throw out
+  of `~RigSafingGuard`.
+- The console's Safe button (`POST /safe`) reports failure when `run_scripts --safe` could
+  not be executed or exits non-zero, as Emergency stop already did.
+- A console page opened or reloaded during a run joins it, so Stop and Emergency stop are
+  available; it used to come up idle.
+- The launcher's watchdog (macOS, Linux) no longer kills a run two seconds after the
+  launcher dies. It sends `SIGTERM` and waits for the run to finish its current test,
+  teardown hooks and safing -- up to 60 seconds -- before `SIGKILL`. Windows is
+  unchanged: its Job object still ends the run at once.
+
 ### Changed (breaking)
+- **`run_scripts --safe` exits 1 when the rig may still be energised** -- an instrument
+  that could not be reached, a step of the pass that threw, or a bad address -- with a
+  line on stderr for each. It used to exit 0 unconditionally. A caller that ignores the
+  status should stop ignoring it.
+- `hal::safeRig()` returns `std::vector<std::string>`, the steps that failed (empty when
+  none did), instead of `void`. Callers that ignore it compile unchanged.
 - **`THORIUM_DUT_NAME` has no default name.** It used to be `DeviceX`; unset, it is now
   `unknown`. A DUT repo sets its own before `thorium_deployment()`, in the
   `if(NOT DEFINED THORIUM_DUT_NAME)` form `ref/CMakeLists.txt` shows. (A repo that
