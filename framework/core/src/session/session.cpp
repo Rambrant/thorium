@@ -123,7 +123,8 @@ namespace core
 
     auto ScriptedSession::loadFromFile(
         const std::string &                    path,
-        const std::vector<std::string_view> &  selection) -> ScriptedSession
+        const std::vector<std::string_view> &  selection,
+        const std::vector<std::string_view> &  groups) -> ScriptedSession
     {
         std::ifstream in( path);
 
@@ -187,7 +188,20 @@ namespace core
             // Rows outside any test are always kept -- see this function's
             // comment in core/session/session.hpp on RUN_SETUP and RUN_TEARDOWN.
             //
-            const auto scoped = sample.mTestId != kRunScope;
+            // A group's hook rows are kept when that group is replayed, and
+            // dropped when it is not: see kGroupScopePrefix. With no selection
+            // every group is; with a selection and no groups named, the caller
+            // has not said, and they are all kept as they used to be.
+            //
+            if( const auto group = groupOfScope( sample.mTestId))
+            {
+                if( !selection.empty() && !groups.empty() && std::ranges::find( groups, *group) == groups.end())
+                {
+                    continue;
+                }
+            }
+
+            const auto scoped = sample.mTestId != kRunScope && !groupOfScope( sample.mTestId);
 
             if( scoped)
             {
@@ -395,12 +409,19 @@ namespace core
         // because this is the one place a run makes a sample, and samples() has
         // to agree with the file about what it says.
         //
-        const auto runningTest = core::journal().currentTest();
+        // A group's own hook is told from the run's by the group being open
+        // (see runTests in framework/runner/src/main.cpp, which opens it around
+        // them) -- see kGroupScopePrefix on why a replay has to know which.
+        //
+        const auto runningTest  = core::journal().currentTest();
+        const auto runningGroup = core::journal().currentGroup();
 
         auto sample = RecordedSample{
             .mSequence            = mNextSequence++,
             .mWallClockUnixMillis = static_cast<std::int64_t>( wallClockMillis),
-            .mTestId              = runningTest.empty() ? std::string( kRunScope) : std::string( runningTest),
+            .mTestId              = !runningTest.empty()  ? std::string( runningTest)
+                                  : !runningGroup.empty() ? groupScope( runningGroup)
+                                                          : std::string( kRunScope),
             .mPointName           = std::string( name),
             .mInstrumentId        = std::string( instrumentId),
             .mValue               = std::move( value)

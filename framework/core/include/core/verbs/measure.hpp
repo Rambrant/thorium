@@ -723,12 +723,15 @@ namespace core
             //
             // selection restricts the replay to the rows a named set of tests
             // recorded -- see core::ScriptedSession::loadFromFile, which owns
-            // the rule. Defaulted, so a script unit test replaying a recording
-            // of one test says nothing about selections.
+            // the rule -- and groups, the catalog groups those tests are in, to
+            // the rows those groups' own hooks recorded. Defaulted, so a script
+            // unit test replaying a recording of one test says nothing about
+            // selections.
             //
-            auto load( const std::string & path, const std::vector<std::string_view> & selection = {}) -> void
+            auto load( const std::string & path, const std::vector<std::string_view> & selection = {},
+                       const std::vector<std::string_view> & groups = {}) -> void
             {
-                mSessions.load( path, selection);
+                mSessions.load( path, selection, groups);
             }
 
             auto useLive()                       -> void { mSessions.useLive(); }

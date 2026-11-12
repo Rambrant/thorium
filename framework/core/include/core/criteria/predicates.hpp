@@ -236,9 +236,25 @@ namespace core
                 return copy;
             }
 
+            //
+            // A reading that could not be made is NaN (see core/driver/port.hpp),
+            // and NaN must fail every criterion -- this one included. Negating
+            // the wrapped predicate alone would turn its "false" for NaN into a
+            // pass: "the scope saw no edge" is not "the voltage is not 5 V".
+            //
             template<typename T>
             constexpr auto operator()( const T & actual) const -> bool
             {
+                if constexpr( QuantityType<T> || std::floating_point<T>)
+                {
+                    const auto number = detail::asDouble( actual);
+
+                    if( number != number)
+                    {
+                        return false;
+                    }
+                }
+
                 return ! predicate( actual);
             }
         };

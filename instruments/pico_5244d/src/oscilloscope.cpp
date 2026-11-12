@@ -192,6 +192,11 @@ namespace hal::pico_5244d
 
         unit.Bits = *mResolution;
 
+        // The full-scale code is the resolution's: 32512 at 8 bits, 32767 above.
+        // Every sample is scaled by it, so the one read when the unit opened
+        // would put every voltage after this off by 0.8 %.
+        check( "MaximumValue", unit.Api->maximumValue( unit.Handle, unit.AdcMax));
+
         return true;
     }
 

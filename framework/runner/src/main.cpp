@@ -220,8 +220,9 @@
 // Each row says which test took the reading, so the replayed test gets its own
 // rows rather than the front of each point's queue -- which, where two tests
 // measure one point, would be the other test's readings and a green verdict
-// about the wrong numbers. Readings taken outside any test (a hook's -- either
-// level) are kept whatever the selection says. A recording with no rows for the
+// about the wrong numbers. RUN_SETUP's and RUN_TEARDOWN's readings are kept
+// whatever the selection says, and a group's own hooks' readings when the
+// selection reaches that group. A recording with no rows for the
 // selected tests is refused, naming the tests it does hold. See
 // core::ScriptedSession::loadFromFile, which owns the rule.
 //
@@ -1569,7 +1570,17 @@ namespace
                 // regardless -- a replay run has nothing to safe, and safing
                 // something already idle is what hal::safeRig() is built for.
                 //
-                Measure.load( *options.ReplayPath, options.Selection);
+                // The groups the selection reaches go with it: their hooks
+                // are the only group hooks that will run, so theirs are the
+                // only group-hook readings to replay (see core::kGroupScopePrefix).
+                //
+                std::vector<std::string_view>  groups;
+
+                for ( const auto & group : core::catalog::Catalog)
+                    if ( anySelected( group, options.Selection))
+                        groups.emplace_back( group.name);
+
+                Measure.load( *options.ReplayPath, options.Selection, groups);
             }
             catch ( const std::exception & e)
             {

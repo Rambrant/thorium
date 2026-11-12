@@ -1,5 +1,7 @@
 #include "core/journal/sarif_sink.hpp"
 
+#include "core/journal/event_sink.hpp"
+#include <limits>
 #include <gtest/gtest.h>
 
 #include <filesystem>
@@ -330,6 +332,53 @@ TEST_F( SarifSinkTest, ARepeatedCriterionIsOneRuleWithSeveralResults)
     }
 
     EXPECT_EQ( occurrences, 3u);
+}
+
+// A reading that could not be made is NaN, which JSON cannot spell: a bare
+// `nan` would make the whole log unreadable.
+TEST_F( SarifSinkTest, AReadingThatIsNotANumberLeavesItsNumericValueOut)
+{
+    {
+        auto event    = verifyEvent( "FS_Supply_1", "FS_Supply_5V0", false);
+        event.Value   = "nan V";
+        event.Numeric = std::numeric_limits<double>::quiet_NaN();
+
+        core::SarifSink sink( mPath.string());
+        sink.onRunStart( runInfo());
+        sink.onEvent( event);
+        sink.onRunEnd( false);
+    }
+
+    const auto text = readFile( mPath);
+
+    EXPECT_FALSE( contains( text, "numericValue"));
+    EXPECT_FALSE( contains( text, ": nan"));
+    EXPECT_TRUE(  contains( text, "\"value\": \"nan V\""));
+}
+
+// The same reading on the event stream, where one bad line loses the console
+// the whole event.
+TEST( EventSinkNumbers, AReadingThatIsNotANumberLeavesItsNumberOut)
+{
+    auto event    = verifyEvent( "FS_Supply_1", "FS_Supply_5V0", false);
+    event.Value   = "nan V";
+    event.Numeric = std::numeric_limits<double>::quiet_NaN();
+
+    std::ostringstream   out;
+    core::EventSink      events( out);
+    core::IJournalSink & sink = events;
+
+    sink.onEvent( event);
+
+    EXPECT_EQ( out.str().find( "nan,"), std::string::npos) << out.str();
+    EXPECT_EQ( out.str().find( ":nan"), std::string::npos) << out.str();
+    EXPECT_NE( out.str().find( "nan V"), std::string::npos) << "the printable value still says what happened";
+
+    event.Numeric = 5.021;
+    out.str( "");
+    sink.onEvent( event);
+
+    EXPECT_NE( out.str().find( ":5.021"), std::string::npos) << out.str();
 }
 
 TEST_F( SarifSinkTest, ValueIsCarriedBothAsTextAndAsANumber)

@@ -1,5 +1,6 @@
 #include "core/journal/event_sink.hpp"
 
+#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <ostream>
@@ -86,7 +87,15 @@ namespace core
                 //
                 auto field( const std::string_view key, const std::optional<double> & value) -> Line &
                 {
-                    if( value)
+                    //
+                    // Left out when it is not a number at all: a reading that
+                    // could not be made is NaN, JSON has no spelling for that or
+                    // for an infinity, and a bare `nan` here makes the whole
+                    // line unparseable -- the console then loses the event, not
+                    // just its number. The printable Value beside it still says
+                    // what happened.
+                    //
+                    if( value && std::isfinite( *value))
                     {
                         mText += "," + jsonQuoted( key) + ":" + std::to_string( *value);
                     }

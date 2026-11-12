@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <cstdint>
 #include <filesystem>
 #include <istream>
@@ -108,6 +109,39 @@ namespace core
     // contain, and so no test added later can take this token.
     //
     inline constexpr std::string_view kRunScope = "<run>";
+
+    //
+    // And the test column's value for what one group's own SETUP or TEARDOWN
+    // read: "<group:NAME>". Its own token rather than kRunScope, because the two
+    // are not kept under the same rule. RUN_SETUP and RUN_TEARDOWN bracket every
+    // run, so their rows always replay; a group's hooks run only when the
+    // selection reaches that group. Kept regardless, the rows of a group that is
+    // not replayed sit at the front of their points' queues, and the hooks of the
+    // group that is replayed take them -- another group's readings, checked
+    // against this group's limits, with nothing to say so.
+    //
+    // A recording written before this token existed has those rows under
+    // kRunScope, and replays as it always did.
+    //
+    inline constexpr std::string_view kGroupScopePrefix = "<group:";
+
+    [[nodiscard]]
+    inline auto groupScope( const std::string_view group) -> std::string
+    {
+        return std::string( kGroupScopePrefix) + std::string( group) + ">";
+    }
+
+    // The group a test-column value names, or nullopt when it is not a group's.
+    [[nodiscard]]
+    inline auto groupOfScope( const std::string_view scope) -> std::optional<std::string_view>
+    {
+        if( !scope.starts_with( kGroupScopePrefix) || !scope.ends_with( '>'))
+        {
+            return std::nullopt;
+        }
+
+        return scope.substr( kGroupScopePrefix.size(), scope.size() - kGroupScopePrefix.size() - 1);
+    }
 
     //
     // The kind column's value for a byte payload, where a quantity row carries

@@ -29,6 +29,20 @@ Newest first.
   `keysight_ac6834b`.
 
 ### Fixed
+- **`NE` and `NONE` no longer pass on a reading that could not be made.** Such a reading
+  is NaN, which every other predicate fails; these two negate `EQ` and `ANY`, and so
+  turned that failure into a pass.
+- The SARIF log and the `--events` stream leave a reading's number out when it is NaN or
+  an infinity, where they wrote a bare `nan` -- not JSON, so the log could not be parsed
+  and the console lost the event. The printable value is still there.
+- `pico_5244d`: the full-scale ADC code is read again after a change of resolution. It
+  is 32512 at 8 bits and 32767 above, so every voltage after a change was 0.8 % off.
+- **`--replay` with `--select` gives a group's SETUP/TEARDOWN its own readings.** A
+  recording now marks them `<group:NAME>`, where they were `<run>` like the run's own
+  hooks and all kept: with two groups' hooks reading one point, the replayed group's
+  hook took the earlier group's reading. Recordings made before this replay as they did.
+- Preflight no longer accepts an empty slot for a card whose model has no name to report
+  (a Racal card's row on a 34980A box): both read as empty and compared equal.
 - **`run_scripts --safe` now reaches the instruments.** A driver's `safe()` goes only
   down a session that is already open, and a fresh process has none, so `--safe` sent
   nothing and still printed "Rig safed" and exited 0. It now binds addresses (`--address`,

@@ -486,7 +486,11 @@ namespace hal
                 const auto expected = specOf( device.Model).Reports;
                 const auto reported = instrument.cardModel( *device.Card);
 
-                if( reported == expected)
+                // Not on equality alone: a model with nothing to report and a
+                // slot with nothing in it both read as "", and are the one pair
+                // that must not match -- a card the chassis cannot name, in a
+                // slot that holds no card.
+                if( !expected.empty() && reported == expected)
                 {
                     continue;
                 }

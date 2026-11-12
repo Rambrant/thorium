@@ -1,4 +1,5 @@
 #include "core/session/session.hpp"
+#include "core/journal/journal.hpp"
 
 #include <cstdio>
 #include <filesystem>
@@ -695,4 +696,78 @@ TEST( CoreSession, ScriptedSessionKindMismatchErrorContainsBothKinds)
         EXPECT_TRUE( message.find( "Voltage") != std::string::npos) << "Error message: " << message;
         EXPECT_TRUE( message.find( "Current") != std::string::npos) << "Error message: " << message;
     }
+}
+
+//
+// Two groups whose SETUP hooks read the same point. Replaying a test of the
+// second group runs only the second group's hook, which has to get its own
+// reading -- not the first group's, which sits in front of it in the file.
+//
+TEST( CoreSession, ASelectedReplayGivesAGroupsHookItsOwnReadingsNotAnEarlierGroups)
+{
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_select_group_hooks.tsv";
+
+    {
+        std::ofstream out( path);
+
+        out << "0\t1000\t<run>\tRunPoint\tDmm1\tVoltage\t28.0\n";
+        out << "1\t1001\t<group:Low>\tRail\tDmm1\tVoltage\t3.3\n";
+        out << "2\t1002\tFirst\tSharedPoint\tDmm1\tVoltage\t1.0\n";
+        out << "3\t1003\t<group:High>\tRail\tDmm1\tVoltage\t12.0\n";
+        out << "4\t1004\tSecond\tSharedPoint\tDmm1\tVoltage\t2.0\n";
+    }
+
+    auto session = core::ScriptedSession::loadFromFile( path.string(), { "Second" }, { "High" });
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "Rail", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 12.0);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        session.fetch( "RunPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 28.0)
+        << "the run's own hooks replay whatever is selected";
+
+    // Everything, with nothing selected: both groups' hooks run, in order.
+    auto whole = core::ScriptedSession::loadFromFile( path.string());
+
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        whole.fetch( "Rail", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 3.3);
+    EXPECT_DOUBLE_EQ( core::asQuantity<Voltage>(
+        whole.fetch( "Rail", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 0.0))).value(), 12.0);
+
+    std::remove( path.string().c_str());
+}
+
+// A hook's rows are not a test's: a recording holding only those has nothing for a selection.
+TEST( CoreSession, GroupHookRowsDoNotCountAsASelectedTestsReadings)
+{
+    const auto path = std::filesystem::temp_directory_path() / "thorium_test_select_only_group_hooks.tsv";
+
+    {
+        std::ofstream out( path);
+        out << "0\t1000\t<group:Low>\tRail\tDmm1\tVoltage\t3.3\n";
+    }
+
+    EXPECT_THROW( (void)core::ScriptedSession::loadFromFile( path.string(), { "First" }, { "Low" }), std::runtime_error);
+
+    std::remove( path.string().c_str());
+}
+
+// What the recorder stamps: the test while one runs, the group for that group's
+// own hooks, and the run for everything outside both.
+TEST( CoreSession, TheRecorderStampsAGroupsHookReadingsWithTheGroup)
+{
+    core::LiveSession      live;
+    core::RecordingSession recording( live);
+
+    (void)recording.fetch( "RunPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 28.0));
+
+    core::journal().beginGroup( "High", "the high rails");
+    (void)recording.fetch( "Rail", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 12.0));
+    core::journal().endGroup();
+
+    (void)recording.fetch( "RunPoint", "Dmm1", core::QuantityKind::Voltage, liveVoltage( 28.0));
+
+    ASSERT_EQ( recording.samples().size(), 3u);
+    EXPECT_EQ( recording.samples()[ 0].mTestId, core::kRunScope);
+    EXPECT_EQ( recording.samples()[ 1].mTestId, "<group:High>");
+    EXPECT_EQ( recording.samples()[ 2].mTestId, core::kRunScope);
 }

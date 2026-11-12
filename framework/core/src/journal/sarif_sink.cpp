@@ -1,5 +1,6 @@
 #include "core/journal/sarif_sink.hpp"
 
+#include <cmath>
 #include <algorithm>
 #include <fstream>
 #include <ostream>
@@ -723,7 +724,11 @@ namespace core
         // formatting: six significant digits is a deliberate choice
         // about how much of a reading is real, and the default is not.
         //
-        if( event.Numeric.has_value())
+        // Left out when the reading is NaN or an infinity -- one that could
+        // not be made. JSON has no spelling for either, and a bare `nan` makes
+        // the whole log unreadable to every SARIF consumer.
+        //
+        if( event.Numeric.has_value() && std::isfinite( event.Numeric.value()))
         {
             out << ",\n" << kI6 << quoted( "numericValue") << ": " << formatNumber( event.Numeric.value());
         }

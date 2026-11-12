@@ -754,11 +754,17 @@ namespace core
             // error -- it is a green verdict about the wrong numbers.
             //
             // Rows carrying kRunScope are kept whatever the selection says.
-            // They are what the hooks read -- RUN_SETUP/RUN_TEARDOWN around the
-            // selection, and a group's own SETUP/TEARDOWN around the tests of
-            // whichever groups the selection reaches (see runHook in
-            // framework/runner/src/main.cpp) -- so filtering them out would leave a replay
-            // of one test unable to power up the rig it is not touching.
+            // They are what RUN_SETUP/RUN_TEARDOWN read around the selection, so
+            // filtering them out would leave a replay of one test unable to
+            // power up the rig it is not touching.
+            //
+            // groups names the catalog groups the selection reaches, and decides
+            // the rows a group's own SETUP/TEARDOWN recorded (see
+            // core::kGroupScopePrefix): those hooks run only for a group that
+            // has a selected test, so only those groups' rows are kept. Empty
+            // with a selection means the caller has not said, and every group's
+            // are kept -- right for a recording with one group, wrong for one
+            // where two groups' hooks read the same point.
             //
             // A selection that matches no recorded test is refused rather than
             // replayed as nothing: it means this recording is of a run that
@@ -768,7 +774,8 @@ namespace core
             //
             static auto loadFromFile(
                 const std::string &                     path,
-                const std::vector<std::string_view> &   selection = {}) -> ScriptedSession;
+                const std::vector<std::string_view> &   selection = {},
+                const std::vector<std::string_view> &   groups = {}) -> ScriptedSession;
 
             [[nodiscard]]
             auto fetch(
@@ -1079,9 +1086,10 @@ namespace core
             // arms both seams, which is the point: see this class's own comment
             // on why a half-armed replay is the failure mode to rule out.
             //
-            auto load( const std::string & path, const std::vector<std::string_view> & selection = {}) -> void
+            auto load( const std::string & path, const std::vector<std::string_view> & selection = {},
+                       const std::vector<std::string_view> & groups = {}) -> void
             {
-                mScripted = ScriptedSession::loadFromFile( path, selection);
+                mScripted = ScriptedSession::loadFromFile( path, selection, groups);
                 mSwitchable.use( mScripted);
             }
 

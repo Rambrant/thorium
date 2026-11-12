@@ -531,3 +531,25 @@ TEST( AnyOfPredicate, AcceptsAnArbitraryCallableAsAMember)
 //   e.g. ANY_OF( EQ( 3.3_V), IN( 1.0_A, 2.0_A))( 3.3_V);               // does not compile
 //   e.g. ANY_OF();                                                     // does not compile
 //
+// A reading that could not be made is NaN, and must fail every criterion -- the
+// negated ones too, where "not equal" would otherwise be true of it.
+TEST( PredicatesNaN, AnUnmeasuredReadingFailsEveryPredicateIncludingTheNegatedOnes)
+{
+    const auto nan      = std::numeric_limits<double>::quiet_NaN();
+    const auto unmade   = Voltage{ nan };
+
+    EXPECT_FALSE( EQ( 5.0_V)( unmade));
+    EXPECT_FALSE( NE( 5.0_V)( unmade));
+    EXPECT_FALSE( NE( 5.0)( nan));
+    EXPECT_FALSE( NE( 5.0_V).epsilon( 0.1_V)( unmade));
+    EXPECT_FALSE( NONE( 3.3_V, 5.0_V)( unmade));
+    EXPECT_FALSE( ANY( 3.3_V, 5.0_V)( unmade));
+    EXPECT_FALSE( IN( 3.0_V, 3.6_V)( unmade));
+    EXPECT_FALSE( LT( 5.0_V)( unmade));
+    EXPECT_FALSE( GT( 5.0_V)( unmade));
+
+    // And an ordinary value is still told apart.
+    EXPECT_TRUE(  NE( 5.0_V)( 4.9_V));
+    EXPECT_TRUE(  NONE( 3.3_V, 5.0_V)( 4.0_V));
+    EXPECT_TRUE(  NE( 42)( 41));
+}

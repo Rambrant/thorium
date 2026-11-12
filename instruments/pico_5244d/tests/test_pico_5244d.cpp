@@ -203,6 +203,9 @@ namespace
             auto setDeviceResolution( const std::int16_t, const std::int32_t bits) -> Status override
             {
                 Calls.push_back( "resolution(" + std::to_string( bits) + ")");
+
+                // As the unit does: 8 bits (0) has the short scale, the rest the full one.
+                AdcMax = bits == 0 ? 32512 : 32767;
                 return 0;
             }
 
@@ -552,6 +555,21 @@ TEST( Pico5244d, ResolutionIsSetAndTheChannelsAreAskedAgain)
 
     EXPECT_EQ( bench.Fake->last( "resolution("), "resolution(1)");
     EXPECT_GT( bench.Fake->count( "channel("), before);
+}
+
+TEST( Pico5244d, AChangeOfResolutionRescalesTheSamples)
+{
+    Bench bench;
+    bench.basicSetup();
+    bench.Fake->Adc = []( int, std::size_t i) { return static_cast<std::int16_t>( ( i / 100) % 2 == 0 ? 20000 : 0); };
+
+    bench.Osc.configureAcquisition( bench.Osc.acquisition().resolution( hal::pico_5244d::Resolution::Bits12).config());
+
+    bench.Osc.armSingle( bench.Osc.single().config());
+    ASSERT_TRUE( bench.Osc.awaitAcquisition( bench.Osc.single().config()));
+
+    // 12 bits fills the whole int16: the 8-bit scale read at open no longer holds.
+    EXPECT_NEAR( bench.Osc.channel<1>().vtop().rawMeasure().value(), 20000.0 / 32767.0 * 5.0, 1e-9);
 }
 
 TEST( Pico5244d, ASingleShotRunsATriggeredBlockWithTheTimebaseFoundBySearch)
