@@ -89,8 +89,14 @@ namespace webui
     // it cannot disagree with the run it is cleaning up after (see main.cpp's
     // note on why --safe lives in the runner at all).
     //
+    // lastRun is the argv of the run being cleaned up after, if this console
+    // started one: its --address and --site flags are carried over, so that
+    // --safe reaches for the instruments that run was driving. Nothing else of
+    // it is.
+    //
     [[nodiscard]]
-    auto buildSafeCommand( const Suite & suite) -> std::vector<std::string>;
+    auto buildSafeCommand( const Suite & suite, const std::vector<std::string> & lastRun = {})
+        -> std::vector<std::string>;
 
     //
     // The argv for the three questions the UI asks a binary about itself:

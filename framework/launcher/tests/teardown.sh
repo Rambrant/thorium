@@ -125,17 +125,49 @@ echo "second instance opened a window and exited"
 kill -9 "$LAUNCHER_PID"
 LAUNCHER_PID=""
 
+# And start the console again at once, as an operator would. The old server is
+# gone within moments and its port is free, but the old run is still winding
+# down: the new console must not come up beside it.
+HOME=$TEST_HOME "$LAUNCHER" \
+    --server="$PYTHON" \
+    --browser-arg=--use-mock-keychain \
+    --server-arg="$STAND_IN" --server-arg="$PORT" \
+    --port="$PORT" >"$TEST_HOME/restarted.log" 2>&1 &
+RESTARTED_PID=$!
+
+for _ in $(seq 1 150); do
+    listening && [ "$(lsof -t -iTCP:"$PORT" -sTCP:LISTEN | head -1)" != "$SERVER_BEFORE" ] && break
+    sleep 0.1
+done
+if ! listening; then
+    kill -9 "$RESTARTED_PID" 2>/dev/null
+    fail "the restarted console never came up: $(cat "$TEST_HOME/restarted.log")"
+fi
+STILL=$(members "$GROUP")
+if [ "$STILL" != 0 ] || [ ! -f "$TEST_HOME/wound-down" ]; then
+    kill -9 "$RESTARTED_PID" 2>/dev/null
+    fail "the restarted console came up while the old run was still winding down ($STILL processes left)"
+fi
+echo "a console restarted at once waited for the old run to wind down"
+
 # SIGTERM, then as long as the slowest member takes to wind down -- four
 # seconds here -- and no SIGKILL before that. Allow a little over it.
 for _ in $(seq 1 100); do [ "$(members "$GROUP")" = 0 ] && break; sleep 0.1; done
 
 LEFT=$(members "$GROUP")
 [ "$LEFT" = 0 ] || fail "$LEFT processes of the console survived the launcher: $(ps -A -o pid=,pgid=,comm= | awk -v g="$GROUP" '$2 == g')"
-listening && fail "the server is still answering on port $PORT"
 GROUP=""
 [ -f "$TEST_HOME/wound-down" ] \
     || fail "the run in flight was killed before it had wound down"
 echo "kill -9 of the launcher took everything it started with it, once the run had wound down"
+
+# The restarted console goes the same way, with nothing slow in it.
+RESTARTED_SERVER=$(lsof -t -iTCP:"$PORT" -sTCP:LISTEN | head -1)
+GROUP=$(ps -o pgid= -p "$RESTARTED_SERVER" | tr -d ' ')
+kill -9 "$RESTARTED_PID"
+for _ in $(seq 1 100); do [ "$(members "$GROUP")" = 0 ] && break; sleep 0.1; done
+[ "$(members "$GROUP")" = 0 ] || fail "the restarted console left processes behind"
+GROUP=""
 
 cleanup
 exit 0

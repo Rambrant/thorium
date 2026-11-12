@@ -29,6 +29,16 @@ Newest first.
   `keysight_ac6834b`.
 
 ### Fixed
+- **`run_scripts --safe` safes every unit of a pool that answers**, not only the first.
+  It cannot know which unit the run it is cleaning up after had taken, and the first
+  free one now need not be it. A unit in use on another bench does not answer and is
+  left alone.
+- The console's Safe and Emergency stop pass on the `--address` and `--site` flags of
+  the last run the console started, so `--safe` reaches for the instruments that run was
+  driving.
+- A console restarted while the previous one's run is still winding down (the launcher
+  died mid-run) waits for it before starting its server, up to 65 seconds. It used to
+  come up at once, and a second run could be started beside the old one's last test.
 - **A SCPI session is put back in step after a query times out.** A query that was only
   slow still answers, and that answer was read as the next query's -- and every reply
   after it as the one before's. The next command now first reads up to an error-queue

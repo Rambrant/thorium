@@ -4,11 +4,13 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <vector>
 
 #include <httplib.h>
 
@@ -132,6 +134,18 @@ auto main( int argc, char ** argv) -> int
     suite.Binary = config->RunScripts;
 
     webui::RunSession  session;
+
+    // The argv of the last run this console started, for the --address and
+    // --site flags a --safe after it has to repeat (see buildSafeCommand).
+    std::mutex                lastRunMutex;
+    std::vector<std::string>  lastRun;
+
+    const auto lastRunCommand = [ &lastRunMutex, &lastRun]
+    {
+        const std::lock_guard  lock( lastRunMutex);
+
+        return lastRun;
+    };
     httplib::Server      server;
 
     // How many console pages are open right now -- see /api/presence.
@@ -195,7 +209,7 @@ auto main( int argc, char ** argv) -> int
     // The console page calls it (static/js/run.js), as the launcher's tray
     // icon once did, so its spelling ("/safe", not "/api/safe") is fixed by
     // what has already shipped.
-    server.Post( "/safe", [ &suite]( const httplib::Request &, httplib::Response & res)
+    server.Post( "/safe", [ &suite, &lastRunCommand]( const httplib::Request &, httplib::Response & res)
     {
         //
         // ok means the rig was safed, not that something was started: a
@@ -205,7 +219,7 @@ auto main( int argc, char ** argv) -> int
         // energised, and the page must not be told otherwise -- the same test
         // /api/emergency makes below.
         //
-        const auto  result = webui::runBlocking( webui::buildSafeCommand( suite));
+        const auto  result = webui::runBlocking( webui::buildSafeCommand( suite, lastRunCommand()));
         const auto  ok     = result.Started && result.ExitCode == 0;
 
         res.status = ok ? 200 : 500;
@@ -237,10 +251,10 @@ auto main( int argc, char ** argv) -> int
         res.set_content( delivered ? R"({"ok":true})" : R"({"error":"no run to stop"})", "application/json");
     });
 
-    server.Post( "/api/emergency", [ &suite, &session]( const httplib::Request &, httplib::Response & res)
+    server.Post( "/api/emergency", [ &suite, &session, &lastRunCommand]( const httplib::Request &, httplib::Response & res)
     {
         const auto  killed = session.kill();
-        const auto  safed  = webui::runBlocking( webui::buildSafeCommand( suite));
+        const auto  safed  = webui::runBlocking( webui::buildSafeCommand( suite, lastRunCommand()));
         const auto  ok     = safed.Started && safed.ExitCode == 0;
 
         res.status = safed.Started ? 200 : 500;
@@ -249,16 +263,24 @@ auto main( int argc, char ** argv) -> int
                          "application/json");
     });
 
-    server.Post( "/api/run", [ &suite, &session]( const httplib::Request & req, httplib::Response & res)
+    server.Post( "/api/run", [ &suite, &session, &lastRunMutex, &lastRun]( const httplib::Request & req, httplib::Response & res)
     {
         const auto      body = webui::Json::parse( req.body);
         webui::RunRequest  request = body ? buildRunRequest( *body) : webui::RunRequest{};
 
-        if ( !session.start( webui::buildRunCommand( suite, request)))
+        const auto  command = webui::buildRunCommand( suite, request);
+
+        if ( !session.start( command))
         {
             res.status = 409;
             res.set_content( R"({"error":"a run is already active"})", "application/json");
             return;
+        }
+
+        {
+            const std::lock_guard  lock( lastRunMutex);
+
+            lastRun = command;
         }
 
         res.set_content( R"({"ok":true})", "application/json");

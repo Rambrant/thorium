@@ -397,6 +397,10 @@ namespace hal
             Address                             Value;
             std::string                         Serial;
             std::optional<std::pair<int, int>>  PoolPosition;
+
+            // contactForSafing() only: every unit of the box's pool that
+            // answered, the one in Value among them.
+            std::vector<Address>                PoolUnits{};
         };
 
         //
@@ -885,6 +889,114 @@ namespace hal
         }
     }
 
+    namespace
+    {
+        //
+        // Which of a pool's units answer at all, in table order. One that does
+        // not is busy on another bench, switched off or not there -- and in
+        // none of those cases is it the one a dead run of this bench left
+        // behind, since that one's session died with the run.
+        //
+        template<ContactableInstrument InstrumentT>
+        auto answeringUnits( InstrumentT & instrument, const std::string_view box) -> std::vector<Address>
+        {
+            std::vector<Address> units;
+
+            for( const auto & candidate : poolFor( box))
+            {
+                instrument.useAddress( candidate);
+
+                try
+                {
+                    static_cast<void>( instrument.identity());
+
+                    units.push_back( candidate);
+                }
+                catch( const std::exception &)
+                {
+                }
+
+                try
+                {
+                    instrument.closeSession();
+                }
+                catch( const std::exception &)
+                {
+                }
+            }
+
+            return units;
+        }
+
+        //
+        // Safes this face on every unit of its pool but the one it is bound to
+        // (which hal::safeRig() does, with the rest of the rig), and leaves it
+        // bound and open there.
+        //
+        // All of them, because --safe cannot know which unit the run it is
+        // cleaning up after had taken: a run takes the first that is free at
+        // the time, and by now a different one may be first. Safing only that
+        // one would report a safe rig with the dead run's unit still driving
+        // it. A free unit nobody was using is switched off too, which costs
+        // nothing; one in use on another bench does not answer and is left
+        // alone.
+        //
+        template<ContactableInstrument InstrumentT>
+        auto safeOtherPoolUnits(
+            InstrumentT &                 instrument,
+            const Binding &               binding,
+            const std::vector<Address> &  units,
+            std::vector<std::string> &    failures) -> void
+        {
+            // Nothing to do for a box with no pool, or a pool of the one unit
+            // it is on -- and then nothing is to be touched: moving a face
+            // away and back drops its session and opens another.
+            if( std::ranges::none_of( units, [ &]( const Address & unit) { return !( unit == binding.Value); }))
+            {
+                return;
+            }
+
+            if constexpr( requires { instrument.safe(); })
+            {
+                for( const auto & unit : units)
+                {
+                    if( unit == binding.Value)
+                    {
+                        continue;
+                    }
+
+                    instrument.useAddress( unit);
+
+                    try
+                    {
+                        static_cast<void>( instrument.identity());
+
+                        instrument.safe();
+                    }
+                    catch( const std::exception & failure)
+                    {
+                        failures.push_back(
+                            std::string( to_string( binding.Id)) + " at " + to_string( unit)
+                            + ", another unit of its pool, could not be safed: " + failure.what());
+                    }
+
+                    try
+                    {
+                        instrument.closeSession();
+                    }
+                    catch( const std::exception &)
+                    {
+                    }
+                }
+
+                // Back on its own unit, with the session open for safeRig().
+                instrument.useAddress( binding.Value);
+
+                static_cast<void>( instrument.identity());
+            }
+        }
+    } // namespace
+
     auto contactForSafing( std::vector<Binding> & bindings) -> std::vector<std::string>
     {
         std::vector<std::string> failures;
@@ -929,11 +1041,17 @@ namespace hal
                                 }
 
                                 binding.Identity = instrument.identity();
+
+                                safeOtherPoolUnits( instrument, binding, earlier->PoolUnits, failures);
                             }
                             else
                             {
+                                std::vector<Address> units;
+
                                 if( binding.Source == AddressSource::Pool)
                                 {
+                                    units = answeringUnits( instrument, binding.Box);
+
                                     acquireFromPool( instrument, binding, claimed);
                                 }
                                 else
@@ -943,7 +1061,9 @@ namespace hal
 
                                 contacted.push_back( Contacted{
                                     binding.Box, binding.Value, std::string( serialOf( binding.Identity)),
-                                    binding.PoolPosition });
+                                    binding.PoolPosition, units });
+
+                                safeOtherPoolUnits( instrument, binding, units, failures);
                             }
                         }
                         catch( const std::exception & failure)

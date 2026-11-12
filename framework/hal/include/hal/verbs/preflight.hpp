@@ -209,8 +209,11 @@ namespace hal
     // output may be turned off.
     //
     // One thing it cannot know: which unit of a POOL the dead run had taken.
-    // It acquires the first candidate that answers, as a run would, and that
-    // is the same unit only when nobody else has taken or released one since.
+    // A run takes the first candidate that is free, and by now a different
+    // one may be first. So every unit of the pool that answers is safed, here,
+    // and the first of them is left open for hal::safeRig() like any other
+    // instrument. A unit in use on another bench does not answer, and is not
+    // touched.
     //
     // Nothing for a detached bench, as with contactInstruments().
     //

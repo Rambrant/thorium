@@ -61,8 +61,10 @@ In order, every time it starts, and a last thing while it runs:
      `SIGTERM` as "stop after the current test", then runs its teardown hooks
      and safes the rig, and a fixed two-second grace killed it part way
      through that. With no run in flight the group is empty well inside a
-     second. The single-instance lock is not held meanwhile, so a console
-     started again within that minute can overlap the old run's last test.
+     second. A console started again within that minute waits for it: the
+     old console's processes hold a second lock, `teardown.lock`, until the
+     last of them has gone, and a new launcher takes it before it starts
+     anything. So a new run cannot begin beside the old run's last test.
 3. **Opens Chrome in app mode** against `http://127.0.0.1:<port>` -- `--app=`,
    not `--kiosk` and not an embedded `WebView2`/`WKWebView` control. No tab
    strip, no address bar, but a real, resizable, closable window, against a
@@ -175,7 +177,7 @@ only so far (it drives `launchctl`, `mdfind` and BSD `ps`):
 | Test | Needs | Catches |
 |---|---|---|
 | `launcher.profile_lock` | nothing -- headless | `clearStaleProfileLock` against a real directory: the dead-Chrome-under-another-hostname case that put "profile in use on another computer" in the console's terminal. |
-| `launcher.teardown` | a desktop and Chrome | The real binary against a stand-in server (`tests/stand_in_server.py`, which answers only `/api/status`): the console lands in the watchdog's process group, Chrome included; a second launcher opens a window and exits without disturbing the server; and a `kill -9` of the launcher leaves nothing of it running -- but only after a stand-in run that takes four seconds to wind down has done so. Opens one Chrome window for a few seconds, under a throwaway `$HOME`. Skipped, not failed, without a desktop session. |
+| `launcher.teardown` | a desktop and Chrome | The real binary against a stand-in server (`tests/stand_in_server.py`, which answers only `/api/status`): the console lands in the watchdog's process group, Chrome included; a second launcher opens a window and exits without disturbing the server; and a `kill -9` of the launcher leaves nothing of it running -- but only after a stand-in run that takes four seconds to wind down has done so, and a console restarted in the meantime does not come up until then. Opens one Chrome window for a few seconds, under a throwaway `$HOME`. Skipped, not failed, without a desktop session. |
 
 Not covered: the Linux half. `system_linux.cpp` has been neither compiled nor
 run. WSL2 is a real Linux kernel, so the lock, the process group and the

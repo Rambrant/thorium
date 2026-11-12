@@ -84,7 +84,7 @@ namespace webui
         return argv;
     }
 
-    auto buildSafeCommand( const Suite & suite) -> std::vector<std::string>
+    auto buildSafeCommand( const Suite & suite, const std::vector<std::string> & lastRun) -> std::vector<std::string>
     {
         //
         // --safe alone. No --events: the mode writes no log and posts its Safe
@@ -93,7 +93,22 @@ namespace webui
         // rig that was reached and safed, anything else is one that may still
         // be energised, with the reason on stderr.
         //
-        return { suite.Binary.string(), "--safe" };
+        // Plus where the rig is, when the last run was told: --safe reaches
+        // for the instruments, and has to reach for the ones that run was
+        // driving rather than the ones the instrument table names. Nothing
+        // else of the run's command line means anything to --safe.
+        //
+        std::vector<std::string> argv{ suite.Binary.string(), "--safe" };
+
+        for( const auto & arg : lastRun)
+        {
+            if( arg.starts_with( "--address=") || arg.starts_with( "--site="))
+            {
+                argv.push_back( arg);
+            }
+        }
+
+        return argv;
     }
 
     auto buildListTestsCommand( const Suite & suite) -> std::vector<std::string>

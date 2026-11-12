@@ -519,6 +519,20 @@ TEST_F( RunCommand, SafingIsTheSameBinaryWithOneFlag)
     EXPECT_EQ( safe[ 1], "--safe");
 }
 
+// --safe reaches for the instruments, so it has to be told where the run it is
+// cleaning up after was told they are -- and nothing else that run was told.
+TEST_F( RunCommand, SafingGoesWhereTheLastRunWasSent)
+{
+    const std::vector<std::string> lastRun{
+        "run_scripts", "--events=-", "--stop-on-stdin", "--select=SupplyRail", "--repeat=50",
+        "--site=bench2", "--address=Dmm1=lan:dev-dmm-3", "--address=Psu1=usb:CN1" };
+
+    const auto safe = webui::buildSafeCommand( Suite, lastRun);
+
+    EXPECT_EQ( safe, ( std::vector<std::string>{
+        Suite.Binary.string(), "--safe", "--site=bench2", "--address=Dmm1=lan:dev-dmm-3", "--address=Psu1=usb:CN1" }));
+}
+
 // ---------------------------------------------------------------------------
 // The manifest
 // ---------------------------------------------------------------------------

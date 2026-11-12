@@ -39,11 +39,63 @@ namespace launcher::platform
         // The grace when the group cannot be watched (see endGroup).
         constexpr auto  kGraceSeconds = 2;
 
-        auto pause( timespec duration) -> void
+        auto sleepFor( timespec duration) -> void
         {
             while ( nanosleep( &duration, &duration) != 0 && errno == EINTR)
             {
             }
+        }
+
+        //
+        // Held from the moment a launcher has the single-instance lock until
+        // the last thing it started has gone -- which, with a run in flight
+        // when the launcher died, is up to kRunSeconds after the launcher
+        // itself. The single-instance lock cannot say that: it is the
+        // launcher's, and is free the moment the launcher is. A console started
+        // again in that minute would otherwise come up beside the old run's
+        // last test and its safing, and could start a second run on the same
+        // rig.
+        //
+        // The launcher takes it, the watchdog inherits it across the fork, and
+        // so does the process endGroup() hands the teardown to: the lock is
+        // one open file shared by all three, and is released when the last of
+        // them exits. Nothing they spawn inherits it (O_CLOEXEC).
+        //
+        int  gTeardownLock = -1;
+
+        // A little over kRunSeconds, so the old console's SIGKILL comes first.
+        constexpr auto  kTeardownWaitSeconds = kRunSeconds + 5;
+
+        auto holdTeardownLock( const std::string & supportDir) -> void
+        {
+            const auto  path = supportDir + "/teardown.lock";
+            const auto  fd = open( path.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0600);
+            if ( fd < 0)
+            {
+                // Not worth refusing to start over: the lock that matters is held.
+                return;
+            }
+
+            for ( long waited = 0; flock( fd, LOCK_EX | LOCK_NB) != 0; waited += kPollNanoseconds)
+            {
+                if ( waited == 0)
+                {
+                    static constexpr char  kNotice[] =
+                        "The previous console's run is still finishing; waiting for it before starting.\n";
+                    const auto  ignored = write( STDERR_FILENO, kNotice, sizeof( kNotice) - 1);
+                    static_cast<void>( ignored);
+                }
+
+                if ( waited >= kTeardownWaitSeconds * 1'000'000'000L)
+                {
+                    // It has been killed by now, whatever is holding this.
+                    break;
+                }
+
+                sleepFor( timespec{ 0, kPollNanoseconds });
+            }
+
+            gTeardownLock = fd;
         }
 
         //
@@ -77,7 +129,7 @@ namespace launcher::platform
                 for ( long waited = 0; waited < kRunSeconds * 1'000'000'000L && kill( -group, 0) == 0;
                       waited += kPollNanoseconds)
                 {
-                    pause( timespec{ 0, kPollNanoseconds });
+                    sleepFor( timespec{ 0, kPollNanoseconds });
                 }
 
                 kill( -group, SIGKILL);
@@ -88,7 +140,7 @@ namespace launcher::platform
             // to empty. A fixed grace instead, as short as it has to be for the
             // SIGKILL to be certain.
             kill( 0, SIGTERM);
-            pause( timespec{ kGraceSeconds, 0 });
+            sleepFor( timespec{ kGraceSeconds, 0 });
 
             // Takes this process with it -- it is the last thing left to do.
             kill( 0, SIGKILL);
@@ -120,9 +172,11 @@ namespace launcher::platform
             // lifeline -- above all the single-instance lock, which would
             // otherwise stay held for as long as a run takes to end after the
             // launcher exited.
+            // And the teardown lock, which is held for exactly that long on
+            // purpose (see gTeardownLock).
             for ( int fd = 3; fd < kHighestInheritedFd; ++fd)
             {
-                if ( fd != lifeline)
+                if ( fd != lifeline && fd != gTeardownLock)
                 {
                     close( fd);
                 }
@@ -229,6 +283,14 @@ namespace launcher::platform
 
         mHandle = fd;
         mState = flock( fd, LOCK_EX | LOCK_NB) == 0 ? State::Acquired : State::HeldByAnother;
+
+        // This is the console now. If the one before it died with a run in
+        // flight, that run is still winding down: wait for it here, before
+        // anything is started.
+        if ( mState == State::Acquired)
+        {
+            holdTeardownLock( supportDir);
+        }
     }
 
     SingleInstance::~SingleInstance()
