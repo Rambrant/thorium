@@ -59,8 +59,19 @@ namespace
                     throw hal::io::TransportTimeout( "no reply queued");
                 }
 
+                // And a silence in the middle of the script: the instrument
+                // had nothing to say yet, and goes on to answer later.
+                if( mReplies[ mNext] == kSilence)
+                {
+                    ++mNext;
+
+                    throw hal::io::TransportTimeout( "nothing arrived in time");
+                }
+
                 return mReplies[ mNext++];
             }
+
+            static constexpr std::string_view kSilence = "<silence>";
 
             [[nodiscard]]
             auto description() const -> std::string override
@@ -350,4 +361,78 @@ TEST( ScpiSession, DrainingABottomlessErrorQueueTerminates)
     scpi.Session.clearErrors();
 
     EXPECT_LE( scpi.Transport->sent().size(), 21u);
+}
+
+// ---------------------------------------------------------------------------
+// Back in step after a timeout
+// ---------------------------------------------------------------------------
+//
+// A query that times out was refused or was only slow, and a slow one's answer
+// still arrives. Read as the next query's, it puts every reply after it one
+// behind its question -- numbers that parse, pass and belong to something else.
+//
+namespace
+{
+    const std::string kSilence{ ScriptedTransport::kSilence };
+}
+
+// The late answer turns up while the error queue is being asked about.
+TEST( ScpiSession, ALateReplyIsNotTakenForTheErrorQueuesNorForTheNextQuerys)
+{
+    auto scpi = scripted( { kSilence, "1.5", "+0,\"No error\"", "2.5" });
+
+    EXPECT_THROW( static_cast<void>( scpi.Session.queryChecked( "READ?")), hal::io::TransportTimeout);
+
+    EXPECT_DOUBLE_EQ( scpi.Session.queryNumber( "MEAS?"), 2.5);
+    EXPECT_EQ( scpi.Transport->sent(), ( std::vector<std::string>{ "READ?", "SYST:ERR?", "MEAS?" }));
+}
+
+// It turns up after both have been given up on: two answers are then on their
+// way, and the next query has to read past both.
+TEST( ScpiSession, RepliesThatArriveAfterTheDiagnosisGaveUpAreReadPastToo)
+{
+    auto scpi = scripted( { kSilence, kSilence, "1.5", "+0,\"No error\"", "2.5" });
+
+    EXPECT_THROW( static_cast<void>( scpi.Session.queryChecked( "READ?")), hal::io::TransportTimeout);
+
+    EXPECT_DOUBLE_EQ( scpi.Session.queryNumber( "MEAS?"), 2.5);
+    EXPECT_EQ( scpi.Transport->sent(), ( std::vector<std::string>{ "READ?", "SYST:ERR?", "MEAS?" }))
+        << "the entry already asked for is waited for, not asked for again";
+}
+
+// A plain query() has no diagnosis of its own, so the next command does it.
+TEST( ScpiSession, APlainQueryThatTimedOutIsSettledBeforeTheNextCommand)
+{
+    auto scpi = scripted( { kSilence, "1.5", "+0,\"No error\"", "2.5" });
+
+    EXPECT_THROW( static_cast<void>( scpi.Session.query( "READ?")), hal::io::TransportTimeout);
+
+    EXPECT_EQ( scpi.Session.query( "MEAS?"), "2.5");
+    EXPECT_EQ( scpi.Transport->sent(), ( std::vector<std::string>{ "READ?", "SYST:ERR?", "MEAS?" }));
+}
+
+// A refused query never answers, and the queue says why: still a fault, and
+// the session is in step afterwards with nothing extra sent.
+TEST( ScpiSession, ARefusedQueryIsStillReportedAndLeavesTheSessionInStep)
+{
+    auto scpi = scripted( { kSilence, "-113,\"Undefined header\"", "+0,\"No error\"", "2.5" });
+
+    EXPECT_THROW( static_cast<void>( scpi.Session.queryChecked( "NOSUCH?")), hal::io::ScpiFault);
+
+    EXPECT_DOUBLE_EQ( scpi.Session.queryNumber( "MEAS?"), 2.5);
+    EXPECT_EQ( scpi.Transport->sent(), ( std::vector<std::string>{ "NOSUCH?", "SYST:ERR?", "SYST:ERR?", "MEAS?" }));
+}
+
+// An instrument that is still silent stays out of step, and says so by timing
+// out again -- rather than the next command going out on top of it.
+TEST( ScpiSession, AnInstrumentStillSilentFailsTheNextCommandRatherThanSendingIt)
+{
+    auto scpi = scripted( { kSilence, kSilence, kSilence, "1.5", "+0,\"No error\"" });
+
+    EXPECT_THROW( static_cast<void>( scpi.Session.queryChecked( "READ?")), hal::io::TransportTimeout);
+    EXPECT_THROW( scpi.Session.write( "OUTP ON"), hal::io::TransportTimeout);
+    EXPECT_EQ( scpi.Transport->sent(), ( std::vector<std::string>{ "READ?", "SYST:ERR?" }));
+
+    scpi.Session.write( "OUTP ON");
+    EXPECT_EQ( scpi.Transport->sent().back(), "OUTP ON");
 }

@@ -29,6 +29,20 @@ Newest first.
   `keysight_ac6834b`.
 
 ### Fixed
+- **A SCPI session is put back in step after a query times out.** A query that was only
+  slow still answers, and that answer was read as the next query's -- and every reply
+  after it as the one before's. The next command now first reads up to an error-queue
+  entry, discarding what arrives ahead of it; an instrument that is still silent fails
+  that command with a timeout rather than having it sent on top.
+- A LAN instrument that refuses or does not answer a connection is reported as that
+  ("Connection refused", "no answer within 2000 ms"), not as "Operation now in progress".
+- `pico_5244d`: top and base of a ramp or triangle on a coarse record -- 8 bits, with the
+  signal filling a fraction of the range -- are its extremes again. Every occupied ADC
+  code passed for a plateau, which moved the levels and, through them, edge times and
+  frequency.
+- `dev/`: `picoTriggerSlopes` checks that the record rises or falls through its trigger
+  point as the slope asked (`DEV_Osc_TriggerSlope`). A capture and a frequency alone are
+  the same for both slopes, so a trigger that ignored its slope passed.
 - **`NE` and `NONE` no longer pass on a reading that could not be made.** Such a reading
   is NaN, which every other predicate fails; these two negate `EQ` and `ANY`, and so
   turned that failure into a pass.

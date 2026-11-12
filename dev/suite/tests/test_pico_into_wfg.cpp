@@ -205,14 +205,33 @@ TEST_F( PicoIntoWfgFixture, TheBandwidthLimitLeavesAKilohertzSineAlone)
     EXPECT_TRUE( verdictOf( picoBandwidthLimit));
 }
 
+//
+// sineTrace() has its trigger point, time zero, on a rising zero crossing; its
+// negative is the same record triggered on the falling one.
+//
 TEST_F( PicoIntoWfgFixture, BothTriggerSlopesGiveTheFrequency)
 {
     Await.inject(   "Osc2.Acquisition",         { true, true });
     Measure.inject( "Osc2.Frequency.Frequency", { 1000.1_Hz, 999.9_Hz });
+    Fetch.inject(   "Osc2.Channel1",            { sineTrace(), sineTrace( -1.0) });
     EXPECT_TRUE( verdictOf( picoTriggerSlopes));
 
     Await.inject(   "Osc2.Acquisition",         { true, true });
     Measure.inject( "Osc2.Frequency.Frequency", { 1000.1_Hz, 499.9_Hz });
+    Fetch.inject(   "Osc2.Channel1",            { sineTrace(), sineTrace( -1.0) });
+    EXPECT_FALSE( verdictOf( picoTriggerSlopes));
+}
+
+//
+// A trigger that fires on the rising edge whatever slope it was given: both
+// captures complete and both give the frequency, and only the record says the
+// falling one was not falling.
+//
+TEST_F( PicoIntoWfgFixture, ATriggerThatIgnoresItsSlopeFails)
+{
+    Await.inject(   "Osc2.Acquisition",         { true, true });
+    Measure.inject( "Osc2.Frequency.Frequency", { 1000.1_Hz, 999.9_Hz });
+    Fetch.inject(   "Osc2.Channel1",            { sineTrace(), sineTrace() });
     EXPECT_FALSE( verdictOf( picoTriggerSlopes));
 }
 
@@ -227,6 +246,7 @@ TEST_F( PicoIntoWfgFixture, ASlopeThatNeverTriggersFailsAndIsNotMeasured)
 {
     Await.inject(   "Osc2.Acquisition",         { true, false });
     Measure.inject( "Osc2.Frequency.Frequency", std::vector{ 1000.1_Hz });
+    Fetch.inject(   "Osc2.Channel1",            core::traceSourceOf( std::vector{ sineTrace() }));
     EXPECT_FALSE( verdictOf( picoTriggerSlopes));
 }
 

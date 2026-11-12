@@ -126,6 +126,7 @@ CRITERIA( DEV_Osc_1, "The scope, against its own 1 kHz probe-compensation square
     CRIT( DEV_Osc_Edge,       LT( 5.0_us),                     "The comp edge is fast -- well under 5 us, 10% to 90%")
     CRIT( DEV_Osc_Captured,   EQ( true),                       "A single-shot capture completed")
     CRIT( DEV_Osc_HasSamples, EQ( true),                       "The fetched trace has samples in it")
+    CRIT( DEV_Osc_TriggerSlope, EQ( true),                     "The record crosses its trigger point in the direction the trigger was set to")
 END_CRITERIA
 
 //

@@ -324,6 +324,30 @@ namespace hal::io
             static auto number( double value) -> std::string;
 
         private:
+            //
+            // Every command goes out through here, so that a session a timeout
+            // left out of step is put back before it says anything else.
+            //
+            // A query that times out was either refused -- no answer will ever
+            // come -- or was only slow, and then its answer arrives later and
+            // would be read as the next query's. Nothing on the wire says which.
+            // So the next command first asks for an error-queue entry, the one
+            // reply whose shape is known, and discards whatever arrives ahead
+            // of it.
+            //
+            auto send( std::string_view command) -> void;
+            auto resynchronise() -> void;
+
+            // Reads until every SYST:ERR? in flight has been answered, and
+            // returns the last entry read.
+            auto settle() -> std::optional<ScpiError>;
+
             std::unique_ptr<ITransport> mTransport;
+
+            // SYST:ERR? questions sent whose answers have not been read.
+            int   mQueueRepliesOwed{ 0 };
+
+            // A query timed out, so its answer may still arrive.
+            bool  mStaleReplyPossible{ false };
     };
 } // namespace hal::io

@@ -339,6 +339,35 @@ auto picoBandwidthLimit() -> void
 // is held, so the Measure after Await reads the triggered record, and the next
 // Setup lets it go.
 //
+// A capture and a frequency are the same whichever slope fired, though: a sine
+// crosses zero both ways, so a driver that ignored the slope and always
+// triggered rising would pass on those two alone. What tells the slopes apart
+// is the record itself -- the trigger is at its time zero, and the signal there
+// is going up for one and down for the other.
+//
+namespace
+{
+    //
+    // Whether the trace is rising through its trigger point, time zero: the
+    // sample a twentieth of a period after it against the one as far before.
+    // Far enough apart that noise on a 2 Vpp sine cannot turn it round (0.6 V
+    // between them), close enough that it is still the same edge.
+    //
+    auto risingAtTrigger( const core::Waveform & trace) -> bool
+    {
+        const auto timing = trace.timing();
+        const auto last   = static_cast<std::ptrdiff_t>( trace.size()) - 1;
+        const auto centre = std::clamp<std::ptrdiff_t>(
+            std::llround( -timing.Origin.value() / timing.Increment.value()), 0, last);
+        const auto reach  = std::max<std::ptrdiff_t>( 1, std::llround( 50.0e-6 / timing.Increment.value()));
+
+        const auto before = trace.at( static_cast<std::size_t>( std::max<std::ptrdiff_t>( 0,    centre - reach)));
+        const auto after  = trace.at( static_cast<std::size_t>( std::min<std::ptrdiff_t>( last, centre + reach)));
+
+        return after > before;
+    }
+} // namespace
+
 auto picoTriggerSlopes() -> void
 {
     Apply( referenceSine<1>());
@@ -357,6 +386,16 @@ auto picoTriggerSlopes() -> void
         if( captured)
         {
             Verify( DEV_Wfg_1::DEV_Wfg_Freq1kHz, Measure( Osc2.channel<1>().frequency()));
+
+            const auto trace = Fetch( Osc2.channel<1>().waveform());
+
+            Verify( DEV_Osc_1::DEV_Osc_HasSamples, !trace.empty());
+
+            if( !trace.empty())
+            {
+                Verify( DEV_Osc_1::DEV_Osc_TriggerSlope,
+                        risingAtTrigger( trace) == ( slope == pico::TriggerSlope::Rising));
+            }
         }
     }
 

@@ -128,14 +128,98 @@ namespace hal::io
         }
     }
 
+    auto ScpiSession::send( const std::string_view command) -> void
+    {
+        resynchronise();
+
+        mTransport->send( command);
+    }
+
+    auto ScpiSession::resynchronise() -> void
+    {
+        if( mQueueRepliesOwed == 0 && !mStaleReplyPossible)
+        {
+            return;
+        }
+
+        //
+        // A query went unanswered, and its answer may only have been late: it
+        // is then still on its way, and the next query would read it as its
+        // own -- and every query after that the one before's. An error-queue
+        // entry is the one reply whose shape is known, so one is asked for (if
+        // none is already owed) and everything that arrives ahead of it is the
+        // late answer, discarded.
+        //
+        if( mQueueRepliesOwed == 0)
+        {
+            mTransport->send( "SYST:ERR?");
+
+            ++mQueueRepliesOwed;
+        }
+
+        static_cast<void>( settle());
+    }
+
+    auto ScpiSession::settle() -> std::optional<ScpiError>
+    {
+        //
+        // Bounded, for the reason clearErrors() is: an instrument that goes on
+        // answering something else is not one to read from for ever.
+        //
+        constexpr int kMaximumStrays = 8;
+
+        std::optional<ScpiError> last;
+
+        for( int strays = 0; mQueueRepliesOwed > 0; )
+        {
+            // A timeout here leaves the count as it is: the entry is still owed,
+            // and the next command starts by waiting for it again.
+            const std::string reply{ trimmed( mTransport->receive()) };
+
+            if( auto entry = parseQueueEntry( reply))
+            {
+                --mQueueRepliesOwed;
+
+                last = std::move( entry);
+
+                continue;
+            }
+
+            if( !mStaleReplyPossible && mQueueRepliesOwed == 1)
+            {
+                //
+                // Nothing was late, so this is the answer to the question --
+                // just not a queue entry. See nextError() on why that is read
+                // as an empty queue.
+                //
+                --mQueueRepliesOwed;
+
+                last.reset();
+
+                continue;
+            }
+
+            if( ++strays > kMaximumStrays)
+            {
+                throw TransportError(
+                    mTransport->description() + " keeps answering something other than its error queue"
+                    + " -- the session is out of step with its replies");
+            }
+        }
+
+        mStaleReplyPossible = false;
+
+        return last;
+    }
+
     auto ScpiSession::write( const std::string_view command) -> void
     {
-        mTransport->send( command);
+        send( command);
     }
 
     auto ScpiSession::checked( const std::string_view command) -> void
     {
-        mTransport->send( command);
+        send( command);
 
         //
         // The first entry names the fault; the rest are drained so they cannot
@@ -159,9 +243,20 @@ namespace hal::io
 
     auto ScpiSession::query( const std::string_view question) -> std::string
     {
-        mTransport->send( question);
+        send( question);
 
-        return std::string( trimmed( mTransport->receive()));
+        try
+        {
+            return std::string( trimmed( mTransport->receive()));
+        }
+        catch( const TransportTimeout &)
+        {
+            // Refused, or only slow -- and if slow, the answer is still coming.
+            // See resynchronise().
+            mStaleReplyPossible = true;
+
+            throw;
+        }
     }
 
     auto ScpiSession::queryChecked( const std::string_view question) -> std::string
@@ -276,9 +371,16 @@ namespace hal::io
 
     auto ScpiSession::nextError() -> std::optional<ScpiError>
     {
-        const std::string reply = query( "SYST:ERR?");
+        //
+        // Not query(): this is what a session that is out of step gets back
+        // into step with, so it reads past a late answer to an earlier query
+        // rather than taking it for the queue's -- see settle().
+        //
+        mTransport->send( "SYST:ERR?");
 
-        auto entry = parseQueueEntry( reply);
+        ++mQueueRepliesOwed;
+
+        auto entry = settle();
 
         if( !entry || entry->Code == 0)
         {

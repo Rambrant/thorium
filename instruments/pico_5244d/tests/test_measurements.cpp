@@ -205,6 +205,52 @@ TEST( Pico5244dMeasure, RampAndTriangleEdgesAreMeasuredAgainstTheirExtremes)
     EXPECT_NEAR( *m::fallTime( tri, kDt, 0.1, 0.9), 0.8 * 500 * kDt, 0.02 * 500 * kDt);
 }
 
+//
+// The same on a coarse record: 8 bits over a range the signal fills a fifth of
+// is some fifty codes. One bin per code then, or a histogram of 256 bins has
+// fifty full ones among two hundred empty and every code looks like a plateau.
+//
+TEST( Pico5244dMeasure, ACoarseRampOrTriangleStillHasItsExtremesForLevels)
+{
+    for( const double lsb : { 0.2, 10.0 / 127.0, 10.0 / 254.0 })
+    {
+        std::vector<double> up;
+        std::vector<double> tri;
+        std::vector<double> squared;
+
+        for( int c = 0; c < 3; ++c)
+        {
+            for( int i = 0; i < 1000; ++i)
+            {
+                const double noise = 0.3 * lsb * std::sin( 12.9898 * i + 78.233 * c);
+                const auto   coded = [ & ]( const double v) { return std::round( ( v + noise) / lsb) * lsb; };
+
+                up.push_back( coded( 2.0 * i / 999.0 - 1.0));
+                tri.push_back( coded( i < 500 ? 4.0 * i / 1000.0 - 1.0 : 3.0 - 4.0 * i / 1000.0));
+
+                // A square with one sample of overshoot: its top is the plateau.
+                squared.push_back( coded( i < 500 ? 1.0 : -1.0) + ( i == 0 ? 3.0 * lsb : 0.0));
+            }
+        }
+
+        for( const auto * ramp : { &up, &tri})
+        {
+            const auto found = m::levels( *ramp);
+
+            ASSERT_TRUE( found);
+            EXPECT_NEAR( found->Top,   1.0, lsb) << "lsb " << lsb;
+            EXPECT_NEAR( found->Base, -1.0, lsb) << "lsb " << lsb;
+            EXPECT_NEAR( *m::frequency( *ramp, kDt), 1000.0, 10.0) << "lsb " << lsb;
+        }
+
+        const auto found = m::levels( squared);
+
+        ASSERT_TRUE( found);
+        EXPECT_NEAR( found->Top,   1.0, lsb) << "lsb " << lsb << ": the plateau, not the overshoot";
+        EXPECT_NEAR( found->Base, -1.0, lsb) << "lsb " << lsb;
+    }
+}
+
 TEST( Pico5244dMeasure, ThresholdsAreTheScriptsToChoose)
 {
     const auto v = square( 5, 200, 100, 10);

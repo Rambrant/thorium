@@ -443,6 +443,35 @@ TEST( SocketTransport, ARefusedConnectionFailsRatherThanWaiting)
     EXPECT_LT( std::chrono::steady_clock::now() - started, std::chrono::seconds( 2));
 }
 
+// And says so. It used to report what the connect() call itself had answered
+// -- "operation now in progress" -- about an instrument that had refused.
+TEST( SocketTransport, ARefusedConnectionSaysItWasRefused)
+{
+    int closedPort = 0;
+
+    {
+        FakeInstrument instrument{ { } };
+
+        closedPort = instrument.port();
+    }
+
+    try
+    {
+        hal::io::SocketTransport{ "127.0.0.1", closedPort, quickTimeouts() };
+
+        FAIL() << "connected to a port nothing listens on";
+    }
+    catch( const hal::io::TransportError & e)
+    {
+        const std::string what = e.what();
+
+        EXPECT_EQ( what.find( "in progress"), std::string::npos) << what;
+#ifndef _WIN32
+        EXPECT_NE( what.find( "refused"), std::string::npos) << what;
+#endif
+    }
+}
+
 //
 // A hostname that resolves to nothing -- a re-cabled rack, a DHCP lease that
 // moved, a typo in the rig's instrument table. The message names the address as

@@ -14,14 +14,18 @@ namespace hal::pico_5244d::measure
         constexpr std::string_view kFlat  = "the record is flat: no top and base to tell apart";
 
         // Enough to resolve a level to well under a tenth of a percent of the
-        // range, and fewer bins than an 8-bit ADC has codes only when the range
-        // is itself small -- where the bins are empty, not wrong.
+        // range. A record of fewer codes than this gets a bin per code instead
+        // -- see levels().
         constexpr std::size_t kBins = 256;
 
         // How many times fuller than an even spread a histogram bin must be to
         // be a level (a square's plateau is hundreds; a sine's peak, ~20; a
         // ramp's noise-favoured bin, 1 to 3).
         constexpr double kPlateau = 5.0;
+
+        // The share of its half's samples a bin holds to be a level whatever
+        // kPlateau says -- see levels().
+        constexpr double kMajority = 0.75;
 
         // Half the width of the band around the 50 % level that a signal must
         // leave before a new crossing counts, as a fraction of the amplitude.
@@ -224,14 +228,44 @@ namespace hal::pico_5244d::measure
             return std::unexpected( kFlat);
         }
 
-        const double width = ( most - least) / static_cast<double>( kBins);
+        //
+        // One bin per ADC code when the record spans fewer codes than kBins --
+        // an 8-bit capture of a signal that fills a fifth of its range is fifty
+        // codes. Spread over 256 bins those are fifty full bins among two
+        // hundred empty ones, and every one of them is then many times fuller
+        // than "an even spread": a ramp's every code passed for a plateau, and
+        // its top was whichever code noise favoured.
+        //
+        // The code's size is the smallest step between neighbouring samples.
+        // Samples are whole codes scaled, so no two differ by less; a record
+        // that is not quantised at all has a step far below a bin's width, and
+        // gets the kBins it always had.
+        //
+        double step = most - least;
 
-        std::vector<std::size_t> count( kBins, 0);
-        std::vector<double>      sum( kBins, 0.0);
+        for( std::size_t i = 1; i < samples.size(); ++i)
+        {
+            const double gap = std::abs( samples[ i] - samples[ i - 1]);
+
+            if( gap > 0.0 && gap < step)
+            {
+                step = gap;
+            }
+        }
+
+        const double      codes   = ( most - least) / step;
+        const bool        perCode = codes < static_cast<double>( kBins);
+        const std::size_t bins    = perCode ? static_cast<std::size_t>( std::llround( codes)) + 1 : kBins;
+        const double      width   = perCode ? step : ( most - least) / static_cast<double>( kBins);
+
+        std::vector<std::size_t> count( bins, 0);
+        std::vector<double>      sum( bins, 0.0);
 
         for( const double v : samples)
         {
-            const auto bin = std::min( kBins - 1, static_cast<std::size_t>( ( v - least) / width));
+            // Rounded to the nearest code, or cut into equal slices of the range.
+            const double at  = ( v - least) / width;
+            const auto   bin = std::min( bins - 1, static_cast<std::size_t>( perCode ? std::llround( at) : std::llround( std::floor( at))));
 
             ++count[ bin];
             sum[ bin] += v;
@@ -266,7 +300,17 @@ namespace hal::pico_5244d::measure
 
             const double uniform = static_cast<double>( total) / static_cast<double>( to - from);
 
-            if( static_cast<double>( count[ best]) < kPlateau * uniform)
+            //
+            // Or, with too few bins in the half for any of them to be kPlateau
+            // times an even share, a bin holding most of the half outright. A
+            // triangle of two codes a half puts two thirds in the inner one,
+            // which is the most a ramp manages; a square puts all but its
+            // overshoot in one.
+            //
+            const bool plateau = static_cast<double>( count[ best]) >= kPlateau * uniform
+                              || static_cast<double>( count[ best]) >= kMajority * static_cast<double>( total);
+
+            if( !plateau)
             {
                 return extreme;
             }
@@ -274,7 +318,7 @@ namespace hal::pico_5244d::measure
             return sum[ best] / static_cast<double>( count[ best]);
         };
 
-        return Levels{ fullest( 0, kBins / 2, least), fullest( kBins / 2, kBins, most) };
+        return Levels{ fullest( 0, bins / 2, least), fullest( bins / 2, bins, most) };
     }
 
     auto vbase( const std::span<const double> samples) -> Result

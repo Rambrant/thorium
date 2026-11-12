@@ -1,5 +1,6 @@
 #include "hal/io/socket_transport.hpp"
 
+#include <optional>
 #include <cerrno>
 #include <cstring>
 #include <string>
@@ -102,9 +103,15 @@ namespace hal::io
         }
 
         [[nodiscard]]
+        auto errorText( const int code) -> std::string
+        {
+            return "winsock error " + std::to_string( code);
+        }
+
+        [[nodiscard]]
         auto lastErrorText() -> std::string
         {
-            return "winsock error " + std::to_string( WSAGetLastError());
+            return errorText( WSAGetLastError());
         }
 
         [[nodiscard]]
@@ -162,9 +169,15 @@ namespace hal::io
         }
 
         [[nodiscard]]
+        auto errorText( const int code) -> std::string
+        {
+            return std::strerror( code);
+        }
+
+        [[nodiscard]]
         auto lastErrorText() -> std::string
         {
-            return std::strerror( errno);
+            return errorText( errno);
         }
 
         [[nodiscard]]
@@ -227,11 +240,17 @@ namespace hal::io
         // and write timeouts do the same job with far less code -- see the
         // SO_RCVTIMEO/SO_SNDTIMEO pair in the constructor.
         //
+        // Answers why it failed, or nothing when it connected. The reason is
+        // made here rather than read from errno by the caller, because by then
+        // errno says something else: after a timeout or a refusal it still
+        // holds the connect()'s own "operation now in progress", which is what
+        // an operator was told about an instrument that was simply switched off.
+        //
         auto connectWithTimeout(
             const SocketHandle              socket,
             const sockaddr *                address,
             const socklen_t                 addressLength,
-            const std::chrono::milliseconds timeout) -> bool
+            const std::chrono::milliseconds timeout) -> std::optional<std::string>
         {
             setNonBlocking( socket, true);
 
@@ -241,23 +260,24 @@ namespace hal::io
             {
                 setNonBlocking( socket, false);
 
-                return true;
+                return std::nullopt;
             }
 
             if( !wouldBlock())
             {
-                return false;
+                return lastErrorText();
             }
 
-            if( pollWritable( socket, timeout) <= 0)
+            const int ready = pollWritable( socket, timeout);
+
+            if( ready == 0)
             {
-                //
-                // Zero is the timeout and negative is poll() itself failing.
-                // Both are "no connection", and neither is worth telling apart
-                // at the call site: a poll that fails on a socket this function
-                // just created is not a diagnosis anyone can act on.
-                //
-                return false;
+                return "no answer within " + std::to_string( timeout.count()) + " ms";
+            }
+
+            if( ready < 0)
+            {
+                return lastErrorText();
             }
 
             //
@@ -277,7 +297,12 @@ namespace hal::io
 
             setNonBlocking( socket, false);
 
-            return pendingError == 0;
+            if( pendingError != 0)
+            {
+                return errorText( pendingError);
+            }
+
+            return std::nullopt;
         }
     } // namespace
 
@@ -331,10 +356,10 @@ namespace hal::io
                 continue;
             }
 
-            if( !connectWithTimeout( socket, candidate->ai_addr,
+            if( const auto failure = connectWithTimeout( socket, candidate->ai_addr,
                     static_cast<socklen_t>( candidate->ai_addrlen), mOptions.ConnectTimeout))
             {
-                lastFailure = lastErrorText();
+                lastFailure = *failure;
 
                 closeSocket( socket);
 
