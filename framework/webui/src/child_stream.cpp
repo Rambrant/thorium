@@ -227,8 +227,10 @@ namespace webui
         // framework/launcher/src/windows/platform.cpp: this process inherits
         // whatever job the console server itself is a member of (it does not
         // set CREATE_BREAKAWAY_FROM_JOB), so when the launcher's job goes
-        // down, this child goes down with it -- see framework/launcher's
-        // README on how the group is torn down.
+        // down, this child goes down with it -- after the minute the
+        // launcher's watchdog gives it to end by itself, which the stdin pipe
+        // below closing with this server is what asks it to. See
+        // framework/launcher's README on how the group is torn down.
         const auto  created = CreateProcessW(
             nullptr, commandLine.data(),
             nullptr, nullptr, TRUE,

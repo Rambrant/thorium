@@ -96,8 +96,18 @@ Newest first.
   available; it used to come up idle.
 - The launcher's watchdog (macOS, Linux) no longer kills a run two seconds after the
   launcher dies. It sends `SIGTERM` and waits for the run to finish its current test,
-  teardown hooks and safing -- up to 60 seconds -- before `SIGKILL`. Windows is
-  unchanged: its Job object still ends the run at once.
+  teardown hooks and safing -- up to 60 seconds -- before `SIGKILL`.
+- **The same on Windows, where the launcher's Job object ended the run at once.** A
+  watchdog process now holds the Job open: when the launcher dies it ends the server and
+  Chrome, which ends the run's stdin -- its stop request -- and waits up to 60 seconds for
+  the run to finish its test, teardown hooks, safing and logs before ending what is left.
+  A console restarted in the meantime waits for it, as on macOS. Tested by
+  `launcher.teardown`, which now has a Windows half (`tests/teardown.ps1`).
+- A LAN instrument that refuses a connection is reported as "Connection refused" on
+  Windows too, and in half a second. Windows retries a refused connection for two
+  seconds -- just past the 2000 ms connect timeout -- so it was always reported as
+  "no answer within 2000 ms", after the whole wait. Socket failures there also read as
+  they do on macOS and Linux, not as "winsock error 10061".
 
 ### Changed (breaking)
 - **`run_scripts --safe` exits 1 when the rig may still be energised** -- an instrument

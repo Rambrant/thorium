@@ -455,9 +455,17 @@ TEST( SocketTransport, ARefusedConnectionSaysItWasRefused)
         closedPort = instrument.port();
     }
 
+    //
+    // Not quickTimeouts(): a refusal is immediate on POSIX and half a second
+    // away on Windows, which tries once more first (see reportRefusalPromptly
+    // in socket_transport.cpp). The default timeout is what an instrument gets,
+    // and inside it the answer has to be "refused" on both.
+    //
+    const auto started = std::chrono::steady_clock::now();
+
     try
     {
-        hal::io::SocketTransport{ "127.0.0.1", closedPort, quickTimeouts() };
+        hal::io::SocketTransport{ "127.0.0.1", closedPort, hal::io::TransportOptions{} };
 
         FAIL() << "connected to a port nothing listens on";
     }
@@ -466,10 +474,11 @@ TEST( SocketTransport, ARefusedConnectionSaysItWasRefused)
         const std::string what = e.what();
 
         EXPECT_EQ( what.find( "in progress"), std::string::npos) << what;
-#ifndef _WIN32
         EXPECT_NE( what.find( "refused"), std::string::npos) << what;
-#endif
     }
+
+    // And well inside the timeout, not at the end of it.
+    EXPECT_LT( std::chrono::steady_clock::now() - started, std::chrono::milliseconds( 1500));
 }
 
 //

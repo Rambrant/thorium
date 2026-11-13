@@ -48,7 +48,23 @@ In order, every time it starts, and a last thing while it runs:
    each Chrome window -- is torn down when the launcher goes, *including if
    the launcher itself crashes*:
    - Windows: one Job object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. The
-     kernel tears the job down when the last handle to it closes.
+     kernel tears the job down when the last handle to it closes -- and the
+     last handle is not the launcher's. A watchdog holds one too: a second
+     process of `thorium_launcher.exe` itself, outside the job, which waits
+     on the launcher's process handle. When the launcher goes, for any
+     reason, the watchdog ends the two things the launcher started -- the
+     server and Chrome -- and then waits for the job to empty, up to 60
+     seconds, before ending whatever is left. The wait is for `run_scripts`:
+     Windows has no `SIGTERM` to send it, but `thorium_webui` holds the other
+     end of its stdin, and that pipe ending is a stop request ("the console
+     went away"), so the run finishes its current test, runs its teardown
+     hooks, safes the rig and writes its logs. The Job alone killed it where
+     it stood. With no run in flight the job is empty within moments. If the
+     watchdog itself is killed, the job closes with it and everything ends at
+     once, as before. A console started again within that minute waits for
+     it: the launcher and its watchdog hold a named event,
+     `Local\ThoriumLauncherTeardown`, until the last of them has gone, and a
+     new launcher waits for it to disappear before it starts anything.
    - macOS has no Job object, so the same promise is built from a process
      group and a watchdog: every child is spawned into one group, and a small
      forked process leading that group holds the read end of a pipe whose
@@ -171,13 +187,14 @@ With the rest of a tree's tests, under `BUILD_TESTING_LAYERS` -- so
 ctest --test-dir build/dev -R launcher
 ```
 
-`launcher.profile_lock` runs on any POSIX host; `launcher.teardown` is macOS
-only so far (it drives `launchctl`, `mdfind` and BSD `ps`):
+`launcher.profile_lock` runs on any POSIX host; `launcher.teardown` is
+`tests/teardown.sh` on macOS (it drives `launchctl`, `mdfind` and BSD `ps`)
+and `tests/teardown.ps1` on Windows, with nothing yet for Linux:
 
 | Test | Needs | Catches |
 |---|---|---|
 | `launcher.profile_lock` | nothing -- headless | `clearStaleProfileLock` against a real directory: the dead-Chrome-under-another-hostname case that put "profile in use on another computer" in the console's terminal. |
-| `launcher.teardown` | a desktop and Chrome | The real binary against a stand-in server (`tests/stand_in_server.py`, which answers only `/api/status`): the console lands in the watchdog's process group, Chrome included; a second launcher opens a window and exits without disturbing the server; and a `kill -9` of the launcher leaves nothing of it running -- but only after a stand-in run that takes four seconds to wind down has done so, and a console restarted in the meantime does not come up until then. Opens one Chrome window for a few seconds, under a throwaway `$HOME`. Skipped, not failed, without a desktop session. |
+| `launcher.teardown` | a desktop and Chrome | The real binary against a stand-in server (`tests/stand_in_server.py`, which answers only `/api/status`): the console lands in the watchdog's process group, Chrome included; a second launcher opens a window and exits without disturbing the server; and a `kill -9` of the launcher leaves nothing of it running -- but only after a stand-in run that takes four seconds to wind down has done so, and a console restarted in the meantime does not come up until then. Opens one Chrome window for a few seconds, under a throwaway `$HOME`. Skipped, not failed, without a desktop session. On Windows the same claims against the Job object and its watchdog, with `tests/stand_in_server.ps1` as the server and a stand-in run that winds down when its stdin ends; under a throwaway `%LOCALAPPDATA%`, and skipped without Chrome or while a console is really running in the session. |
 
 Not covered: the Linux half. `system_linux.cpp` has been neither compiled nor
 run. WSL2 is a real Linux kernel, so the lock, the process group and the
@@ -187,9 +204,10 @@ display: Windows 11's WSLg provides one, and Chrome has to be installed inside
 the distribution (not Windows' own). The teardown test still needs a Linux port
 of its macOS-specific shell.
 
-Not covered: the Windows program. It is the same `main.cpp`, `config.cpp` and
-`console_client.cpp`, but `src/windows/platform.cpp` was written without a
-Windows build in reach and has been neither compiled nor run.
+Not covered on Windows: the wait a restarted console makes is silent. The
+launcher is a GUI-subsystem program, so its "still finishing; waiting" line
+goes to a stderr nobody sees, and for up to a minute a console that was
+started again shows nothing.
 
 Not covered anywhere: the operator closing the window (that needs a real
 console page holding `/api/presence`), and what a dialog looks like.

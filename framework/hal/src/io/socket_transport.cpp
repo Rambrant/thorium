@@ -27,6 +27,7 @@
 
     #include <winsock2.h>
     #include <ws2tcpip.h>
+    #include <mstcpip.h>
 #else
     #include <arpa/inet.h>
     #include <fcntl.h>
@@ -102,10 +103,44 @@ namespace hal::io
             ::closesocket( socket);
         }
 
+        //
+        // The failures an instrument on a LAN actually produces, in the words
+        // POSIX has for them -- the same sentence on every bench, and in
+        // English whatever language Windows is installed in, where its own
+        // text for a code follows the system's. Anything else is the system's
+        // text with the number, which is what there is to search for.
+        //
         [[nodiscard]]
         auto errorText( const int code) -> std::string
         {
-            return "winsock error " + std::to_string( code);
+            switch( code)
+            {
+                case WSAECONNREFUSED:  return "Connection refused";
+                case WSAETIMEDOUT:     return "Connection timed out";
+                case WSAECONNRESET:    return "Connection reset by peer";
+                case WSAECONNABORTED:  return "Connection aborted";
+                case WSAEHOSTUNREACH:  return "No route to host";
+                case WSAENETUNREACH:   return "Network is unreachable";
+                case WSAENETDOWN:      return "Network is down";
+                case WSAEADDRNOTAVAIL: return "Address not available";
+                default:               break;
+            }
+
+            char       buffer[ 512]{};
+            const auto length = ::FormatMessageA(
+                FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                nullptr, static_cast<DWORD>( code), 0, buffer, sizeof( buffer), nullptr);
+
+            std::string text( buffer, length);
+
+            while( !text.empty() && ( text.back() == '\n' || text.back() == '\r' || text.back() == ' ' || text.back() == '.'))
+            {
+                text.pop_back();
+            }
+
+            const auto number = "winsock error " + std::to_string( code);
+
+            return text.empty() ? number : text + " (" + number + ")";
         }
 
         [[nodiscard]]
@@ -154,6 +189,27 @@ namespace hal::io
             WSAPOLLFD descriptor{ socket, POLLOUT, 0 };
 
             return ::WSAPoll( &descriptor, 1, static_cast<INT>( timeout.count()));
+        }
+
+        //
+        // Windows does not take a refusal for an answer: it sends the SYN again,
+        // twice, and reports the refusal two seconds after the first one -- a
+        // hair after the default ConnectTimeout, so an instrument that refused
+        // was reported as one that did not answer, after the whole wait. One
+        // retransmission instead of two brings the refusal back in half a
+        // second, and is still the one a lost packet gets inside that timeout
+        // (the first is a second after the SYN, the second would be at three).
+        //
+        // Before connect(), and best effort: where the option is not known the
+        // connection is made as it always was.
+        //
+        auto reportRefusalPromptly( const SocketHandle socket) -> void
+        {
+            TCP_INITIAL_RTO_PARAMETERS parameters{ TCP_INITIAL_RTO_UNSPECIFIED_RTT, 1 };
+            DWORD                      returned = 0;
+
+            ::WSAIoctl( socket, SIO_TCP_INITIAL_RTO, &parameters, sizeof( parameters),
+                nullptr, 0, &returned, nullptr, nullptr);
         }
 #else
         using SocketHandle = int;
@@ -221,6 +277,11 @@ namespace hal::io
 
             return ::poll( &descriptor, 1, static_cast<int>( timeout.count()));
         }
+
+        // A refusal is reported the moment it arrives.
+        auto reportRefusalPromptly( const SocketHandle) -> void
+        {
+        }
 #endif
 
         //
@@ -253,6 +314,7 @@ namespace hal::io
             const std::chrono::milliseconds timeout) -> std::optional<std::string>
         {
             setNonBlocking( socket, true);
+            reportRefusalPromptly( socket);
 
             const int immediate = ::connect( socket, address, addressLength);
 

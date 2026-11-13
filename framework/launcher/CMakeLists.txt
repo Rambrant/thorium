@@ -61,7 +61,33 @@ endif()
 # --- Tests -------------------------------------------------------------
 # What each one catches is in README.md's "Testing". Built with the rest of
 # the build's tests, under BUILD_TESTING_LAYERS; none of them needs GoogleTest.
-if(NOT (BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS) OR NOT UNIX)
+if(NOT (BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS))
+    return()
+endif()
+
+if(WIN32)
+    # teardown.ps1 is teardown.sh for Windows: the Job object and its watchdog
+    # where that one has a process group and its. Windows PowerShell, which
+    # every Windows has.
+    find_program(THORIUM_POWERSHELL NAMES powershell pwsh)
+    if(THORIUM_POWERSHELL)
+        add_test(NAME launcher.teardown
+            COMMAND ${THORIUM_POWERSHELL} -NoProfile -ExecutionPolicy Bypass
+                    -File ${CMAKE_CURRENT_SOURCE_DIR}/tests/teardown.ps1
+                    $<TARGET_FILE:thorium_launcher>
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/stand_in_server.ps1
+        )
+        set_tests_properties(launcher.teardown PROPERTIES
+            SKIP_RETURN_CODE 77
+            TIMEOUT 120
+            # It starts a real Chrome window.
+            RUN_SERIAL TRUE
+        )
+    endif()
+    return()
+endif()
+
+if(NOT UNIX)
     return()
 endif()
 

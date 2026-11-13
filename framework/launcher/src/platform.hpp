@@ -76,6 +76,14 @@ namespace launcher
         // the group (SIGTERM, a grace period, SIGKILL). A child's own
         // children stay inside either, run_scripts included.
         //
+        // Not at once, on either: a run in flight is asked to stop and given
+        // up to a minute to finish its test, its teardown hooks and its
+        // safing. So Windows has a watchdog too -- a second process of the
+        // launcher's own executable, holding the Job open for that long (see
+        // src/windows/platform.cpp) -- and on both a console started again in
+        // the meantime waits in SingleInstance's constructor until the old
+        // one's last process has gone.
+        //
         // The macOS watchdog is forked by the constructor, so construct this
         // before starting any thread.
         //
