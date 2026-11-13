@@ -26,7 +26,7 @@ namespace core
     // third stream later (JUnit XML, a live socket, whatever) needs no change
     // to Measure/Apply/Verify at all -- which matters because those call sites
     // are spread across core/verbs/measure.hpp, core/verbs/source.hpp, core/verbs/route.hpp,
-    // core/src/criteria/verify.cpp and
+    // core/src/verbs/verify.cpp and
     // hal/src/verbs/safing.cpp, and a per-sink `if` in each of them is exactly the
     // list that falls behind the next sink added.
     //
@@ -72,7 +72,7 @@ namespace core
     // There is deliberately no Fail. A check that could not be made -- no
     // capture, no reply to read the byte out of -- posts as a Verify with
     // Passed = false and a placeholder where the value would be (see core::Fail
-    // in core/criteria/verify.hpp). Everything that already tells a failed check from a
+    // in core/verbs/verify.hpp). Everything that already tells a failed check from a
     // passing one therefore handles it: an enumerator of its own would have
     // bought a parallel branch in every consumer listed above and nothing else.
     //

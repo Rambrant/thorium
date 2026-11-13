@@ -41,7 +41,7 @@ TEST( CoreVerify, AdHocOverloadWithAnExplicitGroupAndIdWorksWithoutCritMacro)
 // The three-argument form: one line of prose, the predicate, the value -- no
 // group and no id, because an ad-hoc check belongs to no criteria table and has
 // no identity to track between runs. See the overload's own comment in
-// core/criteria/verify.hpp, and CoreSarifRuleId below for what its results index under.
+// core/verbs/verify.hpp, and CoreSarifRuleId below for what its results index under.
 //
 TEST( CoreVerify, AdHocOverloadNeedsNothingButProse)
 {
@@ -70,7 +70,7 @@ TEST( CoreVerify, AdHocOverloadKeepsQuantityChecking)
 //
 // Unlike the Verify tests above, these assert on what reached the journal --
 // which is all there is to assert: Fail returns nothing, because it evaluates
-// nothing (see core/criteria/verify.hpp on that, and on why it posts as a Verb::Verify
+// nothing (see core/verbs/verify.hpp on that, and on why it posts as a Verb::Verify
 // rather than as a verb of its own). The event it posts is the whole of its
 // behaviour, and the verdict of the test around it is derived from that same
 // event by core::Journal::endTest.
@@ -170,7 +170,7 @@ TEST_F( CoreFail, NamedFormKeepsTheCriterionsIdentityAndItsTolerance)
 
 //
 // The reason displaces the criterion's own prose, deliberately -- see the
-// overload's comment in core/criteria/verify.hpp. Asserted rather than left implicit
+// overload's comment in core/verbs/verify.hpp. Asserted rather than left implicit
 // because it is the one field where a reader could reasonably expect the other
 // choice.
 //

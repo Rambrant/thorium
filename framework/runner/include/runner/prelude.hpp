@@ -37,7 +37,7 @@
 // Measure( ...), rather than core::Verify( ...) next to a bare Measure. Fail
 // comes with it: it is what a script writes where a check could not be made at
 // all, so it appears in the same bodies and on the same footing as Verify (see
-// core/criteria/verify.hpp).
+// core/verbs/verify.hpp).
 //
 #include "core/verbs/verify.hpp"
 #include "core/verbs/delay.hpp"

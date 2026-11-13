@@ -623,7 +623,7 @@ TEST( CoreSarifRuleId, AnAdHocVerifyReportsUnderTheSharedVerifyRule)
     //
     // The record an ad-hoc check actually produces: no criteria group, no
     // subject either -- its one line of prose is the description, so that the
-    // human report can give it the room a sentence needs (see core/criteria/verify.hpp's
+    // human report can give it the room a sentence needs (see core/verbs/verify.hpp's
     // three-argument Verify).
     //
     core::JournalEvent event;

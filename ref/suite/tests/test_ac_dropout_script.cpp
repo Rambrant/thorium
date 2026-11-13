@@ -269,7 +269,7 @@ TEST_F( AcDropoutFixture, NoVariantMakesAMissingCaptureAcceptable)
 // as unchecked, would attach this run's silence to a requirement it has no
 // evidence either way about. So exactly one unattributed unchecked row is
 // recorded, carrying the reason as its prose (see core::Fail in
-// core/criteria/verify.hpp, and the script's own comment on the branch).
+// core/verbs/verify.hpp, and the script's own comment on the branch).
 //
 // FS_Transient_Captured is a different matter and is checked for real on this
 // path: "did the capture land" is a question this run does have an answer to.

@@ -419,10 +419,39 @@ auto main( int argc, char ** argv) -> int
         res.set_content( "not found\n", "text/plain");
     });
 
+    //
+    // Bound before anything says "listening", and a port that cannot be had is
+    // an error and an exit status. listen() alone returns false for it, which
+    // was ignored: the line below was printed, the process exited 0, and
+    // whatever already held the port -- another console, most likely -- went
+    // on answering in this one's name.
+    //
+    // And bound alone. The library's default asks for the port to be shared
+    // (SO_REUSEPORT; on Windows SO_REUSEADDR, which there means the same), so
+    // a second server bound it without complaint and the two took turns
+    // answering. What is wanted from the option is only that a port just
+    // released can be bound again at once.
+    //
+    server.set_socket_options( []( const socket_t socket)
+    {
+        int  on = 1;
+#if defined( _WIN32)
+        ::setsockopt( socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, reinterpret_cast<const char *>( &on), sizeof( on));
+#else
+        ::setsockopt( socket, SOL_SOCKET, SO_REUSEADDR, &on, sizeof( on));
+#endif
+    });
+
+    if ( !server.bind_to_port( "127.0.0.1", config->Port))
+    {
+        std::fprintf( stderr, "thorium_webui: cannot listen on 127.0.0.1:%d -- is another console already running on it?\n",
+            config->Port);
+        return 1;
+    }
+
     std::printf( "thorium_webui listening on 127.0.0.1:%d (run_scripts: %s)\n",
         config->Port, suite.Binary.string().c_str());
     std::fflush( stdout);
 
-    server.listen( "127.0.0.1", config->Port);
-    return 0;
+    return server.listen_after_bind() ? 0 : 1;
 }

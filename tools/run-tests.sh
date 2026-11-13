@@ -96,16 +96,27 @@ IFS='
 set -- $groups
 IFS="$old_ifs"
 
+# `chosen` is what tells an answer from no answer. The loop also ends when
+# the input does -- Ctrl-D, or a closed terminal -- and that left `group` empty,
+# which is what "All groups" leaves it: walking away from the menu ran the
+# whole suite on the rig.
 echo "Select a group:"
 group=""
+chosen=""
 select g in "$@" "All groups" "Quit"; do
     case "$g" in
         "Quit")       exit 0 ;;
-        "All groups") group=""; break ;;
+        "All groups") group=""; chosen=yes; break ;;
         "")           echo "Not a valid choice, try again." ;;
-        *)            group="$g"; break ;;
+        *)            group="$g"; chosen=yes; break ;;
     esac
 done
+
+if [ -z "$chosen" ]; then
+    echo
+    echo "Nothing selected; nothing run."
+    exit 0
+fi
 
 if [ -z "$group" ]; then
     echo "Running all tests in $BIN ..."

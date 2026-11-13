@@ -79,7 +79,7 @@ namespace core
     // The same criterion under every known tolerance variant at once: one
     // Criterion per variant, in THORIUM_KNOWN_CRITERIA_VARIANTS order, with the
     // one to actually apply chosen at runtime (see core/criteria/criteria_variants.hpp
-    // and the Verify overloads in core/criteria/verify.hpp).
+    // and the Verify overloads in core/verbs/verify.hpp).
     //
     // This is what a CRIT entry expands to in a merged criteria table -- see
     // core/criteria/active_criteria.hpp, which is the only thing that builds one. A

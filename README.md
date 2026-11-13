@@ -1016,7 +1016,7 @@ appear reads as a run that did not need it. Recorded as *unchecked* rather than
 failed, because a truncated reply is not evidence that the DUT is unready — it is
 evidence of nothing, and the row says so while still stating what was required.
 `Fail` is not a `Verb` of its own: it posts as a `Verify` with no value, so both
-logs and every sink already handle it. See `core/criteria/verify.hpp`, which also records
+logs and every sink already handle it. See `core/verbs/verify.hpp`, which also records
 why this is a verb rather than an always-false `FAIL` predicate.
 
 **A reply is `core::Bytes`, not a `std::string`.** Length is its own fact, so an

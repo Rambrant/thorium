@@ -104,7 +104,7 @@
 //   - every variant's predicates are now type-checked against the reading each
 //     script actually takes. A Current criterion in dut/criteria_aged.inc fails
 //     the build today rather than the day someone first targets aged hardware
-//     (see the diagnostics in core/criteria/verify.hpp).
+//     (see the diagnostics in core/verbs/verify.hpp).
 //
 // What it does not catch, and what that test file is therefore still for: a
 // group or CRIT that exists ONLY in a non-master variant. Nothing here reads

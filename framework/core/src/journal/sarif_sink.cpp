@@ -199,7 +199,7 @@ namespace core
         // What this result is *about*, for the machine log's logical location.
         //
         // Usually the subject: a criterion id, a DUT point, an instrument. An
-        // ad-hoc check has none of those -- core/criteria/verify.hpp's three-argument
+        // ad-hoc check has none of those -- core/verbs/verify.hpp's three-argument
         // Verify puts its one line of prose in the description and leaves the
         // subject empty, because the human report's subject column is sized for
         // an identifier and a sentence there wrecks the row. This file has no
@@ -323,7 +323,7 @@ namespace core
             // logicalLocations[].name, the fullyQualifiedName that qualifies it
             // by group and test, and the message. What is gone is the pretence
             // that it was a stable key. Promoting the check to a CRIT is what
-            // buys back per-criterion grouping -- see core/criteria/verify.hpp's
+            // buys back per-criterion grouping -- see core/verbs/verify.hpp's
             // three-argument overload.
             //
             // An empty SubjectGroup is what distinguishes the two, and is not a

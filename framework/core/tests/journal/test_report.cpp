@@ -111,7 +111,7 @@ TEST( CoreReport, ReadLineNamesTheInterfaceItsPayloadAndItsInstrument)
 // and no tolerance-defying number behind it, so it renders through the same
 // branch and lines up in the same columns as the checks around it -- which is
 // the whole reason it posts as a Verb::Verify rather than as a verb of its own
-// (see core/criteria/verify.hpp).
+// (see core/verbs/verify.hpp).
 //
 // The event is built by hand here, as every other rendering test in this file
 // does; what Fail actually posts is pinned in core/tests/criteria/test_verify.cpp.
@@ -633,7 +633,7 @@ TEST( CoreReport, SummaryStatesTheRunVerdict)
 // criterion id or a DUT point name fits 28 characters, and a long one silently
 // ate the separator. It surfaced while an earlier draft of the three-argument
 // Verify put an ad-hoc check's prose in this column; that prose now goes to the
-// description slot instead (see core/criteria/verify.hpp), so this is back to guarding
+// description slot instead (see core/verbs/verify.hpp), so this is back to guarding
 // the case it always should have.
 //
 // The claim is separation, not alignment: a long subject is allowed to push the

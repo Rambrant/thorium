@@ -40,7 +40,7 @@ namespace core
     //
     // A script that needs to record a failure it did not measure -- a capture
     // that never triggered, a reply too short to hold the byte in question --
-    // says so with core::Fail (see core/criteria/verify.hpp) rather than by returning
+    // says so with core::Fail (see core/verbs/verify.hpp) rather than by returning
     // false.
     //
     // Because every script shares this one signature, TestCase/TestGroup

@@ -11,3 +11,4 @@ tools/__pycache__/
 logs/
 compile_commands.json
 CMakeUserPresets.json
+Testing/

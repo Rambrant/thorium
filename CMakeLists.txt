@@ -31,3 +31,15 @@ if(NOT DEFINED THORIUM_DUT_NAME)
 endif()
 
 thorium_deployment()
+
+# Every file path a comment names has to name a file that is there (see
+# tools/check_references.py). Part of ctest because a rename is what breaks
+# them, and nothing else notices: the code compiles and the tests pass.
+if(BUILD_TESTING_LAYERS AND THORIUM_FRAMEWORK_TESTS)
+    find_package(Python3 COMPONENTS Interpreter)
+    if(Python3_FOUND)
+        add_test(NAME docs.references
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/check_references.py
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+    endif()
+endif()

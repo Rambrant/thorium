@@ -100,7 +100,9 @@ input:disabled, select:disabled { opacity: 0.6; }
 #results tr.section.level0 td { background: #2a2a2d; }
 #results tr.section.level1 td { padding-left: 1.5rem; }
 #results tbody tr:not(.section) td:first-child { padding-left: 2.5rem; }
-#results.failures-only tbody tr:not(.fail):not(.error):not(.has-failure) { display: none; }
+#results.failures-only tbody tr:not(.fail):not(.error):not(.has-failure):not(.notice) { display: none; }
+#results tr.notice[hidden] { display: none; }
+#results tr.section.notice td { font-style: italic; }
 
 /* --- the bar ------------------------------------------------------- */
 #bar { display: flex; gap: 0.5rem; align-items: center; }

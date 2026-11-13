@@ -96,7 +96,7 @@ namespace core
         //
         // Truncating instead was the alternative and is worse: these columns
         // hold criterion ids, DUT point names and the prose of an ad-hoc check
-        // (see core/criteria/verify.hpp's three-argument Verify), and a report that
+        // (see core/verbs/verify.hpp's three-argument Verify), and a report that
         // quietly shortens the name of the thing being reported on is a report
         // a reader cannot search. A ragged line is legible; a clipped
         // identifier is a wrong answer.

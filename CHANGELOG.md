@@ -29,6 +29,21 @@ Newest first.
   `keysight_ac6834b`.
 
 ### Fixed
+- The console page stays usable on a very large run. It drew every result row and raw
+  line as it arrived, each at a cost that grew with what was already there, and kept
+  all of them: a few thousand passes left a page that did not answer, Stop included.
+  Rows are now drawn in batches and only the last 20 000 of each view are kept, with a
+  line saying how many earlier ones (and how many failures among them) are not shown.
+- `thorium_webui` exits 1 with a message when its port is taken, and no longer shares
+  the port: a second server on the same port started without complaint, and the two
+  took turns answering.
+- `tools/run-tests.sh` runs nothing when its group menu is left with Ctrl-D; it ran the
+  whole suite.
+- 20 comments and READMEs named the old locations of the Verify header and of the
+  Pico-into-generator script, which have moved. `tools/check_references.py` is now a
+  ctest (`docs.references`), so the next rename that breaks one fails the build's
+  tests.
+- `Testing/Temporary/`, ctest's own scratch output, is no longer tracked.
 - **`run_scripts --safe` safes every unit of a pool that answers**, not only the first.
   It cannot know which unit the run it is cleaning up after had taken, and the first
   free one now need not be it. A unit in use on another bench does not answer and is

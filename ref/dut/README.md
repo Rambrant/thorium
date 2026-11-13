@@ -112,7 +112,7 @@ number (`EQ( 5.0)`), whenever the value being checked is one -- that's what
 lets `core::Verify` catch a unit mismatch at compile time (`EQ( 5.0_A)`
 against a `Voltage` reading fails to compile), rather than silently
 comparing bare doubles. See the comment on the `optional<Quantity<Unit>>`
-overload in `core/criteria/verify.hpp` for how that's picked automatically from the
+overload in `core/verbs/verify.hpp` for how that's picked automatically from the
 predicate's own type.
 
 Not everything belongs here: tolerances that never change between variants

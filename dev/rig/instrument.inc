@@ -159,7 +159,7 @@
 // --address Osc2=sim runs without it. The library is found on the usual paths, or at
 // THORIUM_PS5000A_LIBRARY (PicoScope 7's app bundle holds one, see the driver's README).
 // Its scripts are driven by Wfg1 -- generator channel 1 cabled to the Pico's A, 2 to B -- see
-// dev/suite/scripts/pico_into_wfg.cpp.
+// dev/suite/scripts/wfg_into_pico.cpp.
 //
 // Wfg3 is the Pico's own generator, the other face of box Pico1 -- the same arrangement as the
 // DSOX1202G's Wfg2 on Scope1: one USB address, one open unit shared by both rows (see

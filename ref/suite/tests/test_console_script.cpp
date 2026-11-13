@@ -139,7 +139,7 @@ TEST_F( ConsoleFixture, ATruncatedReplyFailsRatherThanThrowing)
 // not evidence that the DUT is unready or faulted -- it is evidence of nothing
 // at all -- so each criterion is recorded as unchecked rather than as failed,
 // and a consumer tracking either one across runs sees that this run could not
-// answer it (see core::Fail in core/criteria/verify.hpp).
+// answer it (see core::Fail in core/verbs/verify.hpp).
 //
 // Worth a test of its own rather than trusting the line above, because the
 // return value is false either way. This path used to post a single ad-hoc

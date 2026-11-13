@@ -678,6 +678,32 @@ TEST_F( ServerStopRun, EmergencyKillsTheRunAndSafesTheRigWithoutWaitingForTheTes
     EXPECT_FALSE( wroteSarif) << "an emergency stop's run writes no logs";
 }
 
+// A port somebody else has is a failure to start, said so and exited on -- not
+// a second server that prints "listening" and leaves the first to answer for it.
+TEST_F( ServerStopRun, ASecondServerOnTheSamePortRefusesToStart)
+{
+    Port = freePort();
+
+    Server = spawn( { kServer, "--run-scripts=" + kHooked, "--port=" + std::to_string( Port)});
+    ASSERT_TRUE( waitForServer( Port)) << "the server did not come up";
+
+    auto second = spawn( { kServer, "--run-scripts=" + kHooked, "--port=" + std::to_string( Port)});
+
+    const auto status = reap( second, std::chrono::seconds( 10));
+
+    ASSERT_TRUE( status.has_value()) << "the second server stayed up";
+    EXPECT_TRUE( WIFEXITED( *status));
+    EXPECT_NE( WEXITSTATUS( *status), 0);
+
+    std::vector<std::string> said;
+    readLines( second, said, []( const std::string &) { return false; }, std::chrono::seconds( 1));
+
+    for( const auto & line : said)
+    {
+        EXPECT_EQ( line.find( "listening"), std::string::npos) << line;
+    }
+}
+
 TEST_F( ServerStopRun, StopThroughTheServerLetsTheTestFinishThenEndsTheRun)
 {
     startServerAndRun();
